@@ -20,10 +20,10 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{F57CB46A-1E54-4943-8092-46386628806C}</ProjectGuid>
-    <RootNamespace>link80c</RootNamespace>
+    <ProjectGuid>{9629449F-ABAF-4192-866E-5A2BBB4921B2}</ProjectGuid>
+    <RootNamespace>locatec</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
-    <ProjectName>link</ProjectName>
+    <ProjectName>locate</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -83,7 +83,6 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -92,8 +91,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -103,8 +101,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -118,8 +115,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -127,25 +123,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="binasc.c" />
-    <ClCompile Include="errrpt.c" />
-    <ClCompile Include="io.c" />
-    <ClCompile Include="lineuc.c" />
-    <ClCompile Include="link.c" />
-    <ClCompile Include="link1a.c" />
-    <ClCompile Include="link3.c" />
-    <ClCompile Include="link3a.c" />
-    <ClCompile Include="linkov.c" />
-    <ClCompile Include="mkfnam.c" />
-    <ClCompile Include="pstafn.c" />
-    <ClCompile Include="pstfn.c" />
-    <ClCompile Include="skpspc.c" />
-    <ClCompile Include="strequ.c" />
-    <ClCompile Include="wrerr.c" />
+    <ClInclude Include="error.h" />
+    <ClInclude Include="loc.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="error.h" />
-    <ClInclude Include="link.h" />
+    <ClCompile Include="io.c" />
+    <ClCompile Include="loc1.c" />
+    <ClCompile Include="loc2a.c" />
+    <ClCompile Include="loc2b.c" />
+    <ClCompile Include="loc3.c" />
+    <ClCompile Include="loc4.c" />
+    <ClCompile Include="loc4a.c" />
+    <ClCompile Include="loc5a.c" />
+    <ClCompile Include="loc5b.c" />
+    <ClCompile Include="loc6.c" />
+    <ClCompile Include="loc7.c" />
+    <ClCompile Include="loc8.c" />
+    <ClCompile Include="loc8a.c" />
+    <ClCompile Include="loc9.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
