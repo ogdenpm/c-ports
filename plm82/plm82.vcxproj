@@ -111,8 +111,8 @@
 copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;</Outputs>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
@@ -137,8 +137,8 @@ copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
 copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;</Outputs>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
@@ -159,8 +159,8 @@ copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
 copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;</Outputs>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
@@ -185,8 +185,8 @@ copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
 copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;</Outputs>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>

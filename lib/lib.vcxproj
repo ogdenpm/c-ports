@@ -140,13 +140,13 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>.force</Inputs>
+      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -166,13 +166,13 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>.force</Inputs>
+      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -196,13 +196,13 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>.force</Inputs>
+      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -226,13 +226,13 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>.force</Inputs>
+      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
