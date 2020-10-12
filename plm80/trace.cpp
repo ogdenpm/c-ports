@@ -1,3 +1,25 @@
+/****************************************************************************
+ *  oldplm80: Old C++ port of PLM80 v4.0                                    *
+ *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or           *
+ *  modify it under the terms of the GNU General Public License             *
+ *  as published by the Free Software Foundation; either version 2          *
+ *  of the License, or (at your option) any later version.                  *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
+ *  MA  02110-1301, USA.                                                    *
+ *                                                                          *
+ ****************************************************************************/
+
+
 // $Id: trace.cpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include <stdio.h>
 #include "plm.hpp"
@@ -102,90 +124,90 @@ void traceTx2(word cnt, byte *buf, byte len)
 }
 
 static const char *typenames[] = {"Literal", "Label", "Byte", "Address", "Structure",
-					   "Procedure", "BuiltIn", "MacroExpand", "type8", "temp"};
+                       "Procedure", "BuiltIn", "MacroExpand", "type8", "temp"};
 
 void dumpInfo(info_pt p)
 {
-	if (p == 0) {
-		printf("Info undefined\n");
-		return;
-	}
-	printf("%s(%d) len = %d\n", typenames[p->type], p->type, p->len);
-	printf("symAddr = %x", (word)(topSymbol - p->symbolOffset));
-	printf(", Scope = %x, nextOffset = %x\n", p->infoScope, p->nextInfoOffset);
-	if (p->type == 9)
-		printf("flag[0] = %x", p->flags[0]);
-	else if (p->type == 0 || p->type == 7)
-		printf("flag[0] = %x, flag[1] = %x, litaddr = %x\n", p->flags[0],
-		p->flags[1], p->litaddr);
-	else if (p->type != 8)
-		printf("flag[0] = %x, flag[1] = %x, flag[2] = %x litaddr = %x\n",
-		p->flags[0], p->flags[1], p->flags[2], p->litaddr);
-	if (p->type >= 1 && p->type <= 5) {
-		printf("externId = %x ", p->externId);
-		if (p->type > 1)
-			printf("dim = %x, basedOffset = %x, parentOffsetOrSize = %x\n",
-			p->dimension, p->basedOffset, p->parentOffset);
-		else
-			putchar('\n');
-		if (p->type == 5)
-			printf("intrNo = %x, paramCnt = %x, procID = %x\n",
-			p->intrNo, p->paramCnt, p->procID);
-	}
-	putchar('\n');
+    if (p == 0) {
+        printf("Info undefined\n");
+        return;
+    }
+    printf("%s(%d) len = %d\n", typenames[p->type], p->type, p->len);
+    printf("symAddr = %x", (word)(topSymbol - p->symbolOffset));
+    printf(", Scope = %x, nextOffset = %x\n", p->infoScope, p->nextInfoOffset);
+    if (p->type == 9)
+        printf("flag[0] = %x", p->flags[0]);
+    else if (p->type == 0 || p->type == 7)
+        printf("flag[0] = %x, flag[1] = %x, litaddr = %x\n", p->flags[0],
+        p->flags[1], p->litaddr);
+    else if (p->type != 8)
+        printf("flag[0] = %x, flag[1] = %x, flag[2] = %x litaddr = %x\n",
+        p->flags[0], p->flags[1], p->flags[2], p->litaddr);
+    if (p->type >= 1 && p->type <= 5) {
+        printf("externId = %x ", p->externId);
+        if (p->type > 1)
+            printf("dim = %x, basedOffset = %x, parentOffsetOrSize = %x\n",
+            p->dimension, p->basedOffset, p->parentOffset);
+        else
+            putchar('\n');
+        if (p->type == 5)
+            printf("intrNo = %x, paramCnt = %x, procID = %x\n",
+            p->intrNo, p->paramCnt, p->procID);
+    }
+    putchar('\n');
 }
 
 void dumpSym(symbol_pt p)
 {
-	if (p == 0)
-		printf("Symbol undefined\n");
-	else {
-		printf("%04x - %.*s\n", (word)p, p->name[0], p->name + 1);
-		dumpInfo(p->infoChain);
-	}
+    if (p == 0)
+        printf("Symbol undefined\n");
+    else {
+        printf("%04x - %.*s\n", (word)p, p->name[0], p->name + 1);
+        dumpInfo(p->infoChain);
+    }
 }
 
 
 void dumpTx2Q(int n)
 {
-	int i;
-	extern byte tx2opc[];
-	printf("tx2opc[]\n");
-	for (i = 0; i < n; i++)
-		printf("%02X%c", tx2opc[i], (i % 16 == 15) ? '\n' : ' ');
-	if (i % 16 != 0)
-		putchar('\n');
+    int i;
+    extern byte tx2opc[];
+    printf("tx2opc[]\n");
+    for (i = 0; i < n; i++)
+        printf("%02X%c", tx2opc[i], (i % 16 == 15) ? '\n' : ' ');
+    if (i % 16 != 0)
+        putchar('\n');
 }
 
 void dumpTx2QDetail(int n)
 {
-	int i;
-	extern byte tx2opc[], tx2Aux1b[], tx2Aux2b[];
-	extern word tx2op1[], tx2op2[], tx2op3[], tx2Auxw[];
-	printf("tx2opc[]\n");
-	printf("pos opc op1  op2  op3  a1b a2b Auxw\n");
-	for (i = 0; i <= n; i++)
-		printf("%3d %02X  %04X %04X %04X  %02X  %02X %04X\n",
-			i, tx2opc[i], tx2op1[i], tx2op2[i], tx2op3[i],
-			tx2Aux1b[i], tx2Aux2b[i], tx2Auxw[i]);
+    int i;
+    extern byte tx2opc[], tx2Aux1b[], tx2Aux2b[];
+    extern word tx2op1[], tx2op2[], tx2op3[], tx2Auxw[];
+    printf("tx2opc[]\n");
+    printf("pos opc op1  op2  op3  a1b a2b Auxw\n");
+    for (i = 0; i <= n; i++)
+        printf("%3d %02X  %04X %04X %04X  %02X  %02X %04X\n",
+            i, tx2opc[i], tx2op1[i], tx2op2[i], tx2op3[i],
+            tx2Aux1b[i], tx2Aux2b[i], tx2Auxw[i]);
 }
 
 
 void dumpMem(char *file, word start, word end)
 {
-	FILE *fp;
+    FILE *fp;
 
-	if ((fp = fopen(file, "a")) == NULL) {
-		printf("can't append to file %s\n", file);
-		return;
-	}
-	byte *s = (byte *)address(start & 0xfff0);
-	int i;
-	for (i = start & 0xfff0; i <= end; i++) {
-		if (i%16 == 0)
-			fprintf(fp, "%04X ", i);
-		fprintf(fp, "%02X%c", *s++, (i % 16 == 15) ? '\n' : ' ');
-	}
-	putc('\n', fp);
-	fclose(fp);
+    if ((fp = fopen(file, "a")) == NULL) {
+        printf("can't append to file %s\n", file);
+        return;
+    }
+    byte *s = (byte *)address(start & 0xfff0);
+    int i;
+    for (i = start & 0xfff0; i <= end; i++) {
+        if (i%16 == 0)
+            fprintf(fp, "%04X ", i);
+        fprintf(fp, "%02X%c", *s++, (i % 16 == 15) ? '\n' : ' ');
+    }
+    putc('\n', fp);
+    fclose(fp);
 }

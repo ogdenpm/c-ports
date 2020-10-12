@@ -30,6 +30,9 @@
     <ClCompile Include="lib4.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="version.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="error.h">
@@ -43,5 +46,8 @@
     <ResourceCompile Include="version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="version.in" />
   </ItemGroup>
 </Project>

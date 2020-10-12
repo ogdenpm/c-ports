@@ -1,3 +1,25 @@
+/****************************************************************************
+ *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
+ *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or           *
+ *  modify it under the terms of the GNU General Public License             *
+ *  as published by the Free Software Foundation; either version 2          *
+ *  of the License, or (at your option) any later version.                  *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
+ *  MA  02110-1301, USA.                                                    *
+ *                                                                          *
+ ****************************************************************************/
+
+
 // vim:ts=4:shiftwidth=4:expandtab:
 #include <ctype.h>
 #include <fcntl.h>
@@ -5,7 +27,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "Generated/version.h"
+void showVersion(FILE *fp, char *altName, bool full);
 
 #ifdef _WIN32
 #include <io.h>
@@ -66,26 +90,6 @@ struct {
     { "F9", 3 } };										// 28
 
 const int nDevices = (sizeof(deviceMap) / sizeof(deviceMap[0]));
-
-void showVersion(char *description, bool full) {
-    fputs(description, stdout);
-    fputs(" - " GIT_VERSION, stdout);
-#ifdef _DEBUG
-    fputs(" {debug}", stdout);
-#endif
-    fputs(" (C)" GIT_YEAR "\n", stdout);
-    if (full) {
-        fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
-        printf("Git: %s [%.10s]", GIT_SHA1, GIT_CTIME);
-#if GIT_BUILDTYPE == 2
-        fputs(" +uncommitted files", stdout);
-#elif GIT_BUILDTYPE == 3
-        fputs(" +untracked files", stdout);
-#endif
-        fputc('\n', stdout);
-    }
-    exit(0);
-}
 
 /* preps the deviceId and filename of an spath info record
    returns standard error codes as appropriate
@@ -198,8 +202,10 @@ int main(int argc, char **argv)
     char *s, *progname;
     word ovl;
 
-    if (argc == 2 && _stricmp(argv[1], "-v") == 0)
-        showVersion("C port of Intel's ISIS-II PLM80 v4.0 by Mark Ogden", argv[1][1] == 'V');
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, "C port of Intel's ISIS-II PLM80 v4.0 -", argv[1][1] == 'V');
+        exit(0);
+    }
 #ifdef _WIN32
     (void)_setmode(_fileno(stdin), O_BINARY);
     (void)_setmode(_fileno(stdout), O_BINARY);

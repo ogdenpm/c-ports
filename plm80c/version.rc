@@ -19,10 +19,8 @@ BEGIN
             VALUE "FileDescription", "C port of PLM80 v4.0"
             VALUE "FileVersion", GIT_VERSION
             VALUE "LegalCopyright", "(C)" GIT_YEAR "  Mark Ogden"
-#ifdef GIT_APPID
-            VALUE "OriginalFilename", "plm80.exe"
-            VALUE "ProductName", "plm80"
-#endif
+            VALUE "OriginalFilename", GIT_APPNAME ".exe"
+            VALUE "ProductName", GIT_APPNAME
             VALUE "ProductVersion", GIT_VERSION
         END
     END

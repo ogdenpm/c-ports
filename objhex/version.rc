@@ -16,13 +16,11 @@ BEGIN
         BLOCK "080904b0"
         BEGIN
             VALUE "CompanyName", "Mark Ogden"
-            VALUE "FileDescription", "description"
+            VALUE "FileDescription", "C port of Intel's objhex"
             VALUE "FileVersion", GIT_VERSION
             VALUE "LegalCopyright", "(C)" GIT_YEAR "  Mark Ogden"
-#ifdef GIT_APPID
-            VALUE "OriginalFilename", GIT_APPID ".exe"
-            VALUE "ProductName", GIT_APPID
-#endif
+            VALUE "OriginalFilename", GIT_APPNAME ".exe"
+            VALUE "ProductName", GIT_APPNAME
             VALUE "ProductVersion", GIT_VERSION
         END
     END

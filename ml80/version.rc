@@ -19,10 +19,8 @@ BEGIN
             VALUE "FileDescription", "description"
             VALUE "FileVersion", GIT_VERSION
             VALUE "LegalCopyright", "(C)" GIT_YEAR "  Mark Ogden"
-#ifdef GIT_APPID
             VALUE "OriginalFilename", GIT_APPNAME ".exe"
             VALUE "ProductName", GIT_APPNAME
-#endif
             VALUE "ProductVersion", GIT_VERSION
         END
     END

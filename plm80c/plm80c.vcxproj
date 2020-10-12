@@ -116,7 +116,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -139,7 +139,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -170,7 +170,7 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -199,7 +199,7 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -286,10 +286,14 @@
     <ClCompile Include="putlst.c" />
     <ClCompile Include="strcmp.c" />
     <ClCompile Include="util.c" />
+    <ClCompile Include="version.c" />
     <ClCompile Include="wrclst.c" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="version.in" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

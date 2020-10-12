@@ -26,6 +26,7 @@
     <ClCompile Include="lib1.c" />
     <ClCompile Include="lib3.c" />
     <ClCompile Include="lib4.c" />
+    <ClCompile Include="version.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="error.h" />
@@ -33,6 +34,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="version.in" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -137,7 +141,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -163,7 +167,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -193,7 +197,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -223,7 +227,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>

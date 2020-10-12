@@ -1,19 +1,23 @@
-/*************************************************************************
-
-           8 0 8 0   p l / m   c o m p i l e r ,   p a s s - 1
-                                   plm81
-                                version 2.0/4.0
-                               January/November, 1975
-
-                            copyright (c) 1975
-                            intel corporation
-                            3065 bowers avenue
-                            santa clara, california 95051
-
-    includes v2 modifications by jeff ogden (um), december 1977
-
-**************************************************************************/
-
+/****************************************************************************
+ *  plm81: C port of the fortran based plm80 compiler pass 1                *
+ *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or           *
+ *  modify it under the terms of the GNU General Public License             *
+ *  as published by the Free Software Foundation; either version 2          *
+ *  of the License, or (at your option) any later version.                  *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
+ *  MA  02110-1301, USA.                                                    *
+ *                                                                          *
+ ****************************************************************************/
 
 
 /*              p a s s - 1    e r r o r   m e s s a g e s

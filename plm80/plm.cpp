@@ -1,8 +1,32 @@
+/****************************************************************************
+ *  oldplm80: Old C++ port of PLM80 v4.0                                    *
+ *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or           *
+ *  modify it under the terms of the GNU General Public License             *
+ *  as published by the Free Software Foundation; either version 2          *
+ *  of the License, or (at your option) any later version.                  *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
+ *  MA  02110-1301, USA.                                                    *
+ *                                                                          *
+ ****************************************************************************/
+
+
 // $Id: plm.cpp,v 1.2 2004/11/30 23:48:08 Mark Exp $
+#include <cstdio>
 #include "plm.hpp"
 #include "common.hpp"
 #include "trace.hpp"
 #include "Generated\version.h"
+void showVersion(FILE *fp, char *altName, bool full);
 
 byte *address::memory = new byte[0x10000];
 
@@ -232,8 +256,10 @@ void showVersion(char *description, bool full) {
 
 int main(int argc, char **argv) {
     int pass = 0;
-    if (argc == 2 && _stricmp(argv[1], "-v") == 0)
-        showVersion("Old C++ port of Intel's ISIS-II PLM80 v4.0 by Mark Ogden", argv[1][1] == 'V');
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, "Old C++ port of Intel's ISIS-II PLM80 v4.0 by Mark Ogden", argv[1][1] == 'V');
+        exit(0);
+    }
     gargc = argc;
     gargv = argv;
     state = 10;

@@ -1,3 +1,25 @@
+/****************************************************************************
+ *  asm80: C port of ASM80 v4.1                                             *
+ *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or           *
+ *  modify it under the terms of the GNU General Public License             *
+ *  as published by the Free Software Foundation; either version 2          *
+ *  of the License, or (at your option) any later version.                  *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
+ *  MA  02110-1301, USA.                                                    *
+ *                                                                          *
+ ****************************************************************************/
+
+
 // vim:ts=4:expandtab:shiftwidth=4:
 #include "asm80.h"
 
@@ -141,14 +163,14 @@ void Tokenise()
         }
 
         switch (GetChClass()) {
-		case CC_ESC:	// moved to allow fall through to error case rather than use goto
-			if (expandingMacro) {
-				skipIf[0] = false;
-				yyType = O_NULVAL;
-				return;
-			}
+        case CC_ESC:	// moved to allow fall through to error case rather than use goto
+            if (expandingMacro) {
+                skipIf[0] = false;
+                yyType = O_NULVAL;
+                return;
+            }
         case CC_BAD:
-		    IllegalCharError(); break;
+            IllegalCharError(); break;
         case CC_WS: break;
         case CC_SEMI:
             if (!inQuotes) {
@@ -171,7 +193,7 @@ void Tokenise()
                     UpdateSymbolEntry(segLocation[activeSeg], O_TARGET);
                 }
                 expectingOperands = false;			// should see an opcode first
-				gotLabel = expectingOpcode = bTRUE;
+                gotLabel = expectingOpcode = bTRUE;
             }
             else {
                 SyntaxError();				// two labels is an error

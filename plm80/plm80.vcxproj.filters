@@ -34,16 +34,17 @@
     <ClCompile Include="trace.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="version.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="plm.hpp">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="trace.hpp">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="plm.hpp">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -53,10 +54,16 @@
     <Filter Include="Resource Files">
       <UniqueIdentifier>{8392c043-7883-42e2-ba5a-cc701353fbad}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{bf4c0dfb-9a96-4a28-ba2d-0a584775184c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="version.in" />
   </ItemGroup>
 </Project>

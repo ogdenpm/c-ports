@@ -1,3 +1,25 @@
+/****************************************************************************
+ *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
+ *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or           *
+ *  modify it under the terms of the GNU General Public License             *
+ *  as published by the Free Software Foundation; either version 2          *
+ *  of the License, or (at your option) any later version.                  *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
+ *  MA  02110-1301, USA.                                                    *
+ *                                                                          *
+ ****************************************************************************/
+
+
 #include "plm.h"
 #include <stdio.h>
 
@@ -271,20 +293,20 @@ void Sub_5FE7(word arg1w, byte arg2b)
 
     l_arg1w = arg1w;    // local copy to support nested proceedures
 
-	while (arg2b > 0) {
-		Sub_603C();
-		Sub_654F();
-		ListCodeBytes();
-		l_arg1w++;
-		arg2b--;
-		p = baseAddr + opByteCnt;
-		if (baseAddr > p) {
-			errData.stmt = errData.info = 0;
-			errData.num = 0xCE;
-			EmitError();
-		} 
-		baseAddr = p;
-	}
+    while (arg2b > 0) {
+        Sub_603C();
+        Sub_654F();
+        ListCodeBytes();
+        l_arg1w++;
+        arg2b--;
+        p = baseAddr + opByteCnt;
+        if (baseAddr > p) {
+            errData.stmt = errData.info = 0;
+            errData.num = 0xCE;
+            EmitError();
+        } 
+        baseAddr = p;
+    }
 }
 
 
@@ -476,19 +498,19 @@ void Sub_6720()
 void Sub_668B()
 {
 
-	Sub_66F1();
-	Sub_6720();
-	if (cfCode == 0x87) { 
-		baseAddr = GetLinkVal();
-		if (DEBUG) {
-			((rec_t *)rec8)->len -= 4;
-			RecAddWord(rec8, 1, baseAddr);
-			((rec_t *)rec8)->len += 2;
-		}
-		FlushRecs();
-	}
-	EmitLinePrefix();
-	Sub_5FE7(w47C1[cfCode] & 0xfff, w47C1[cfCode] >> 12);
+    Sub_66F1();
+    Sub_6720();
+    if (cfCode == 0x87) { 
+        baseAddr = GetLinkVal();
+        if (DEBUG) {
+            ((rec_t *)rec8)->len -= 4;
+            RecAddWord(rec8, 1, baseAddr);
+            ((rec_t *)rec8)->len += 2;
+        }
+        FlushRecs();
+    }
+    EmitLinePrefix();
+    Sub_5FE7(w47C1[cfCode] & 0xfff, w47C1[cfCode] >> 12);
 }
 
 

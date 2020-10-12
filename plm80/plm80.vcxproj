@@ -159,7 +159,7 @@
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -210,7 +210,7 @@
       </DataExecutionPrevention>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -263,7 +263,7 @@
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -314,7 +314,7 @@
       </DataExecutionPrevention>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -503,6 +503,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="version.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp" />
@@ -511,6 +512,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="version.in" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

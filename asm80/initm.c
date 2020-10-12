@@ -1,3 +1,25 @@
+/****************************************************************************
+ *  asm80: C port of ASM80 v4.1                                             *
+ *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or           *
+ *  modify it under the terms of the GNU General Public License             *
+ *  as published by the Free Software Foundation; either version 2          *
+ *  of the License, or (at your option) any later version.                  *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
+ *  MA  02110-1301, USA.                                                    *
+ *                                                                          *
+ ****************************************************************************/
+
+
 #include "asm80.h"
 
 byte aExtents[] = " LSTOBJ";
@@ -55,7 +77,7 @@ void GetAsmFile()
     /* select key words depending on whether macro version or not */
     symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
-	endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
+    endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
     Rescan(1, &statusIO);    /* get the command line */
     IoErrChk();
     Read(1, cmdLineBuf, 128, &actRead.w, &statusIO);
@@ -90,7 +112,7 @@ void GetAsmFile()
         if (*cmdchP == '.')
         {
             AddExtents();    /* add lst and obj file extents */
-			// PMO ii = false moved to after AddExtents as AddExtents leaves ii = 4 which is false in plm
+            // PMO ii = false moved to after AddExtents as AddExtents leaves ii = 4 which is false in plm
             ii = false; /* don't copy extent for lst & obj files */
         }
         kk = kk + 1;
@@ -118,8 +140,8 @@ void ResetData()
     InitLine();
 
     b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] = finished =
-		segDeclared[0] = segDeclared[1] = inComment = expandingMacro = expandingMacroParameter = mSpoolMode =
-		hasVarRef = pendingInclude = bZERO;
+        segDeclared[0] = segDeclared[1] = inComment = expandingMacro = expandingMacroParameter = mSpoolMode =
+        hasVarRef = pendingInclude = bZERO;
     noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
     controls.gen = bTRUE;
     controls.cond = bTRUE;
@@ -127,8 +149,8 @@ void ResetData()
     saveIdx = lookAhead = activeSeg = ifDepth = opSP = opStack[0] = bZERO;
     macroBlkCnt = wZERO;
     segLocation[SEG_ABS] = segLocation[SEG_CODE] = segLocation[SEG_DATA] =
-		maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
-		effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
+        maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
+        effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
     passCnt++;
 #pragma warning(disable:4244)
     srcLineCnt = curOp = pageCnt = pageLineCnt = 1;

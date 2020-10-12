@@ -107,8 +107,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir) &amp;
-copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -133,8 +132,7 @@ copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir) &amp;
-copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -155,8 +153,7 @@ copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir) &amp;
-copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -181,8 +178,7 @@ copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir) &amp;
-copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
@@ -196,9 +192,6 @@ copy /B Generated\GIT_VERSION_INFO+,, Generated\GIT_VERSION_INFO</Command>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Generated\version.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="version.in" />
