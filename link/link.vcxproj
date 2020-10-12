@@ -121,7 +121,7 @@
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -143,7 +143,7 @@
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -171,7 +171,7 @@
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -199,7 +199,7 @@
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>

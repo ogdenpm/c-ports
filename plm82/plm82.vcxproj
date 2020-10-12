@@ -112,7 +112,7 @@
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -137,7 +137,7 @@
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -158,7 +158,7 @@
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -183,7 +183,7 @@
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>

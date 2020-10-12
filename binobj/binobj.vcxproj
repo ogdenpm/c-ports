@@ -119,7 +119,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <CustomBuildStep>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
     </CustomBuildStep>
@@ -144,7 +144,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <CustomBuildStep>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
     </CustomBuildStep>
@@ -167,7 +167,7 @@
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
     </CustomBuildStep>
     <PostBuildEvent>
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
@@ -190,7 +190,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <CustomBuildStep>
-      <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
+      <Inputs>.force</Inputs>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
       <Outputs>$(ProjectDir)Generated\version.h</Outputs>
     </CustomBuildStep>
