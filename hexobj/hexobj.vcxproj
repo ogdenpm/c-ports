@@ -123,7 +123,7 @@
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
@@ -148,7 +148,7 @@
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
@@ -169,7 +169,7 @@
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
@@ -194,7 +194,7 @@
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
       <Inputs>$(ProjectDir)Generated\GIT_VERSION_INFO</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
