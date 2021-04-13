@@ -363,53 +363,54 @@
 /*    2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7*/
 
 /*  seqno               SUB/func name*/
-/*  16280000      subroutine inital*/
-/*  16560000      integer function get(ip)*/
-/*  16740000      subroutine put(ip,x)*/
-/*  16960000      integer function alloc(i)*/
-/*  17150000      function icon(i)*/
-/*  17340000      integer function gnc(q)*/
-/*  18690000      function imin(i,j)*/
-/*  18760000      subroutine _form(cc,chars,start,finish,length)*/
+/*  16280000      subroutine inital */
+/*  16560000      integer function get(ip) */
+/*  16740000      subroutine put(ip,x) */
+/*  16960000      integer function alloc(i) */
+/*  17150000      function icon(i) */
+/*  17340000      integer function gnc(q) */
+/*  18690000      function imin(i,j) */
+/*  18760000      subroutine _form(cc,chars,start,finish,length) */ // no longer used
 /*  19040000      subroutine writel(nspace) */
-/*  19580000      subroutine conout(cc,k,n,base)*/
-/*  19900000      subroutine pad(cc,chr,i)*/
-/*  20010000      subroutine error(i,level)*/
-/*  20310000      integer function shr(i,j)*/
-/*  20350000      integer function shl(i,j)*/
-/*  20390000      integer function right(i,j)*/
-/*  20430000      subroutine _delete(n)*/
-/*  20680000      subroutine apply(op,op2,com,cyflag)*/
-/*  23380000      subroutine genreg(np,ia,ib)*/
-/*  24400000      subroutine loadsy*/
-/*  26100000      subroutine loadv(is,typv)*/
-/*  28330000      subroutine setadr(val)*/
-/*  28790000      subroutine ustack*/
-/*  28900000      integer function chain(sy,loc)*/
-/*  29070000      subroutine gensto(keep)*/
-/*  30880000      subroutine litadd(s)*/
-/*  32120000      subroutine dump(l,u,fa,fe)*/
-/*  33080000      integer function decode(cc,i,w)*/
-/*  34540000      subroutine emit(opr,opa,opb)*/
-/*  36950000      subroutine puncod(lb,ub,mode)*/
-/*  38010000      subroutine cvcond(s)*/
-/*  38730000      subroutine saver*/
-/*  40000000      subroutine reloc*/
-/*  41970000      subroutine loadin*/
-/*  42770000      subroutine emitbf(l)*/
-/*  43510000      subroutine inldat*/
-/*  44780000      subroutine unary(ival)*/
-/*  45950000      subroutine exch*/
-/*  46690000      subroutine stack(n)*/
-/*  46790000      subroutine readcd*/
-/*  52230000      subroutine operat(val)*/
-/*  66220000      subroutine sydump*/
+/*  19580000      subroutine conout(cc,k,n,base) */
+/*  19900000      subroutine pad(cc,chr,i) */
+/*  20010000      subroutine error(i,level) */
+/*  20310000      integer function shr(i,j) */
+/*  20350000      integer function shl(i,j) */
+/*  20390000      integer function right(i,j) */
+/*  20430000      subroutine _delete(n) */
+/*  20680000      subroutine apply(op,op2,com,cyflag) */
+/*  23380000      subroutine genreg(np,ia,ib) */
+/*  24400000      subroutine loadsy */
+/*  26100000      subroutine loadv(is,typv) */
+/*  28330000      subroutine setadr(val) */
+/*  28790000      subroutine ustack */
+/*  28900000      integer function chain(sy,loc) */
+/*  29070000      subroutine gensto(keep) */
+/*  30880000      subroutine litadd(s) */
+/*  32120000      subroutine dump(l,u,fa,fe) */          // simplified
+/*  33080000      integer function decode(cc,i,w) */     // no longer used
+/*  34540000      subroutine emit(opr,opa,opb) */
+/*  36950000      subroutine puncod(lb,ub,mode) */
+/*  38010000      subroutine cvcond(s) */
+/*  38730000      subroutine saver */
+/*  40000000      subroutine reloc */
+/*  41970000      subroutine loadin */
+/*  42770000      subroutine emitbf(l) */
+/*  43510000      subroutine inldat */
+/*  44780000      subroutine unary(ival) */
+/*  45950000      subroutine exch */
+/*  46690000      subroutine stack(n) */
+/*  46790000      subroutine readcd */
+/*  52230000      subroutine operat(val) */
+/*  66220000      subroutine sydump */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 void showVersion(FILE *fp, bool full);
 
 #define MAXSYM  6000
@@ -424,9 +425,6 @@ int smssg[29 + 1] =
 29, 29, 20, 15, 15, 16, 25, 1, 13, 36, 31, 16, 30
 };
 
-
-/* base */
-int debase = 16;
 
 /* cntrl */
 int contrl[64 + 1];
@@ -573,54 +571,45 @@ const char otran[] =
 "  0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$=./()+-'*,<>:;            ";
 
 /* inst */
-int ctran[256 + 1] =
-{ ZPAD, 835, 36, 40, 42, 1057, 2081, 1280, 35, 995, 39, 41, 43, 1089,
-2113, 2304, 67, 995, 100, 104, 106, 1121, 2145, 3328, 99, 995, 103, 105, 107, 1153,
-2177, 4352, 131, 995, 164, 707, 170, 1185, 2209, 5376, 675, 995, 167, 739, 171,
-1217, 2241, 6400, 579, 995, 292, 387, 298, 1249, 2273, 7424, 611, 995, 295, 419,
-299, 1025, 2049, 256, 643, 1056, 1088, 1120, 1152, 1184, 1216, 1248, 1024, 2080,
-2112, 2144, 2176, 2208, 2240, 2272, 2048, 3104, 3136, 3168, 3200, 3232, 3264, 3296,
-3072, 4128, 4160, 4192, 4224, 4256, 4288, 4320, 4096, 5152, 5184, 5216, 5248, 5280,
-5312, 5344, 5120, 6176, 6208, 6240, 6272, 6304, 6336, 6368, 6144, 7200, 7232, 7264,
-7296, 7328, 7360, 355, 7168, 32, 64, 96, 128, 160, 192, 224, 0, 3105, 3137, 3169,
-3201, 3233, 3265, 3297, 3073, 4129, 4161, 4193, 4225, 4257, 4289, 4321, 4097, 5153,
-5185, 5217, 5249, 5281, 5313, 5345, 5121, 6177, 6209, 6241, 6273, 6305, 6337, 6369,
-6145, 7201, 7233, 7265, 7297, 7329, 7361, 7393, 7169, 8225, 8257, 8289, 8321, 8353,
-8385, 8417, 8193, 9249, 9281, 9313, 9345, 9377, 9409, 9441, 9217, 10273, 10305,
-10337, 10369, 10401, 10433, 10465, 10241, 3106, 38, 1058, 163, 2082, 37, 3329, 259,
-3234, 227, 1186, 995, 2210, 195, 4353, 1283, 3074, 102, 1026, 323, 2050, 101, 5377,
-2307, 3202, 995, 1154, 291, 2178, 995, 6401, 3331, 3170, 166, 1122, 483, 2146, 165,
-7425, 4355, 3298, 547, 1250, 451, 2274, 995, 8449, 5379, 3138, 6, 1090, 803, 2114,
-5, 9473, 6403, 3266, 515, 1218, 771, 2242, 995, 10497, 7427
+// replace original ctran array with pre expanded strings to simplify the logic
+// the first byte is the number of additional bytes in ascii
+char ctran[256][7] = {
+    "0NOP", "2LXI B", "0STAX B", "0INX B", "0INR B", "0DCR B", "1MVI B", "0RLC",
+    "0DB 08H", "0DAD B", "0LDAX B", "0DCX B", "0INR C", "0DCR C", "1MVI C", "0RRC",
+    "0DB 10H", "2LXI D", "0STAX D", "0INX D", "0INR D", "0DCR D", "1MVI D", "0RAL",
+    "0DB 18H", "0DAD D", "0LDAX D", "0DCX D", "0INR E", "0DCR E", "1MVI E", "0RAR",
+    "0RIM", "2LXI H", "2SHLD", "0INX H", "0INR H", "0DCR H", "1MVI H", "0DAA",
+    "0DB 28H", "0DAD H", "2LHLD", "0DCX H", "0INR L", "0DCR L", "1MVI L", "0CMA",
+    "0SIM", "2LXI SP", "2STA", "0INX SP", "0INR M", "0DCR M", "1MVI M", "0STC",
+    "0DB 38H", "0DAD SP", "2LDA", "0DCX SP", "0INR A", "0DCR A", "1MVI A", "0CMC",
+    "0MOV BB", "0MOV BC", "0MOV BD", "0MOV BE", "0MOV BH", "0MOV BL", "0MOV BM", "0MOV BA",
+    "0MOV CB", "0MOV CC", "0MOV CD", "0MOV CE", "0MOV CH", "0MOV CL", "0MOV CM", "0MOV CA",
+    "0MOV DB", "0MOV DC", "0MOV DD", "0MOV DE", "0MOV DH", "0MOV DL", "0MOV DM", "0MOV DA",
+    "0MOV EB", "0MOV EC", "0MOV ED", "0MOV EE", "0MOV EH", "0MOV EL", "0MOV EM", "0MOV EA",
+    "0MOV HB", "0MOV HC", "0MOV HD", "0MOV HE", "0MOV HH", "0MOV HL", "0MOV HM", "0MOV HA",
+    "0MOV LB", "0MOV LC", "0MOV LD", "0MOV LE", "0MOV LH", "0MOV LL", "0MOV LM", "0MOV LA",
+    "0MOV MB", "0MOV MC", "0MOV MD", "0MOV ME", "0MOV MH", "0MOV ML", "0HLT", "0MOV MA",
+    "0MOV AB", "0MOV AC", "0MOV AD", "0MOV AE", "0MOV AH", "0MOV AL", "0MOV AM", "0MOV AA",
+    "0ADD B", "0ADD C", "0ADD D", "0ADD E", "0ADD H", "0ADD L", "0ADD M", "0ADD A",
+    "0ADC B", "0ADC C", "0ADC D", "0ADC E", "0ADC H", "0ADC L", "0ADC M", "0ADC A",
+    "0SUB B", "0SUB C", "0SUB D", "0SUB E", "0SUB H", "0SUB L", "0SUB M", "0SUB A",
+    "0SBB B", "0SBB C", "0SBB D", "0SBB E", "0SBB H", "0SBB L", "0SBB M", "0SBB A",
+    "0ANA B", "0ANA C", "0ANA D", "0ANA E", "0ANA H", "0ANA L", "0ANA M", "0ANA A",
+    "0XRA B", "0XRA C", "0XRA D", "0XRA E", "0XRA H", "0XRA L", "0XRA M", "0XRA A",
+    "0ORA B", "0ORA C", "0ORA D", "0ORA E", "0ORA H", "0ORA L", "0ORA M", "0ORA A",
+    "0CMP B", "0CMP C", "0CMP D", "0CMP E", "0CMP H", "0CMP L", "0CMP M", "0CMP A",
+    "0RNZ", "0POP B", "2JNZ", "2JMP", "2CNZ", "0PUSH B", "1ADI", "0RST 0",
+    "0RZ", "0RET", "2JZ", "0DB CBH", "2CZ", "2CALL", "1ACI", "0RST 1",
+    "0RNC", "0POP D", "2JNC", "1OUT", "2CNC", "0PUSH D", "1SUI", "0RST 2",
+    "0RC", "0DB D9H", "2JC", "1IN", "2CC", "0DB DDH", "1SBI", "0RST 3",
+    "0RPO", "0POP H", "2JPO", "0XTHL", "2CPO", "0PUSH H", "1ANI", "0RST 4",
+    "0RPE", "0PCHL", "2JPE", "0XCHG", "2CPE", "0DB EDH", "1XRI", "0RST 5",
+    "0RP", "0POP A", "2JP", "0DI", "2CP", "0PUSH A", "1ORI", "0RST 6",
+    "0RM", "0SPHL", "2JM", "0EI", "2CM", "0DB FDH", "1CPI", "0RST 7"
 };
 
-int insym[284 + 1] =
-{ ZPAD, 15, 38, 60, 66, 108, 116, 234, 240, 247, 253, 259, 266, 273,
-279, 10, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 38, 12, 13, 14, 15, 16, 19, 23, 24,
-20, 30, 27, 8, 48, 50, 52, 53, 55, 56, 57, 58, 60, 25, 14, 25, 37, 27, 27, 26, 14, 37,
-24, 27, 16, 1, 63, 66, 24, 26, 33, 10, 78, 81, 84, 87, 90, 93, 96, 99, 102, 105, 108,
-20, 25, 29, 15, 14, 29, 12, 15, 15, 12, 15, 14, 30, 32, 13, 30, 13, 14, 12, 25, 12, 35,
-29, 12, 26, 29, 12, 14, 24, 27, 3, 113, 114, 115, 116, 21, 14, 29, 31, 149, 152, 155,
-158, 161, 164, 168, 171, 174, 176, 179, 182, 185, 188, 192, 196, 200, 204, 207, 210,
-213, 216, 220, 224, 226, 228, 231, 231, 231, 231, 231, 234, 29, 23, 14, 29, 29, 14,
-29, 12, 23, 29, 12, 29, 21, 24, 27, 14, 12, 23, 23, 29, 16, 31, 29, 30, 31, 20, 25,
-26, 32, 31, 19, 23, 31, 30, 31, 12, 23, 15, 12, 35, 14, 19, 18, 35, 31, 19, 23, 30,
-27, 19, 23, 27, 14, 19, 23, 14, 24, 12, 30, 31, 14, 14, 24, 14, 15, 12, 12, 30, 19, 23,
-15, 23, 19, 23, 15, 16, 20, 15, 20, 25, 26, 27, 45, 45, 45, 1, 237, 240, 23, 35, 20,
-1, 243, 247, 27, 32, 30, 19, 1, 250, 253, 27, 26, 27, 1, 256, 259, 15, 12, 15, 1, 262,
-266, 30, 31, 12, 35, 1, 269, 273, 23, 15, 12, 35, 1, 276, 279, 20, 25, 35, 1, 282,
-285, 15, 14, 35
-};
 
 
-/* number of bytes following first 13 instructions IN category 3*/
-int ibytes[23 + 1] =
-{ ZPAD, 0, 0, 0, 0, 2, 2, 0, 0, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2 };
-
-/* compilation terminated*/
-int terr[22 + 1] =
-{ ZPAD, 14, 26, 24, 27, 20, 23, 12, 31, 20, 26, 25, 1, 31, 16, 29, 24,
-20, 25, 12, 31, 16, 15 };
 bool errflg = false;
 
 /* peep is used IN peephole optimization (see emit)*/
@@ -668,7 +657,7 @@ int preamb;
 /* regall */
 int regs[7 + 1];
 int regv[7 + 1] = { ZPAD, -1, -1, -1, -1, -1, -1, -1 };
-int lock[7 + 1];
+bool lock[7 + 1];
 
 int prec[16 + 1];
 int st[16 + 1];
@@ -689,11 +678,13 @@ void inital();
 int get(int ip);
 void put(int ip, const int x);
 int alloc(const int i);
+#if 0
 int icon(const int i);
+#else
+int icon(const unsigned char i);
+#endif
 int gnc(const int q);
 int imin(const int i, const int j);
-void _form(const int cc, const int chars[ /*length+1 */],
-    const int start, const int finish, const int length);
 void form(char *fmt, ...);	// ascii version using printf formats
 void putch(const int chr);
 void writel(int nspac);
@@ -711,8 +702,7 @@ void ustack();
 int chain(const int sy, const int loc);
 void gensto(const int keep);
 void litadd(const int s);
-void dump(const int l, const int u, const int fa, const int fe);
-int decode(const int cc, const int i, const int w);
+void dump(int l, const int u, bool symbolic);
 void emit(const int opr, const int opa, const int opb);
 void puncod(const int lb, const int ub, const int mode);
 void cvcond(const int s);
@@ -920,19 +910,18 @@ int main(const int argc, char **argv) {
     C_YPAD = 1;
     C_ZMARGIN = 2;
     C_STACKHANDLING = 0;
-    for (i = 1; i <= 256; i++)
-        itran[i] = 1;
+    // setup the input translation map
+    memset(itran, SPACE, sizeof(itran));    // default is char maps to SPACE
     for (i = 1; i <= 52; i++) {
-        j = otran[i];
-        j = icon(j);
-        itran[j] = i;
+        itran[otran[i]] = i;
+        itran[tolower(otran[i])] = i;       // map lower case to same as upper case
     }
     if (argc > 1)
         initFiles(argv[1]);
 
     form("\n8080 PLM2 VERS %d.%d", vers / 10, vers % 10);
     writel(1);
-    i = gnc(0);
+    i = gnc(0);                             // process any controls
 
     /* change margins for reading intermediate language */
     C_LEFTMARG = C_ZMARGIN;
@@ -960,10 +949,10 @@ int main(const int argc, char **argv) {
             i = offset;
             offset = 0;
             if (intpro[1])
-                dump(0, 2, 16, 1);
+                dump(0, 2, true);
             for (int ii = 2; ii <= 8; ii++) {
                 if (intpro[ii])
-                    dump(8 * ii - 8, ii * 8 - 6, 16, 1);
+                    dump(8 * ii - 8, ii * 8 - 6, true);
             }
 
             offset = i;
@@ -1012,14 +1001,14 @@ int main(const int argc, char **argv) {
                     l = jp - 1;
                     if (l > codloc - 1)
                         l = codloc - 1;
-                    dump(i, l, 16, 1);
+                    dump(i, l, true);
                 }
                 if (jp < codloc) {
 
                     /* then the data segments */
                     if (C_SYMBOLS != 0)
                         form("S%05d", jn);
-                    dump(jp, jp + jl - 1, 16, 16);
+                    dump(jp, jp + jl - 1, false);
                 }
                 i = jp + jl;
             } while (!(i >= codloc));
@@ -1030,7 +1019,7 @@ int main(const int argc, char **argv) {
 
         if (codloc != isave && C_FINISH)
             /* dump the initialized variables */
-            dump(kval, codloc - 1, 16, 16);
+            dump(kval, codloc - 1, false);
 
         if (C_BPNF != 0) {
 
@@ -1131,7 +1120,10 @@ int alloc(const int i) {
     return membot + offset + 1 - i;
 }
 
+
+#if 0
 int icon(const int i) {
+
 
     /* icon is called with an integer variable i which contains a */
     /* character read with an a1 format.  icon must reduce this character */
@@ -1144,6 +1136,11 @@ int icon(const int i) {
         return (int)(s - otran);
     return 1;
 }
+#else
+int icon(const unsigned char  i) {
+    return itran[i];
+}
+#endif
 
 int gnc(const int q) {
     int i, j, k, l, lp, ii;
@@ -1173,7 +1170,8 @@ int gnc(const int q) {
                 ibuff[i] = c;
             }
             if (i == 1 && c == EOF) {
-                fprintf(stderr, "EOF reached\n");
+                if (C_INPUT != 1)
+                    fprintf(stderr, "EOF reached\n");
                 return 0;
             }
             while (c != '\n')
@@ -1279,42 +1277,6 @@ int imin(const int i, const int j) {
     return i < j ? i : j;
 }
 
-void _form(const int cc, const int chars[ /*length+1 */],
-    const int start, const int finish, const int length) {
-    int i, j;
-
-    /* cc = 0 dump buffer, go to next line */
-    /* cc = 1 append to current buffer */
-    /* cc = 2 _delete leading blanks AND append */
-    j = start;
-    i = cc + 1;
-    switch (i) {
-    case 1:
-        break;
-    case 2:
-        goto L50;
-    case 3:
-        for (;;) {
-            if (j > finish)
-                return;
-            if (chars[j] != 1)
-                goto L50;
-            j = j + 1;
-        }
-    }
-    for (;;) {
-        writel(0);
-    L50:do {
-        if (j > finish)
-            return;
-        obp = obp + 1;
-        obuff[obp] = otran[chars[j]];
-        j = j + 1;
-    } while (!(obp >= C_WIDTH));
-    }
-    return;
-}
-
 void form(char *fmt, ...) {
     va_list marker;
     char buf[128];
@@ -1401,13 +1363,13 @@ void _delete(int n)	/* _delete the top n elements from the stack */
         if (i = rasn[sp] / 16 % 16) {
             if (regs[RA] == i)
                 regs[RA] = 0;
-            lock[i] = 0;
+            lock[i] = false;
             regs[i] = 0;
         }
         if (i = rasn[sp] % 16) {
             if (regs[RA] == i)
                 regs[RA] = 0;
-            lock[i] = 0;
+            lock[i] = false;
             regs[i] = 0;
         }
         sp--;
@@ -1491,11 +1453,11 @@ void apply(const int op, const int op2, const int com, const int cyflag) {
             if (i == 0)
                 goto L120;
             ia = i;
-            lock[i] = 1;
+            lock[i] = true;
             i = l / 16;
             if (i != 0) {
                 ib = i;
-                lock[i] = 1;
+                lock[i] = true;
             }
 
             /* may have to generate one free reg */
@@ -1564,7 +1526,7 @@ L80:	loadv(sp - 1, 1);
     ia = l % 16;
     if (ia == 0)
         goto L120;
-    lock[ia] = 1;
+    lock[ia] = true;
     ib = l / 16;
 
     /* is this a single byte / double byte operation */
@@ -1574,7 +1536,7 @@ L80:	loadv(sp - 1, 1);
         ib = ia - 1;
         if (ib == 0)
             goto L120;
-        lock[ib] = 1;
+        lock[ib] = true;
     }
 
     /* now ready to perform operation */
@@ -1699,7 +1661,7 @@ L110:jp = regs[RA];
     sp = sp + 1;
     prec[sp] = 1;
     rasn[sp] = ib * 16 + ia;
-    lock[ia] = 0;
+    lock[ia] = false;
     st[sp] = 0;
     litv[sp] = -1;
     regs[ia] = sp;
@@ -1707,7 +1669,7 @@ L110:jp = regs[RA];
     if (ib > 0) {
         prec[sp] = 2;
         regs[ib] = sp;
-        lock[ib] = 0;
+        lock[ib] = false;
         regv[ib] = -1;
     }
     return;
@@ -1751,12 +1713,12 @@ void genreg(const int np, int *ia, int *ib) {
                                 ip = 0;
                         } else if (k <= 255) {
                             j = k % 16;
-                            if (lock[j] == 0) {
+                            if (lock[j] == false) {
                                 jp = k / 16;
                                 if (jp != 0)
 
                                     /* otherwise check ho register */
-                                    if (lock[jp] != 0 || jp != j - 1)
+                                    if (lock[jp] != false || jp != j - 1)
                                         continue;
                                 if (ip == 0)
                                     ip = i;
@@ -1883,29 +1845,16 @@ void loadsy() {
 
                         /* check for special case at END of an entry */
                         attrib = iabs(symbol[attrib]);
-                        i = attrib % 16;
-                        if (i != PROC && i != VARB) {
-                            if (i != LABEL)
-                                break;
 
-                            /* check for single reference to the LABEL */
-                            j = attrib / 256;
-                            if (j != 1)
-                                j = 0;
-
-                        }
-                        /* allocate a cell AND set to ZERO */
-
-                        // arrive here with proc, varb or label
-                        switch (i) {
+                        // determine additional cell count
+                        switch (attrib % 16) {
                         case VARB: j = 1; break;
                         case PROC: j = 3; break;
-                        case LABEL: j++; break;
+                        case LABEL: j = attrib / 256 == 1 ? 2 : 1; break;   // check for single reference to the label
+                        default: j = 0; break;
                         }
-
-                        for (i = 1; i <= j; i++)
-                            symbol[syinfo--] = 0;
-
+                        for (i = 0; i < j; i++)
+                            symbol[syinfo--] = 0;       // clear the additional cells
                         break;
                     }
                 }
@@ -2332,9 +2281,9 @@ void gensto(const int keep) {
                     i = st[sp];
                     if (i <= intbas) {
                         if (i2 != 0)
-                            lock[i2] = 1;
+                            lock[i2] = true;
                         if (i1 != 0)
-                            lock[i1] = 1;
+                            lock[i1] = true;
 
                         /* force a double byte fetch into gprs */
                         loadv(sp, 3);
@@ -2422,9 +2371,9 @@ void gensto(const int keep) {
                 }
             emit(XCHG, 0, 0);
         L210:if (i1 != 0)
-            lock[i1] = 0;
+            lock[i1] = false;
         if (i2 != 0)
-            lock[i2] = 0;
+            lock[i2] = false;
         regv[RH] = -1;
         regv[RL] = -1;
         } else
@@ -2558,7 +2507,7 @@ void litadd(const int s) {
                     if (k == jp)
                         regs[RA] = 0;
                     regs[k] = 0;
-                    lock[k] = 0;
+                    lock[k] = false;
                     regv[k] = -1;
                 }
             }
@@ -2659,56 +2608,21 @@ void litadd(const int s) {
 }
 
 /*
- * looking at the callers fa = 16 on all paths
- * fe = 1 OR 16
- * debase = 16 so fr = 16
+    simplified as only base 16 is used
+    also uses pre decoded instructions to simplify the logic
  */
-void dump(const int l, const int u, const int fa, const int fe) {
+void dump(int lp, const int u, bool symbolic) {
     bool same;
-    int fr, a, b, wr, opcnt, w, rr, nsame, ls, lp, i, j, k;
+    int opcnt, itemsOnLine, nsame, ls, i, j;
 
-    lp = l;
-    w = C_WIDTH;
-    a = 5;
-    b = 3;
+    // items on line = (line width - address width) / (length of item + a space)
+    itemsOnLine = symbolic ? (C_WIDTH - 5) / 7 : (C_WIDTH - 5) / 4;
 
-    //    if (fa == 8)
-    //        a = 6;
-    if (fe != 1) {
-
-        //        if (fe == 2)
-        //            b = 9;
-        //        if (fe == 8)
-        //            b = 4;
-    } else {
-
-        /* symbolic dump */
-        b = 6;
-        fr = debase;
-        if (fr == 2)
-            fr = 16;
-        wr = 2;
-        if (fr == 10)
-            wr = 3;
-        rr = 6 - wr;
-        if (fr != 10)
-            rr = rr - 1;
-    }
-    w = (w - a) / (b + 1);
-
-    /* w is number of entries on each line */
-    if (w == 0)
+    if (itemsOnLine <= 0)
         error(117, 1);
 
     else {
-        if (fa != 10)
-            a = a - 1;
-        if (fe != 10)
-            b = b - 1;
-
-        /* a is the width of the address field */
-        /* b is the width of each entry */
-        for (i = 1; i <= 29; i++)
+        for (i = 0; i < 29; i++)
             accum[i] = 256;
         nsame = 0;
         opcnt = 0;
@@ -2716,41 +2630,36 @@ void dump(const int l, const int u, const int fa, const int fe) {
             same = true;
             ls = lp;
             i = 0;
-            for (;;) {
+            for (i = 0; i < itemsOnLine; i++) {
                 if (lp > u) {
                     same = false;
                     break;
                 } else {
-                    i = i + 1;
-                    j = get(lp);
-                    lp = lp + 1;
-                    j = j % 256;
-                    if (j != accum[i])
+                    j = get(lp++);
+                    if (j != accum[i]) {
                         same = false;
-                    accum[i] = j;
-                    if (i >= w)
-                        break;
+                        accum[i] = j;
+                    }
                 }
             }
             if (same) {
-                nsame = nsame + 1;
-                if (nsame <= 1)
+                if (++nsame <= 1)
                     form("\n \n");
-            } else {
-                if (i == 0)
-                    break;
-                form("\n%0*XH", a, ls);
-                for (j = 1; j <= i; j++) {
-                    putch(' ');
-                    k = accum[j];
-                    if (opcnt > 0) {
-                        opcnt = opcnt - 1;
-                        form("%0*XH%*c", wr, k, rr, ' ');
-                    } else if (fe != 1)
-                        form("%0*XH", b, k);
+            } else if (i == 0)
+                break;
+            else {
+                form("\n%04XH", ls);            // print the address line
+                for (j = 0; j < i; j++) {
+                    if (symbolic) {
+                        if (opcnt-- > 0)
+                            form(" %02XH   ", accum[j]);
+                        else {
+                            form(" %-6.6s", ctran[accum[j]] + 1);
+                            opcnt = ctran[accum[j]][0] - '0';
+                        }
+                    } else
+                        form(" %02XH", accum[j]);
 
-                    else
-                        opcnt = decode(1, k, 6);
                 }
                 if (lp > u) {
                     writel(0);
@@ -2762,159 +2671,6 @@ void dump(const int l, const int u, const int fa, const int fe) {
     return;
 }
 
-int decode(const int cc, const int i, const int w) {
-    int x, y, insize, ip, m, j, k, l, _decode;
-
-    /*          *****************************************
-                *instruction * decoding * using * ctran *
-                *****************************************
-                the elements of ctran represent the 8080 operation codes IN a
-                form which is more usable for instruction decoding IN both the
-                decode and interp subroutines.  given an instruction i (between 0
-                and 255), ctran(i+1) provides an alternate representation of the
-                instruction, as shown below...
-                5b    5b     5b       OR     5b     3b  2b    5b
-                ------------------          -----------------------
-                /    /     /     /          /      /    /    /    /
-                / x  /  y  /   i /          / x    / y1 /y2  /  i /
-                /    /     /     /          /      /    /    /    /
-                ------------------          -----------------------
-                where field i specifies a 'category' and the x and y fields
-                qualify instructions within the category.
-                field i       category         value of x and y fields
-                ------   ----------------- ----------------------------------------
-                0           mov         the fields indicate the valid operands
-                involved...
-                ACC=0, b = 1, c = 2, d = 3, e = 4, h = 5,
-                l = 6, m = 7, i = 8, sp= 9 (m is memory
-                referencing instruction, and i is immed)
-                thus, /3/5/0/ is a mov d,h instruction.
-
-                1     increment, decre- the value of x determines the instruc-
-                ment, arithmetic, tion within the category..
-                OR logical        inr = 1, cdr = 2, add = 3, adc = 4,
-                sub = 5, sbc = 6, ana = 7, xra = 8,
-                ora = 9, cmp = 10
-                the value of y determines the valid
-                register involved, as above.  thus,
-                /3/4/1/ is an add e instruction.
-                ------   ----------------- ----------------------------------------
-                2     jump, call, OR    the value of x determines the exact IN-
-                return         struction.. jump=1, call=2, return=3
-                the subfield y1 determines the orienta-
-                tion of the condition.. t=1, f=0
-                the value of subfield y2 gives the con-
-                dition.. CY=0, z=1, s=2, p=3.
-                thus, /3/0/1/2/ is an rfz (return false
-                ZERO) instruction.
-                ------   - --------------  ----------------------------------------
-                3     miscellaneous     the value of the y field determines the
-                instruction (the x field gives the value
-                of aaa IN the RST instruction)
-                rlc  = 1  rrc  = 2  ral  = 3  rar  = 4
-                JMP  = 5  call = 6  ret  = 7  RST  = 8
-                IN   = 9  OUT  = 10 hlt  = 11 STA  = 12
-                LDA  = 13 XCHG = 14 xthl = 15 SPHL = 16
-                PCHL = 17 CMA  = 18 STC  = 19 CMC  = 20
-                DAA  = 21 SHLD = 22 LHLD = 23 EI   = 24
-                DI   = 25 nop  = 26 27 --- 31 undefined
-                (ibytes gives number of bytes following
-                the first 23 instructions of this group)
-                -------   ---------------- ---------------------------------------
-                4 - 11   instructions RE  the y field gives a register pair num-
-                quiring a regis  ber a = 0, b = 1, d = 3, h = 5, sp = 9
-                ter pair
-                the instructions IN each category are
-                determined by the i field..
-                LXI  = 4  PUSH = 5  POP  = 6
-                DAD  = 7  STAX = 8  LDAX = 9
-                inx  = 10 DCX  = 11
-                -------   ---------------- ---------------------------------------
-                */
-    insize = 284;
-    ip = ctran[i + 1];
-    x = ip / 1024;
-    y = (ip / 32) % 32;
-    ip = ip % 32 + 1;
-    _decode = 0;
-
-    /* point to the proper category */
-    /* (the first two are for condition codes AND register designations) */
-    j = insym[ip + 2];
-
-    /* select the proper instruction code within the category */
-    switch (ip) {
-    case 1:			/* mov */
-    case 2:			/* inr ... cmp */
-        k = (ip == 1) ? 1 : x;
-
-        /* may be an immediate operation */
-        if (y == 8)
-            _decode = 1;
-        break;
-    case 3:
-
-        /* jump call OR return conditionally */
-        k = x;
-        if (x != 3)
-            _decode = 2;
-        break;
-    case 4:
-
-        /* rlc ... NOP */
-        k = y;
-
-        /* check for JMP */
-        if (y <= 23)
-
-            /* rlc ... LDA */
-            _decode = ibytes[y];
-        break;
-    case 5:			/* LXI */
-        _decode = 2;
-    default:			/* LXI ... DCX */
-        k = 1;
-    }
-    j = j + k;
-    l = insym[j];
-    j = insym[j + 1];
-    _form(cc, insym, l, j - 1, insize);
-    l = j - l;
-    if (ip == 4) {		/* check for RST (if found ADD decimal number) */
-        if (y == 8) {
-
-            /* found RST instruction */
-            form("%d", x);
-            l = l + 2;
-        }
-    } else if (ip == 3) {	/* conditional */
-        j = insym[2] + 1 + y;
-        k = insym[j];
-        j = insym[j + 1];
-        _form(1, insym, k, j - 1, insize);
-        l = l + j - k;
-    } else {			/* write register reference */
-
-        /* opcode is written.  l characters are IN buffer, check for more */
-        putch(' ');
-        for (;;) {
-            m = y;
-            if (ip == 1)
-                m = x;
-            j = insym[1] + 1 + m;
-            k = insym[j];
-            j = insym[j + 1];
-            _form(1, insym, k, j - 1, insize);
-            l = l + j - k + 1;
-            if (ip != 1)
-                break;
-            ip = 0;
-        }
-    }
-    if (l < w)
-        form("%*c", w - l, ' ');
-    return _decode;
-}
 
 void emit(const int opr, const int opa, const int opb) {
     int opcode, operand, n, i;
@@ -3171,16 +2927,15 @@ void emit(const int opr, const int opa, const int opb) {
     return;
 }
 
-void puncod(const int lb, const int ub, const int mode) {
-    int isum, up, kp, j, k, lp, l, i;
-    int t[4 + 1];
+void puncod(int lb, const int ub, const int mode) {
+    int j, k, l, i;
+    unsigned char isum;
 
     /* punch code from lower bound (lb) to upper bound (ub) */
     /* mode = 1  - - punch header only */
     /* mode = 2 - - punch trailer only */
     /* mode = 3 - - V2 punch header AND trailer , V4 punch code only */
-    up = ub;
-    lp = lb;
+
     writel(0);
     if (C_QUICKDUMP != 0) {
 
@@ -3188,83 +2943,72 @@ void puncod(const int lb, const int ub, const int mode) {
         if (mode == 2) {
             // write end of file record
             form(":00");
-            int temp1 = offset + preamb;
-            if (offset == 0 && C_STACKHANDLING != 0)
-                temp1 = 0;
-            form("%04X01", temp1);
-            isum = (1 + (temp1 & 0xff) + (temp1 >> 8)) & 0xff;
-            isum = (256 - isum) % 256;
-            form("%2X", isum);
+            int entry = offset == 0 && C_STACKHANDLING != 0 ? 0 : offset + preamb;
+            form("%04X01", entry);
+            isum = 1 + entry / 256 + entry % 256;
+            form("%2X\n", isum);
         } else {
             writel(0);
-            l = C_QUICKDUMP;
-            if (l < 16)
-                l = 16;
-            while (lp <= up) {
-                kp = up - lp + 1;
-                k = imin(kp, l);
-                if (k == 0)
-                    break;
-                form(":%02X%04X00", k, lp);
-                isum = k + right(lp, 8) + shr(lp, 8);
-                for (i = 1; i <= k; i++) {
-                    j = get(lp);
-                    isum = isum + j;
-                    lp = lp + 1;
+            l = C_QUICKDUMP < 16 ? 16 : C_QUICKDUMP;
+            while ((k = ub - lb + 1) > 0) {
+                if (k > l)
+                    k = l;
+
+                form(":%02X%04X00", k, lb);
+                isum = k + lb % 256 + lb / 256;
+                for (i = 1; i <= k; i++, lb++) {
+                    j = get(lb);
+                    isum += j;
                     form("%02X", j);
                 }
-                isum = right(isum, 8);
-                isum = (256 - isum) % 256;
+                isum = 256 - isum;
                 form("%02X\n", isum);
-                writel(0);
             }
 
         }
 
     } else {
-        t[1] = 25;
-        t[2] = 27;
-        t[3] = 13;
-        t[4] = 17;
         for (i = 1; i <= 4; i++)
             form("********************");
         writel(0);
-        if (lp % 8 != 0)
-            form("\n%d", lp);
+        if (mode == 2)
+            return;
+        if (lb % 8 != 0)
+            form("\n%8d", lb);
         for (;;) {
-            if (lp > up) {
+            if (lb > ub) {
                 writel(0);
                 for (i = 1; i <= 4; i++)
                     form("********************");
                 writel(0);
                 break;
             } else {
-                if (lp % 4 == 0)
-                    if (lp % 8 != 0)
+                if (lb % 4 == 0)
+                    if (lb % 8 != 0)
                         form("\n        ");
 
                     else {
-                        if (lp % 256 == 0) {
+                        if (lb % 256 == 0) {
 
                             /* ********* */
                             writel(0);
                             for (i = 1; i <= 4; i++)
                                 form("********************");
                         }
-                        form("\n%d", lp);
+                        form("\n%8d", lb);
                     }
 
                 /* decode a memory location */
                 putch(' ');
-                _form(1, t, 3, 3, 4);
-                k = get(lp);
-                for (i = 1; i <= 8; i++) {
-                    kp = k / (1 << (8 - i));
-                    kp = kp % 2 + 1;
-                    _form(1, t, kp, kp, 4);
-                }
-                _form(1, t, 4, 4, 4);
-                lp = lp + 1;
+
+                putch('B');
+                k = get(lb);
+                for (i = 0x80; i; i >>= 1)
+                    putch((k & i) ? 'P' : 'N');
+                putch('F');
+
+
+                lb = lb + 1;
             }
         }
     }
@@ -3356,7 +3100,7 @@ void saver() {
                     /* double byte */
                     l = k % 16;
                     k = k / 16;
-                    if (lock[l] + lock[k] <= 0) {
+                    if (!(lock[l] || lock[k])) {
                         st[j] = i2;
                         i2 = j;
                         ic2 = ic2 + 1;
@@ -3364,7 +3108,7 @@ void saver() {
                 } else
 
                     /* single byte */
-                    if (lock[k] != 1) {
+                    if (lock[k] != true) {
                         st[j] = i1;
                         ic1 = ic1 + 1;
                         i1 = j;
@@ -3453,7 +3197,7 @@ void saver() {
         }
     }
     for (i = 2; i <= 7; i++)
-        if (lock[i] != 1) {
+        if (lock[i] != true) {
             regs[i] = 0;
             regv[i] = -1;
         }
@@ -4051,14 +3795,13 @@ void exch() {
 }
 
 void stack(const int n) {
-    int j, k;
+    int k;
 
     /* ADD n to current depth, test for stacksize exc maxdepth */
     k = prsp + 1;
-    j = curdep[k] + n;
-    if (j > maxdep[k])
-        maxdep[k] = j;
-    curdep[k] = j;
+    curdep[k] += n;
+    if (curdep[k] > maxdep[k])
+        maxdep[k] = curdep[k];
     return;
 }
 
@@ -4364,13 +4107,13 @@ void readcd() {
                                 j = -1;
 
                             /* j is h reg, l is l reg */
-                            lock[RH] = 1;
-                            lock[RL] = 1;
+                            lock[RH] = true;
+                            lock[RL] = true;
                             saver();
 
                             /* compare old hl with new hl */
-                            lock[RH] = 0;
-                            lock[RL] = 0;
+                            lock[RH] = false;
+                            lock[RL] = false;
                             k = regv[RH];
                             regv[RH] = -1;
                             if (k == (-255) || k == j)
@@ -4764,9 +4507,9 @@ bool operat(int val) {
             i = shr(symbol[i - 1], 8);
             i = imin(i, 2);
             if (i < 1) {
-                lock[RH] = lock[RL] = 1;
+                lock[RH] = lock[RL] = true;
                 saver();
-                lock[RH] = lock[RL] = 0;
+                lock[RH] = lock[RL] = false;
                 iop = 3;
             } else {
                 j = sp - i - i;
@@ -4775,20 +4518,20 @@ bool operat(int val) {
                     jp = ip / 16 % 16;
                     ip %= 16;
                     if (ip != 0)
-                        lock[ip] = 1;
+                        lock[ip] = true;
                     if (jp != 0)
-                        lock[jp] = 1;
+                        lock[jp] = true;
                     prec[j] = imin(prec[j], prec[j + 1]);
                     if (prec[j] <= 1 && jp != 0) {
                         // bug fix from V4 -- clear pending store if passing address var to byte var
                         if (regs[RA] == jp)
                             regs[RA] = 0;
-                        regs[jp] = lock[jp] = 0;
+                        regs[jp] = lock[jp] = false;
                         jp = 0;
                         if (regs[RA] == ip)
-                            lock[RA] = 1;
+                            lock[RA] = true;
                         if (regs[RA] == jp)
-                            lock[RA] = 1;
+                            lock[RA] = true;
                     }
                     rasn[j] = jp * 16 + ip;
                     j += 2;
@@ -4852,7 +4595,7 @@ bool operat(int val) {
                                 // Bug fix from V4 -- CLEAR PENDING STORE WHEN REG PAIRS ARE TO BE EXCHANGED ***
                                 if (regs[RA] == id) {
                                     emit(LD, it, RA);
-                                    regs[RA] = lock[RA] = 0;
+                                    regs[RA] = lock[RA] = false;
                                 } else
                                     // end of change
                                     emit(LD, it, id);
@@ -4860,15 +4603,15 @@ bool operat(int val) {
                                 rasn[m] = mh * 16 + ml;
                                 it++;
                             }
-                            regs[ip] = lock[ip] = 0;
+                            regs[ip] = lock[ip] = false;
                             if (regs[RA] == ip) {
                                 ip = 1;
-                                regs[RA] = lock[RA] = 0;
+                                regs[RA] = lock[RA] = false;
                             }
                             emit(LD, id, ip);
                             regs[id] = j;
                         }
-                        lock[id] = 1;
+                        lock[id] = true;
                         ip = jp;
                         if (ip == (-1))
                             break;
@@ -4882,7 +4625,7 @@ bool operat(int val) {
                         loadv(j, 0);
                     ip = 2 * k;
                     regs[ip] = j;
-                    lock[ip] = 1;
+                    lock[ip] = true;
                     if (prec[j + 1] == 2 && prec[j] == 1)
                         emit(LD, ip, 0);
                     j += 2;
@@ -4890,7 +4633,7 @@ bool operat(int val) {
                 if (regs[RA] != 0)
                     emit(LD, regs[RA], RA);
                 for (k = 1; k <= 7; k++) {
-                    regs[k] = lock[k] = 0;
+                    regs[k] = lock[k] = false;
                     regv[k] = -1;
                 }
                 j = 2 * i;
@@ -4938,7 +4681,7 @@ bool operat(int val) {
                             emit(LD, j, RA);
                             regs[RA] = 0;
                         }
-                        lock[j] = 1;
+                        lock[j] = true;
 
                         /* load the value which is to be operated upon */
                         kp = prec[sp];
@@ -4977,7 +4720,7 @@ bool operat(int val) {
 
                         /* END up here after operation completed */
                         exch();
-                        lock[j] = 0;
+                        lock[j] = false;
                         _delete(1);
                     }
                     return true;
@@ -5096,10 +4839,10 @@ bool operat(int val) {
                     prec[sp] = 2;
                     st[sp] = 0;
                     if (ia <= 15) {
-                        lock[ia] = 1;
+                        lock[ia] = true;
                         ib = ia - 1;
                         regs[ib] = sp;
-                        lock[ia] = 0;
+                        lock[ia] = false;
                         rasn[sp] = ib * 16 + ia;
                         /* ZERO the register */
                         emit(LD, ib, 0);
@@ -5372,8 +5115,8 @@ bool operat(int val) {
         /* compute 2*x + codloc, fetch to hl, AND jump with PCHL */
         /* reserve registers for the jump table base */
         genreg(2, &ia, &ib);
-        lock[ia] = 1;
-        lock[ib] = 1;
+        lock[ia] = true;
+        lock[ib] = true;
 
         /* index is IN h AND l, so double it */
         emit(DAD, RH, 0);
@@ -5399,7 +5142,7 @@ bool operat(int val) {
         /* casjmp will be used to update the length field */
         if (--syinfo <= sytop)
             error(108, 5);
-        lock[ib] = 0;
+        lock[ib] = false;
         regv[RH] = regv[RL] = -255; /* mark as nil */
         return true;
     case HAL:
@@ -5544,9 +5287,9 @@ bool operat(int val) {
         // fall through to shared code
     case TRA:   /* TRA -   check stack for simple LABEL variable */
         iop = 1;
-        lock[RH] = lock[RL] = 1;    /* IN case there are any pending values ... */
+        lock[RH] = lock[RL] = true;    /* IN case there are any pending values ... */
         saver();
-        lock[RH] = lock[RL] = 0;
+        lock[RH] = lock[RL] = false;
         m = litv[sp];
         if (m >= 0) {   /* absolute jump - probably to assembly language subrtne... */
 
@@ -5869,7 +5612,7 @@ void compare16(int icom, int flag, int iq) {
     litv[sp] = -1;
     st[sp] = 0;
     if (j != 0) {
-        lock[j] = regs[j] = 0;
+        lock[j] = regs[j] = false;
         regv[j] = -1;
     }
     return;
@@ -5890,13 +5633,13 @@ void builtin(int bf, int result) {
     /* lock any correctly assigned registers */
     /* ....AND store the remaining registers. */
     if (rasn[sp] % 16 == RE)
-        lock[RE] = 1;
+        lock[RE] = true;
     if (rasn[sp] / 16 == RD)
-        lock[RD] = 1;
+        lock[RD] = true;
     if (rasn[sp - 1] % 16 == RC)
-        lock[RC] = 1;
+        lock[RC] = true;
     if (rasn[sp - 1] / 16 == RB)
-        lock[RB] = 1;
+        lock[RB] = true;
     saver();
 
     /* mark register c used. */
@@ -5928,7 +5671,7 @@ void builtin(int bf, int result) {
 
     /* AND then retrieve results */
     for (int k = 1; k <= 7; k++)
-        lock[k] = 0;
+        lock[k] = false;
 
     /* cannot predict where registers h AND l will END up */
     regv[RL] = -1;
@@ -6040,13 +5783,13 @@ void inx(int jp) {
 
 
 void sydump() {
-    int _char[32 + 1];
-    int ichar, addr, i, j, k, l, m, n;
+    char _char[32];
+    int ichar, addr, i, j, m, n;
+    bool bpnfOutput = false;
 
     /* dump the symbol table for the simulator */
     /* clear the output buffer */
     writel(0);
-    l = 0;
 
     /* save the current input file number, point input */
     /* at symbol file. */
@@ -6056,83 +5799,70 @@ void sydump() {
     /* get rid of last card image */
     ibp = 99999;
 
-    do {
-        i = gnc(0);
-    } while (!(i != 1));
-    if (i != 41)
+    while ((i = gnc(0)) == SPACE)
+        ;
+    if (i != SLASH)
         error(143, 1);
 
     else
-        for (;;) {
+        while ((i = gnc(0)) != SLASH) {            /* process next symbol table entry */
 
-            /* process next symbol table entry */
-            i = gnc(0);
-            if (i == 41)
-                break;
 
             /* process the next symbol */
-            i = i - 2;
+            i -= 2;                                // build address of initialized symbol
+            i += (gnc(0) - 2) * 32;
+            i += (gnc(0) - 2) * 32 * 32;
 
-            /* build address of initialized symbol */
-            k = 32;
-            for (j = 1; j <= 2; j++) {
-                i = (gnc(0) - 2) * k + i;
-                k = k * 32;
-            }
+
             if (i <= 4 || i == 6)
-
-                do {
-                    j = gnc(0);
-                } while (!(j == 41));
+                while ((j = gnc(0)) != SLASH)
+                    ;
 
             else {
-                /* write symbol number, symbol, AND absolute address (octal) */
+                /* write symbol number, symbol */
                 form("%5d ", i);
-                ichar = 1;
-                for (k = 1; k <= 32; k++)
-                    _char[k] = 40;
-                for (;;) {
-
-                    /* read until next / symbol */
-                    j = gnc(0);
-                    if (j == 41)
-                        break;
-                    _char[ichar] = j;
-                    ichar = ichar + 1;
-
-                    /* write next character IN string */
-                    putch(otran[j]);
+                ichar = 0;
+                memset(_char, '.', sizeof(_char));
+                while ((j = gnc(0)) != SLASH) {  /* read until next / symbol */
+                    if (ichar < sizeof(_char))
+                        _char[ichar++] = otran[j];
+                    putch(otran[j]);            /* write next character IN string */
                 }
 
                 /* END of symbol */
                 putch(' ');
 
-                /* write octal address */
+                /* write hex address */
                 j = symbol[i];
                 // V4
                 i = symbol[j - 1];
                 i %= 16;
                 if (i == PROC || i == LABEL)
                     j -= 2;
-                i = iabs(symbol[j]);
+                addr = iabs(symbol[j]);
 
-                form("%05XH   ", i);
-                addr = i;
+                form("%05XH   ", addr);
+
                 if (C_BPNF != 0) {
                     n = C_OUTPUT;
                     C_OUTPUT = C_BPNF;
                     writel(0);
-                    l = 1;
+                    bpnfOutput = true;
                     C_OUTPUT = n;
                 }
                 obp = C_YPAD - 1;
-                if (C_MAP != 0) {
-                    _form(1, _char, 1, 32, 32);
-                    form("%04XH\n", addr);
-                }
+                if (C_MAP != 0)
+                    form("%.*s%04XH\n", sizeof(_char), _char, addr);
             }
         }
-
+#if 0           // commented out for V4
+    if (bnpfOutput && C_BPNF) {       // note C_BPNF only needed if symbol table file has been altered to include $ controls!!!
+        n = C_OUTPUT;
+        C_OUTPUT = C_BPNF;
+        form(" $\n");
+        C_OUTPUT = n;
+    }
+#endif
     C_INPUT = m;
     return;
 }
