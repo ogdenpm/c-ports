@@ -626,8 +626,8 @@ int lastRegImm = 0;
 
 /* pstack is the procedure stack used IN hl optimization*/
 int prstk[15 + 1];
-int maxdep[16 + 1];
-int curdep[16 + 1];
+int maxdep[16];
+int curdep[16];
 int prsmax = 15;
 int prsp = 0;
 int lxis = 0;
@@ -932,7 +932,7 @@ int main(const int argc, char **argv) {
             error(144, 1);
 
         /* make sure execution stack is empty */
-        if (curdep[1] != 0)
+        if (curdep[0] != 0)
             error(150, 1);
         reloc();
 
@@ -1759,35 +1759,35 @@ void loadsy() {
     C_INPUT = C_USYMBOL;
     ibp = 9999;
 
-    while ((i = gnc(0)) == SPACE)
+    while ((i = gnc(1)) == ' ')
         ;
 
     /* look for initial '/' */
-    if (i == SLASH) {
-        while ((i = gnc(0)) != SLASH) {
+    if (i == '/') {
+        while ((i = gnc(1)) != '/') {
             /* load the interrupt vector */
-            if (i < CHZERO || i > SEVEN)
+            if (i < '0' || i > '7')
                 goto L140;
-            i = i - CHZERO + 1;    // convert to index into intpro
+            i -= '0';           // convert to index into intpro
 
             /* get the procedure name corresponding to interrupt i-1 */
-            for (j = 0, l = 1; (k = gnc(0)) != SLASH; l *= 32) {
-                k -= CHZERO;      // convert to base 32 number
+            for (j = 0, l = 1; (k = gnc(1)) != '/'; l *= 32) {
+                k -= itran[k] - CHZERO;      // convert to base 32 number
                 if (k < 0 || k > 31)
                     goto L140;
                 j += k * l;
             }
-            intpro[i] = j;
+            intpro[i + 1] = j;
             if (C_SYMBOLS >= 2)
-                form("\n I%d=S%05d\n", i - 1, j);
+                form("\n I%d=S%05d\n", i, j);
         }
 
         /* interrupt procedures are handled. */
-        while ((i = gnc(0)) == SPACE)
+        while ((i = gnc(1)) == ' ')
             ;
 
-        if (i == SLASH) {
-            while ((i = gnc(0)) != SLASH) {  // process next symbol table entry
+        if (i == '/') {
+            while ((i = gnc(1)) != '/') {  // process next symbol table entry
                 if (++sytop >= syinfo) {
                     error(108, 5);
                     syinfo = symax;
@@ -1798,15 +1798,15 @@ void loadsy() {
                 symbol[sytop] = syinfo--;
                 attrib = syinfo;
                 for (;;) {
-                    if (i == SPACE)
+                    if (i == ' ')
                         SIGN = 1;
-                    else if (i == MINUS)
+                    else if (i == '-')
                         SIGN = -1;
                     else
                         goto L140;
-                    for (l = 1, k = 0; CHZERO <= (i = gnc(0)) && i <= CHV; l *= 32)
+                    for (l = 1, k = 0; isalnum(i = gnc(1)) && toupper(i) <= 'V'; l *= 32)
                         /* get next digit */
-                        k += (i - CHZERO) * l;
+                        k += (itran[i] - CHZERO) * l;
 
                     /* END of number */
                     if (syinfo <= sytop) {
@@ -1818,7 +1818,7 @@ void loadsy() {
                     symbol[syinfo--] = SIGN * k;
 
                     /* look for '/' */
-                    if (i == SLASH) {
+                    if (i == '/') {
 
                         /* check for special case at END of an entry */
                         attrib = iabs(symbol[attrib]);
@@ -2182,9 +2182,9 @@ void ustack() {
     int i;
 
     /* decrement curdep AND check for underflow */
-    i = curdep[prsp + 1];
+    i = curdep[prsp];
     if (i > 0)
-        curdep[prsp + 1] = i - 1;
+        curdep[prsp] = i - 1;
 
     else
         error(148, 1);
@@ -3186,7 +3186,7 @@ void reloc() {
     }
 
     /* compute max stack depth required for correct execution */
-    stsize = maxdep[1];
+    stsize = maxdep[0];
     for (n = 1; n <= 8; n++) {
         i = intpro[n];
         if (i != 0) {
@@ -3764,13 +3764,11 @@ void exch() {
 }
 
 void stack(const int n) {
-    int k;
 
     /* ADD n to current depth, test for stacksize exc maxdepth */
-    k = prsp + 1;
-    curdep[k] += n;
-    if (curdep[k] > maxdep[k])
-        maxdep[k] = curdep[k];
+    curdep[prsp] += n;
+    if (curdep[prsp] > maxdep[prsp])
+        maxdep[prsp] = curdep[prsp];
     return;
 }
 
@@ -4100,8 +4098,7 @@ void readcd() {
                 } else if (j == PROC) {
 
                     /* set up procedure stack for procedure entry */
-                    prsp = prsp + 1;
-                    if (prsp > prsmax)
+                    if (++prsp > prsmax)
                         error(145, 5);
 
                     else {
@@ -4120,8 +4117,8 @@ void readcd() {
                         k = codloc;
 
                         /* set up stack depth counters */
-                        maxdep[prsp + 1] = 0;
-                        curdep[prsp + 1] = 0;
+                        maxdep[prsp] = 0;
+                        curdep[prsp] = 0;
                         for (i = 1; i <= 8; i++)
                             if (val == intpro[i]) {
 
@@ -5209,15 +5206,15 @@ bool operat(int val) {
         if (prstk[jp] > 65535)
 
             /* this is the END of an interrupt procedure */
-            curdep[jp + 1] = curdep[jp + 1] - 4;
+            curdep[jp] -= 4;
         if (prsp > 0)
             prsp = prsp - 1;
 
         /* get stack depth for symbol table */
         if (jp > 0) {
-            if (curdep[jp + 1] != 0)
+            if (curdep[jp] != 0)
                 error(150, 1);
-            k = maxdep[jp + 1];
+            k = maxdep[jp];
             l = prstk[jp] % 65536 - 1;
 
             /* k is max stack depth, l is symbol table count entry */
@@ -5460,7 +5457,7 @@ bool operat(int val) {
                     stack(j);
 
                     /* now returned from call so... */
-                    curdep[prsp + 1] = curdep[prsp + 1] - j;
+                    curdep[prsp] -= j;
 
                     /* now fix the h AND l values upon return */
 // V4
