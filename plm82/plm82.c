@@ -780,6 +780,18 @@ int iabs(int a) {
     return a < 0 ? -a : a;
 }
 
+
+bool isBase32(n) {
+    return isalnum(n) && toupper(n) <= 'V';
+}
+
+int base32ToInt(n) {
+    int i = 33;
+    if (isalnum(n))
+        i = isdigit(n) ? n - '0' : toupper(n) - 'A' + 10;
+    return i < 32 ? i : -1;
+}
+
 /*
     although fort.nn is still supported, this routine presets up several files based
     on fname. This allows a command line to specify plm81 file.plm and the fort.nn files
@@ -917,7 +929,7 @@ int main(const int argc, char **argv) {
 
     form("\n8080 PLM2 VERS %d.%d", vers / 10, vers % 10);
     writel(1);
-    i = gnc(0);                             // process any controls
+    gnc(1);                             // process any controls
 
     /* change margins for reading intermediate language */
     C_LEFTMARG = C_ZMARGIN;
@@ -1141,7 +1153,6 @@ int icon(const unsigned char  i) {
 // note original gnc was only ever called with q == 0
 // modified here so that if q != 0 then the character is passed through
 // without converting to internal format
-// this is an intermediate hack to allow gradual move away from the internal character set
 
 int gnc(const int q) {
     FILE *ifile;
@@ -1204,7 +1215,9 @@ int gnc(const int q) {
         }
         s = "";
     }
-    return q ? *s++ : itran[*s++];
+    if (itran[*s] == 1)     // map illegal chars to a space
+        *s = ' ';
+    return toupper(*s++);
 }
 
 
@@ -1237,8 +1250,8 @@ void controlLine(const char *s) {
             j = itran[code];
             k = 0;
             if (*s == '=') {
-                while (*++s == ' ' || isdigit(*s))
-                    if (isdigit(*s))
+                while (isdigit(*++s) || *s ==  ' ')
+                    if (*s != ' ')
                         k = k * 10 + *s - '0';
             } else if (contrl[j] > 1)
                 error(105, 1);
@@ -1338,18 +1351,19 @@ void _delete(int n)	/* _delete the top n elements from the stack */
             error(106, 1);
             return;
         }
-        if (i = rasn[sp] / 16 % 16) {
+        if (i = rasn[sp] & 0xf) {
             if (regs[RA] == i)
                 regs[RA] = 0;
             lock[i] = false;
             regs[i] = 0;
         }
-        if (i = rasn[sp] % 16) {
+        if (i = (rasn[sp] >> 4) &  0xf) {
             if (regs[RA] == i)
                 regs[RA] = 0;
             lock[i] = false;
             regs[i] = 0;
         }
+
         sp--;
     }
 }
@@ -1399,53 +1413,42 @@ void apply(const int op, const int op2, const int com, const int cyflag) {
     if (ib > 255)
         cvcond(sp - 1);
     l = regs[RA];
-    if (ia * ib * l * com != 0)
+    if (ia * ib * l * com != 0 && l == ia % 16) /* commutative operator, one may be IN the accumulator */
+        exch();                                 /* second operand IN gpr's, l.o. byte IN accumulator */
 
-        /* commutative operator, one may be IN the accumulator */
-        if (l == ia % 16)
+    bool storeSetup = false;  // replaces use of goto L110
 
-            /* second operand IN gpr's, l.o. byte IN accumulator */
-            exch();
-    for (;;) {
+
+    for (;; exch()) {
         ia = 0;
         ib = 0;
 
-        /* is op1 IN gpr's */
-        l = rasn[sp - 1];
-        if (l == 0) {
 
-            /* is op2 IN gpr's */
-            l = rasn[sp];
-            if (l != 0) {
-
+        if (!rasn[sp - 1]) {         /* is op1 IN gpr's */
+            if (rasn[sp]) {            /* is op2 IN gpr's */
                 /* yes - can we exchange AND try again */
                 /* after insuring that a literal has no regs assigned */
                 litv[sp] = -1;
                 if (com != 0)
-                    goto L70;
+                    continue;
             }
-        } else {
-
-            /* reg assigned, lock regs containing var */
-            i = l % 16;
-            if (i == 0)
-                goto L120;
-            ia = i;
-            lock[i] = true;
-            i = l / 16;
-            if (i != 0) {
-                ib = i;
-                lock[i] = true;
+        } else {                /* reg assigned, lock regs containing var */           
+            if ((ia = rasn[sp - 1] % 16) == 0) {
+                error(107, 5);
+                return;
             }
+            lock[ia] = true;
+            if (ib = rasn[sp - 1] / 16)
+                lock[ib] = true;
+      
 
             /* may have to generate one free reg */
             if (prec[sp - 1] < prec[sp])
                 ib = ia - 1;
 
             /* check for pending register store */
-            jp = regs[RA];
-            if (jp != ia) {
-                if (jp != 0)
+            if ((jp = regs[RA]) != ia) {
+                if (jp)
                     emit(LD, jp, RA);
                 regs[RA] = ia;
                 emit(LD, RA, ia);
@@ -1455,189 +1458,146 @@ void apply(const int op, const int op2, const int com, const int cyflag) {
         /* op2 NOT IN gpr's OR op is NOT commutative */
         /* check for literal value - is op2 literal */
         k = litv[sp];
-        if (k >= 0)
+        if (k >= 0) {
+            if (prec[sp] <= 1 && prec[sp - 1] <= 1)     /* make special check for possible increment OR decrement */
+                if (k == 1)                             /* must be ADD OR subtract without CARRY */
+                    if (op == AD || op == SU)           /* first operand must be single byte variable */
+                        if (prec[sp - 1] == 1) {
+                            if (ia <= 1) {              /* op1 must be IN memory, so load into gpr */
+                                loadv(sp - 1, 0);
+                                if ((ia = rasn[sp - 1] % 16) == 0) {
+                                    error(107, 5);
+                                    return;
+                                }
+                                /* ...may change to inr memory if STD to op1 follows... */
+                                lastIncReg = codloc;
+                            }
+                            jp = regs[RA] == ia ? RA : ia;
+                            if (op == AD)
+                                emit(IN, jp, 0);
+                            if (op == SU)
+                                emit(DC, jp, 0);
+                            storeSetup = true;
+                        }
             break;
+        }
 
         /* op1 NOT a literal,  check for literal op2 */
-        if (litv[sp - 1] < 0)
-            goto L80;
-        if (com != 1)
-            goto L80;
-    L70:exch();
-    }
-    if (prec[sp] <= 1 && prec[sp - 1] <= 1)
-
-        /* make special check for possible increment OR decrement */
-        if (k == 1)
-
-            /* must be ADD OR subtract without CARRY */
-            if (op == AD || op == SU)
-
-                /* first operand must be single byte variable */
-                if (prec[sp - 1] == 1) {
-                    if (ia <= 1) {
-
-                        /* op1 must be IN memory, so load into gpr */
-                        loadv(sp - 1, 0);
-                        l = rasn[sp - 1];
-                        ia = l % 16;
-                        if (ia == 0)
-                            goto L120;
-
-                        /* ...may change to inr memory if STD to op1 follows... */
-                        lastIncReg = codloc;
-                    }
-                    jp = ia;
-                    if (regs[RA] == ia)
-                        jp = RA;
-                    if (op == AD)
-                        emit(IN, jp, 0);
-                    if (op == SU)
-                        emit(DC, jp, 0);
-                    goto L110;
-                }
-
-    /* generate registers to hold results IN loadv */
-    /* (loadv will load the low order byte into the ACC) */
-L80:	loadv(sp - 1, 1);
-    l = rasn[sp - 1];
-    ia = l % 16;
-    if (ia == 0)
-        goto L120;
-    lock[ia] = true;
-    ib = l / 16;
-
-    /* is this a single byte / double byte operation */
-    if (ib <= 0 && prec[sp] != 1) {
-
-        /* get a spare register */
-        ib = ia - 1;
-        if (ib == 0)
-            goto L120;
-        lock[ib] = true;
+        if (litv[sp - 1] < 0 || com != 1)
+            break;
     }
 
-    /* now ready to perform operation */
-    /* l.o. byte is IN AC, h.o. byte is IN ib. */
-    /* result goes to ia (l.o.) AND ib (h.o.) */
+    if (!storeSetup) {
+        /* generate registers to hold results IN loadv */
+        /* (loadv will load the low order byte into the ACC) */
+        loadv(sp - 1, 1);
+        if ((ia = rasn[sp - 1] % 16) == 0) {
+            error(107, 5);
+            return;
+        }
+        lock[ia] = true;
+        ib = rasn[sp - 1] / 16;
 
-    /* is op2 IN gpr's */
-    lp = rasn[sp];
-    k = -1;
-    if (lp > 0)
+        /* is this a single byte / double byte operation */
+        if (ib <= 0 && prec[sp] != 1) {
+            /* get a spare register */
+            if ((ib = ia - 1) == 0) {
+                error(107, 5);
+                return;
+            }
+            lock[ib] = true;
+        }
 
-        /* perform ACC-reg operation */
-        emit(op, lp % 16, 0);
+        /* now ready to perform operation */
+        /* l.o. byte is IN AC, h.o. byte is IN ib. */
+        /* result goes to ia (l.o.) AND ib (h.o.) */
 
-    else {
+        /* is op2 IN gpr's */
+        lp = rasn[sp];
+        k = -1;
+        if (lp > 0)
 
-        /* is op2 a literal */
-        k = litv[sp];
-        if (k < 0) {
-            loadv(sp, 2);
+            /* perform ACC-reg operation */
+            emit(op, lp % 16, 0);
 
-            /* perform operation with low order byte */
-            emit(op, ME, 0);
-        } else
+        else {
 
-            /* use CMA if op is XR AND op2 is LIT 255 */
-            if (op == XR && k % 256 == 255)
+            /* is op2 a literal */
+            k = litv[sp];
+            if (k < 0) {
+                loadv(sp, 2);
+
+                /* perform operation with low order byte */
+                emit(op, ME, 0);
+            } else
+
+                /* use CMA if op is XR AND op2 is LIT 255 */
+                if (op == XR && k % 256 == 255)
+                    emit(CMA, 0, 0);
+                else
+                    /* perform ACC-immediate operation */
+                    emit(op, -k % 256, 0);
+
+        }
+
+        /* set up a pending register store */
+        /* if this is NOT a compare */
+        if (op != CP)
+            regs[RA] = ia;
+        if (prec[sp] == 2) {
+
+            /* is h.o. byte of op2 IN memory */
+            if (k < 0 && lp <= 0) {
+
+                /* point to h.o. byte with h AND l */
+                emit(IN, RL, 0);
+                regv[RL]++;
+            }
+
+            /* do we need to pad with h.o. ZERO for op1 */
+            if ((jp = regs[RA]) && jp != ib) {            // is store pending
+                emit(LD, jp, RA);
+                regs[RA] = 0;
+            }
+            if (!jp || jp != ib)
+                if (prec[sp - 1] > 1)
+                    emit(LD, RA, ib);
+                else
+                    emit(cyflag ? LD : XR, RA, 0);
+
+
+            if (lp)                             /* op2 IN gpr's - perform ACC-register operation */
+                emit(op2, lp / 16, 0);
+            else if (k < 0)                     /* perform ACC-memory operation */
+                emit(op2, ME, 0);
+            else if (op2 != XR || k != 65535)   /* yes - perform ACC-immediate operation */
+                emit(op2, -(k / 256), 0);
+            else                                /* use CMA if op1 is XR AND op2 is 65535 */
                 emit(CMA, 0, 0);
-            else
-                /* perform ACC-immediate operation */
-                emit(op, -k % 256, 0);
-
-    }
-
-    /* set up a pending register store */
-    /* if this is NOT a compare */
-    if (op != CP)
-        regs[RA] = ia;
-    if (prec[sp] == 2) {
-
-        /* is h.o. byte of op2 IN memory */
-        if (k < 0 && lp <= 0) {
-
-            /* point to h.o. byte with h AND l */
-            emit(IN, RL, 0);
-            regv[RL] = regv[RL] + 1;
-        }
-
-        /* do we need to pad with h.o. ZERO for op1 */
-        if (prec[sp - 1] > 1) {
-
-            /* is store pending */
-            jp = regs[RA];
-            if (jp != 0) {
-                if (jp == ib)
-                    goto L90;
+        } else if (prec[sp - 1] >= 2) {                                /* second operand is single byte */
+            /* may NOT need to perform operations for certain operators, but ... */
+            /* perform operation with h.o. byte of op1 */
+            /* op1 must be IN the gpr's - perform dummy operation with ZERO */
+            if ((jp = regs[RA]) && jp != ib) {
                 emit(LD, jp, RA);
                 regs[RA] = 0;
             }
-            emit(LD, RA, ib);
-        } else {
+            if (!jp || jp != ib)
+                emit(LD, RA, ib);
+            emit(op2, 0, 0);
+        } else
+            storeSetup = true;
 
-            /* is store pending */
-            jp = regs[RA];
-            if (jp != 0) {
-                if (jp == ib)
-                    goto L90;
-                emit(LD, jp, RA);
-                regs[RA] = 0;
-            }
-            if (cyflag == 0)
-                emit(XR, RA, 0);
-            if (cyflag == 1)
-                emit(LD, RA, 0);
-        }
-    L90:if (lp != 0)
-
-        /* op2 IN gpr's - perform ACC-register operation */
-        emit(op2, lp / 16, 0);
-
-    else if (k < 0)
-
-        /* perform ACC-memory operation */
-        emit(op2, ME, 0);
-
-    else
-
-        /* yes - perform ACC-immediate operation */
-        /* use CMA if op1 is XR AND op2 is 65535 */
-        if (op2 != XR || k != 65535)
-            emit(op2, -(k / 256), 0);
-
-        else
-            emit(CMA, 0, 0);
-    } else {
-
-        /* second operand is single byte */
-        if (prec[sp - 1] < 2)
-            goto L110;
-
-        /* may NOT need to perform operations for certain operators, but ... */
-        /* perform operation with h.o. byte of op1 */
-        /* op1 must be IN the gpr's - perform dummy operation with ZERO */
-        jp = regs[RA];
-        if (jp != 0) {
-            if (jp == ib)
-                goto L100;
-            emit(LD, jp, RA);
-            regs[RA] = 0;
-        }
-        emit(LD, RA, ib);
-    L100:emit(op2, 0, 0);
     }
-
     /* set up pending register store */
-    regs[RA] = ib;
+    if (!storeSetup)
+        regs[RA] = ib;
 
     /* save the pending accumulator - register store */
-L110:jp = regs[RA];
+    jp = regs[RA];
     _delete(2);
     regs[RA] = jp;
-    sp = sp + 1;
-    prec[sp] = 1;
+    prec[++sp] = 1;
     rasn[sp] = ib * 16 + ia;
     lock[ia] = false;
     st[sp] = 0;
@@ -1650,103 +1610,71 @@ L110:jp = regs[RA];
         lock[ib] = false;
         regv[ib] = -1;
     }
-    return;
-L120:error(107, 5);
-    return;
 }
 
 void genreg(const int np, int *ia, int *ib) {
-    int n, idump, ip, i, j, k, jp;
+    int idump, ip, i, j, k, jp;
 
-    /* generate n free registers for subsequent operation */
-    n = iabs(np);
+    /* generate abs(np) free registers for subsequent operation */
+    // Note -2 <= np <= 2 np negative if no pushing allowed 
 
-    /* n is number of registers, np negative if no pushing allowed */
     *ib = 0;
     *ia = 0;
-    idump = 0;
-    for (;;) {
-
-        /* look for free RC OR RE AND allocate IN pairs (RC/RB,RE/RD) */
-        k = RC;
-        if (regs[k] == 0)
-            break;
-        k = RE;
-        if (regs[k] == 0)
-            break;
+   
+    /* look for free RC OR RE AND allocate IN pairs (RC/RB,RE/RD) */
+    for (idump = 0; regs[k = RC] && regs[k = RE];) {
         if (idump > 0) {
             *ia = 0;
             return;
-        } else {
-            if (np >= 0) {
-                ip = 0;
+        }
+        ip = 0;
+        if (np >= 0 && sp > 0) {
+            /* generate temporaries IN the stack AND RE-try */
+            /* search for lowest register pair assignment IN stack */
+            for (i = 1; i <= sp; i++) {
+                k = rasn[i];
+                if (k == 0) {
+                    if (st[i] == 0 && litv[i] < 0)
+                        ip = 0;
+                } else if (k <= 255 && ip == 0) {
+                    j = k % 16;
+                    jp = k / 16;
+                    if (!lock[j] && (jp == 0 || (jp == j - 1 && !lock[jp])))
+                        ip = i;
 
-                /* generate temporaries IN the stack AND RE-try */
-                /* search for lowest register pair assignment IN stack */
-                if (sp > 0) {
-                    for (i = 1; i <= sp; i++) {
-                        k = rasn[i];
-                        if (k == 0) {
-                            if (st[i] == 0 && litv[i] < 0)
-                                ip = 0;
-                        } else if (k <= 255) {
-                            j = k % 16;
-                            if (lock[j] == false) {
-                                jp = k / 16;
-                                if (jp != 0)
-
-                                    /* otherwise check ho register */
-                                    if (lock[jp] != false || jp != j - 1)
-                                        continue;
-                                if (ip == 0)
-                                    ip = i;
-                            }
-                        }
-                    }
-                    if (ip != 0) {
-
-                        /* found entry to PUSH at ip */
-                        j = rasn[ip];
-                        jp = j / 16;
-                        j = j % 16;
-                        regs[j] = 0;
-                        if (jp > 0)
-                            regs[jp] = 0;
-
-                        /* check pending register store */
-                        k = regs[RA];
-                        if (k != 0) {
-                            if (k == j)
-                                emit(LD, j, RA);
-
-                            else {
-                                if (k != jp)
-                                    goto L130;
-
-                                /* store into ho register */
-                                emit(LD, jp, RA);
-                            }
-                            regs[RA] = 0;
-                        }
-
-                        /* free the register for allocation */
-                    L130:stack(1);
-                        emit(PUSH, j - 1, 0);
-
-                        /* mark element as stacked (st=0, rasn=0) */
-                        rasn[ip] = 0;
-                        st[ip] = 0;
-                        litv[ip] = -1;
-                        continue;
-                    }
                 }
             }
+        }
+        if (ip == 0) {
             idump = 1;
             saver();
+        } else {            /* found entry to PUSH at ip */
+            j = rasn[ip] % 16;
+            jp = rasn[ip] / 16;
+
+            regs[j] = 0;
+            if (jp > 0)
+                regs[jp] = 0;
+
+            /* check pending register store */
+            if ((k = regs[RA]) && (k == j || k == jp)) {
+                emit(LD, k == j ? j : jp, RA);
+                regs[RA] = 0;
+            }
+
+            /* free the register for allocation */
+            stack(1);
+            emit(PUSH, j - 1, 0);
+
+            /* mark element as stacked (st=0, rasn=0) */
+            st[ip] = rasn[ip] = 0;
+            litv[ip] = -1;;
         }
+
+
     }
     *ia = k;
-    if (n > 1)
+    if (iabs(np) > 1)
         *ib = *ia - 1;
     return;
 }
@@ -1772,10 +1700,10 @@ void loadsy() {
 
             /* get the procedure name corresponding to interrupt i-1 */
             for (j = 0, l = 1; (k = gnc(1)) != '/'; l *= 32) {
-                k -= itran[k] - CHZERO;      // convert to base 32 number
-                if (k < 0 || k > 31)
+                if (isBase32(k))
+                    j += base32ToInt(k) * l;      // add in next base 32 digit
+                else
                     goto L140;
-                j += k * l;
             }
             intpro[i + 1] = j;
             if (C_SYMBOLS >= 2)
@@ -1804,9 +1732,9 @@ void loadsy() {
                         SIGN = -1;
                     else
                         goto L140;
-                    for (l = 1, k = 0; isalnum(i = gnc(1)) && toupper(i) <= 'V'; l *= 32)
+                    for (l = 1, k = 0; isBase32(i = gnc(1)); l *= 32)
                         /* get next digit */
-                        k += (itran[i] - CHZERO) * l;
+                        k += base32ToInt(i) * l;
 
                     /* END of number */
                     if (syinfo <= sytop) {
@@ -3049,123 +2977,99 @@ void cvcond(const int s) {
 }
 
 void saver() {
-    int ic1, ic2, i1, i2, i, j, k, l;
+    int byteCnt, wordCnt, byteChain, wordChain, i;
 
     /* save the active registers AND reset tables */
     /* first determine the stack elements which must be saved */
-    ic1 = 0;
-    ic2 = 0;
-    i1 = 0;
-    i2 = 0;
+
     if (sp != 0) {
-        for (j = 1; j <= sp; j++) {
-            k = rasn[j];
-            if (k > 255)
+        wordChain = byteChain = wordCnt = byteCnt = 0;
+        for (int j = 1; j <= sp; j++) {
+            int regPair = rasn[j];
+            if (regPair > 255) {
                 cvcond(j);
-            if (k > 0) {
-                k = rasn[j];
-                if (k >= 16) {
-
-                    /* double byte */
-                    l = k % 16;
-                    k = k / 16;
-                    if (!(lock[l] || lock[k])) {
-                        st[j] = i2;
-                        i2 = j;
-                        ic2 = ic2 + 1;
-                    }
-                } else
-
-                    /* single byte */
-                    if (lock[k] != true) {
-                        st[j] = i1;
-                        ic1 = ic1 + 1;
-                        i1 = j;
-                    }
+                regPair = rasn[j];
             }
+            if (regPair >= 16) {
+                /* double byte */
+                if (!(lock[regPair % 16] || lock[regPair / 16])) {
+                    st[j] = wordChain;
+                    wordChain = j;
+                    wordCnt++;
+                }
+            } else if (regPair > 0 && !lock[regPair]) {                    /* single byte */
+                st[j] = byteChain;
+                byteChain = j;
+                byteCnt++;
+
+            }
+
         }
-        lmem = lmem - ic1 - (ic2 * 2);
-        if (lmem % 2 * ic2 > 0 && ic1 == 0)
-            lmem = lmem - 1;
+        lmem -= byteCnt + wordCnt * 2;
+        if (byteCnt == 0 && wordCnt != 0 && lmem % 2)
+            lmem--;
 
         /* lmem is now properly aligned. */
         if (lmem < 0) {
             error(119, 1);
             return;
         } else {
-            k = lmem;
-            while (i1 + i2 != 0) {
-                if (k % 2 == 1 || i2 == 0) {
+            int loc = lmem;
+            while (byteChain + wordChain) {
+                if (loc % 2 || wordChain == 0)       /* single byte */
+                    byteChain = st[i = byteChain];
+                else                                /* even byte boundary with double bytes to store */
+                    wordChain = st[i = wordChain];
 
-                    /* single byte */
-                    i = i1;
-                    i1 = st[i];
-                } else {
-
-                    /* even byte boundary with double bytes to store */
-                    i = i2;
-                    i2 = st[i];
-                }
                 if (i <= 0) {
                     error(120, 1);
                     return;
-                } else {
-
-                    /* place temporary into symbol table */
-                    sytop = sytop + 1;
-                    st[i] = sytop;
-                    symbol[sytop] = syinfo;
-                    j = rasn[i];
-                    l = 1;
-                    if (j >= 16)
-                        l = 2;
-                    symbol[syinfo] = k;
-                    k = k + l;
-                    syinfo = syinfo - 1;
-                    symbol[syinfo] = 256 + l * 16 + VARB;
-
-                    /* length is 1*256 */
-                    syinfo = syinfo - 1;
-
-                    /* leave room for LXI chain */
-                    symbol[syinfo] = 0;
-                    syinfo = syinfo - 1;
-                    if (sytop > syinfo) {
-                        error(121, 5);
-                        return;
-                    } else {
-
-                        /* store into memory */
-                        l = rasn[i];
-                        rasn[i] = 0;
-                        sp = sp + 1;
-                        setadr(sytop);
-                        litadd(sp);
-                        for (;;) {
-                            i = l % 16;
-                            if (i == regs[RA]) {
-                                i = 1;
-                                regs[RA] = 0;
-                                regv[RA] = -1;
-                            }
-                            emit(LD, ME, i);
-                            l = l / 16;
-                            if (l == 0) {
-                                _delete(1);
-                                break;
-                            } else {
-
-                                /* double byte store */
-                                emit(IN, RL, 0);
-                                regv[RL] = regv[RL] + 1;
-                            }
-                        }
-                    }
                 }
+
+                /* place temporary into symbol table */
+                st[i] = ++sytop;
+                symbol[sytop] = syinfo;
+
+                symbol[syinfo] = loc;
+                loc += rasn[i] >= 16 ? 2 : 1;
+
+                symbol[--syinfo] = 256 + VARB + (rasn[i] >= 16 ? 32 : 16);
+
+                /* length is 1*256 */
+
+                /* leave room for LXI chain */
+                symbol[--syinfo] = 0;
+                if (sytop > --syinfo) {
+                    error(121, 5);
+                    return;
+                }
+
+                /* store into memory */
+                int regPair = rasn[i];
+                rasn[i] = 0;
+                sp++;
+                setadr(sytop);
+                litadd(sp);
+                while (regPair) {
+                    i = regPair % 16;
+                    if (i == regs[RA]) {
+                        i = RA;
+                        regs[RA] = 0;
+                        regv[RA] = -1;
+                    }
+                    emit(LD, ME, i);
+                    if (regPair /= 16) {        /* double byte store */
+                        emit(IN, RL, 0);
+                        regv[RL]++;
+                    }
+
+                }
+                _delete(1);
+
             }
         }
     }
-    for (i = 2; i <= 7; i++)
+    for (int i = 2; i <= 7; i++)
         if (lock[i] != true) {
             regs[i] = 0;
             regv[i] = -1;
@@ -3349,30 +3253,25 @@ int loadin()        // modified for V4
     /* get rid of last card image */
     ibp = 99999;
 
-    do {
-        i = gnc(0);
-    } while (!(i != 1));
-    if (i != 41)
+    while ((i = gnc(1)) == ' ')
+        ;
+
+    if (i != '/')
         error(124, 1);
 
     else
-        for (;;) {
+        while ((i = gnc(1)) != '/') {
 
             /* process next symbol table entry */
-            i = gnc(0);
-            if (i == 41)
-                break;
-            i = i - 2;
 
             /* build address of initialized symbol */
-            k = 32;
-            for (j = 1; j <= 2; j++) {
-                i = (gnc(0) - 2) * k + i;
-                k = k * 32;
-            }
+            i = base32ToInt(i);
+            i += base32ToInt(gnc(1)) * 32;
+            i += base32ToInt(gnc(1)) * 32 * 32;
+
+
             j = symbol[i];
-            k = symbol[j - 1];
-            k = k / 16 % 16;
+            k = symbol[j - 1] / 16 % 16;
             j = symbol[j];
 
             /* j is starting address, AND k is the precision of */
@@ -3388,39 +3287,28 @@ int loadin()        // modified for V4
             if (ival < 0)
                 ival = j;
             lp = -1;
-            for (;;) {
-                lp = lp + 1;
-                i = gnc(0) - 2;
-
-                /* check for ending / */
-                if (i == 39)
-                    break;
+            for (lp = 0;(i = gnc(1)) != '/'; lp++) {
+                i = base32ToInt(i);
                 l = i / 16;
-                i = i % 16 * 16 + (gnc(0) - 2);
+                i = i % 16 * 16 + base32ToInt(gnc(1));
 
                 /* i is the next hex value, AND l=1 if beginning of a new bvalue */
                 if (k != 2)
                     put(codloc, i);
 
-                else {
-
-                    /* double byte initialize */
-                    if (l == 0)
-
-                        /* check for long constant */
-                        if (lp < 2) {
-
+                /* double byte initialize */
+                else if (l == 0 && lp < 2) { /* check for long constant */
                             /* exchange places with h.o. AND l.o. bytes */
-                            n = get(codloc - 2);
-                            put(codloc - 1, n);
-                            put(codloc - 2, i);
-                            continue;
-                        }
+                        n = get(codloc - 2);
+                        put(codloc - 1, n);
+                        put(codloc - 2, i);
+                        continue;
+                } else {
                     lp = 0;
                     put(codloc, i);
                     put(codloc + 1, 0);
                 }
-                codloc = codloc + k;
+                codloc += k;
             }
         }
     C_INPUT = m;
@@ -3492,16 +3380,15 @@ void inldat() {
     for (;;) {
         k = 0;
         if (lapol != 0) {
-            for (j = 1; j <= 3; j++)
-                for (;;) {
-                    i = gnc(0);
-                    if (i != SPACE) {
-                        if (i < CHZERO || i > CHV)
-                            goto L330;
-                        k = k * 32 + i - CHZERO;
-                        break;
-                    }
-                }
+            for (j = 1; j <= 3; j++) {
+                while ((i = gnc(1)) == ' ')
+                    ;
+                if (isBase32(i))
+                    k = k * 32 + base32ToInt(i);
+                else
+                    goto L330;
+
+            }
             i = k;
             k = lapol;
             lapol = i;
@@ -3878,19 +3765,17 @@ void readcd() {
         do {
             k = 0;
             if (lapol != 0)
-                for (j = 1; j <= 3; j++)
-                    for (;;) {
-                        i = gnc(0);
-                        if (i != SPACE)
-                            if (i >= 2 && i <= 33) {
-                                k = k * 32 + (i - 2);
-                                break;
-                            } else {
-                                error(127, 5);
-                                C_INPUT = m;
-                                return;
-                            }
+                for (j = 1; j <= 3; j++) {
+                    while ((i = gnc(1)) == ' ')
+                        ;
+                    if (isBase32(i))
+                        k = k * 32 + base32ToInt(i);
+                    else {
+                        error(127, 5);
+                        C_INPUT = m;
+                        return;
                     }
+                }
 
             /* copy the elt just read to the polish look-ahead, AND */
             /* interpret the previous elt */
@@ -4389,11 +4274,9 @@ bool operat(int val) {
         apply(XR, XR, 1, 0);
         return true;
     case NOT:
-        i = rasn[sp];
-        if (i > 255) {      /* condition code - change PARITY */
-            j = 1 - (i / 4096);
-            rasn[sp] = j * 4096 + i % 4096;
-        } else {                  /* perform XOR with 255 OR 65535 (byte OR address) */
+        if (rasn[sp] > 255)      /* condition code - change PARITY */
+            rasn[sp] ^= 0x1000;
+        else {                  /* perform XOR with 255 OR 65535 (byte OR address) */
             i = prec[sp];
             litv[++sp] = (1 << (i * 8)) - 1;
             prec[sp] = i;
@@ -4740,7 +4623,7 @@ bool operat(int val) {
                     i = litv[sp];
                     if (i >= 0 && i <= 255) {
                         _delete(1);
-                        sp = sp + 1;
+                        sp++;
                         genreg(1, &j, &k);
                         if (j != 0) {
                             k = regs[RA];
@@ -5768,23 +5651,23 @@ void sydump() {
     /* get rid of last card image */
     ibp = 99999;
 
-    while ((i = gnc(0)) == SPACE)
+    while ((i = gnc(1)) == ' ')
         ;
-    if (i != SLASH)
+    if (i != '/')
         error(143, 1);
 
     else
-        while ((i = gnc(0)) != SLASH) {            /* process next symbol table entry */
+        while ((i = gnc(1)) != '/') {            /* process next symbol table entry */
 
 
             /* process the next symbol */
-            i -= 2;                                // build address of initialized symbol
-            i += (gnc(0) - 2) * 32;
-            i += (gnc(0) - 2) * 32 * 32;
+            i = base32ToInt(i);                                // build address of initialized symbol
+            i += base32ToInt(gnc(1)) * 32;
+            i += base32ToInt(gnc(1)) * 32 * 32;
 
 
             if (i <= 4 || i == 6)
-                while ((j = gnc(0)) != SLASH)
+                while ((j = gnc(1)) != '/')
                     ;
 
             else {
@@ -5792,10 +5675,10 @@ void sydump() {
                 form("%5d ", i);
                 ichar = 0;
                 memset(_char, '.', sizeof(_char));
-                while ((j = gnc(0)) != SLASH) {  /* read until next / symbol */
+                while ((j = gnc(1)) != '/') {  /* read until next / symbol */
                     if (ichar < sizeof(_char))
-                        _char[ichar++] = otran[j];
-                    putch(otran[j]);            /* write next character IN string */
+                        _char[ichar++] = j;
+                    putch(j);            /* write next character IN string */
                 }
 
                 /* END of symbol */
