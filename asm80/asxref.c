@@ -144,7 +144,7 @@ static void StatusChk(word scode)
         ReportError(scode);
         Close(tmpAFTN, &status);
         Close(connP, &status);
-        Exit();
+        Exit(1);
     }
 }
 
@@ -219,7 +219,7 @@ static NORETURN(FatalError(byte err))
     else
         OutStrCRLF("NOT ENOUGH MEMORY", 17);
     Close(tmpAFTN, &status);
-    Exit();
+    Exit(1);
 }
 
 
@@ -543,7 +543,7 @@ void GenAsxref() {      // will reuse the asxrefTmp file from the main routine s
             Close(tmpAFTN, &status);
             Close(connP, &status);
             Delete(asxrefTmp, &status);
-            Exit();
+            Exit(errCnt != 0);
         }
     }
 }

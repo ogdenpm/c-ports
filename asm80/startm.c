@@ -57,7 +57,7 @@ void IoErrChk()
     if (statusIO == 0)
         return;
     Error(statusIO);
-    Exit();
+    Exit(1);
 }
 
 
@@ -202,7 +202,7 @@ void RuntimeError(byte errCode)
         return;
     }
 
-    Exit();
+    Exit(1);
 }
 
 void IoError(pointer path)

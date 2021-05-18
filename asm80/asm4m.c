@@ -91,7 +91,7 @@ void FinishLine()
     if (skipRuntimeError) {
         outP++;
         Flushout();
-        Exit();
+        Exit(1);
     }
 
     if (! isControlLine)

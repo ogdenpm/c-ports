@@ -344,9 +344,9 @@ void Error(word ErrorNum)
         fprintf(stderr, "Unknown error %d.\n", ErrorNum);
 }
 
-NORETURN(Exit())
+NORETURN(Exit(int retCode))
 {
-    _exit(1);
+    exit(retCode);
 }
 
 void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer statusP)

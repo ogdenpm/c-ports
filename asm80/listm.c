@@ -449,5 +449,5 @@ void FinishAssembly()
     if (controls.xref) /* invoke asxref ?? */
         GenAsxref();
 
-    Exit();
+    Exit(errCnt != 0);
 }
