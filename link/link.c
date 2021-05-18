@@ -107,7 +107,7 @@ void FatalErr(byte errCode)
     if (recNum > 0 )
         BinAsc(recNum, 10, ' ', &recErrMsg[32], 5);
     ConOutStr(recErrMsg, sizeof(recErrMsg) - 1);
-    Exit();
+    Exit(1);
 } /* FatalErr() */
 
 void IllFmt()
@@ -197,7 +197,7 @@ void Start()
 //        FileError(ERR219, &filePath[1], TRUE);  /* phase Error() */
     Phase2();
     Close(printFileNo, &statusIO);
-    Exit();
+    Exit(0);
 
 } /* Start */
 

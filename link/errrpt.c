@@ -33,7 +33,7 @@ void FileError(word errCode, pointer file, bool errExit)
 		Write(0, ",", 1, &status);
 		ReportError(errCode);
 		if (errExit )
-			Exit();
+			Exit(1);
 	}
 } /* FileError() */
 

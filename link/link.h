@@ -446,7 +446,7 @@ void EmitPUBLICS();
 void EndRecord();
 void ErrNotDiscFile();
 void Error(word ErrorNum);
-void Exit();
+void Exit(int retCode);
 void ExpectChar(byte ch, byte errCode);
 void ExpectComma();
 void ExpectType(byte type);

@@ -48,7 +48,7 @@ void FatalCmdLineErr(word errCode)
 	ReportError(errCode);
 	ConOutStr(scmdP, (word)(cmdP - scmdP + 1));
 	ConOutStr(CRLF, 2);
-	Exit();
+	Exit(1);
 } /* FatalCmdLineErr() */
 
 
