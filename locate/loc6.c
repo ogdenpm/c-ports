@@ -73,7 +73,7 @@ void CmdErr(word err)
 	Errmsg(err);
 	ConStrOut(scmdP, (word)(cmdP - scmdP) + 1);
 	ConStrOut(crlf, 2);
-	Exit();
+	Exit(1);
 } /* CmdErr */
 
 

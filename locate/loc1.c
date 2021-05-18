@@ -113,7 +113,7 @@ void FatalErr(byte errCode)
 	if (recNum > 0)
 		BinAsc(recNum, 10, ' ', &aRecordType[32], 5);
 	ConStrOut(aRecordType, 39); 
-	Exit();
+	Exit(1);
 }
 
 
@@ -561,6 +561,6 @@ void Start()
 	LocateFile();
 	FlushPrintBuf();
 	Close(printfd, &statusIO);
-	Exit();
+	Exit(0);
 
 }

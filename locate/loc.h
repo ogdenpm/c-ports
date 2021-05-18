@@ -417,7 +417,7 @@ void ErrChkReport(word errCode, pointer file, bool errExit);
 void Errmsg(word errCode);
 void ErrNotADisk();
 void Error(word ErrorNum);
-void Exit();
+void Exit(int retCode);
 void ExpectChar(byte ch, byte err);
 void ExpectLP();
 void ExpectRP();

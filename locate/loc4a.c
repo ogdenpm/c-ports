@@ -34,6 +34,6 @@ void ErrChkReport(word errCode, pointer file, bool errExit)
 		Write(0, ",", 1, &status);
 		Errmsg(errCode);
 		if (errExit )
-			Exit();
+			Exit(1);
 	}
 } /* ErrChkReport */
