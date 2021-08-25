@@ -26,7 +26,7 @@
 #include "common.hpp"
 #include "trace.hpp"
 #include "Generated\version.h"
-void showVersion(FILE *fp, char *altName, bool full);
+void showVersion(FILE *fp, bool full);
 
 byte *address::memory = new byte[0x10000];
 
@@ -257,7 +257,7 @@ void showVersion(char *description, bool full) {
 int main(int argc, char **argv) {
     int pass = 0;
     if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, "Old C++ port of Intel's ISIS-II PLM80 v4.0 by Mark Ogden", argv[1][1] == 'V');
+        showVersion(stdout, argv[1][1] == 'V');
         exit(0);
     }
     gargc = argc;
