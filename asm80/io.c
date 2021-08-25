@@ -30,7 +30,7 @@
 #include <stdbool.h>
 
 #include "Generated/version.h"
-void showVersion(FILE *fp, char *altName, bool full);
+void showVersion(FILE *fp, bool full);
 
 #ifdef _WIN32
 #include <io.h>
@@ -204,7 +204,7 @@ int main(int argc, char **argv)
     char *s, *progname;
 
     if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, "C port of Intel's ISIS-II ASM80 v4.1 -", argv[1][1] == 'V');
+        showVersion(stdout, argv[1][1] == 'V');
         exit(0);
     }
 #ifdef _WIN32
