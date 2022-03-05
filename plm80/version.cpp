@@ -94,11 +94,12 @@ void showVersion(FILE *fp, bool full) {
     fputs(git_ver, fp);
     fputc('\n', fp);
     if (full) {
-        fputs("Detailed Version Information:\n", fp);
+        char *label = "Program:";
         // now print out the version information
         for (const git_detail_t **s = git_details; *s; s++) {
-            fprintf(fp, "%-8s %-8s %-8s [%s]\n", (*s)->name, (*s)->version,
+            fprintf(fp, "%s %-8s %-8s %-8s [%s]\n", label, (*s)->name, (*s)->version,
                     (*s)->sha1, (*s)->time);
+            label = "Library:";
         }
     }
 }
