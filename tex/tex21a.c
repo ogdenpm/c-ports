@@ -37,13 +37,6 @@ char copyright[] = " Copyright(c) 1980 Digital Research ";
 #define VERSION   "TEX 2.1"
 #define buildDate "02/13/81"
 
-/*
-declare aFileNotFound(*) byte data('File ! found$');
-declare aUndefined(*) byte data('Undefined    Command$');
-declare	(cmdChr1, cmdChr2) byte at(.aUndefined + 10);
-
-declare aAbortYN(*) byte data(CR, 'Abort (Y/N) ?$');
-*/
 const byte breakChar[] = "\n\t ?*=:!=|_[]";
 
 byte ii;
@@ -68,23 +61,91 @@ FCB prnFCB;
 FCB ixFCB;
 FCB texFCB;
 
-byte getCmdLine();
-byte getcCon();
-void putPrn(char c);
+
+
+/* tex21a.c */
+void wrapup(void);
+void error(char *msg);
+void fatalError(char *msg);
+void putDstEscCode(char c);
+void enablePS(void);
+void disablePS(char n);
+void absoluteHT(byte n);
+void setMargins(void);
+void createFile(FCB *fcb, bool isIx);
+byte getCmdLine(void);
+char *getCmdParameter(void);
+bool pageInRange(void);
+void selectDst(void);
+void selectSrc(byte n);
+void selectSrcAndGetc(byte n);
+byte getUCChar(void);
+char *fname(char *name);
+bool initFCB(FCB *fcb);
 void putCon(char c);
+void putPrn(char c);
 void nullSub(char c);
-byte getTex();
-byte getRsp();
-byte getDef();
+void putTextCh(char c);
+void leadingSpaceN(int n);
+void newLineN(int n);
+void screenNewLineN(int cnt);
+bool roomOnPage(byte n);
+void putcLineOutChar(void);
+void emitCharItem(void);
+void spacingText(byte n);
+void centre(byte n);
+void emitPageNum(bool centreNum);
+void emitHeadingOrFooter(char *buf, byte n);
+void emitEndOfPage(void);
+void emitHeadingIfAtTop(void);
+void spacing(byte n);
+byte allocateSlack(byte srcIdx, byte srcEndIdx, byte dstIdx, byte step);
+void moveUpText(byte oldEnd, byte oldStart, byte newEnd);
+void justify(void);
+void outputLine(void);
+void markEscCode(char c);
+void putEscCode(char c);
+void trimTrailingSpace(void);
+void txtBreak(void);
+void finishPage(void);
+bool openSrc(FCB *fcb);
+void nextSrcOrDone(void);
+char getNext(FCB *fcb);
+byte getTex(void);
+byte getDef(void);
+byte getcCon(void);
+byte getRsp(void);
+void skipToEOL(void);
+void getcProcessEscape(void);
+void setupThisLine(void);
+byte collectLine(void);
+byte collectTextBlock(void);
+void undefinedCommandError(void);
+int16_t getNumber(void);
+uint16_t get16NewValue(uint16_t n);
+byte get8NewValue(byte n);
+byte get8AbsNumber(void);
+bool openDefSrc(void);
+void setAltGetcToDefSrc(void);
+void setupPS(void);
+void getPath(FCB *fcb);
+void getOptions(void);
+void getFirstArgChar(void);
+byte getHeaderOrFooter(char *userBuf, byte width);
+void writeIXInfo(void);
+byte getMax8BitNumber(byte oldVal, byte upper);
+void writePrompt(void);
+byte getLeadInCH(byte c);
+void condNewPage(byte n);
+void procDotCmd(void);
+void mkName(FCB *fcb, char *ext);
+
+
+
 
 byte tline, wline, eline, nline, sline;
 byte lineOutBuf[256];
-byte cmdLineIdx       = 0;
 
-address prnBufIdx     = 0;
-address texBufBase    = 0;
-address fileBuf       = 0;
-address defBufBase    = 0;
 byte srcFileOpt       = SRCCMDLINE;
 byte prevSrcFileOpt   = SRCTEX;
 byte (*cgetc)()       = getCmdLine;
@@ -92,7 +153,6 @@ byte inputChar        = 0;
 byte altSrcOpt        = 'X';
 byte (*altGetc)()     = getcCon;
 byte prevAltInputChar = ' ';
-byte stdinIdx         = 0;
 byte prnToDev         = 0;
 void (*cputc)(char c) = putPrn;
 void (*dstPutc)(char c);
@@ -161,7 +221,6 @@ bool noUserPageNum        = true;
 byte signPrefix           = 0;
 byte footerLine[133];
 byte headerLine[133];
-byte inBuf[128];
 
 // cmd line variables
 int _argc;
@@ -181,7 +240,8 @@ void wrapup() {
     if (prnToDev == 0) {
         fclose(prnFCB.fp);
         unlink(prnFCB.name);
-    }
+    } else if (prnToDev == 'Y')
+        fclose(prnFCB.fp);
     if (ixInitialised) {
         fclose(ixFCB.fp);
         unlink(ixFCB.name);
@@ -275,8 +335,6 @@ void createFile(FCB *fcb, bool isIx) {
 byte getCmdLine() {
     if (arg < _argc && _argv[arg][argIdx]) {
         inputChar = _argv[arg][argIdx++];
-        if (argIdx == 1 && inputChar == '-') // map leading - option to $ for common code
-            inputChar = '$';
     } else if (arg == _argc || ++arg == _argc)
         inputChar = '\n';
     else {
@@ -288,8 +346,9 @@ byte getCmdLine() {
 
 char *getCmdParameter() {
     if (arg < _argc) {
-        argIdx = strlen(_argv[arg]);
-        return _argv[arg] + (argIdx == 0 ? 0 : 2);
+        char *s = _argv[arg] + (argIdx == 0 ? 0 : 2);
+        argIdx = (int)strlen(_argv[arg]);
+        return s;
     } else
         return NULL;
 }
@@ -299,12 +358,10 @@ bool pageInRange() {
 }
 
 void selectDst() {
-    if (prnToDev == 0)
+    if (prnToDev == 0 || prnToDev == 'Y')
         cputc = putPrn;
     else if (prnToDev == 'X')
         cputc = putCon;
-    //   else if (prnToDev == 'Y')
-    //       cputc = wrlst;
     else
         cputc = nullSub;
 
@@ -350,15 +407,6 @@ char *fname(char *name) {
     return name;
 }
 
-char *cpypath(char *name) {
-    char *s    = fname(name);
-    size_t len = s - name;
-    char *path = malloc(len + 1);
-    memcpy(path, name, len);
-    path[len] = 0;
-    return path;
-}
-
 bool initFCB(FCB *fcb) {
     int nameIdx  = 0;
     bool hasExt  = false;
@@ -367,7 +415,7 @@ bool initFCB(FCB *fcb) {
     fcb->name[0] = '\0';
     if (fcb->path) {
         strcpy(fcb->name, fcb->path);
-        nameIdx = strlen(fcb->name);
+        nameIdx = (int)strlen(fcb->name);
         if (nameIdx && !isDirSep(fcb->name[nameIdx - 1])) {
             fcb->name[nameIdx++] = '/';
             fcb->name[nameIdx]   = 0;
@@ -833,7 +881,7 @@ void nextSrcOrDone() {
 
     manualFeed = 0;
     emitEndOfPage();
-    if (prnToDev == 0)
+    if (prnToDev == 0 || prnToDev == 'Y')
         fclose(prnFCB.fp);
     if (ixInitialised)
         fclose(ixFCB.fp);
@@ -1169,17 +1217,20 @@ void getOptions() {
                     getPath(&prnFCB);
                     if (strcmp(prnFCB.path, "-") == 0)
                         prnToDev = 'X';
+                    else if (isdevice(prnFCB.path))
+                        prnToDev = 'Y';          /* treat as printer device */
                 } else if (fileOptChar == 'E') { /* $EY - enable error printing */
                     if (inputChar == 'Y')
                         errPrint = true;
                     else if (inputChar != 'X') /* $EX - no error printing (default) */
                         fatalError("InvalidParameter");
-                } else if (fileOptChar == 'X') /* $XZ - no ix file */
-                    if (inputChar == 'Z')
+                } else if (fileOptChar == 'X') {
+                    getPath(&ixFCB);
+                    if (strcmp(ixFCB.path, "-") == 0)
                         doIX = false;
-                    else /* else $Xpath where path is ix file path */
-                        getPath(&ixFCB);
-                else
+                    else if (isdevice(ixFCB.path))
+                        fatalError("InvalidParameter");
+                } else
                     fatalError("InvalidParameter");
                 fileOptChar = 0;
             }
@@ -1352,7 +1403,7 @@ void procDotCmd() {
                 undefinedCommandError();
             break;
         case 'C':
-            if (cmdChr2 == '2') /* .C2 nc - set literal leadin char to c - n ! used */
+            if (cmdChr2 == '2') /* .C2 nc - set literal leadin char to c - n not used */
                 litLeadIn = getLeadInCH('`');
             else if (cmdChr2 == 'C') /* .CC nc - set command leadin char to c - n ! used */
                 cmdLeadIn = getLeadInCH('.');
@@ -1620,17 +1671,46 @@ void procDotCmd() {
         skipToEOL();
 }
 
+#ifdef _WIN32
+static char const *device[] = { "CON:",  "PRN:",  "AUX:",  "NUL:",  "COM1:", "COM2:", "COM3:", "COM4:",
+                                "COM5:", "COM6:", "COM7:", "COM8:", "COM9:", "LPT1:", "LPT2:", "LPT3:",
+                                "LPT4:", "LPT5:", "LPT6:", "LPT7:", "LPT8:", "LPT9:", NULL };
+
+static bool isdevice(char const *fn) {
+    char *s = strrchr(fn, ':');
+    if (!s || s[1] != 0)
+        return false;
+    for (char const **dp = device; *dp; dp++) {
+        if (stricmp(fn, *dp) == 0)
+            return true;
+    }
+    return false;
+}
+#endif
+
+
+
+
 void mkName(FCB *fcb, char *ext) {
     char *s;
     if (fcb->path) {
-        strcpy(fcb->name, fcb->path);
-        strcat(fcb->name, fname(texFCB.name));
+        strcpy(fcb->name, fcb->path);   // copy dir / fullpath
+        s = fname(fcb->name);
+        if (strcmp(s, ".") == 0 || strcmp(s, "..") == 0)
+            strcat(strcat(s, "/"), fname(texFCB.name));
+        else if (*s == 0) // was dir so add input file name
+            strcat(fcb->name, fname(texFCB.name));
+        else if (strchr(s, '.')) // has user specified ext
+            return;
+#ifdef _WIN32
+        else if (isdevice(s))
+            return; /* device*/
+#endif
     } else
-        strcpy(fcb->name, texFCB.name);
-    if (s = strrchr(fname(fcb->name), '.'))
-        strcpy(s, ext);
-    else
-        strcat(fcb->name, ext);
+        strcpy(fcb->name, texFCB.name); // use input file name as basis
+    if (s = strrchr(fname(fcb->name), '.')) // remove input ext
+        *s = 0;
+    strcat(fcb->name, ext); // append mkName specified ext
 }
 
 int main(int argc, char **argv) {

@@ -3,7 +3,7 @@
 #define v0_0_0_0
 #define GIT_APPID       "tex"
 #define GIT_PORT        "(C) Digital Research"
-#define GIT_APPNAME     "l81"
+#define GIT_APPNAME     "tex"
 #define GIT_VERSION     "0.0.0x"
 #define GIT_VERSION_RC  0,0,0,0
 #define GIT_SHA1        "untracked"
