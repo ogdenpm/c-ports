@@ -230,6 +230,25 @@ int argIdx;  // index into current arg string
 
 char *cmdLine;
 
+
+#ifdef _WIN32
+static char const *device[] = { "CON:",  "PRN:",  "AUX:",  "NUL:",  "COM1:", "COM2:",
+                                "COM3:", "COM4:", "COM5:", "COM6:", "COM7:", "COM8:",
+                                "COM9:", "LPT1:", "LPT2:", "LPT3:", "LPT4:", "LPT5:",
+                                "LPT6:", "LPT7:", "LPT8:", "LPT9:", NULL };
+
+static bool isdevice(char const *fn) {
+    char *s = strrchr(fn, ':');
+    if (!s || s[1] != 0)
+        return false;
+    for (char const **dp = device; *dp; dp++) {
+        if (stricmp(fn, *dp) == 0)
+            return true;
+    }
+    return false;
+}
+#endif
+
 void waitKey() {
     fputs("Hit any key to continue:", stdout);
     getch();
@@ -1671,22 +1690,7 @@ void procDotCmd() {
         skipToEOL();
 }
 
-#ifdef _WIN32
-static char const *device[] = { "CON:",  "PRN:",  "AUX:",  "NUL:",  "COM1:", "COM2:", "COM3:", "COM4:",
-                                "COM5:", "COM6:", "COM7:", "COM8:", "COM9:", "LPT1:", "LPT2:", "LPT3:",
-                                "LPT4:", "LPT5:", "LPT6:", "LPT7:", "LPT8:", "LPT9:", NULL };
 
-static bool isdevice(char const *fn) {
-    char *s = strrchr(fn, ':');
-    if (!s || s[1] != 0)
-        return false;
-    for (char const **dp = device; *dp; dp++) {
-        if (stricmp(fn, *dp) == 0)
-            return true;
-    }
-    return false;
-}
-#endif
 
 
 
