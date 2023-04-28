@@ -35,7 +35,7 @@ typedef word *wpointer;
 // this is used to calculate a size for MEMORY seg
 // as MemCk returns the top of memory for other uses
 // defined a MEMCK value to use in calculation
-#define MEMCK	0xff00
+#define MEMCK	0xF6C0
 
 // accessor macros for HIGH and LOW
 // word cast is to avoid 64bit warnings

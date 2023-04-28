@@ -323,7 +323,7 @@ static void GetToken()
 
 static void ParseId(byte maxLen)
 {
-    byte pstr[33];
+    static byte pstr[33];
 
     optStrValP = &pstr[1];
     tknLen = 0;

@@ -1,0 +1,23 @@
+*****************************************************************************
+* ERROR:
+* Buffer overflow and program crash
+*****************************************************************************
+
+file: "linkov.c"
+================
+
+ORIGINAL:
+---------
+
+void Pass2MODHDR()
+{
+    Pstrcpy(outP, modName);  /* Read() in the module name */
+
+REPLACED TO:
+------------
+
+void Pass2MODHDR()
+{
+    Pstrcpy(inP, modName);  /* Read() in the module name */
+
+

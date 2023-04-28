@@ -1,0 +1,148 @@
+*****************************************************************************
+* ERROR:
+* Incorrect pointer decrement.
+*****************************************************************************
+
+file: "loc1.c"
+==============
+
+ORIGINAL:
+---------
+
+void AddDataFrag(word saddr, word eaddr)
+{
+    ....
+    while ((pointer)curDataFragP != botHeap) {
+        curDataFragP = curDataFragP--;
+
+
+REPLACED TO:
+------------
+
+void AddDataFrag(word saddr, word eaddr)
+{
+    ....
+    while ((pointer)curDataFragP != botHeap) {
+        curDataFragP--;
+
+
+
+
+*****************************************************************************
+* ERROR:
+* Incorrect memory allocation for the data cache.
+*****************************************************************************
+
+file: "loc7.c"
+==============
+
+ORIGINAL:
+---------
+
+void ProcArgsInit()
+{
+    ....
+    /* recalculate pageCache size */
+    pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 1))) - 1;
+
+    ....
+
+    /* recalculate the pageCacheSize now available */
+    pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = ((page1_t *)(pageTab2P + 1)))) - 1;
+
+
+REPLACED TO:
+------------
+
+void ProcArgsInit()
+{
+    ....
+    /* recalculate pageCache size */
+    pageTab1P = (page1_t *) ((pointer) pageTab2P + 256 * sizeof(page2_t));
+    pageCacheSize = (word)High(outRecordP - (pointer) pageTab1P) - 1;
+
+    ....
+    /* recalculate the pageCacheSize now available */
+    pageCacheSize = High(botHeap - baseMemImage) - 1;
+
+
+
+
+
+*****************************************************************************
+* ERROR:
+* Corruption of segment names in the .TRA file.
+*****************************************************************************
+
+file: "loc4.c"
+==============
+
+ORIGINAL:
+---------
+
+byte segNames[] = "ABSOLUTE', 'CODE    ', 'DATA    ', 'STACK   ', 'MEMORY  ";
+
+REPLACED TO:
+------------
+
+byte segNames[] = "ABSOLUTECODE    DATA    STACK   MEMORY  ";
+
+
+
+
+
+*****************************************************************************
+* ERROR:
+* Incorrect definition of string length.
+*****************************************************************************
+
+file: "loc4.c"
+==============
+
+ORIGINAL:
+---------
+
+void PrintMemoryMap()
+{
+    ....
+    if (seen.map)       /* print map header info if asked for */
+    {
+        PrintListingHeader(aMemoryMapOfMod, sizeof(aMemoryMapOfMod)); /* '\r\nMEMORY MAP OF MODULE ' */
+
+
+REPLACED TO:
+------------
+
+void PrintMemoryMap()
+{
+    ....
+    if (seen.map)       /* print map header info if asked for */
+    {
+        PrintListingHeader(aMemoryMapOfMod, sizeof(aMemoryMapOfMod)-1); /* '\r\nMEMORY MAP OF MODULE ' */
+
+
+
+
+
+*****************************************************************************
+* WISH:
+* In ISIS, the end of memory is always 0xF6C0
+*****************************************************************************
+
+file: "loc.h"
+=============
+
+ORIGINAL:
+---------
+
+#define MEMCK   0xFEFF
+
+
+REPLACED TO:
+------------
+
+#define MEMCK   0xF6C0
+
+
+
+

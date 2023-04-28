@@ -318,7 +318,7 @@ byte Lookup(byte tableId) {
                     /* offset of first to use - hashes packed symbol name */
         deltaToNext = /* symTab[TID_KEYWORD] + */ ((packedTokP[0] + packedTokP[1] & 0xffff)) % 151 /* * 8 */;	// C pointers auto scale
 
-        while (deltaToNext != 0) {    /* while ! end of chain */
+        do {
             entryOffset += deltaToNext;    /* point to the next in chain */
             if (entryOffset->tok[0] == packedTokP[0])        /* check for exact match */
                 if (entryOffset->tok[1] == packedTokP[1]) {
@@ -339,7 +339,7 @@ byte Lookup(byte tableId) {
                     return tokenType[0] & 0x7F;
                 }
             deltaToNext = entryOffset->delta / sizeof(tokensym_t);	// scale for C pointer arithmetic
-        }
+        }  while (deltaToNext != 0) {    /* while ! end of chain */
         return O_NAME;
     }
 

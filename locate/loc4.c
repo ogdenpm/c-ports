@@ -31,7 +31,7 @@ byte aRestartControl[] = ", RESTART CONTROL IGNORED";
 byte aAddresses[] = "XXXXH  XXXXH  XXXXH  X  ";
 byte aMemOverlap[] = "  [MEMORY OVERLAP FROM XXXXH THROUGH XXXXH]";
 byte a0LengthSegment[] = "  [0 LENGTH SEGMENT WRAPPED AROUND TO 0000H]";
-byte segNames[] = "ABSOLUTE', 'CODE    ', 'DATA    ', 'STACK   ', 'MEMORY  ";
+byte segNames[] = "ABSOLUTECODE    DATA    STACK   MEMORY  ";
 byte alignNames[] = "AIPB";
 
 pointer GetCommonName(byte segid)
@@ -61,7 +61,7 @@ void PrintMemoryMap()
 
 	if (seen.map)		/* print map header info if asked for */
 	{
-		PrintListingHeader(aMemoryMapOfMod, sizeof(aMemoryMapOfMod)); /* '\r\nMEMORY MAP OF MODULE ' */
+		PrintListingHeader(aMemoryMapOfMod, sizeof(aMemoryMapOfMod)-1); /* '\r\nMEMORY MAP OF MODULE ' */
 		if (isMain )
 		{
 			BinAsc(startAddr, 16, '0', &aModuleStartAdd[21], 4);  /* insert start address in string */
