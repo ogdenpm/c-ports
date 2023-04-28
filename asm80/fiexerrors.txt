@@ -1,0 +1,103 @@
+=============================================================================
+| ERROR:
+| Duplication of the header of the OBJ file,
+| if there is an EXTRN directive in the source.
+| PS: A typical C language error.
+=============================================================================
+
+file: "asm3m.c"
+===============
+
+ORIGINAL:
+---------
+
+void HandleOp()
+{
+    switch (topOp) {
+    ...
+    case 51:                    /* EXTRN ? */
+            inExtrn = true;
+            if (externId == 0 && IsPhase1 && controls.object)
+            ...
+            if (IsPhase1 && controls.object && ! badExtrn)
+
+REPLACED TO:
+------------
+
+void HandleOp()
+{
+    switch (topOp) {
+    ...
+    case 51:                    /* EXTRN ? */
+            inExtrn = true;
+            if (externId == 0 && IsPhase1() && controls.object)
+            ...
+            if (IsPhase1() && controls.object && ! badExtrn)
+
+
+
+
+
+=============================================================================
+| ERROR:
+| A typical C language error
+=============================================================================
+
+file: "startm.c"
+================
+
+ORIGINAL:
+---------
+
+void InitialControls()
+{
+    ....
+    controls.debug == controls.debug && controls.object;    /* debug doesn't make sense if no object code */
+    controls.xref == controls.xref && controls.print;        /* disable controls if not printing */
+
+REPLACED TO:
+------------
+
+void InitialControls()
+{
+    ....
+    controls.debug = controls.debug && controls.object;    /* debug doesn't make sense if no object code */
+    controls.xref = controls.xref && controls.print;        /* disable controls if not printing */
+
+
+
+
+=============================================================================
+| ERROR:
+| For the word 'NE' (with conditional directives)
+| deltaToNext = (0xA528+0) %151 = 0,
+| so the loop will not run once.
+=============================================================================
+
+file: "asm5m.c"
+===============
+
+ORIGINAL:
+---------
+
+byte Lookup(byte tableId)
+{
+    ....
+        while (deltaToNext != 0) {    /* while ! end of chain */
+            ...
+
+            deltaToNext = entryOffset->delta / sizeof(tokensym_t);  // scale for C pointer arithmetic
+        }
+
+REPLACED TO:
+------------
+
+byte Lookup(byte tableId)
+{
+    ....
+        do {
+            ...
+
+            deltaToNext = entryOffset->delta / sizeof(tokensym_t);      // scale for C pointer arithmetic
+        } while(deltaToNext != 0);           /* while ! end of chain */
+

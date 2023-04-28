@@ -200,7 +200,7 @@ int main(int argc, char **argv)
     int i;
     size_t len;
     char *s, *progname;
-    word ovl;
+    // word ovl;
 
     if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
         showVersion(stdout, "C port of Intel's ISIS-II PLM80 v4.0 -", argv[1][1] == 'V');

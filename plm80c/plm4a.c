@@ -65,7 +65,7 @@ byte opcodes[] =
     "\x3" "not" "\x3M10" "\x3" "CPI" "\x3" "CMP"
     "\x3SUI" "\x3SBI" "\x3" "ADI" "\x3" "ACI"
     "\x3" "ANI" "\x3ORI" "\x3XRI" "\x3INR"
-    "\x3INX" "\x3" "DCR" "\x3" "DCX" "\x5" "ADD\rA"
+    "\x3INX" "\x3" "DCR" "\x3" "DCX" "\x5" "ADD\tA"
     "\x3PSW" "\x1" "A" "\x1" "B" "\x1" "C"
     "\x1" "D" "\x1" "E" "\x1H" "\x1L"
     "\x1M" "\x2" "AH" "\x2" "DH" "\x2" "DA"
@@ -623,6 +623,36 @@ static void SetNewAddr()
     FlushRecs();
 }
 
+void MiscCntrl()
+{
+    byte name[19];
+
+    switch (cfCode) {
+    case T2_LIST: listOff = false; break;
+    case T2_NOLIST: listOff = true; break;
+    case T2_CODE: codeOn = PRINT; break;
+    case T2_NOCODE: codeOn = false; break;
+    case T2_EJECT:
+            if (listing )
+                NewPageNextChLst();
+            break;
+    case T2_INCLUDE:
+            EmitLinePrefix();
+            TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
+            Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
+            srcFileIdx = srcFileIdx + 10;
+            Fread(&tx1File, &name[13], 6);      /* Read() in name of include file */
+            Fread(&tx1File, &name[6], 7);
+            Fread(&tx1File, &name[0], 7);       /* overwrites the type byte */
+            memmove((pointer)&srcFileTable[srcFileIdx], name, 16);
+            CloseF(&srcFil);
+            InitF(&srcFil, "SOURCE", &name[1]);
+            OpenF(&srcFil, 1);
+            offCurCh = offLastCh;       /* force Read() next Time       */
+            break;
+    }
+}
+
 void Sub_54BA()
 {
     Fread(&tx1File, &cfCode, 1);
@@ -643,7 +673,7 @@ void Sub_54BA()
     else if (cfCode == T2_TOKENERROR)
         EmitNearError();
     else if (T2_LIST <= cfCode && cfCode <= T2_INCLUDE)
-        MiscControl();
+        MiscCntrl();
     else if (cfCode == T2_EOF)
         bo812B = false;
     else if (cfCode == T2_ERROR)

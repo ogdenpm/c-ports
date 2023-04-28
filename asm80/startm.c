@@ -328,8 +328,8 @@ void InitialControls()
     pendingInclude = isControlLine = scanCmdLine = bZERO;
     ParseControlLines();            /* initial control lines allow primary controls */
     primaryValid = false;            /* not allowed from now on */
-    controls.debug == controls.debug && controls.object;    /* debug doesn't make sense if no object code */
-    controls.xref == controls.xref && controls.print;        /* disable controls if not printing */
+    controls.debug = controls.debug && controls.object;    /* debug doesn't make sense if no object code */
+    controls.xref = controls.xref && controls.print;        /* disable controls if not printing */
     controls.symbols = controls.symbols && controls.print;
     controls.paging = controls.paging && controls.print;
 }

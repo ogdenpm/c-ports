@@ -1,0 +1,173 @@
+*****************************************************************************
+* ERROR:
+* Compiler Configuration Directives (OPTIMIZE, PAGING, etc.).
+*****************************************************************************
+
+file: "plm0b.c"
+===============
+
+ORIGINAL:
+---------
+
+static void ParseId(byte maxLen)
+{
+    byte pstr[33];
+
+REPLACED TO:
+------------
+
+static void ParseId(byte maxLen)
+{
+    static byte pstr[33];
+
+
+
+
+*****************************************************************************
+* ERROR:
+* Program crash when using the $INCLUDE directive,
+* especially if there is a syntax error in the attached file.
+*****************************************************************************
+
+file: "plm4a.c"
+===============
+
+ADD FUNCTION:
+-------------
+
+void MiscCntrl()
+{
+    byte name[19];
+
+    switch (cfCode) {
+    case T2_LIST: listOff = false; break;
+    case T2_NOLIST: listOff = true; break;
+    case T2_CODE: codeOn = PRINT; break;
+    case T2_NOCODE: codeOn = false; break;
+    case T2_EJECT:
+            if (listing )
+                NewPageNextChLst();
+            break;
+    case T2_INCLUDE:
+            EmitLinePrefix();
+            TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
+            Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
+            srcFileIdx = srcFileIdx + 10;
+            Fread(&tx1File, &name[13], 6);      /* Read() in name of include file */
+            Fread(&tx1File, &name[6], 7);
+            Fread(&tx1File, &name[0], 7);       /* overwrites the type byte */
+            memmove((pointer)&srcFileTable[srcFileIdx], name, 16);
+            CloseF(&srcFil);
+            InitF(&srcFil, "SOURCE", &name[1]);
+            OpenF(&srcFil, 1);
+            offCurCh = offLastCh;       /* force Read() next Time       */
+            break;
+    }
+}
+
+
+---------------------------------------------
+
+ORIGINAL:
+---------
+
+void Sub_54BA()
+    ....
+    else if (T2_LIST <= cfCode && cfCode <= T2_INCLUDE)
+        MiscControl();
+
+
+REPLACED TO:
+------------
+
+void Sub_54BA()
+    ....
+    else if (T2_LIST <= cfCode && cfCode <= T2_INCLUDE)
+        MiscCntrl();
+
+
+
+
+*****************************************************************************
+* ERROR:
+* Never printing command 'ADD A' to the listing file.
+*****************************************************************************
+
+file: "plm4a.c"
+===============
+
+ORIGINAL:
+---------
+
+byte opcodes[] =
+    ....
+    ... "ADD\rA"
+
+
+REPLACED TO:
+------------
+
+byte opcodes[] =
+    ....
+    ... "ADD\tA"
+
+
+
+
+*****************************************************************************
+* ERROR:
+* "Garbage" at the beginning of the listing file,
+* if there is an EOF directive in the source file.
+*****************************************************************************
+
+file: "main4.c"
+===============
+
+ORIGINAL:
+---------
+
+word Start4()
+{
+
+
+REPLACED TO:
+------------
+
+word Start4()
+{
+    offCurCh = offLastCh;       // clear input buffer
+
+
+
+
+*****************************************************************************
+* ERROR:
+* Duplication of a global variable,
+* used by another function (Error())
+*****************************************************************************
+
+file: "io.c"
+============
+
+ORIGINAL:
+---------
+
+int main(int argc, char **argv)
+{
+    int i;
+    size_t len;
+    char *s, *progname;
+    word ovl;
+
+
+REPLACED TO:
+------------
+
+int main(int argc, char **argv)
+{
+    int i;
+    size_t len;
+    char *s, *progname;
+
+
+

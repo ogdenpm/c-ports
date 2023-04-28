@@ -328,11 +328,11 @@ void HandleOp()
             break;
     case 51:	                /* EXTRN ? */
             inExtrn = true;
-            if (externId == 0 && IsPhase1 && controls.object) 
+            if (externId == 0 && IsPhase1() && controls.object)
                 WriteModhdr();
             labelUse = L_REF;
             UpdateSymbolEntry(externId, O_TARGET);
-            if (IsPhase1 && controls.object && ! badExtrn)
+            if (IsPhase1() && controls.object && ! badExtrn)
                 WriteExtName();
             if (! badExtrn)
                 externId++;

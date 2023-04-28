@@ -169,6 +169,7 @@ void Sub_423C()
 
 word Start4()
 {
+	offCurCh = offLastCh;       // clear input buffer
 // rec24_2 is has different seg c.f. plm3a.c
     ((rec_t *)rec24_1)->val[0] = 2; // data seg
     ((rec_t *)rec24_2)->val[0] = 3; // stack seg

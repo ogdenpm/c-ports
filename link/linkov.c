@@ -306,7 +306,7 @@ byte SelectOutSeg(byte seg)
 
 void Pass2MODHDR()
 {
-    Pstrcpy(outP, modName);  /* Read() in the module name */
+    Pstrcpy(inP, modName);  /* Read() in the module name */
     ancestorNameNotSet = true;      /* note the ancestor record has not been written */
     for (segId = 0; segId <= 255; segId++) {            /* init the segment mapping */
         segmap[segId] = (byte)segId;

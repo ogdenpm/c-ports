@@ -437,7 +437,7 @@ void AddDataFrag(word saddr, word eaddr)
 
 	curDataFragP = (dataFrag_t *)topDataFrags;
 	while ((pointer)curDataFragP != botHeap) {
-		curDataFragP = curDataFragP--;
+		curDataFragP--;
 		if (curDataFragP->saddr > saddr)	/* the curfrag starts above this one */
 		{
 			if (eaddr >= curDataFragP->saddr - 1)	/* does the new frag join || overlap the curent one */

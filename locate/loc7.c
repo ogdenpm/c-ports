@@ -230,7 +230,8 @@ void ProcArgsInit()
 	roundRobinIndex = 0;
 	pageIndexTmpFil = 0;
 	/* recalculate pageCache size */
-	pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 1))) - 1;
+	pageTab1P = (page1_t *) ((pointer) pageTab2P + 256 * sizeof(page2_t));
+	pageCacheSize = (word)High(outRecordP - (pointer) pageTab1P) - 1;
 	/* set a new baseMemImage after Allocting() pageTab1 slots - one for each page */
 	baseMemImage =  ((pointer)pageTab1P) + (pageCacheSize + 1) * 2 ;
 	/* initialise the paging table control information */
@@ -247,7 +248,7 @@ void ProcArgsInit()
 	/* set up the heap locations below the print buffer */
 	topHeap = topDataFrags = botHeap = spbufP;
 	/* recalculate the pageCacheSize now available */
-	pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = ((page1_t *)(pageTab2P + 1)))) - 1;
+	pageCacheSize = High(botHeap - baseMemImage) - 1;
 	/* create the output file*/
 	Delete(&outFileName[1], &statusIO);
 	Open(&outputfd, &outFileName[1], 3, 0, &statusIO);
