@@ -31,7 +31,8 @@ static byte b6D7E[] = {10, 0x12, 0x40}; /* 11 bits 00010010010 index left to rig
 
 
 static modhdr_t rModhdr = {2};
-static pointer dtaP, recSymP;
+static char *dtaP;
+static pointer recSymP;
 
 void WriteRec(pointer recP)
 {
@@ -51,8 +52,7 @@ void WriteRec(pointer recP)
 }
 
 
-static byte GetFixupType()
-{
+static byte GetFixupType(void) {
     byte attr;
     if (((attr = tokenAttr[spIdx]) & 0x5F) == 0)
         return 3;
@@ -64,8 +64,7 @@ static byte GetFixupType()
 }
 
 
-void ReinitFixupRecs()
-{
+void ReinitFixupRecs(void) {
     byte i;
     wpointer dtaP;	// to check for conflicts with global dtaP usage in plm
 
@@ -88,8 +87,7 @@ void ReinitFixupRecs()
 
 
 
-static void AddFixupRec()
-{
+static void AddFixupRec(void) {
     word effectiveOffset;
     wpointer dtaP;				// to check doesn't conflict with plm global usage 
 
@@ -134,8 +132,7 @@ static void AddFixupRec()
 }
 
 
-static void RecAddContentBytes()
-{
+static void RecAddContentBytes(void) {
     for (byte i = 1; i <= tokenSize[spIdx]; i++)
         rContent.dta[fix6Idx++] = *contentBytePtr++;
 
@@ -144,27 +141,24 @@ static void RecAddContentBytes()
 
 
 
-static void IntraSegFix()
-{
+static void IntraSegFix(void) {
     rReloc.len = rReloc.len + 2;
     rReloc.dta[fix22Idx++] = fixOffset;
 }
 
 
-static void InterSegFix()
-{
+static void InterSegFix(void) {
     rInterseg.len += 2;
     rInterseg.dta[fix24Idx++] = fixOffset;
 }
 
-static void ExternalFix()
-{
+static void ExternalFix(void) {
     rExtref.dta[fix20Idx++] = tokenSymId[spIdx];
     rExtref.dta[fix20Idx++] = fixOffset;
     rExtref.len += 4;
 }
 
-static void Sub7131()
+static void Sub7131(void)
 {
     curFixupHiLoSegId = (tokenAttr[spIdx] & 0x18) >> 3;
     fixOffset = segLocation[activeSeg] + itemOffset;
@@ -182,7 +176,7 @@ static void Sub7131()
 }
 
 
-void WriteExtName()
+void WriteExtName(void)
 {
     byte i;
 
@@ -204,14 +198,13 @@ void WriteExtName()
 
 
 
-void AddSymbol()
-{
+void AddSymbol(void) {
 
     if ((tokenSym.curP->flags & UF_EXTRN) != 0)
         return;
 
     *(wpointer)recSymP = tokenSym.curP->offset;
-    UnpackToken(tokenSym.curP->tok, (dtaP = (recSymP += 2) + 1));
+    UnpackToken(tokenSym.curP->tok, (dtaP = (char *)(recSymP += 2) + 1));
     dtaP[6] = ' ';    /* trailing space to ensure end */
     *recSymP = 0;	  /* length of symbol */
 
@@ -220,7 +213,7 @@ void AddSymbol()
         dtaP++;
     }
     dtaP[0] = 0;            /* terminate name with 0 */
-    recSymP = dtaP + 1;
+    recSymP = (pointer)(dtaP + 1);
 }
 
 void FlushSymRec(byte segId, byte isPublic)			/* args to because procedure is no longer nested */
@@ -257,13 +250,13 @@ static void WriteSymbols(byte isPublic)	/* isPublic= true -> PUBLICs else LOCALs
 
 
 
-void WriteModhdr()
+void WriteModhdr(void)
 {
     byte i;
 
     /* fill the module name */
     memcpy(rModhdr.dta + 1, aModulePage, (rModhdr.dta[0] = moduleNameLen));
-    dtaP = &rModhdr.dta[moduleNameLen + 1];
+    dtaP            = (char *) & rModhdr.dta[moduleNameLen + 1];
     *(wpointer)dtaP = 0;    /* the trnId & trnVn bytes */
     dtaP++;					/* past trnId byte */
     if (segLocation[SEG_CODE] < maxSegSize[SEG_CODE])    /* code segment */
@@ -281,7 +274,7 @@ void WriteModhdr()
     WriteRec((pointer)&rModhdr);
 }
 
-void WriteModend()
+void WriteModend(void)
 {
     rModend.modtyp = startDefined;
     rModend.segid = startSeg;
@@ -291,7 +284,7 @@ void WriteModend()
     WriteRec((pointer)&rEof);
 }
 
-void Ovl8()
+void Ovl8(void)
 {
     itemOffset = 0;
     tokI = 1;
@@ -315,8 +308,7 @@ void Ovl8()
 }
 
 
-void Ovl11()
-{
+void Ovl11(void) {
     if (externId != 0) {
         Seek(objfd, SEEKABS, &azero, &azero, &statusIO);    /* rewind */
         WriteModhdr();

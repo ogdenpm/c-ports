@@ -27,9 +27,8 @@ static byte aDebug[] = "DEBUG";
 
 
 /* skip white space in command line */
-void CmdSkipWhite()
-{ 
-    while ((*cmdchP == ' ' || *cmdchP == TAB) && cmdchP != actRead.bp) {
+void CmdSkipWhite(void) { 
+    while ((*cmdchP == ' ' || *cmdchP == TAB) && cmdchP != actRead.cp) {
         cmdchP++;
     }
 }
@@ -39,8 +38,7 @@ void CmdSkipWhite()
     skips DEBUG if present
     returns '0' if no drive specified
 */
-byte GetDrive()
-{
+byte GetDrive(void) {
     if (*cmdchP == ':') {
         cmdchP += 2;
         return *cmdchP;
@@ -57,8 +55,7 @@ byte GetDrive()
     return *cmdchP;
 }
 
-void AddExtents()
-{
+void AddExtents(void) {
     for (ii = 1; ii <= 3; ii++) {
         lstFile[kk + ii] = aExtents[ii];
         objFile[kk + ii] = aExtents[ii+3];
@@ -72,8 +69,7 @@ bool IsWhiteOrCr(byte c)
     return c == ' ' || c == TAB || c == CR;
 }
 
-void GetAsmFile()
-{
+void GetAsmFile(void) {
     /* select key words depending on whether macro version or not */
     symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
@@ -82,7 +78,7 @@ void GetAsmFile()
     IoErrChk();
     Read(1, cmdLineBuf, 128, &actRead.w, &statusIO);
     IoErrChk();
-    actRead.bp = actRead.w + cmdLineBuf;    /* convert to pointer */
+    actRead.cp = actRead.w + cmdLineBuf;    /* convert to pointer */
     scanCmdLine = true;        /* scanning command line */
 
     Write(0, signonMsg, 0x29, &statusIO);
@@ -129,19 +125,16 @@ void GetAsmFile()
     files[0].name[kk] = ' ';    /* append trailing space */
     /* set drive for macro and asxref tmp files if specified in source file */
     if (lstFile[0] == ':' && lstFile[2] != '0')
-        asmacRef[2],
-        asxrefTmp[2] = lstFile[2];
+        asmacRef[2] = asxrefTmp[2] = lstFile[2];    //Fixed 20230429
 }
 
 
-void ResetData()
-{    /* extended initialisation */
+void ResetData(void) {    /* extended initialisation */
 
     InitLine();
-
-    b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] = finished =
-        segDeclared[0] = segDeclared[1] = inComment = expandingMacro = expandingMacroParameter = mSpoolMode =
-        hasVarRef = pendingInclude = bZERO;
+    expandingMacro = mSpoolMode = bZERO;
+    b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] =  expandingMacroParameter =
+        finished = segDeclared[0]  = segDeclared[1] = inComment = hasVarRef = pendingInclude = false;
     noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
     controls.gen = bTRUE;
     controls.cond = bTRUE;
@@ -152,9 +145,13 @@ void ResetData()
         maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
         effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
     passCnt++;
+#ifdef _MSC_VER
 #pragma warning(disable:4244)
+#endif
     srcLineCnt = curOp = pageCnt = pageLineCnt = 1;
+#ifdef _MSC_VER
 #pragma warning(default: 4224)
+#endif
     b68AE = false;
     curChar = ' ';
     for (ii = 0; ii <= 11; ii++)          /* reset all the control seen flags */
@@ -170,7 +167,14 @@ void ResetData()
 
         fileIdx = bZERO;    /* reset files for another pass */
         endInBufP = inBuf;
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
         inChP = endInBufP - 1;
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
         startLineP = inBuf;
         Seek(infd, SEEKABS, &azero, &azero, &statusIO);    /* rewind */
         IoErrChk();
@@ -180,8 +184,7 @@ void ResetData()
     endOutBuf = &outbuf[OUT_BUF_SIZE];
 }
 
-void InitRecTypes()
-{
+void InitRecTypes(void) {
     rContent.type = OMF_CONTENT;
     rContent.len = 3;
     rPublics.type = OMF_RELOC;

@@ -30,8 +30,7 @@ static word baseMacroBlk;
 byte savedTokenIdx;
 
 
-static bool IsEndParam()
-{
+static bool IsEndParam(void) {
     if (IsCR()) {		// new line forces end
         inAngleBrackets = false;
         return true;
@@ -50,16 +49,14 @@ static bool IsEndParam()
 
 
 
-static void InitParamCollect()
-{
+static void InitParamCollect(void) {
     symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;	// init macro parameter table
     paramCnt = macro.top.localsCnt = bZERO;	// no params yet
     yyType = O_MACROPARAM;
 }
 
 
-static void Sub720A()
-{
+static void Sub720A(void) {
     savedMtype = macro.top.mtype;
     if (! expandingMacro)
         expandingMacro = 1;
@@ -81,8 +78,7 @@ static void Sub720A()
 }
 
 
-static bool Sub727F()
-{
+static bool Sub727F(void) {
     if (! (mSpoolMode & 1))
         return true;
     macroSpoolNestDepth++;
@@ -102,8 +98,7 @@ void DoIrpX(byte mtype)
     }
 }
 
-static void Acc1ToDecimal()
-{
+static void Acc1ToDecimal(void) {
     byte buf[6];
 
     PushToken(CR);
@@ -119,8 +114,7 @@ static void Acc1ToDecimal()
 }
 
 
-void initMacroParam()
-{
+void initMacroParam(void) {
     pNextArg = baseMacroTbl;
     yyType = O_ITERPARAM;
     inMacroBody = true;
@@ -139,8 +133,7 @@ static pointer AddMacroText(pointer lowAddr, pointer highAddr)
 }
 
 
-static void InitSpoolMode()
-{
+static void InitSpoolMode(void) {
     macroSpoolNestDepth = 1;
     macroInPtr = symHighMark;
     mSpoolMode = 1;
@@ -149,16 +142,14 @@ static void InitSpoolMode()
 
 
 
-static void ChkForLocationError()
-{
+static void ChkForLocationError(void) {
     if (usrLookupIsID)
         if (asmErrCode != 'U')
             LocationError();
 }
 
 
-void GetMacroToken()
-{
+void GetMacroToken(void) {
     byte isPercent;
 
     savedTokenIdx = tokenIdx;
@@ -212,12 +203,12 @@ void GetMacroToken()
     if (macro.top.mtype == M_INVOKE)
     {
         if ((! inAngleBrackets) && tokenSize[0] == 5)
-            if (StrUcEqu("MACRO", tokPtr)) {	// nested macro definition
+            if (StrUcEqu("MACRO", (char *)tokPtr)) {	// nested macro definition
                 yyType = K_MACRO;
                 PopToken();
                 pNextArg = macro.top.pCurArg;
                 opSP--;
-#if _DEBUG
+#ifdef _DEBUG
                 printf("nested macro poped token & opStack\n");
 #endif
                 reget = 1;
@@ -241,8 +232,7 @@ void GetMacroToken()
 
 
 
-void DoMacro()
-{
+void DoMacro(void) {
     if (Sub727F()) {
         expectingOperands = false;
         pMacro = (pointer)&tokenSym.curP->blk;
@@ -252,8 +242,7 @@ void DoMacro()
     }
 }
 
-void DoMacroBody()
-{
+void DoMacroBody(void) {
     if (HaveTokens()) {
         if (tokenType[0] == 0)		// saved parameters have type 0
             MultipleDefError();		// so if found we have a multiple definition
@@ -297,8 +286,7 @@ void DoMacroBody()
     }
 }
 
-void DoEndm()
-{
+void DoEndm(void) {
     if (mSpoolMode & 1) {
         if (--macroSpoolNestDepth == 0) {	// Reached end of spooling ?
             mSpoolMode = 0;		// spooling done
@@ -337,8 +325,7 @@ void DoEndm()
 }
 
 
-void DoExitm()
-{
+void DoExitm(void) {
     if (expandingMacro) {
         if (curOp == T_CR) {
             condAsmSeen = true;
@@ -354,8 +341,7 @@ void DoExitm()
 }
 
 
-void DoIterParam()
-{
+void DoIterParam(void) {
     if (savedTokenIdx + 1 != tokenIdx)
         SyntaxError();
     else if (! b9060) {
@@ -412,8 +398,7 @@ void DoIterParam()
 
 
 
-void DoRept()
-{
+void DoRept(void) {
     DoIrpX(M_REPT);
     if ((yyType = curOp) != T_CR)
         SyntaxError();
@@ -429,8 +414,7 @@ void DoRept()
 }
 
 
-void DoLocal()
-{
+void DoLocal(void) {
     if (mSpoolMode == 2) {
         if (HaveTokens()) {
             if ((byte)(++macro.top.localsCnt) == 0)		// 256 locals!!
@@ -452,8 +436,7 @@ void DoLocal()
 
 
 
-void Sub78CE()
-{
+void Sub78CE(void) {
     kk = *macro.top.pCurArg;
     aVar.lb = (kk == '!' && savedMtype == M_IRPC) ? 2 : 1;	// size arg (2 if escaped char)
     if (savedMtype == M_MACRO || (macro.top.cnt -= aVar.lb) == 0)	// all done

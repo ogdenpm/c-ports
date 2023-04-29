@@ -22,100 +22,99 @@
 
 #include "asm80.h"
 
-void SyntaxError()
+void SyntaxError(void)
 {
     SourceError('Q');
 }
 
-void DoubleDefError()
+void DoubleDefError(void)
 {
     SourceError('D');
 }
 
-void ExpressionError()
+void ExpressionError(void)
 {
     SourceError('E');
 }
 
-void CommandError()
+void CommandError(void)
 {
     SourceError('C');
 }
 
-void OpcodeOperandError()
+void OpcodeOperandError(void)
 {
     SourceError('O');
 }
 
-void NameError()
+void NameError(void)
 {
     SourceError('R');
 }
 
-void MultipleDefError()
+void MultipleDefError(void)
 {
     SourceError('M');
 }
 
-void ValueError()
+void ValueError(void)
 {
     SourceError('V');
 }
 
-void NestingError()
+void NestingError(void)
 {
     SourceError('N');
 }
 
-void PhaseError()
+void PhaseError(void)
 {
     SourceError('P');
 }
 
-void StackError()
+void StackError(void)
 {
     RuntimeError(RTE_STACK);
 }
 
-void FileError()
+void FileError(void)
 {
     RuntimeError(RTE_FILE);
 }
 
-void IllegalCharError()
+void IllegalCharError(void)
 {
     SourceError('I');
 }
 
-void BalanceError()
+void BalanceError(void)
 {
     SourceError('B');
 }
 
-void UndefinedSymbolError()
+void UndefinedSymbolError(void)
 {
     SourceError('U');
 }
 
-void LocationError()
+void LocationError(void)
 {
     SourceError('L');
 }
 
-void OperandError()
+void OperandError(void)
 {
     SourceError('X');
 }
 
-byte HaveTokens()
+byte HaveTokens(void)
 {
     return tokenIdx != 0;
 }
 
 
-void PopToken()
-{
-#if _DEBUG
+void PopToken(void) {
+#ifdef _DEBUG
     DumpTokenStack(true);
 #endif
     tokStart[0] = tokStart[tokenIdx];
@@ -204,7 +203,7 @@ void PushToken(byte type)
         tokenSym.stack[0] = NULL; // (tokensym_t *)wZERO; to work around gcc complaint
         tokenSymId[0] = wZERO;
     }
-#if _DEBUG
+#ifdef _DEBUG
     DumpTokenStack(false);
 #endif
 }
@@ -235,8 +234,7 @@ void GetId(byte type)
 }
 
 
-void GetNum()
-{
+void GetNum(void) {
     word accum;
     byte radix, digit, i;
 //    byte chrs based tokPtr [1];
@@ -283,8 +281,7 @@ void GetNum()
     CollectByte((accum) >> 8);
 }
 
-void GetStr()
-{
+void GetStr(void) {
     PushToken(O_STRING);
 
     while (GetCh() != CR) {

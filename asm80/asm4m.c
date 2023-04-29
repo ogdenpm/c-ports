@@ -22,11 +22,7 @@
 
 #include "asm80.h"
 
-static word pad1 = {0x40};
-static word pad2;
-
-
-bool StrUcEqu(pointer s, pointer t)
+bool StrUcEqu(char const *s, char const *t)
 {
     while (*s != 0) {
         if (*s != *t && *s != (*t & 0x5F))
@@ -38,13 +34,11 @@ bool StrUcEqu(pointer s, pointer t)
 }
 
 
-bool IsSkipping()
-{
+bool IsSkipping(void) {
     return (mSpoolMode & 1) || skipIf[0];
 }
 
-void Sub546F()
-{
+void Sub546F(void) {
     spIdx = NxtTokI();
     if (expectingOperands)
         SyntaxError();
@@ -61,8 +55,7 @@ void Sub546F()
 }
 
 
-void FinishLine()
-{
+void FinishLine(void) {
     pointer linenoP;
     bool updating;
 

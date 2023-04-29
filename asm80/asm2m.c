@@ -120,13 +120,13 @@ bool IsReg(byte type) {
     return type == K_REGNAME || type == K_SP;
 }
 
-void ChkInvalidRegOperand() {
+void ChkInvalidRegOperand(void) {
     if (TestBit(topOp, noRegOperand))
         if (IsReg(acc1ValType))
             OperandError();
 }
 
-void ResultType() {
+void ResultType(void) {
     if (IsReg(acc1ValType))         // registers cannot be in full expressions
         OperandError();
     if (!(opFlags[topOp] & 2))      // only single operand
@@ -169,7 +169,7 @@ void ResultType() {
 }
 
 
-void SwapAccBytes() {
+void SwapAccBytes(void) {
     byte tmp = accum1Lb;
     accum1Lb = accum1Hb;
     accum1Hb = tmp;
@@ -177,7 +177,7 @@ void SwapAccBytes() {
 
 
 
-void SetExpectOperands() {
+void SetExpectOperands(void) {
     expectingOperands = true;
     expectingOpcode = false;
 }
@@ -192,7 +192,7 @@ void LogError(byte ch) {
         tokenType[tokenIdx] = K_NUL;
 }
 
-word GetNumVal()        // load numeric value from top of stack
+word GetNumVal(void) // load numeric value from top of stack
 {
     wpointer valP;
 
@@ -298,7 +298,7 @@ void MkCode(byte control) {
         nextTokType = O_DATA;
 }
 
-byte NxtTokI() {
+byte NxtTokI(void) {
     if (tokI >= tokenIdx)
         return 0;
     return ++tokI;
@@ -306,7 +306,7 @@ byte NxtTokI() {
 
 
 
-bool ShowLine() {
+bool ShowLine(void) {
     return (((!isControlLine) && controls.list) || (ctlListChanged && isControlLine))
         && (expandingMacro <= 1 || controls.gen)
         && (!(condAsmSeen || skipIf[0]) || controls.cond);
@@ -317,7 +317,7 @@ bool ShowLine() {
         = 1 -> used
         = 2 -> finalise
 */
-void EmitXref(byte xrefMode, pointer name) {
+void EmitXref(byte xrefMode, char const *name) {
     byte i, byteval;
 
     if ((!IsPhase1() || !controls.xref || IsSkipping()) && !xRefPending)
