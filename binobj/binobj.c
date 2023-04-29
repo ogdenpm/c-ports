@@ -29,6 +29,10 @@
 
 #include "showVersion.h"
 
+#ifndef _MSC_VER
+#define stricmp strcasecmp
+#endif
+
 #define MAXNAME 31
 #define MODHDR  2
 #define MODEND  4
@@ -77,7 +81,7 @@ struct {
     uint8_t segId;
     uint8_t addr[2];
     uint8_t crc;
-} modend = { MODEND, 5, 0, 1, 0 };
+} modend = { MODEND, { 5, 0 }, 1, 0 };
 
 /*                                 */
 /*  module end of file record      */
@@ -87,7 +91,7 @@ struct {
     uint8_t type;
     uint8_t length[2];
     uint8_t crc;
-} modeof = { MODEOF, 1, 0, 0xf1 };
+} modeof = { MODEOF, { 1, 0 }, 0xf1 };
 
 /* calc crc */
 uint8_t calcCRC(uint8_t *p, int len) {
@@ -100,7 +104,7 @@ uint8_t calcCRC(uint8_t *p, int len) {
 // return the trailing filename part of the passed in path
 const char *basename(const char *path) {
     const char *t;
-    while (t = strpbrk(path, ":\\/"))       // allow windows & unix separators - will fail for unix if : in filename!!
+    while ((t = strpbrk(path, ":\\/")))       // allow windows & unix separators - will fail for unix if : in filename!!
         path = t + 1;
     return path;
 }
