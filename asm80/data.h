@@ -30,19 +30,19 @@ extern byte labelUse;
 extern word seekMZero;
 extern byte b3782[2];
 
-extern byte spaces24[];
+extern char spaces24[];
 #define spaces15	(spaces24 + 9) 
 #define spaces6		(spaces24 + 18)
 #define spaces5		(spaces24 + 19)
 #define spaces4		(spaces24 + 20)
 #define spaces2		(spaces24 + 22)
-extern byte ascCRLF[];
-extern byte signonMsg[];
+extern char ascCRLF[];
+extern char signonMsg[];
 #define asmHeader	(signonMsg + 2)
 #define aModulePage	(signonMsg + 43)
 extern byte bZERO;
 extern byte bTRUE;
-extern pointer aErrStrs[];
+extern char const *aErrStrs[];
 extern byte aErrStrsLen[];
 
 // defined in globlm.c
@@ -50,8 +50,8 @@ extern byte aErrStrsLen[];
 #define	IN_BUF_SIZE	512
 #define	OUT_BUF_SIZE	512
 
-extern byte macroLine[129];
-extern pointer macroP;
+extern char macroLine[129];
+extern char *macroP;
 extern bool inQuotes;
 extern bool excludeCommentInExpansion;
 extern bool inAngleBrackets;
@@ -159,8 +159,8 @@ extern tokensym_t *endSymTab[3];
 extern pointer symHighMark;
 extern pointer baseMacroTbl;
 extern byte gotLabel;
-extern byte name[6];
-extern byte savName[6];
+extern char name[6];
+extern char savName[6];
 extern bool haveNonLabelSymbol;
 extern bool haveUserSymbol;
 extern bool xRefPending;
@@ -190,32 +190,32 @@ extern word pageCnt;
 extern bool showAddr;
 extern bool lineNumberEmitted;
 extern bool b68AE;
-extern byte tokStr[7];
+extern char tokStr[7];
 extern word sizeInBuf;
-extern byte inBuf[IN_BUF_SIZE];
+extern char inBuf[IN_BUF_SIZE];
 extern byte outbuf[OUT_BUF_SIZE+1];
 extern pointer outP;
 extern pointer endOutBuf;
-extern byte objFile[15];
-extern byte lstFile[15];
-extern byte asxrefTmp[];
-extern byte asxref[];
-extern byte asmacRef[];
+extern char objFile[15];
+extern char lstFile[15];
+extern char asxrefTmp[];
+extern char asxref[];
+extern char asmacRef[];
 extern word srcLineCnt;
 extern byte asciiLineNo[4];
 extern byte spIdx;
-extern byte lastErrorLine[4];
+extern char lastErrorLine[4];
 extern controls_t controls;
 extern bool ctlListChanged;
 extern byte titleLen;
 extern bool controlSeen[12];
 extern byte saveStack[8][3];
 extern byte saveIdx;
-extern byte titleStr[64];
+extern char titleStr[64];
 extern byte tokBufLen;
 extern byte tokType;
 extern byte controlId;
-extern byte tokBuf[64];
+extern char tokBuf[64];
 extern byte tokBufIdx;
 extern word tokNumVal;
 extern bool isControlLine;
@@ -242,19 +242,19 @@ extern bool expectOp;
 extern bool b6B36;
 extern word segLocation[5];
 extern word maxSegSize[3];
-extern byte cmdLineBuf[129];
+extern char cmdLineBuf[129];
 extern address actRead;
 extern word errCnt;
 extern pointer w6BCE;
 extern word azero;
-extern pointer cmdchP;
-extern pointer controlsP;
+extern char *cmdchP;
+extern char *controlsP;
 extern bool skipRuntimeError;
 extern bool nestedMacroSeen;
 extern byte ii;
 extern byte jj;
 extern byte kk;
-extern pointer curFileNameP;
+extern char *curFileNameP;
 
 extern address aVar;
 
@@ -268,11 +268,11 @@ extern keyword_t extKeywords[151];
 extern bool pendingInclude;
 extern bool includeOnCmdLine;
 extern byte fileIdx;
-extern pointer endInBufP;
+extern char *endInBufP;
 extern bool missingEnd;
 extern word srcfd;
 extern word rootfd;
-extern pointer inChP;
-extern pointer startLineP;
+extern char *inChP;
+extern char *startLineP;
 extern byte lineChCnt;
 extern file_t files[6];

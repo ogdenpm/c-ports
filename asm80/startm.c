@@ -24,25 +24,23 @@
 
 word seekMZero = 0;
 byte b3782[2] = { 0x80, 0x81 };
-byte spaces24[] = "                        ";
-byte ascCRLF[] = "\r\n";
-byte signonMsg[] = "\r\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\tMODULE \t PAGE ";
+char spaces24[] = "                        ";
+char ascCRLF[] = "\r\n";
+char signonMsg[] = "\r\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\tMODULE \t PAGE ";
 byte bZERO = 0;
 byte bTRUE = true;
-static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
+//static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
 
-pointer aErrStrs[] = { "\r\nSTACK", "\r\nTABLE", "\r\nCOMMAND", "\r\nEOF", "\r\nFILE", "\r\nMEMORY" };
+char const* aErrStrs[] = { "\r\nSTACK", "\r\nTABLE", "\r\nCOMMAND", "\r\nEOF", "\r\nFILE", "\r\nMEMORY" };
 byte aErrStrsLen[] = {7, 7, 9, 5, 6, 8};
 
 
-pointer Physmem()
-{
+pointer Physmem(void) {
     return (MemCk() - 0x100);	// top of memory
 }
 
 
-byte GetCmdCh()
-{
+byte GetCmdCh(void) {
     byte ch;
 
     ch = *cmdchP++;
@@ -52,8 +50,7 @@ byte GetCmdCh()
 }    
 
 
-void IoErrChk()
-{
+void IoErrChk(void) {
     if (statusIO == 0)
         return;
     Error(statusIO);
@@ -61,20 +58,19 @@ void IoErrChk()
 }
 
 
-void Flushout()
-{
+void Flushout(void) {
     Write(outfd, outbuf, (word)(outP - outbuf), &statusIO);
     outP = outbuf;
 }
 
-void Outch(byte c)
+void Outch(char c)
 {
     if (outP == endOutBuf)
         Flushout();
     *outP++ = c;
 }
 
-void OutStrN(pointer s, byte n)
+void OutStrN(char const *s, byte n)
 {
 
     while (n-- > 0)
@@ -87,74 +83,62 @@ void CloseF(word conn)
     Close(conn, &statusIO);
 }
 
-bool IsSpace()
-{
+bool IsSpace(void) {
     return curChar == ' ';
 }
 
-bool IsTab()
-{
+bool IsTab(void) {
     return curChar == TAB;
 }
 
-bool IsWhite()
-{
+bool IsWhite(void) {
     return IsSpace() || IsTab();
 }
 
-bool IsRParen()
-{
+bool IsRParen(void) {
     return curChar == ')';
 }
 
-bool IsCR()
-{
+bool IsCR(void) {
     return curChar == CR;
 }
 
-bool IsComma()
-{
+bool IsComma(void) {
     return curChar == ',';
 }
 
-bool IsLT()
-{
+bool IsLT(void) {
     return curChar == '<';
 }
 
 
-bool IsGT()
-{
+bool IsGT(void) {
     return curChar == '>';
 }
 
 
-bool IsPhase1()
-{
+bool IsPhase1(void) {
     return phase == 1;
 }
 
-void Skip2EOL()
-{
+void Skip2EOL(void) {
     if (!IsCR())
         while (GetCh() != CR)
             ;
 }
 
 
-bool ChkGenObj()
-{
+bool ChkGenObj(void) {
     return phase == 2 && controls.object;
 }
 
 
-bool IsPhase2Print()
-{
+bool IsPhase2Print(void) {
     return phase == 2 && controls.print;
 }
 
 
-void WrConsole(pointer bufP, word count)
+void WrConsole(char const *bufP, word count)
 {
     Write(0, bufP, count, &statusIO);
     IoErrChk();
@@ -171,15 +155,15 @@ void RuntimeError(byte errCode)
         return;
     }
 
-    aVar.bp = " ERROR\r\n";        /* assume " ERROR\r\n" */
+    aVar.cp = " ERROR\r\n";        /* assume " ERROR\r\n" */
     if (errCode == RTE_FILE)        /* file Error() */
-        aVar.bp = " ERROR, ";    /* replace message */
+        aVar.cp = " ERROR, ";    /* replace message */
 
     WrConsole(aErrStrs[errCode], aErrStrsLen[errCode]);    /* Write() the ERROR type */
-    WrConsole(aVar.bp, 8);    /* Write() the ERROR string */
+    WrConsole(aVar.cp, 8);    /* Write() the ERROR string */
     if (IsPhase2Print()) {       /* repeat to the print file if required */
         OutStrN(aErrStrs[errCode], aErrStrsLen[errCode]);
-        OutStrN(aVar.bp, 8);
+        OutStrN(aVar.cp, 8);
     }
 
     if (errCode == RTE_FILE || errCode == RTE_EOF) {    /* file or EOF Error() */
@@ -205,10 +189,10 @@ void RuntimeError(byte errCode)
     Exit(1);
 }
 
-void IoError(pointer path)
+void IoError(char const *path)
 {
     tokBufIdx = 0;
-    curFileNameP = path;
+    curFileNameP = (char *)path;
 
     while (*path != ' ' && *path != CR && *path != TAB) {
         tokBufIdx++;
@@ -220,7 +204,7 @@ void IoError(pointer path)
 }
 
 /* open file for read with status check */
-word SafeOpen(pointer pathP, word access)
+word SafeOpen(char const *pathP, word access)
 {
     word conn;
 
@@ -245,12 +229,11 @@ void Put2Hex(void (*pfunc)(byte), byte val)
     pfunc(Nibble2Ascii(val));
 }
 
-bool BlankAsmErrCode()
-{
+bool BlankAsmErrCode(void) {
     return asmErrCode == ' ';
 }
 
-bool MPorNoErrCode()		// no error, multiple definition or phase error
+bool MPorNoErrCode(void) // no error, multiple definition or phase error
 {
     return BlankAsmErrCode() || asmErrCode == 'M' || asmErrCode == 'P';
 }
@@ -299,8 +282,7 @@ void InsertCharInMacroTbl(byte c)	// as InsertByteInMacroTbl but expands CR to C
 
 
 
-void ParseControlLines()
-{
+void ParseControlLines(void) {
     while (GetCh() == '$') {
         if (IsSkipping()) {
             Skip2NextLine();
@@ -315,8 +297,7 @@ void ParseControlLines()
 }
 
 
-void InitialControls()
-{
+void InitialControls(void) {
     cmdchP = controlsP;
     scanCmdLine = true;
     ParseControls();
@@ -328,15 +309,14 @@ void InitialControls()
     pendingInclude = isControlLine = scanCmdLine = bZERO;
     ParseControlLines();            /* initial control lines allow primary controls */
     primaryValid = false;            /* not allowed from now on */
-    controls.debug == controls.debug && controls.object;    /* debug doesn't make sense if no object code */
-    controls.xref == controls.xref && controls.print;        /* disable controls if not printing */
+    controls.debug = controls.debug && controls.object;    /* debug doesn't make sense if no object code */
+    controls.xref = controls.xref && controls.print;        /* disable controls if not printing */
     controls.symbols = controls.symbols && controls.print;
     controls.paging = controls.paging && controls.print;
 }
 
 
-void InitLine()
-{
+void InitLine(void) {
     startLineP = inChP + 1;    
     lineChCnt = 0;
     if (pendingInclude)
@@ -348,13 +328,14 @@ void InitLine()
     putchar('\n');
 #endif
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
-    inExpression = expectingOperands = xRefPending = gotLabel = haveUserSymbol =
+    inExpression = expectingOperands = xRefPending = haveUserSymbol =
     inDB = inDW = condAsmSeen = showAddr = usrLookupIsID =
-    excludeCommentInExpansion = b9060 = needsAbsValue = bZERO;
-
+    excludeCommentInExpansion = b9060 = needsAbsValue = false;
+    gotLabel                                                                   = bZERO;
     atStartLine = expectingOpcode = isInstr = expectOp = bTRUE;
-    controls.eject = hasVarRef = tokenIdx = inQuotes = argNestCnt =
-    tokenSize[0] = tokenType[0] = acc1ValType = acc2ValType = inComment = acc1RelocFlags = bZERO;
+    controls.eject = tokenIdx = argNestCnt =
+    tokenSize[0] = tokenType[0] = acc1ValType = acc2ValType = acc1RelocFlags = bZERO;
+    hasVarRef = inQuotes = inComment = false;
 
     asmErrCode = ' ';
     macroP = macroLine;
@@ -363,11 +344,10 @@ void InitLine()
     tokI = 1;
     srcLineCnt++;
     macroP = macroLine;
-    skipIf[0] = skipIf[0] > 0 ? 0xff : 0;
+//    skipIf[0] = skipIf[0] > 0 ? 0xff : 0; // does nothing as skipIf is bool
 }
 
-void Start()
-{
+void Start(void) {
     GetAsmFile();
     phase = 1;
     ResetData();

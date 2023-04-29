@@ -25,12 +25,12 @@
 typedef word offset;
 
 
-static const char cpyrite[] = "[C] 1976, 1977,1979 INTEL CORP\x2\x1";
-static const pointer headerMsg = "\r\nISIS-II ASSEMBLER SYMBOL CROSS REFERENCE, V2.1                     PAGE ";
+//static const char cpyrite[] = "[C] 1976, 1977,1979 INTEL CORP\x2\x1";
+static const char *headerMsg = "\r\nISIS-II ASSEMBLER SYMBOL CROSS REFERENCE, V2.1                     PAGE ";
 
 struct {
     byte errCode;
-    const pointer errStr;
+    const char *errStr;
 } errStrs[] = {
         {2, "ILLEGAL AFTN ARGUMENT"},
         {4, "INCORRECTLY SPECIFIED FILE"},
@@ -105,9 +105,9 @@ word connP;
 word itemCount;
 word botHighHeap;
 word status;
-byte outputLine[256];
+char outputLine[256];
 byte col;
-byte path[15];
+char path[15];
 byte row;
 byte pageLength;
 byte pageWidth;
@@ -148,7 +148,7 @@ static void StatusChk(word scode)
     }
 }
 
-static void OpenTmp()
+static void OpenTmp(void)
 {
     word status;
 
@@ -157,7 +157,7 @@ static void OpenTmp()
 }
 
 
-static void OpenListFile()
+static void OpenListFile(void)
 {
     word dummy;
 
@@ -173,7 +173,7 @@ static void OpenListFile()
     StatusChk(status);
 }
 
-static bool ReadTmp(byte *buf, byte cnt)
+static bool ReadTmp(char *buf, byte cnt)
 {
     word actual;
 
@@ -183,29 +183,29 @@ static bool ReadTmp(byte *buf, byte cnt)
 }
 
 
-static void WriteStr(const pointer str, word len)
+static void WriteStr(const char *str, word len)
 {
-    Write(connP, str, len, &status);
+    Write(connP, (const pointer)str, len, &status);
     StatusChk(status);
 }
 
-static void WriteCStr(const pointer str) {
-    WriteStr(str, (word)strlen(str));
-}
+//static void WriteCStr(const char *str) {
+//    WriteStr(str, (word)strlen(str));
+//}
 
-static void WriteCRLF()
+static void WriteCRLF(void)
 {
     WriteStr("\r\n", 2);
 }
 
 
-static void ToNextPage()
+static void ToNextPage(void)
 {
     WriteStr("\f\r\n\r\n\r\n", 7);
 }
 
 
-static void OutStrCRLF(const pointer str, byte len)
+static void OutStrCRLF(const char *str, byte len)
 {
     Write(0, str, len, &status);
     Write(0, "\r\n", 2, &status);
@@ -223,7 +223,7 @@ static NORETURN(FatalError(byte err))
 }
 
 
-static offset AllocLineRef()
+static offset AllocLineRef(void)
 {
     topLowHeap = topLowHeap + sizeof(line_t);
     if (topLowHeap <= botHighHeap)
@@ -231,7 +231,7 @@ static offset AllocLineRef()
     FatalError(1);
 }
 
-static offset AllocXref()
+static offset AllocXref(void)
 {
     botHighHeap = botHighHeap - 8;
     if (botHighHeap >= topLowHeap)
@@ -239,7 +239,7 @@ static offset AllocXref()
     FatalError(1);
 }
 
-static offset FirstXref()
+static offset FirstXref(void)
 {
     return topHighHeap - sizeof(xref_t) + 1;
 }
@@ -330,9 +330,9 @@ static word GetLineNum(offset pLineRef, bool *pIsDef)
 }
 
 
-static void CopyXref(xref_t *pXref1, xref_t *pXref2) {
-    *pXref2 = *pXref1;
-}
+//static void CopyXref(xref_t *pXref1, xref_t *pXref2) {
+//    *pXref2 = *pXref1;
+//}
 
 
 static xref_t *GetPXref(word n) {    /* get offset of Xref(n) */
@@ -340,7 +340,7 @@ static xref_t *GetPXref(word n) {    /* get offset of Xref(n) */
 }
 
 
-static byte GetTmpRecord()
+static byte GetTmpRecord(void)
 {
     if (!ReadTmp(outputLine, 1) || outputLine[0] == '3')
         return XREF_EOF;
@@ -363,12 +363,12 @@ static word Htoi(const char *buf, byte n)
 }
 
 
-static pointer GetPSymbol()
+static char *GetPSymbol(void)
 {
     return &outputLine[1];
 }
 
-static word GetLineNumber()
+static word GetLineNumber(void)
 {
     return Htoi(&outputLine[7], 4);
 }
@@ -378,14 +378,14 @@ static void ProcXrefRecord(byte isDef)
     InsertXref(isDef, GetPSymbol(), GetLineNumber());
 }
 
-static void CopyFileName()
+static void CopyFileName(void)
 {
     memcpy(path, outputLine + 1, 15);
 }
 
 
 
-static void ProcFileRecord()
+static void ProcFileRecord(void)
 {
     CopyFileName();
     paging = outputLine[16];
@@ -394,7 +394,7 @@ static void ProcFileRecord()
     haveFileInfo = true;
 }
 
-static void SortXrefs()
+static void SortXrefs(void)
 {
     word i, j, k, n;
     short m;
@@ -440,7 +440,7 @@ static void Num2Ascii(word val, char *buf, byte len)
     }
 }
 
-static void blankOutputLine()
+static void blankOutputLine(void)
 {
     memset(outputLine, ' ', sizeof(outputLine));
 }
@@ -479,7 +479,7 @@ static void OutputLineRef(offset pLineRef)
     col += 3;
 }
 
-static void OutputXref()
+static void OutputXref(void)
 {
     byte refsPerLine, refsCnt, pageNum;
 
@@ -515,7 +515,7 @@ static void OutputXref()
     }
 }
 
-void GenAsxref() {      // will reuse the asxrefTmp file from the main routine so no need to set drive
+void GenAsxref(void) {      // will reuse the asxrefTmp file from the main routine so no need to set drive
     itemCount = 0;
     topLowHeap = 0;
     botHighHeap = topHighHeap = (offset)(MemCk() - MEMORY);

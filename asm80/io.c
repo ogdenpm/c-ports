@@ -28,9 +28,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <showVersion.h>
 
-#include "Generated/version.h"
-void showVersion(FILE *fp, bool full);
 
 #ifdef _WIN32
 #include <io.h>
@@ -45,6 +44,7 @@ void showVersion(FILE *fp, bool full);
 #include <errno.h>
 #define _MAX_PATH 4096
 #define O_BINARY    0
+#define _stricmp    strcasecmp
 #endif
 
 #include "asm80.h"
@@ -54,7 +54,7 @@ void showVersion(FILE *fp, bool full);
 typedef struct {
     byte	deviceId; // isis device Id
     byte	modes;	  // supported modes READ_MODE, WRITE_MODE, UPDATE_MODE and RANDOM_ACCESS
-    byte	name[_MAX_PATH];
+    char	name[_MAX_PATH];
 } osfile_t;
 
 #define STDIN	0
@@ -203,16 +203,14 @@ int main(int argc, char **argv)
     size_t len;
     char *s, *progname;
 
-    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+    CHK_SHOW_VERSION(argc, argv);
+
 #ifdef _WIN32
     (void)_setmode(_fileno(stdin), O_BINARY);
     (void)_setmode(_fileno(stdout), O_BINARY);
 #endif
     /* find program name */
-    for (progname = argv[0]; s = strpbrk(progname, ":/\\"); progname = s + 1)
+    for (progname = argv[0]; (s = strpbrk(progname, ":/\\")); progname = s + 1)
         ;
     /* only allow alpha numeric char names otherwise it may confuse isis program */
     /* .exe is also excluded*/
@@ -238,8 +236,7 @@ int main(int argc, char **argv)
     Start();
 }
 
-pointer MemCk()
-{
+pointer MemCk(void) {
     return MEMORY + AVAILMEM - 1;	// address of last isis user memory
 }
 
@@ -275,7 +272,7 @@ void Close(word conn, wpointer statusP)
 }
 
 
-void Delete(pointer pathP, wpointer statusP)
+void Delete(char const *pathP, wpointer statusP)
 {
     osfile_t osfile;
 
@@ -349,7 +346,7 @@ NORETURN(Exit(int retCode))
     exit(retCode);
 }
 
-void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer statusP)
+void Load(char const *pathP, word LoadOffset, word swt, word entryP, wpointer statusP)
 {
     fprintf(stderr, "load not implmented\n");
     exit(2);
@@ -358,7 +355,7 @@ void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer status
 
 
 
-void Open(wpointer connP, const pointer pathP, word access, word echo, wpointer statusP)
+void Open(wpointer connP, char const *pathP, word access, word echo, wpointer statusP)
 {
     int mode, conn;
     osfile_t osfile;
@@ -445,7 +442,7 @@ char *ReadLine(char *buf)
 }
 
 
-void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP)
+void Read(word conn, char *buffP, word count, wpointer actualP, wpointer statusP)
 {
     int actual;
 
@@ -527,7 +524,7 @@ void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer status
     else
         *statusP = ERROR_BADPARAM;
 }
-void Write(word conn, const pointer buffP, word count, wpointer statusP)
+void Write(word conn, const void *buffP, word count, wpointer statusP)
 {
     if ((*statusP = ChkMode(conn, WRITE_MODE)) != ERROR_SUCCESS)
         return;
@@ -543,7 +540,7 @@ void Write(word conn, const pointer buffP, word count, wpointer statusP)
         }
 }
 
-void Rename(pointer oldP, pointer newP, wpointer statusP)
+void Rename(char const *oldP, char const *newP, wpointer statusP)
 {
     osfile_t oldFile, newFile;
 
@@ -563,7 +560,7 @@ void Rename(pointer oldP, pointer newP, wpointer statusP)
 }
 
 
-void Spath(pointer pathP, spath_t *infoP, wpointer statusP)
+void Spath(char const *pathP, spath_t *infoP, wpointer statusP)
 {
     if ((*statusP = ParseIsisName(infoP, pathP)) != ERROR_SUCCESS)
         return;

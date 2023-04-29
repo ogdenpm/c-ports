@@ -22,16 +22,16 @@
 
 #include "asm80.h"
 /* to force the code generation this needs a non-standard definition of put2Hex */
-void Put2Hex(void (*func)(byte), word arg2w);
-static void PrintChar(byte c);
+void Put2Hex(void (*func)(char), word arg2w);
+static void PrintChar(char c);
 
-static byte aAssemblyComple[] = "\r\nASSEMBLY COMPLETE,   NO ERRORS";
+static char aAssemblyComple[] = "\r\nASSEMBLY COMPLETE,   NO ERRORS";
 #define aNoErrors	(aAssemblyComple + 20)
-static byte spaceLP[] = " (     )";
+static char spaceLP[] = " (     )";
 #define space5RP	(spaceLP + 2)
-static word pad754E;
-static byte lstHeader[] = "  LOC  OBJ         LINE        SOURCE STATEMENT\r\n\n";
-static pointer symbolMsgTable[] = { "\r\nPUBLIC SYMBOLS\r\n", "\r\nEXTERNAL SYMBOLS\r\n", "\r\nUSER SYMBOLS\r\n" };
+//static word pad754E;
+static char lstHeader[] = "  LOC  OBJ         LINE        SOURCE STATEMENT\r\n\n";
+static char const *symbolMsgTable[] = { "\r\nPUBLIC SYMBOLS\r\n", "\r\nEXTERNAL SYMBOLS\r\n", "\r\nUSER SYMBOLS\r\n" };
 
 
 static void Out2Hex(byte n)
@@ -47,29 +47,28 @@ static void Print2Hex(byte n)
 
 
 
-static void PrintStr(pointer str)
+static void PrintStr(char const *str)
 {
     while (*str != 0)
         PrintChar(*str++);
 }
 
-static void PrintNStr(byte cnt, pointer str)
+static void PrintNStr(byte cnt, char const *str)
 {
     while (cnt-- > 0)
         PrintChar(*str++);
 }
 
 
-static void PrintCRLF()
-{
+static void PrintCRLF(void) {
     PrintChar(CR);
     PrintChar(LF);
 }
 
-static byte aNumStr[] = "     ";
+static char aNumStr[] = "     ";
 
 
-static void Itoa(word n, pointer buf)
+static void Itoa(word n, char *buf)
 {
     memcpy(buf, spaces5, 5);
     buf += 4;
@@ -88,7 +87,7 @@ void PrintDecimal(word n)
     PrintStr(&aNumStr[1]);
 }
 
-void SkipToEOP()
+void SkipToEOP(void)
 {
     while (pageLineCnt <= controls.pageLength) {
         Outch(LF);
@@ -97,12 +96,12 @@ void SkipToEOP()
 }
 
 
-static void NewPageHeader()
+static void NewPageHeader(void)
 {
-    byte twoLF[] = "\r\n\n";        /* Not used */
-    byte threeLF[] = "\r\n\n\n";    /* CR not used */
+//    byte twoLF[] = "\r\n\n";        /* Not used */
+//    byte threeLF[] = "\r\n\n\n";    /* CR not used */
 
-    PrintStr(threeLF + 1);
+    PrintStr("\n\n\n");
     PrintStr(asmHeader);
     PrintDecimal(pageCnt);
     PrintCRLF();
@@ -117,7 +116,7 @@ static void NewPageHeader()
 }
 
 
-void NewPage()
+void NewPage(void)
 {
     if (controls.tty)
         SkipToEOP();
@@ -130,7 +129,7 @@ void NewPage()
 }
 
 
-void DoEject()
+void DoEject(void)
 {
     if (ShowLine())
     while (controls.eject > 0) {
@@ -142,7 +141,7 @@ void DoEject()
 
 
 
-static void PrintChar(byte c)
+static void PrintChar(char c)
 {
     byte cnt;
 
@@ -196,7 +195,7 @@ void PrintAddr2(void(*printFunc)(byte), byte zeroAddr)	// no longer used
     printFunc(zeroAddr ? 0 : *tokenSym.bPtr);    /* print word or 0 */
 }
 
-void Sub7041_8447()
+void Sub7041_8447(void)
 {
     byte symGrp;
     byte type, flags;
@@ -257,7 +256,7 @@ void Sub7041_8447()
 }
 
 
-void PrintCmdLine()
+void PrintCmdLine(void)
 {
     Outch(FF);
     DoEject();
@@ -267,7 +266,7 @@ void PrintCmdLine()
 }
 
 
-void OutStr(pointer s)
+void OutStr(char const *s)
 {
     while (*s)
         Outch(*s++);
@@ -280,15 +279,14 @@ static void OutNStr(word cnt, pointer s)
 }
 
 
-static bool MoreBytes()
+static bool MoreBytes(void)
 {
     return startItem < endItem;
 }
 
 
 
-static void PrintCodeBytes()
-{
+static void PrintCodeBytes(void) {
     byte i;
 
     if (showAddr |= MoreBytes()) {    /* print the word */
@@ -317,10 +315,9 @@ static void PrintCodeBytes()
 }
 
 
-static void PrintErrorLineChain()
-{
-    byte LP[] = " (";
-    byte RP[] = ")";
+static void PrintErrorLineChain(void) {
+    char LP[] = " (";
+    char RP[] = ")";
 
     if (! errorOnLine)
         return;
@@ -334,7 +331,7 @@ static void PrintErrorLineChain()
 
 
 
-void PrintLine()
+void PrintLine(void)
 {
     while (1) {
         endItem = (startItem = tokStart[spIdx]) + tokenSize[spIdx];
@@ -415,7 +412,7 @@ void PrintLine()
     PrintErrorLineChain();
 }
 
-void AsmComplete()
+void AsmComplete(void)
 {
     if (errCnt > 0)
         Itoa(errCnt, aNoErrors);
@@ -428,7 +425,7 @@ void AsmComplete()
     Outch(LF);
 }
 
-void FinishPrint()
+void FinishPrint(void)
 {
     if (controls.print)
         CloseF(outfd);
@@ -438,7 +435,7 @@ void FinishPrint()
     Flushout();
 }
 
-void FinishAssembly()
+void FinishAssembly(void)
 {
     CloseF(infd);
     CloseF(macrofd);

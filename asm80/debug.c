@@ -33,7 +33,7 @@ static char *opNames[] = {
 };
 
 
-void ShowYYType() {
+void ShowYYType(void) {
     if (yyType < sizeof(opNames) / sizeof(*opNames))
         printf(" %i:%s\n", yyType, opNames[yyType]);
     else
@@ -60,8 +60,7 @@ void DumpSymbols(byte tableId)
     }
 }
 
-void DumpOpStack()
-{
+void DumpOpStack(void) {
     printf("OpStack:");
     for (int i = 0; i <= opSP; i++) {
         if (opStack[i] < sizeof(opNames) / sizeof(*opNames))
@@ -103,8 +102,8 @@ void DumpTokenStackItem(int i, bool pop)
 }
 void DumpTokenStack(bool pop)
 {
-    char token[7];
-    token[6] = 0;
+//    char token[7];
+//    token[6] = 0;
 
     printf("TokenStack:\n");
     printf("  Token  Type Attr Size  Id | Sym    Addr  Type Flags\n");

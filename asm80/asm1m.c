@@ -46,15 +46,13 @@ bool absValueReq[] = {
 byte b3F88[] = { 0x41, 0x90, 0, 0, 0, 0, 0, 0, 0, 0x40 };
 /* bit vector 66 -> 10010000 0 x 56 01 */
 
-void SkipWhite_2()
-{
+void SkipWhite_2(void) {
     while (GetCh() == ' ' || IsTab())
         ;
 }
 
 
-byte NonHiddenSymbol()
-{
+byte NonHiddenSymbol(void) {
     // name based nameP word;
 
     word *nameP = tokenSym.curP->tok;
@@ -66,7 +64,7 @@ byte NonHiddenSymbol()
 /* seek to specified macro block (128 byte) in macro spool file */
 void SeekM(word blk)
 {
-    if (aVar.w = blk - nxtMacroBlk) {		// if already there then nothing to do
+    if ((aVar.w = blk - nxtMacroBlk)) {		// if already there then nothing to do
         kk = SEEKFWD;						// check if we need to seek fwd / bwd
         if (blk < nxtMacroBlk) {
             aVar.w = -aVar.w;
@@ -92,7 +90,7 @@ void ReadM(word blk)
         return;
     else {							// load the buffer
         SeekM(blk);
-        Read(macrofd, macroBuf, 128, &actual, &statusIO);
+        Read(macrofd, (char *)macroBuf, 128, &actual, &statusIO);
         IoErrChk();
     }
 
@@ -101,7 +99,7 @@ void ReadM(word blk)
 }
 
 /* write the macro to disk */
-void WriteM()
+void WriteM(void)
 {
     if (phase == 1) {	// only needs writing on pass 1
         SeekM(maxMacroBlk++);	// seek to end and update marker to account for this block
@@ -114,7 +112,7 @@ void WriteM()
 
 // flush the macro buffer to disk in full 128 byte blocks
 // residual are moved to start of macro buffer endSymTab[TID_MACRO]
-void FlushM()
+void FlushM(void)
 {
     word bytesLeft;
 
@@ -131,31 +129,27 @@ void FlushM()
 }
 
 
-void SkipWhite()
-{
+void SkipWhite(void) {
     while (IsWhite())
         curChar = GetCh();
 }
 
 
 
-void Skip2NextLine()
-{
+void Skip2NextLine(void) {
     Skip2EOL();
     ChkLF();
 }
 
 
-void gotValue()
-{
+void gotValue(void) {
     if (curOp == T_VALUE)		// if previous was value then two consecutive values so error
         ExpressionError();
     inExpression = 0;
     curOp = T_VALUE;			// record we just saw a value
 }
 
-void Tokenise()
-{
+void Tokenise(void) {
     while (true) {
         if (atStartLine) {
             ParseControlLines();

@@ -43,6 +43,7 @@ typedef union {
     };
     byte b[2];
     byte *bp;
+    char *cp;
     word *ap;
 } address;
 
@@ -116,7 +117,7 @@ typedef struct {
 } reloc_t;
 
 typedef struct {
-    byte name[15];
+    char name[15];
     word blk, byt;
     byte b19;
 } file_t;

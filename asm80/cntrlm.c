@@ -41,7 +41,8 @@ static byte controlTable[] = {
             "\x5"  "EJECT"     "\x14" "LIST"
             "\x13" "GEN"       "\x14" "COND"};
 
-byte tokVal, savedCtlList, savedCtlGen;
+byte tokVal;
+bool savedCtlList, savedCtlGen;
 bool controlError;
 
 
@@ -54,15 +55,14 @@ static bool ChkParen(byte arg1b)
 
 
 
-static byte GetTok()
-{
+static byte GetTok(void) {
     tokBufLen = 0;
     tokType = TT_ID;
     if (IsCR())
         return curChar;
 
     SkipWhite_2();
-    if (curChar > 'A'-1 && 'Z'+1 > curChar || curChar > 'a'-1 && 'z'+1 > curChar) {  /* letter */
+    if ((curChar > 'A'-1 && 'Z'+1 > curChar) || (curChar > 'a'-1 && 'z'+1 > curChar)) {  /* letter */
         GetId(O_ID);
         if (BlankAsmErrCode() && tokenSize[0] < 14)
             memcpy(tokBuf, lineBuf, tokBufLen = tokenSize[0]);
@@ -94,7 +94,7 @@ static byte GetTok()
 
 
 
-static bool FinaliseFileNameOpt(pointer arg1w)
+static bool FinaliseFileNameOpt(char *arg1w)
 {
 //    word pad;
 
@@ -108,8 +108,7 @@ static bool FinaliseFileNameOpt(pointer arg1w)
     return true;
 }
 
-static void GetFileNameOpt()
-{
+static void GetFileNameOpt(void) {
     SkipWhite_2();
 
     while (1) {
@@ -130,8 +129,7 @@ static void GetFileNameOpt()
 }
 
 
-static void GetFileParam()
-{
+static void GetFileParam(void) {
     tokBufIdx = 0;
     if (! ChkParen(0))    /* ( */
         FileError();
@@ -144,8 +142,7 @@ static void GetFileParam()
 }
 
 
-static void GetMacroFileDrive()
-{
+static void GetMacroFileDrive(void) {
     SkipWhite_2();
     tokBufIdx = 13;     /* leave room for max file name */
     ii = 0;
@@ -167,8 +164,7 @@ static void GetMacroFileDrive()
 
 
 
-static bool GetControlNumArg()
-{
+static bool GetControlNumArg(void) {
     if (ChkParen(0)) {   /* ( */
         tokVal = GetTok();
         if (tokType == TT_NUM)
@@ -186,8 +182,7 @@ static void SetControl(byte ctlVal, byte noInvalid)
     }
 }
 
-static byte LookupControl()
-{
+static byte LookupControl(void) {
     byte cmdIdx, cmdStartIdx;
     bool ctlVal;
     byte cmdLen, ctlFlags, noInvalid;
@@ -250,8 +245,7 @@ found:
     return controlId;
 }
 
-static void ProcessControl()
-{
+static void ProcessControl(void) {
     /* simple controls already processed */
     if (controlId >= 17 || controlId < 5)
         return;
@@ -319,7 +313,7 @@ static void ProcessControl()
             if (ChkParen(0)) {
                 tokVal = GetTok();
                 if (tokType == TT_STR && tokBufLen != 0) {
-                    if (phase != 1 || IsPhase1() && primaryValid) {
+                    if (phase != 1 || (IsPhase1() && primaryValid)) {
                         memcpy(titleStr, tokBuf, tokBufLen);
                         titleStr[titleLen = tokBufLen] = 0;
                         if (ChkParen(1)) {
@@ -351,8 +345,7 @@ static void ProcessControl()
     controlError = true;
 }
 
-void ParseControls()
-{
+void ParseControls(void) {
     isControlLine = true;
     ctlListChanged = savedCtlList = controls.list;
     savedCtlGen = controls.gen;

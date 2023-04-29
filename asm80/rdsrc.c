@@ -24,27 +24,27 @@
 
 bool pendingInclude = false;
 bool includeOnCmdLine = false;
-static byte padb6C23;
+//static byte padb6C23;
 byte fileIdx = {0};
-pointer endInBufP = inBuf;
+char *endInBufP = inBuf;
 bool missingEnd = false;
 word srcfd;
 word rootfd;
-pointer inChP = inBuf - 1;
-pointer startLineP = inBuf;
+char *inChP = inBuf - 1;
+char *startLineP = inBuf;
 byte lineChCnt = 0; 
 file_t files[6];
 static word seekIBlk;
 static word seekIByte;
-static byte pad6CAD;
-static pointer savInBufP;
-static pointer savEndInBufP;
-static word pad6CB2[4];
+//static byte pad6CAD;
+static char *savInBufP;
+static char *savEndInBufP;
+//static word pad6CB2[4];
 static word readFActual;
-static word pad6CBC;
+//static word pad6CBC;
 
 
-void ReadF(byte conn, pointer buffP, word count)
+void ReadF(byte conn, char *buffP, word count)
 {
     Read(conn, buffP, count, &readFActual, &statusIO);
     IoErrChk();
@@ -57,7 +57,7 @@ void SeekI(byte seekOp)
 }
 
 
-void ReadSrc(pointer bufLoc)
+void ReadSrc(char *bufLoc)
 {
  //   byte pad;
 
@@ -67,7 +67,7 @@ void ReadSrc(pointer bufLoc)
 
 
 
-void CloseSrc()	/* close current source file. Revert to any parent file */
+void CloseSrc(void) /* close current source file. Revert to any parent file */
 {
     Close(srcfd, &statusIO);
     IoErrChk();
@@ -87,13 +87,20 @@ void CloseSrc()	/* close current source file. Revert to any parent file */
     seekIBlk = files[fileIdx].blk;
     SeekI(SEEKABS);
     endInBufP = inBuf;        /* force Read() */
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
     inChP = inBuf - 1;
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 }
 
 
-byte GetSrcCh()	/* get next source character */
+byte GetSrcCh(void) /* get next source character */
 {
-    pointer insertPt;
+    char *insertPt;
     while (1) {
         inChP++;
 
@@ -121,8 +128,7 @@ byte GetSrcCh()	/* get next source character */
 }
 
 
-void OpenSrc()
-{
+void OpenSrc(void) {
     byte curByteLoc;
     word curBlkLoc;
 
@@ -149,7 +155,14 @@ void OpenSrc()
     }
 
     endInBufP = inBuf;            /* force Read() */
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
     inChP = endInBufP - 1;
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
     startLineP = inBuf;
     files[fileIdx].blk = 0;            /* record at start of file */
     files[fileIdx].byt = 0;    

@@ -76,8 +76,7 @@ void UpdateHiLo(byte hilo)
         acc1RelocFlags = (acc1RelocFlags & ~UF_RBOTH) | hilo;
 }
 
-void HandleOp()
-{
+void HandleOp(void) {
     switch (topOp) {
     case 0:	break;
     case 1:	FinishLine();        /* CR */
@@ -145,7 +144,7 @@ void HandleOp()
             accum1 = accum2;		// this is what the 8080 mod code would do
         } else
             accum1 %= accum2;
-            break;
+        break;
     case 22:	                    /* SHL */
             if (accum2Lb != 0)
                 accum1 <<= accum2;
@@ -328,11 +327,11 @@ void HandleOp()
             break;
     case 51:	                /* EXTRN ? */
             inExtrn = true;
-            if (externId == 0 && IsPhase1 && controls.object) 
+            if (externId == 0 && IsPhase1() && controls.object) 
                 WriteModhdr();
             labelUse = L_REF;
             UpdateSymbolEntry(externId, O_TARGET);
-            if (IsPhase1 && controls.object && ! badExtrn)
+            if (IsPhase1() && controls.object && !badExtrn)
                 WriteExtName();
             if (! badExtrn)
                 externId++;
@@ -384,7 +383,7 @@ void HandleOp()
 }
 
 
-static byte IsExpressionOp()    // returns true if op is valid in an expression
+static byte IsExpressionOp(void)    // returns true if op is valid in an expression
 {
     if (yyType > T_RPAREN)
         if (yyType != T_COMMA)
@@ -399,15 +398,13 @@ static byte IsVar(byte type)
 }
 
 
-static void UpdateIsInstr()
-{
+static void UpdateIsInstr(void) {
     if (! isInstrMap[topOp])
         isInstr = false;
 }
 
 
-void Parse()
-{
+void Parse(void) {
     while (1) {
         /* nothing to parse if
             skipping if and not cr or if related keyword
@@ -440,7 +437,7 @@ void Parse()
                 inNestedParen = expectOp;
                 expectOp = true;
             }
-#if _DEBUG
+#ifdef _DEBUG
             printf("\n>>>> Shift\n");
             DumpOpStack();
             DumpTokenStack(false);
@@ -452,7 +449,7 @@ void Parse()
         }
 
     /* REDUCE */
-#if _DEBUG
+#ifdef _DEBUG
         printf("\n<<<< Start - reduce\n");
         DumpOpStack();
         DumpTokenStack(false);
@@ -514,7 +511,7 @@ void Parse()
                 yyType = topOp;         // the next item to read and mark as operator
                 expectOp = true;
             }
-#if _DEBUG
+#ifdef _DEBUG
         printf("\n<<<< End - reduce\n");
         DumpOpStack();
         DumpTokenStack(false);
@@ -525,8 +522,7 @@ void Parse()
 
 
 
-void DoPass()
-{
+void DoPass(void) {
     while (!finished) {
         Tokenise();
 //		DumpOpStack();
