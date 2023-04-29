@@ -27,7 +27,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 
-void showVersion(FILE *fp, bool full);
+#include "showVersion.h"
 
 #define MAXNAME 31
 #define MODHDR  2
@@ -120,10 +120,7 @@ int main(int argc, char **argv) {
     uint16_t length, addr;
 
 
-    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(1);
-    }
+    CHK_SHOW_VERSION(argc, argv);
 
     if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0))) {
         fprintf(stderr, "usage: %s -v | -V | binfile [to] objfile\n", basename(argv[0]));
