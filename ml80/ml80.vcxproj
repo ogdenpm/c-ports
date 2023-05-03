@@ -24,6 +24,7 @@
     <ProjectGuid>{3d33d82e-bb56-402e-a300-fad5d031e692}</ProjectGuid>
     <RootNamespace>ml80</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -56,6 +57,7 @@
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
+    <Import Project="..\shared\shared.vcxitems" Label="Shared" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -74,25 +76,31 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
-    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
+    <CustomBuildBeforeTargets>
+    </CustomBuildBeforeTargets>
+    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
-    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
+    <CustomBuildBeforeTargets>PreBuildEvent</CustomBuildBeforeTargets>
+    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
-    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
+    <CustomBuildBeforeTargets>
+    </CustomBuildBeforeTargets>
+    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
-    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
+    <CustomBuildBeforeTargets>PreBuildEvent</CustomBuildBeforeTargets>
+    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -101,6 +109,9 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;AUTOVER</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>.;../shared</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -110,10 +121,19 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
-      <Inputs>.force</Inputs>
+      <Command>
+      </Command>
+      <Outputs>
+      </Outputs>
+      <Inputs>
+      </Inputs>
+      <Message>
+      </Message>
     </CustomBuildStep>
+    <PreBuildEvent>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Message>Get Version</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -124,6 +144,9 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;AUTOVER</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>.;../shared</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -135,10 +158,15 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Outputs>_version.h</Outputs>
       <Inputs>.force</Inputs>
+      <Message>Get Version</Message>
     </CustomBuildStep>
+    <PreBuildEvent>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Message>Get Version</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -147,6 +175,9 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;AUTOVER</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>.;../shared</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -156,10 +187,19 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
-      <Inputs>.force</Inputs>
+      <Command>
+      </Command>
+      <Outputs>
+      </Outputs>
+      <Inputs>
+      </Inputs>
+      <Message>
+      </Message>
     </CustomBuildStep>
+    <PreBuildEvent>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Message>Get Version</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -170,6 +210,9 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;AUTOVER</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>.;../shared</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -181,20 +224,25 @@
       <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)Scripts\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call $(SolutionDir)Scripts\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
-      <Outputs>$(ProjectDir)Generated\version.h</Outputs>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Outputs>_version.h</Outputs>
       <Inputs>.force</Inputs>
+      <Message>Get Version</Message>
     </CustomBuildStep>
+    <PreBuildEvent>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Message>Get Version</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ml80.c" />
-    <ClCompile Include="version.c" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="version.rc" />
+    <ClInclude Include="_appinfo.h" />
+    <ClInclude Include="_version.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="version.in" />
+    <None Include="..\Luiz Pedroso.licenseheader" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
