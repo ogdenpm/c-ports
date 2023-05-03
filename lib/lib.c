@@ -1,24 +1,12 @@
 /****************************************************************************
- *  lib: C port of Intel's LIB v2.1                                         *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  lib.c: part of the C port of Intel's ISIS-II lib             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 /*
     vim:ts=4:shiftwidth=4:expandtab:
@@ -31,9 +19,9 @@
 word actual;
 word status;
 static word outConn;
-static pointer libOutFile;
+static const char *libOutFile;
 word inConn;
-pointer argFilename;
+char const *argFilename;
 static arg_t *argHead;
 static arg_t *argChain;
 static module_t *moduleHead;
@@ -56,7 +44,7 @@ static word recByt;
 static byte outCRC;
 static word outRecLen;
 
-static byte copyright[] = "(C) 1976, 1977 INTEL CORP";
+//static byte copyright[] = "(C) 1976, 1977 INTEL CORP";
 static byte initLibContent[] = {LIBHDR, 7, 0, 0, 0, 0, 0, 0xA, 0, 0xC3,
                                 NAMES, 1, 0, 0xD7,
                                 LIBLOC, 1, 0, 0xD9,
@@ -77,6 +65,14 @@ static void WriteBuf(word count, pointer buf)
 	outRecLen = outRecLen + 1 + count;
 } /* WriteBuf */
 
+
+static void WriteWord(word val) {
+    byte buf[2];
+    buf[0] = val & 0xff;
+    buf[1] = val >> 8;
+    WriteBuf(2, buf);
+}
+
 static void OutRecInit(word recLen)
 {
 	outCRC = 0;
@@ -84,7 +80,7 @@ static void OutRecInit(word recLen)
 	SeekFile(outConn, 0, &recBlk, &recByt, &status);
 	/* Write() type and length */
 	WriteBuf(1, &curRec.type);
-	WriteBuf(2, (pointer)&recLen);
+    WriteWord(recLen);
 	outRecLen = 1;
 }
 
@@ -109,13 +105,13 @@ static void FixupLen()
 	SeekFile(outConn, 0, &savblk, &savbyt, &status);	/* where we are */
 	SeekFile(outConn, 2, &recBlk, &recByt, &status);	/* start of record */
 	SeekFile(outConn, 3, &zeroByte, &one, &status);	/* offset of length */
-	WriteBuf(2, (pointer)&outRecLen);				/* the 2 byte length */
+	WriteWord(outRecLen);				/* the 2 byte length */
 	SeekFile(outConn, 2, &savblk, &savbyt, &status);	/* back to where we were */
 }
 
-static byte libTmp[] = ":  :LIB.TMP ";
+static char libTmp[] = ":  :LIB.TMP ";
 
-static void CreateTmpFile(pointer path)
+static void CreateTmpFile(char const *path)
 {
 
 	libTmp[1] = 'F';	/* assume temp is on F0() */
@@ -133,7 +129,7 @@ static void CreateTmpFile(pointer path)
 
 
 
-static void ReplaceLib(pointer pathP)
+static void ReplaceLib(char const *pathP)
 {
 	CloseFile(outConn, &status);
 	CloseFile(inConn, &status);
@@ -144,7 +140,7 @@ static void ReplaceLib(pointer pathP)
 
 static void ModNotFound()
 {
-	pointer s;
+	char const *s;
 
 	s = argChain->name;
 	Log("  ", 2);	/* "  " */
@@ -250,25 +246,23 @@ static word XFieldSize(pointer arg1)
 	return 1;
 }
 
-
+#if 0
 static byte sub_3C80(pointer s, pointer t)
 {
 
 	return *s == *t;
 }
 
-
-
 static void sub_3C98(pointer s, pointer t)
 {
 	*t = *s;
 }
 
-
 static void sub_3CAD(pointer arg1w)
 {
 	WriteBuf(1, arg1w);
 }
+#endif
 
 static void CopyRestRec()
 {
@@ -315,8 +309,8 @@ static void AddModule(byte addName)
 	moduleP->byt = recByt;
 	/* set the name */
 	moduleP->name[0] = objNameLen;
-	GetRecordBytes(objNameLen, moduleP->name + 1);
-	WriteBuf(objNameLen + 1, moduleP->name);
+	GetRecordBytes(objNameLen, (pointer)(moduleP->name + 1));
+	WriteBuf(objNameLen + 1, (pointer)moduleP->name);
 	/* copy the header to the new file */
 	CopyRestRec();
 	PrepRecord();
@@ -329,7 +323,7 @@ static void AddModule(byte addName)
 			WriteBuf(1, &tmpByte);
 
 			while (curRec.bytesLeft > 1) {
-				GetRecordBytes(2, (pointer)&offset); /* symbol entry offset */
+                offset = GetWord();		// symbol entry offset
 				GetName(moduleName);
 				xField = GetXField();
 				/* check for duplicate public symbols */
@@ -347,7 +341,7 @@ static void AddModule(byte addName)
 				}
 
 				/* Write() the offset, name and xField */
-				WriteBuf(2, (pointer)&offset);
+				WriteWord(offset);
 				WriteBuf(moduleName[0]+1, moduleName);
 				WriteBuf(XFieldSize(xField), xField);
 			}
@@ -364,8 +358,8 @@ static void AddModule(byte addName)
 	libModuleCnt = libModuleCnt + 1;
 }
 
-
-void FinaliseLib(pointer buf)
+// modified to pass in header and extract the two offset words to write
+void FinaliseLib(libhdr_t *phdr)
 {
 	/* Write() the end of file marker */
 	curRec.type = ENDFILE;
@@ -376,8 +370,8 @@ void FinaliseLib(pointer buf)
 	LibSeek(2, &zeroBlk);	/* rewind the input */
 	PrepRecord();		/* pick up the original lib header */
 	OutRecInit(curRec.len);	/* Write() the start out */
-	WriteBuf(2, (pointer)&libModuleCnt); /* Write() the module count */
-	WriteBuf(4, buf);		/* Write() the module offset */
+	WriteWord(libModuleCnt); /* Write() the module count */
+    WriteWord(phdr->idxByte); /* Write() the module offset */
 	WriteCRC();			/* and CRC */
 }
 
@@ -401,7 +395,7 @@ static void AddCmd()
 	word inLibConn;
 //    address junk1;
 	word j;
-    pointer libFileName;
+    char const *libFileName;
 //    address junk2;
     byte chunk;
     byte found;
@@ -409,8 +403,8 @@ static void AddCmd()
 
 	byte i;
 	word nameIdx;
-	word addBlk;
-	word addByt;
+	word addloc[2];
+
 //    byte junk3[4];
     byte locFields[4];	/* used to copy the location data over */
     static word group;
@@ -444,7 +438,9 @@ static void AddCmd()
 	argFilename = libFileName;
 	curRec.bytesLeft = 0;
 	AcceptRecord(LIBHDR);
-	GetRecordBytes(6, (pointer)&oldLibHdr);
+    oldLibHdr.modCnt = GetWord();
+    oldLibHdr.idxBlk = GetWord();
+    oldLibHdr.idxByte = GetWord();
 	ReadChkCrc();
 	libModuleCnt = oldLibHdr.modCnt;
 	blkIdx = byteIdx = 0;
@@ -479,7 +475,9 @@ static void AddCmd()
 		PrepRecord();
 		if (curRec.type == LIBHDR )	/* library to add? */
 		{
-			GetRecordBytes(6, (pointer)&addLibHdr);	/* load the 'add file' module header */
+            addLibHdr.modCnt  = GetWord();	/* load the 'add file' module header */
+            addLibHdr.idxBlk  = GetWord();
+            addLibHdr.idxByte = GetWord();
 			ReadChkCrc();	/* check ok */
 			if (argChain->modules == 0 ) /* adding all of the library */
 			{
@@ -528,11 +526,12 @@ static void AddCmd()
 					else
 					{
 						/* convert the name index into a block / byte offset */
-						addByt = moduleP->blk * 4;
-						addBlk = (moduleP->blk >> 14) << 9;
+                        addloc[1] = moduleP->blk * 4;
+                        addloc[0]  = (moduleP->blk >> 14) << 9;
 						RestoreCurPos();	/* get to start of locations */
-						LibSeek(3, &addBlk);	/* index into them */
-						GetRecordBytes(4, (pointer)&moduleP->blk);	/* set the real block/byte */
+						LibSeek(3, addloc);	/* index into them */
+                        moduleP->blk = GetWord();	/* set the real block/byte */
+                        moduleP->byt = GetWord();
 					}
 				}
 
@@ -591,7 +590,7 @@ static void AddCmd()
 				if (moduleName[j] != moduleP->name[j])
 					goto outerloop;
 			}
-			Log(&moduleName[1], moduleName[0]);
+            Log((char *)&moduleName[1], moduleName[0]);
 			LogCRLF(" - ATTEMPT TO ADD DUPLICATE MODULE NAME", 0x22);
 			longjmp(reset, 1);
 		outerloop:
@@ -606,7 +605,7 @@ static void AddCmd()
 	while (moduleP->link != 0) {
 		moduleP = moduleP->link;
 		if (moduleP->found)
-			WriteBuf(moduleP->name[0] + 1, moduleP->name);
+			WriteBuf(moduleP->name[0] + 1, (pointer)moduleP->name);
 	}
 
 	FixupLen();	/* fix the names record length & Write() CRC */
@@ -629,9 +628,10 @@ static void AddCmd()
 
 	while (moduleP->link != 0) {
 		moduleP = moduleP->link;
-		if (moduleP->found)
-			WriteBuf(4, (pointer)&moduleP->blk);
-
+        if (moduleP->found) {
+            WriteWord(moduleP->blk);
+            WriteWord(moduleP->byt);
+		}
 	}
 
 	WriteCRC();
@@ -648,7 +648,7 @@ static void AddCmd()
 			group = group + 1;
 		else if (LookupSymbol(moduleName, &hashPtr))
 		{
-			Log(&moduleName[1], moduleName[0]);
+            Log((char *)&moduleName[1], moduleName[0]);
 			LogCRLF(" - SYMBOL ALREADY IN LIBRARY", 0x23);
 			longjmp(reset, 1);
 		}
@@ -676,7 +676,7 @@ static void AddCmd()
 	SkipCurRec(); /* ignore the rest of the LIBDICT in the original */
 	FixupLen();	/* fixup the LIBDICT len */
 	WriteCRC();	/* and make the CRC work */
-	FinaliseLib((pointer)&oldLibHdr.idxBlk);
+	FinaliseLib(&oldLibHdr);
 	ReplaceLib(libFileName);
 }
 
@@ -701,7 +701,9 @@ static void DeleteCmd()
 	argFilename = argChain->name;
 	OpenLib();
 	AcceptRecord(LIBHDR);
-	GetRecordBytes(6, (pointer)&tmpLibHdr);	/* Read() in the existing header */
+    tmpLibHdr.modCnt  = GetWord(); /* Read() in the existing header */
+    tmpLibHdr.idxBlk  = GetWord();
+    tmpLibHdr.idxByte = GetWord();
 	ReadChkCrc();			/* check not corrupt */
 	LibSeek(2, &tmpLibHdr.idxBlk);	/* Seek() to names module */
 	AcceptRecord(NAMES);
@@ -711,7 +713,7 @@ static void DeleteCmd()
 		GetName(moduleName);
 		delmodP->link = (module_t *)AllocUp(sizeof(module_t)-1);		/* allocate a module entry without name */
 		delmodP = delmodP->link;
-		if (delmodP->found = LookupModule())	/* set the flag is this is one to Delete() */
+		if ((delmodP->found = LookupModule()))	/* set the flag is this is one to Delete() */
 			moduleP->found = true;		/* and flagged as found in the user list */
 		else
 			libModuleCnt = libModuleCnt + 1;
@@ -787,8 +789,10 @@ static void DeleteCmd()
 
 	while (delmodP->link != 0) {
 		delmodP = delmodP->link;
-		if (! delmodP->found)
-			WriteBuf(4, (pointer)&delmodP->blk);
+        if (!delmodP->found) {
+            WriteWord(delmodP->blk);
+            WriteWord(delmodP->byt);
+        }
 	}
 
 	FixupLen();
@@ -818,7 +822,7 @@ static void DeleteCmd()
 
 	FixupLen();
 	WriteCRC();
-	FinaliseLib((pointer)&tmpLibHdr.idxBlk);	/* endfile & header update */
+	FinaliseLib(&tmpLibHdr);		/* endfile & header update */
 	ReplaceLib(argFilename);		/* replace the library */
 }
 
@@ -895,7 +899,9 @@ static void ListCmd()
 		WriteFile(outConn, "\r\n", 2, &status);
 
 		AcceptRecord(LIBHDR);
-		GetRecordBytes(6, (pointer)&newLibHdr);	/* Read() module count, block number and byte number */
+        newLibHdr.modCnt  = GetWord();	/* Read() module count, block number and byte number */
+        newLibHdr.idxBlk  = GetWord();
+        newLibHdr.idxByte = GetWord();
 		ReadChkCrc();			/* check not corrupt */
 		LibSeek(2, &newLibHdr.idxBlk);	/* Seek() to the names */
 		AcceptRecord(NAMES);		/* check we get the names */

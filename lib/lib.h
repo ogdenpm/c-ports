@@ -45,18 +45,18 @@ typedef struct _module {
 	word blk;
 	word byt;
 	byte found;
-	byte name[1];
+	char name[1];
 } module_t;
 
 typedef struct _arg {
 	struct _arg *link;
 	module_t *modules;
-	pointer name;
+	char const *name;
 } arg_t;
 
 typedef struct _file {
 	struct _file *link;
-	pointer pathP;
+	char const *pathP;
 	byte isopen;
 	byte conn;
 } file_t;
@@ -81,12 +81,12 @@ typedef struct {
 typedef struct _line {
 	struct _line *next;
 	word len;
-	byte text[1];
+	char text[1];
 } line_t;
 
 typedef struct _symbol {
 	struct _symbol *link;
-	pointer curCmd;
+	char const *curCmd;
 	word moduleCnt;
 	byte symbol[1];
 } symbol_t;
@@ -141,7 +141,7 @@ typedef struct {
 #define SEEKEND 4
 
 extern word actual;
-extern pointer argFilename;
+extern char const *argFilename;
 extern librec_t curRec;
 extern file_t *fileHead;
 extern file_t *fileP;
@@ -149,9 +149,9 @@ extern symbol_t *hashTable[];
 extern pointer heapTop;
 extern word inConn;
 extern bool inModuleList;
-extern pointer lookAheadP;
+extern char const *lookAheadP;
 extern pointer memTop;
-extern pointer tokenP;
+extern char const *tokenP;
 extern byte tokLen;
 extern word status;
 
@@ -159,43 +159,46 @@ void AcceptRecord(byte type);
 pointer AllocUp(word cnt);
 void Close(word conn, wpointer statusP);
 void CloseFile(word conn, wpointer statusP);
-void Delete(pointer pathP, wpointer statusP);
-void DeleteFile(pointer pathP, wpointer statusP);
+void Delete(char const *pathP, wpointer statusP);
+void DeleteFile(char const *pathP, wpointer statusP);
 void Error(word errorNum);
 void Exit();
 void Fatal(byte err);
-void FileStatusChk(word errCode, pointer pathP, bool isFatal);
+void FileStatusChk(word errCode, char const *pathP, bool isFatal);
 void GetCmd();
 void GetName(pointer buf);
 void GetRecordBytes(word count, pointer bufP);
 void GetToken();
 NORETURN(LibError(byte err));
 void LibSeek(byte modeB, wpointer blkByteP);
-void Log(pointer buf, word cnt);
-void LogCRLF(pointer buf, word cnt); 
+void Log(char const *buf, word cnt);
+void LogCRLF(char const *buf, word cnt); 
 bool LookupSymbol(pointer modNameP, symbol_t **hashP);
-bool MatchLookAhead(pointer chaP, byte len);
-bool MatchToken(pointer chaP, byte len); 
+bool MatchLookAhead(char const *chaP, byte len);
+bool MatchToken(char const * chaP, byte len); 
 pointer MemCk();
-void Open(wpointer connP, pointer pathP, word access, word echo, wpointer statusP);
-void OpenFile(wpointer connP, pointer pathP, word access, word echo, wpointer statusP);
+void Open(wpointer connP, char const *pathP, word access, word echo, wpointer statusP);
+void OpenFile(wpointer connP, char const *pathP, word access, word echo, wpointer statusP);
 void OpenLib();
-pointer PastFileName(pointer chP);
+char const *PastFileName(char const *chP);
 void PrepRecord();
 void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP);
 void ReadChkCrc();
 void ReadFile(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP);
-void Rename(pointer oldP, pointer newP, wpointer statusP);
-void RenameFile(pointer oldP, pointer newP, wpointer statusP);
+void Rename(char const *oldP, char const *newP, wpointer statusP);
+void RenameFile(char const *oldP, char const *newP, wpointer statusP);
 void RestoreCurPos();
 void SaveCurPos();
 void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer statusP);
 void SeekFile(word conn, word mode, wpointer blockP, wpointer byteP, wpointer statusP);
 void SkipCurRec();
 void SkipModule();
-pointer SkipSpc(pointer chP);
+char const *SkipSpc(char const *chP);
 void Start();
 void SwapCurSavedRec();
-void Write(word conn, pointer buffP, word count, wpointer statusP);
-void WriteFile(word conn, pointer buffP, word count, wpointer statusP);
+void Write(word conn, void const *buffP, word count, wpointer statusP);
+void WriteFile(word conn, void const *buffP, word count, wpointer statusP);
 void WriteErrStr(word err);
+
+// portable read word function
+word GetWord();

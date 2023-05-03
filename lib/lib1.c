@@ -1,24 +1,12 @@
 /****************************************************************************
- *  lib: C port of Intel's LIB v2.1                                         *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  lib1.c: part of the C port of Intel's ISIS-II lib             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 /*
     vim:ts=4:shiftwidth=4:expandtab:
@@ -93,7 +81,7 @@ static byte errStrs[] = {
 bool debugLog = true;
 word debugConn = 0;
 
-static pointer SkipAfn(pointer path)
+static char const *SkipAfn(char const *path)
 {
 
     while (1) {
@@ -139,7 +127,7 @@ void WriteErrStr(word errCode)
 
 
 
-void FileStatusChk(word errCode, pointer pathP, bool isFatal)
+void FileStatusChk(word errCode, char const *pathP, bool isFatal)
 {
     word fstatus;
 
@@ -154,7 +142,7 @@ void FileStatusChk(word errCode, pointer pathP, bool isFatal)
     }
 }
 
-void Log(pointer buf, word cnt)
+void Log(char const *buf, word cnt)
 {
     Write(0, buf, cnt, &status);
     /* code cannot be reached as nothing modifies debugConn
@@ -165,7 +153,7 @@ void Log(pointer buf, word cnt)
         Write(debugConn, buf, cnt, &status);
 }
 
-void LogCRLF(pointer buf, word cnt)
+void LogCRLF(char const *buf, word cnt)
 {
     Log(buf, cnt);
     Log("\r\n", 2);
@@ -229,7 +217,7 @@ static void StatusChk(byte connB, wpointer statusP)
 }
 
 
-void OpenFile(wpointer connP, pointer pathP, word access, word echo, wpointer statusP)
+void OpenFile(wpointer connP, char const *pathP, word access, word echo, wpointer statusP)
 {
     Open(connP, pathP, access, echo, statusP);
     if (*statusP != 0)
@@ -268,7 +256,7 @@ void ReadFile(word conn, pointer buffP, word count, wpointer actualP, wpointer s
     StatusChk((byte)conn, statusP);
 }
 
-void WriteFile(word conn, pointer buffP, word count, wpointer statusP)
+void WriteFile(word conn, void const *buffP, word count, wpointer statusP)
 {
 
     Write(conn, buffP, count, statusP);
@@ -282,7 +270,7 @@ void SeekFile(word conn, word mode, wpointer blockP, wpointer byteP, wpointer st
     StatusChk((byte)conn, statusP);
 }
 
-void DeleteFile(pointer pathP, wpointer statusP)
+void DeleteFile(char const *pathP, wpointer statusP)
 {
     Delete(pathP, statusP);
     if (*statusP != 0)
@@ -292,7 +280,7 @@ void DeleteFile(pointer pathP, wpointer statusP)
     }
 }
 
-void RenameFile(pointer oldP, pointer newP, wpointer statusP)
+void RenameFile(char const *oldP, char const *newP, wpointer statusP)
 {
     Rename(oldP, newP, statusP);
     if (*statusP != 0)
@@ -325,9 +313,13 @@ void GetRecordBytes(word count, pointer bufP)
     }
 }
 
+word GetWord() {
+    byte buf[2];
+    GetRecordBytes(2, buf);
+    return buf[0] + buf[1] * 256;
+}
 
-void ReadChkCrc()
-{
+void ReadChkCrc() {
     byte recByte; 
 
     GetRecordBytes(1, &recByte);
@@ -356,7 +348,8 @@ void PrepRecord()
     SeekFile(inConn, 0, &curRec.curBlk, &curRec.curByte, &status);
     curRec.bytesLeft = 3;   /* 3 bytes for rectype and record length */
     curRec.crc = 0;     /* reset crc */
-    GetRecordBytes(3, &curRec.type);
+    GetRecordBytes(1, &curRec.type);
+    curRec.len       = GetWord();
     curRec.bytesLeft = curRec.len;  /* correct the length using the record length */
 }
 
@@ -463,9 +456,9 @@ outerloop:
 
 line_t *lineHead;
 line_t *curLineP ;
-pointer lookAheadP;
+char const *lookAheadP;
 byte lookAheadLen;
-pointer tokenP;
+char const *tokenP;
 byte tokLen;
 // byte junk1;
 bool inModuleList;
@@ -473,7 +466,7 @@ bool inModuleList;
 NORETURN(LibError(byte err))
 {
     line_t *lineP;
-    pointer s;
+    char const *s;
 
     s = tokenP + tokLen;    /* assumes these are set up correctly, doesn't always seem to be correct */
     WriteErrStr(err);
@@ -481,16 +474,16 @@ NORETURN(LibError(byte err))
 
     /*
         print out lines that are in the chain before this one
-        basiy s will not be in the range of the line pointed
+        s will not be in the range of the line pointed
         to by lineP
     */
-    while (s < (pointer) lineP || lineP->text + lineP->len < s) {
+    while (s < (char *) lineP || lineP->text + lineP->len < s) {
         Write(0, lineP->text, lineP->len, &status);
         lineP = lineP->next;
     }
     /* this logic looks flawed I suspect the else clause is generally taken */
     /* would be reasonable if curLineP->len was used */
-    if (s > (pointer)curLineP  && curLineP->text + 1 + curLineP->len > s)	// next changed to len
+    if (s > (char *)curLineP  && curLineP->text + 1 + curLineP->len > s)	// next changed to len
         Write(0, curLineP->text, (word)(s - curLineP->text), &status);
     else
         Write(0, lineP->text, (word)(s - lineP->text), &status);
@@ -499,10 +492,10 @@ NORETURN(LibError(byte err))
     longjmp(reset, 9); // goto reset;
 }
 
-static word GetTokenLen(pointer str)
+static word GetTokenLen(char const *str)
 {
 //    byte junk;
-    pointer tmp;
+    char const *tmp;
     word wtmp;  // simple var to avoid mixed pointer/word usage
 
     if (*str == CR)
@@ -550,7 +543,7 @@ static void GetLine()
         curLineP = curLineP->next;
         curLineP->next = 0;
         /* Read() line and convert to upper case */
-        Read(1, curLineP->text, 122, &curLineP->len, &status);
+        Read(1, (pointer)curLineP->text, 122, &curLineP->len, &status);
         for (i = 0; i <= 121; i++) {    /* modified to use structure access to text */
             if (curLineP->text[i] >= 'a' && curLineP->text[i] <= 'z')
                 curLineP->text[i] -= 0x20;   /* convert to upper case */
@@ -601,7 +594,7 @@ void GetToken()
 }
 
 
-bool MatchToken(pointer chaP, byte len)
+bool MatchToken(char const *chaP, byte len)
 {
     byte i;
 
@@ -618,7 +611,7 @@ bool MatchToken(pointer chaP, byte len)
 }   
 
 
-bool MatchLookAhead(pointer chaP, byte len)
+bool MatchLookAhead(char const *chaP, byte len)
 {
     byte i;
 
@@ -635,7 +628,8 @@ bool MatchLookAhead(pointer chaP, byte len)
 
 void GetCmd()
 {
-        inModuleList /* = junk1 */ = tokLen = 0;
+    inModuleList = false;
+        tokLen = 0;
         lineHead = 0;       /* no line chain */
         curLineP = (line_t *)&lineHead;
         GetLine();        /* get first line token and lookAhead token */
