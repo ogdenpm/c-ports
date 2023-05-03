@@ -1,24 +1,12 @@
 /****************************************************************************
- *  asm80: C port of ASM80 v4.1                                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  emitm.c: part of the C port of Intel's ISIS-II asm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // vim:ts=4:expandtab:shiftwidth=4:
 //
@@ -34,6 +22,20 @@ static modhdr_t rModhdr = {2};
 static char *dtaP;
 static pointer recSymP;
 
+
+// portability helper functions
+word putWord(pointer buf, word val) {
+    buf[0] = val & 0xff;
+    buf[1] = val >> 8;
+    return val;
+}
+
+
+word getWord(pointer buf) {
+    return buf[0] + buf[1] * 256;
+}
+
+
 void WriteRec(pointer recP)
 {
     pointer lenP;
@@ -41,10 +43,10 @@ void WriteRec(pointer recP)
     byte i, crc;
 
     lenP = recP + 1;		// point to the length word
-    recLen = ++*(wpointer)lenP + 3;    /* include crc byte + type + len word */
+    recLen = putWord(lenP, getWord(lenP) + 1) + 3; /* include crc byte + type + len word */  
     crc = 0;            /* crc */
     lenP--;
-    for (i = 2; i <= recLen; i++)
+    for (i = 0; i < recLen - 1; i++)
         crc -= *lenP++;
     *lenP = crc;            /* insert crc byte */
     Write(objfd, recP, recLen, &statusIO);
