@@ -1,24 +1,12 @@
 /****************************************************************************
- *  l82: C port of l82 high level assembler code generator                  *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  l82.c: part of the C port of l82 high level assembler code generator    *
+ *  Original PL/M program (C) Luiz Pedroso                                  *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 
 #define _CRT_SECURE_NO_WARNINGS
@@ -29,7 +17,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-void showVersion(FILE *fp, bool full);
+#include <showVersion.h>
+
+#ifdef _WIN32
+#define DIRSEP "/\\:"
+#else
+#define DIRSEP "/"
+#endif
 
 
 #ifdef _DBGRAM              // define to display grammar productions on reduce
@@ -119,7 +113,7 @@ uint8_t *x;                        // replaces x based basex (1) uint8_t
 uint16_t *y;                     // replaces y based basey (1) uint16_t
 uint16_t h1, h2, h3, h4, h5;
 uint8_t x1, x2, x3, x4;
-uint16_t y1, y2, y3;
+uint16_t _y1, y2, y3;           // y1 renamed to avoid warning from gcc over intrinsic
 #define l1  (h1 & 0xff)
 #define l2  (h2 & 0xff)
 #define l3  (h3 & 0xff)
@@ -220,12 +214,12 @@ void Trac(uint8_t t) {
 
 
 
-__declspec(noreturn) void Exit(int ecode) {
+_Noreturn void Exit(int ecode) {
     printf("\nEnd L82\n");
     exit(ecode);
 }
 
-void CloseAll() {               /* close all files and return to os */
+_Noreturn void CloseAll() {               /* close all files and return to os */
     if (fclose(fpCode) != 0)
         errcnt++, fprintf(stderr, "cannot close %s\n", cFile);
     if (fclose(fpData) != 0)
@@ -389,7 +383,6 @@ void BSAdatr(uint8_t i, uint8_t b, uint16_t d, uint16_t a) {
     }
 }
 
-#pragma warning(disable: 4715)
 uint8_t IncRelt(uint8_t b) {
     /* create an entry in reltab for an address to be
        relocated in segment b (ca or ida);
@@ -416,8 +409,9 @@ uint8_t IncRelt(uint8_t b) {
     }
     // if get here : relocation table overflow: quit
     KError(0xf4);	/* too many unresolved cases */
+    return 0;       // KError will not return in this case but avoid compiler warning
 }
-#pragma warning(default : 4715)
+
 
 uint16_t First2(uint16_t l) {       /* return first 2 charaters of string at symList(l) */
     uint8_t hi, lo;
@@ -468,7 +462,7 @@ void EmitStr(uint8_t k, uint8_t s) {    /* emit in segment s (ca, ida) the strin
     n = s == CA ? caNext : idaNext;
     c = CreateSym(STRING, s, n, 0, k);  // create an entry in symtab
     n = h[k];                           // pointer to symList
-    while (c = symList[n]) {
+    while ((c = symList[n])) {
         Wr(s, c);
         n++;
     }
@@ -579,7 +573,7 @@ void XmitH1() {
 void Xmit1() {                  /* pass along values of first element of the handle */
     XmitH1();
     xx = x1;
-    yy = y1;
+    yy = _y1;
 }
 
 void Xmit2() {
@@ -1104,7 +1098,7 @@ void Reduce(uint16_t pn) {
                                 /* return pointer to f chain in reltab */
         ll = EmitL(x2 ^ 0xa, l1);   /* emit jncond f */
         break;
-    case 37:                    /***<COMPOUND.CONDITION> :: = <OR.HEAD> <SIMPLE.CONDIITON> * /
+    case 37:                    /***<COMPOUND.CONDITION> :: = <OR.HEAD> <SIMPLE.CONDIITON> */
         ll = EmitL(x2 ^ 0xa, 0);    /* emit jncond f */
         BRAddr(l1, CA, caNext);     /* backstuff t */
         break;
@@ -1145,7 +1139,7 @@ void Reduce(uint16_t pn) {
         temp3 = idaNext - iida; /* total length initialized */
         temp4 = 0;
         for (i = 1; i <= x1; i++)
-            temp4 += y1;        /* total length requested */
+            temp4 += _y1;        /* total length requested */
 
         if (temp4 < temp3) {    /* initial data too long */
             KError(0);
@@ -1153,12 +1147,12 @@ void Reduce(uint16_t pn) {
         }
         if (temp3 == 0) {       /* no data initialized */
             IncWA(temp4);       /* allocate in wa */
-            BSAdatr(l1, WA, waNext, y1);
+            BSAdatr(l1, WA, waNext, _y1);
         } else {                /* initialization requested (data is in ida) */
             iida += temp4;
             while (idaNext < iida)
                 Wr(IDA, ' ');  /* pad with blanks */
-            BSAdatr(l1, IDA, idaNext, y1);  /* allocate in ida */
+            BSAdatr(l1, IDA, idaNext, _y1);  /* allocate in ida */
         }
         break;
     case 54:                    /*** <DECL.ELEMENT> ::= <IDENT.SPECIFICATION> <TYPE> */
@@ -1232,7 +1226,7 @@ void Reduce(uint16_t pn) {
             temp4 = -rext[temp1];       //  address of lo
             SRAddr(temp1, 1, caNext);   /* backsuff jpvec */
             rext[temp1] = 0;            /* not external */
-            temp3 = caNext + (y1 << 1); /* address of exit */
+            temp3 = caNext + (_y1 << 1); /* address of exit */
             while (temp2) {             /* generate jump vector, backsuff exit */
                 EmitA(CA, temp4, 0);    /* emit n-th label (ln) */
                 temp1 = (uint8_t)rext[temp2];
@@ -1243,7 +1237,7 @@ void Reduce(uint16_t pn) {
             }
         } else if (x1 == 2) {           /* this is an iterative group */
             /* h1 points to f chain in reltab */
-            Emit3A(JMP, CA, y1, 0);     /* emit jmp loop */
+            Emit3A(JMP, CA, _y1, 0);     /* emit jmp loop */
             BRAddr(l1, CA, caNext);     /* backstuff f */
         }
         PopBl(1);                       /* exit block, shrink wa */
@@ -1262,7 +1256,7 @@ void Reduce(uint16_t pn) {
         Xmit1();
         if (x1 & 1) {           // case group
             hh = EmitL(JMP, l1);/* emit jmp exit */
-            yy = y1 + 1;        /* no. statements in the case group */
+            yy = _y1 + 1;        /* no. statements in the case group */
         }
         break;
     case 77:                    /*** <DO> ::= DO */
@@ -1299,7 +1293,7 @@ void Reduce(uint16_t pn) {
         break;
     case 83:                    /*** <PROC DEFINITION> ::= <PROC.HEAD> <STMT.LIST> ; <ENDING> */
         Emit1(RET);		        /* supply a return */
-        BRAddr((uint8_t)y1, CA, caNext); /* backstuff skip */
+        BRAddr((uint8_t)_y1, CA, caNext); /* backstuff skip */
         PopBl(0);               /* exit block, do not shrink wa */
         break;
     case 84:                    /*** <PROC.HEAD> ::= <PROC.NAME> ; */
@@ -1536,9 +1530,9 @@ void Reduce(uint16_t pn) {
 char *GetExt(char *file)        // helper function for C-port locate position of .ext or return end of src if none
 {
     char *s, *t;
-    for (s = file; t = strpbrk(s, "/\\:"); s = t + 1)       // skip directory separators
+    for (s = file; (t = strpbrk(s,DIRSEP)); s = t + 1)       // skip directory separators
         ;
-    if (t = strrchr(s, '.'))    // we have an extent
+    if ((t = strrchr(s, '.')))    // we have an extent
         return t;
     else
         return strchr(s, '\0'); // return end of src
@@ -1584,7 +1578,7 @@ void LoadSymbols(char *fn) {
 
 #define action  temp
 
-void main(int argc, char **argv) {
+int main(int argc, char **argv) {
     uint8_t i;
 
     if (argc != 2) {
@@ -1592,10 +1586,7 @@ void main(int argc, char **argv) {
         Exit(1);
     }
     
-    if (stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+    CHK_SHOW_VERSION(argc, argv);
 
 #ifdef _TRACE
     printf("TRACE(C,D,P,N):");
@@ -1629,7 +1620,7 @@ void main(int argc, char **argv) {
         Exit(1);
     }
     // initialise the relocation table
-    for (i = 0; i <= RELTSIZE; i++) {
+    for (i = 0; i < RELTSIZE; i++) {    // fix 20230429 avoid write beyond end of rsb
         SRBase(i, UNUSED);
     }
     // enter the initial block and start compiling
@@ -1653,7 +1644,7 @@ void main(int argc, char **argv) {
             x2 = x[2];
             x3 = x[3];
             x4 = x[4];
-            y1 = y[1];
+            _y1 = y[1];
             y2 = y[2];
             y3 = y[3];
             hh = 0;
