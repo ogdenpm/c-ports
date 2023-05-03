@@ -1,44 +1,30 @@
 /****************************************************************************
- *  link: C port of Intel's LINK v3.0                                       *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  link1a.c: part of the C port of Intel's ISIS-II link             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "link.h"
 
-#pragma warning(disable:4715)	// next two functions don't return on error. Suppress warning not all paths return value
 
 pointer GetHigh(word count)
 {
-	if (topHeap - membot >= count)
-		return (membot = membot + count) - count;
-	FileError(ERR210, &toFileName[1], TRUE);	/* Insufficient() memory */
+	if (topHeap - membot < count)
+        FileError(ERR210, toFileName.str, TRUE); /* Insufficient() memory */
+	return (membot = membot + count) - count;
 } /* GetHigh() */
 
 pointer GetLow(word count)
 {
-	if (topHeap - membot >= count)
-		return (topHeap = topHeap - count);
-	FileError(ERR210, &toFileName[1], TRUE);	/* Insufficient() memory */
+	if (topHeap - membot < count)
+        FileError(ERR210, toFileName.str, TRUE); /* Insufficient() memory */
+	return (topHeap = topHeap - count);
 } /* GetLow() */
 
-#pragma warning(default:4715)
 
 void ChkRead(word cnt)
 {	/* make sure next cnt bytes are in the Input() buffer */
@@ -49,12 +35,12 @@ void ChkRead(word cnt)
 	{
 		memmove(sbufP, bufP, bcnt);
 		Read(inFile, sbufP + bcnt, npbuf - bcnt, &actRead, &statusIO);
-		FileError(statusIO, &inFileName[1], TRUE);
+        FileError(statusIO, inFileName.str, TRUE);
 		/* calculate new inBlk and inByt */
 		inBlk = inBlk + (word)(inByt + bufP - sbufP) / 128;
 		inByt = (inByt + bufP - sbufP) % 128;
 		if ((bcnt = bcnt + actRead) < cnt)
-			FileError(ERR204, &inFileName[1], TRUE);    /* Premature() eof */
+            FileError(ERR204, inFileName.str, TRUE); /* Premature() eof */
 		/* mark the new end */
 		ebufP = (bufP = sbufP) + bcnt;
 	}
@@ -80,7 +66,7 @@ void GetRecord()
 			ChkRead(bcnt + 1);
 			inRecordP = (record_t *)bufP;
 			if ((erecP = ((pointer)inRecordP) + inRecordP->reclen + 2) >= ebufP) /* redundant - done in ChkRead() */
-				FileError(ERR204, &inFileName[1], TRUE);	/* premature eof */
+                FileError(ERR204, inFileName.str, TRUE); /* premature eof */
 		}
 	recLen = inRecordP->reclen;
 	inP =  inRecordP->record;
@@ -112,7 +98,7 @@ void Position(word blk, word byt)
 			return;
 	}
 	Seek(inFile, 2, &blk, &byt, &statusIO);		/* Seek() on disk */
-	FileError(statusIO, &inFileName[1], true);
+    FileError(statusIO, inFileName.str, true);
 	recNum = 0;						/* reset vars and Read() at least 1 byte */
 	bufP = ebufP;
 	ChkRead(1);
@@ -122,10 +108,10 @@ void Position(word blk, word byt)
 
 void OpenObjFile()
 {
-	Pstrcpy(curObjFile->name, &inFileName[0]);		/* copy the user supplied file name */
-	inFileName[inFileName[0]+1] = ' ';			/* terminate with a space */
-	Open(&inFile, &inFileName[1], 1, 0, &statusIO);	/* Open() the file */
-	FileError(statusIO, &inFileName[1], TRUE);
+	Pstrcpy(&curObjFile->name, &inFileName);		/* copy the user supplied file name */
+	inFileName.str[inFileName.len] = ' ';			/* terminate with a space */
+    Open(&inFile, inFileName.str, 1, 0, &statusIO); /* Open() the file */
+    FileError(statusIO, inFileName.str, TRUE);
 	recNum = 0;
 	curModule = 0;					/* reset vars and Read() at least 1 byte */
 	bufP = ebufP;
@@ -136,7 +122,7 @@ void OpenObjFile()
 void CloseObjFile()
 {					/* Close() file and link to next one */
 	Close(inFile, &statusIO);
-	FileError(statusIO, &inFileName[1], TRUE);
+    FileError(statusIO, inFileName.str, TRUE);
 	curObjFile = curObjFile->link;
 } /* CloseObjFile() */
 

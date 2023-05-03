@@ -1,24 +1,12 @@
 /****************************************************************************
- *  link: C port of Intel's LINK v3.0                                       *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  link.c: part of the C port of Intel's ISIS-II link             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 /*
  * vim:ts=4:shiftwidth=4:expandtab:
@@ -32,13 +20,13 @@ word pad_4565;
 word tmpfilefd;
 word statusIO;
 word actRead;
-byte inFileName[16];
-byte toFileName[16];
-byte printFileName[16];
+psFileName_t inFileName;
+psFileName_t toFileName;
+psFileName_t printFileName;
 byte filePath[16];
-byte linkTmpFile[16];
+psFileName_t linkTmpFile;
 bool mapWanted;
-byte outModuleName[32];
+psModName_t outModuleName;
 byte modEndModTyp;
 byte outTranId;
 byte outTranVn;
@@ -71,8 +59,8 @@ symbol_t *symbolP;
 word unresolved;
 word maxExternCnt;
 symbol_t *headUnresolved;
-byte CRLF[2] = "\r\n";
-byte recErrMsg[] =  " RECORD TYPE XXH, RECORD NUMBER *****\r\n";
+char CRLF[2] = "\r\n";
+char recErrMsg[] =  " RECORD TYPE XXH, RECORD NUMBER *****\r\n";
                     //         13-^               32-^ 
 word inBlk;
 word inByt;
@@ -80,25 +68,25 @@ pointer inbP;
 byte inCRC;
 
 byte COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP'";
-byte VERSION[] = "V3.0";
+char VERSION[] = "V3.0";
 byte DUMMYREC[] = {0,0,0};
 
 /* EXTERNALS */
 extern byte overlayVersion[4];
 
-void ConOutStr(pointer pstr, word count)
+void ConOutStr(char const * pstr, word count)
 {
     Write(0, pstr, count, &statusIO);
 } /* ConOutStr() */
 
-void FatalErr(byte errCode)
+_Noreturn void FatalErr(byte errCode)
 {
     ConOutStr(" ", 1);
-    ConOutStr(&inFileName[1], inFileName[0]);
+    ConOutStr(inFileName.str, inFileName.len);
     if (curModule)
     {
         ConOutStr("(", 1);
-        ConOutStr(&curModule->name[1], curModule->name[0]);
+        ConOutStr(curModule->name.str, curModule->name.len);
         ConOutStr(")", 1);
     }
     ConOutStr(",", 1);
@@ -110,59 +98,59 @@ void FatalErr(byte errCode)
     Exit(1);
 } /* FatalErr() */
 
-void IllFmt()
+_Noreturn void IllFmt()
 {
     FatalErr(ERR218);   /* Illegal() record format */
 } /* IllFmt() */
 
-void IllegalRelo()
+_Noreturn void IllegalRelo()
 {
     FatalErr(ERR212);   /* Illegal() relo record */
 } /* IllegalRelo() */
 
-void BadRecordSeq()
+_Noreturn void BadRecordSeq()
 {
     FatalErr(ERR224);   /* Bad() record sequence */
 } /* BadRecordSeq() */
 
-void Pstrcpy(pointer psrc, pointer pdst)
+void pstrcpy(pstr_t const *psrc, pstr_t *pdst)
 {
-    memmove(pdst, psrc, psrc[0] + 1);
-} /* Pstrcpy() */
+    memmove(pdst, psrc, psrc->len + 1);
+} /* pstrcpy() */
 
-byte HashF(pointer pstr)
+byte HashF(pstr_t *pstr)
 {
     byte i, j;
 
-    j = 0;
-    for (i = 0; i <= pstr[0]; i++) {
-        j = RorB(j, 1) ^ pstr[i];
-    }
+    j = pstr->len;
+    for (i = 0; i < pstr->len; i++)
+        j = RorB(j, 1) ^ pstr->str[i];
     return j & 0x7F;
 } /* HashF() */
 
-bool Lookup(pointer pstr, symbol_t **pitemRef, byte mask)
+bool Lookup(pstr_t *pstr, symbol_t **pitemRef, byte mask)
 {
     symbol_t *p;
     byte i;
 
-    i = pstr[0] + 1;     /* Size() of string including length() byte */
+    i = pstr->len + 1;     /* Size() of string including length() byte */
     *pitemRef = (p = (symbol_t *)&hashTab[HashF(pstr)]);
     p = p->hashLink;
     while (p > 0) {     /* chase down the list to look for the name */
         *pitemRef = p;
         if ((p->flags & mask) != AUNKNOWN ) /* ignore undef entries */
-            if (Strequ(pstr, p->name, i) )
+            if (Strequ((char *)pstr, (char *)&p->name, i) )
                 return TRUE;
         p = p->hashLink;  /* next */
     }
     return false;
 } /* Lookup() */
 
-void WriteBytes(pointer bufP, word count)
+void WriteBytes(void const *bufP, word count)
 {    
     Write(printFileNo, bufP, count, &statusIO);
-    FileError(statusIO, &printFileName[1], TRUE);
+    FileError(statusIO, printFileName.str, TRUE);
+    FileError(ERR210, toFileName.str, TRUE); /* Insufficient() memory */
 } /* WriteBytes() */
 
 void WriteCRLF()
@@ -170,7 +158,7 @@ void WriteCRLF()
     WriteBytes(CRLF, 2);
 } /* WriteCRLF() */
 
-void WriteAndEcho(pointer buffP, word count)
+void WriteAndEcho(void const *buffP, word count)
 {
     
     WriteBytes(buffP, count);
@@ -178,12 +166,12 @@ void WriteAndEcho(pointer buffP, word count)
         ConOutStr(buffP, count);
 } /* WriteAndEcho() */
 
-void WAEFnAndMod(pointer buffP, word count)
+void WAEFnAndMod(char *buffP, word count)
 {
     WriteAndEcho(buffP, count);
-    WriteAndEcho(&inFileName[1], inFileName[0]);
+    WriteAndEcho(inFileName.str, inFileName.len);
     WriteAndEcho("(", 1);
-    WriteAndEcho(&curModule->name[1], curModule->name[0]);
+    WriteAndEcho(curModule->name.str, curModule->name.len);
     WriteAndEcho(")\r\n", 3);
 } /* WAEFnAndMod */
 

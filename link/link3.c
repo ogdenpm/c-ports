@@ -1,49 +1,37 @@
 /****************************************************************************
- *  link: C port of Intel's LINK v3.0                                       *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  link3.c: part of the C port of Intel's ISIS-II link             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "link.h"
 
-static byte msgmultdef[] = " - MULTIPLELY DEFINED, DUPLICATE IN ";
-static byte msgmore1main[] = "MORE THAN 1 MAIN MODULE, CONFLICT IN ";
-static byte msgmodnotinlib[] = "MODULE not IN LIBRARY, LOOKING FOR ";
-static byte msgbadcom[] = "/ - UNEQUAL COMMON LENGTH, CONFLICT IN ";
-static byte msglinkmap[] = "\r\nLINK MAP OF MODULE ";
-static byte msgwrittento[] = "\r\nWRITTEN to FILE ";
-static byte msgmodtype[] = "\r\nMODULE IS A MAIN MODULE";
-static byte msgnotmain[] = "\r\nMODULE IS not A MAIN MODULE";
-static byte msgcomSegInfo[] = "\r\n\nSEGMENT INFORMATION:"
+static char msgmultdef[] = " - MULTIPLELY DEFINED, DUPLICATE IN ";
+static char msgmore1main[] = "MORE THAN 1 MAIN MODULE, CONFLICT IN ";
+static char msgmodnotinlib[] = "MODULE not IN LIBRARY, LOOKING FOR ";
+static char msgbadcom[] = "/ - UNEQUAL COMMON LENGTH, CONFLICT IN ";
+static char msglinkmap[] = "\r\nLINK MAP OF MODULE ";
+static char msgwrittento[] = "\r\nWRITTEN to FILE ";
+static char msgmodtype[] = "\r\nMODULE IS A MAIN MODULE";
+static char msgnotmain[] = "\r\nMODULE IS not A MAIN MODULE";
+static char msgcomSegInfo[] = "\r\n\nSEGMENT INFORMATION:"
                     "\r\nSTART   STOP LENGTH REL NAME\r\n";
-byte msgmodincluded[] = "\r\n\nINPUT MODULES INCLUDED:\r\n";
-byte msgunresolved[] = "\r\nUNRESOLVED EXTERNAL NAMES:\r\n";
-byte spc14[] = "              ";
-byte aRange[] = "XXXXH  XXXXH  ";
-byte aSize[] = "XXXXH  X  ";
-byte msgGap[] = "  *GAP*";
-byte msgOverlap[] = "  *OVERLAP*";
-byte aInpageSegment[] = "  *INPAGE SEGMENT > 256 BYTES*";
-byte msgPublics[] = " (PUBLICS)";
-byte slash2[2] = "//";
-byte aAbsolute[] =  "ABSOLUTE" "CODE    " "DATA    " "STACK   " "MEMORY  ";
-byte aTypes[] = " AIPB";
+char msgmodincluded[] = "\r\n\nINPUT MODULES INCLUDED:\r\n";
+char msgunresolved[] = "\r\nUNRESOLVED EXTERNAL NAMES:\r\n";
+char spc14[] = "              ";
+char aRange[] = "XXXXH  XXXXH  ";
+char aSize[] = "XXXXH  X  ";
+char msgGap[] = "  *GAP*";
+char msgOverlap[] = "  *OVERLAP*";
+char aInpageSegment[] = "  *INPAGE SEGMENT > 256 BYTES*";
+char msgPublics[] = " (PUBLICS)";
+char slash2[2] = "//";
+char aAbsolute[] =  "ABSOLUTE" "CODE    " "DATA    " "STACK   " "MEMORY  ";
+char aTypes[] = " AIPB";
 
 byte segUsed[6];
 byte segToUse = SEG_BLANK - 1;
@@ -154,9 +142,9 @@ void WriteStats()
     if (! mapWanted)	/* user doesn't want */
         return;
     WriteBytes(msglinkmap, sizeof(msglinkmap) - 1);	/* '\r\nLINK MAP OF MODULE ' */
-    WriteBytes(&outModuleName[1], outModuleName[0]);		/* module name */
+    WriteBytes(outModuleName.str, outModuleName.len);		/* module name */
     WriteBytes(msgwrittento, sizeof(msgwrittento) - 1);	/* '\r\nWRITTEN to FILE ' */
-    WriteBytes(&toFileName[1], toFileName[0]);		/* file name */
+    WriteBytes(toFileName.str, toFileName.len);		/* file name */
     if (modEndModTyp == MT_NOTMAIN)
         WriteBytes(msgnotmain, sizeof(msgnotmain) - 1);	/* '\r\nMODULE IS not A MAIN MODULE' */
     else
@@ -183,7 +171,7 @@ void WriteStats()
     while (comdefInfoP > 0) {
         WriteBaseSizeAlign(0, comdefInfoP->len, comdefInfoP->flags);		/* print Size() info */
         WriteBytes(slash2, 1);						/* add the name at the end */
-        WriteBytes(&comdefInfoP->name[1], comdefInfoP->name[0]);
+        WriteBytes(comdefInfoP->name.str, comdefInfoP->name.len);
         WriteBytes(slash2, 1);
         if (comdefInfoP->flags == AINPAGE && comdefInfoP->len > 256)		/* warn of problems */
             WriteBytes(aInpageSegment, sizeof(aInpageSegment) - 1);	/* inpage segment > 256 bytes */
@@ -211,13 +199,13 @@ void WriteStats()
     curObjFile = objFileHead;					/* go over each file processed */
     while (curObjFile > 0) {
         curModule = curObjFile->modList;				/* and each module processed */
-        while (curModule > 0) {
+        while (curModule) {
             if (! curObjFile->publicsMode || curModule->symlist > 0)	/* ignore if publics only && nothing loaded */
             {
                 WriteBytes(" ", 1);			/* ' filename[modulename]' */
-                WriteBytes(&curObjFile->name[1], curObjFile->name[0]);
+                WriteBytes(curObjFile->name.str, curObjFile->name.len);
                 WriteBytes("(", 1);
-                WriteBytes(&curModule->name[1], curModule->name[0]);
+                WriteBytes(curModule->name.str, curModule->name.len);
                 WriteBytes(")", 1);
                 if (curObjFile->publicsMode)			/* note publics only */
                     WriteBytes(msgPublics, sizeof(msgPublics) - 1);
@@ -326,44 +314,46 @@ void P1StdSegments()
         IllFmt();
     if (inSegLen == 0)		/* nothing to do */
         return;
-    if (curSeg == SEG_CODE || curSeg == SEG_DATA)
-    {
-        if (alignType[curSeg] == AUNKNOWN)	/* first seg */
-        {
+    if (curSeg == SEG_CODE || curSeg == SEG_DATA) {
+        if (alignType[curSeg] == AUNKNOWN) { /* first seg */
             alignType[curSeg] = inSegCombine;
-            segLen[curSeg] = inSegLen;
-            segLoadBase = 0;
-        }
-        else
-        {
+            segLen[curSeg]    = inSegLen;
+            segLoadBase       = 0;
+        } else {
             prevLen = segLen[curSeg];
-            switch(inSegCombine) {
-            case 1:		/* IN PAGE */
-                if (Low(prevLen) + inSegLen <= 0x100)		/* if fits in current page */
-                    segLoadBase = prevLen + inSegLen;	/* calculate the base */
-                else						/* else start new page */
+            switch (inSegCombine) {
+            case 1:                                   /* IN PAGE */
+                if (Low(prevLen) + inSegLen <= 0x100) /* if fits in current page */
+                    segLoadBase = prevLen + inSegLen; /* calculate the base */
+                else                                  /* else start new page */
                     segLoadBase = ((prevLen + 0xFF) & 0xFF00) + inSegLen;
 
-                if (alignType[curSeg] != AINPAGE || segLoadBase > 0x100)	/* check if we should use page align */
+                if (alignType[curSeg] != AINPAGE ||
+                    segLoadBase > 0x100) /* check if we should use page align */
                     alignType[curSeg] = APAGE;
                 break;
-            case 2: 	/* PAGE */
-                alignType[curSeg] = APAGE;			/* calculate new page */
-                segLoadBase = ((prevLen + 0xFF) & 0xFF00) + inSegLen;
+            case 2:                        /* PAGE */
+                alignType[curSeg] = APAGE; /* calculate new page */
+                segLoadBase       = ((prevLen + 0xFF) & 0xFF00) + inSegLen;
                 break;
-            case 3:	/* byte */
-                if (alignType[curSeg] == AINPAGE)		/* if were in page we now have to assume page align */
+            case 3: /* byte */
+                /* if were in page we now have to assume page align */
+                if (alignType[curSeg] == AINPAGE) 
                     alignType[curSeg] = APAGE;
-                segLoadBase = prevLen + inSegLen;		/* Lookup() out Load() address */
+                segLoadBase = prevLen + inSegLen; /* Lookup() out Load() address */
                 break;
+            default:
+                IllFmt();
             }
-            segLen[curSeg] = segLoadBase;					/* update the overall seg len */
-            if ((segLoadBase = segLoadBase - inSegLen) > prevLen)	/* backup to start of this Load() address */
-                CreateFragment(curSeg, prevLen, segLoadBase - 1);	/* not contiguous so create fragment */
-            if (segLen[curSeg] < segLoadBase)				/* oops we went over 64k */
-                FatalErr(ERR221);	/* segment too large */
+            segLen[curSeg] = segLoadBase; /* update the overall seg len */
+            if ((segLoadBase = segLoadBase - inSegLen) >
+                prevLen) /* backup to start of this Load() address */
+                CreateFragment(curSeg, prevLen,
+                               segLoadBase - 1); /* not contiguous so create fragment */
+            if (segLen[curSeg] < segLoadBase)    /* oops we went over 64k */
+                FatalErr(ERR221);                /* segment too large */
         }
-        if (curSeg == SEG_CODE)		/* update the code / data base address */
+        if (curSeg == SEG_CODE) /* update the code / data base address */
             curModule->scode = segLoadBase;
         else
             curModule->sdata = segLoadBase;
@@ -412,7 +402,7 @@ void P1ModHdr()
     nxtSymbolP = (symbol_t *)&curModule->symlist;
     if (publicsMode)			/* ! loading data */
         return;
-    inP = inP + inP[0] + 1;	/* past module name */
+    inP += inP[0] + 1;	/* past module name */
     if (initTraiIdVn)			/* copy x1x2 data */
     {
         initTraiIdVn = 0;
@@ -431,34 +421,33 @@ void P1ModHdr()
         segUsed[segI] = 0;
     }
     while (inP < erecP) {		/* while more segments */
-        if ((inSegCombine = ((segdef_t *)inP)->combine) - 1 > 2)	/* only AINPAGE - ABYTE valid */
+        if ((inSegCombine = inP[SEGDEF_combine]) - 1 > 2)	/* only AINPAGE - ABYTE valid */
             IllFmt();
-        inSegLen = ((segdef_t *)inP)->len;
-        if ((curSeg = ((segdef_t *)inP)->segId) >= SEG_NAMCOM)
+        inSegLen = getWord(inP + SEGDEF_len);
+        if ((curSeg = inP[SEGDEF_segId]) >= SEG_NAMCOM)
             P1CommonSegments();
         else
             P1StdSegments();
-        inP = inP + sizeof(segdef_t);	/* advance to next def */
+        inP = inP + SEGDEF_sizeof;	/* advance to next def */
     }
 } /* P1ModHdr() */
 
-void P1ModEnd()
-{
+void P1ModEnd() {
     moreRecords = 0;
     if (publicsMode)
         return;
-    if (((modend_t *)inP)->modType == MT_MAIN)
-        if (modEndModTyp != MT_NOTMAIN)	/* duplicate main modules !! */
+    if (inP[MODEND_modType] == MT_MAIN) {
+        if (modEndModTyp != MT_NOTMAIN) /* duplicate main modules !! */
             WAEFnAndMod(msgmore1main, sizeof(msgmore1main) - 1);
-        else
-        {
-            modEndModTyp = MT_MAIN;	/* record main and save entry point */
-            modEndSegId = SelectInSeg(((modend_t *)inP)->segId);
-            modEndOffset = inSegOffset + ((modend_t *)inP)->offset;
+        else {
+            modEndModTyp = MT_MAIN; /* record main and save entry point */
+            modEndSegId  = SelectInSeg(inP[MODEND_segId]);
+            modEndOffset = inSegOffset + getWord(inP + MODEND_offset);
         }
-    if (! noCommonSeen)	/* check common alignments */
+    }
+    if (!noCommonSeen) /* check common alignments */
         for (segI = 0; segI <= 255; segI++) {
-            if (comSegInfoP[segI].combine + 1 > 1)	/* only AUNKNOWN & ANONE valid */
+            if (comSegInfoP[segI].combine + 1 > 1) /* only AUNKNOWN & ANONE valid */
                 BadRecordSeq();
         }
 } /* P1ModEnd() */
@@ -470,8 +459,8 @@ void Pass1CONTENT()
     inP = bufP;
     if (! publicsMode)	/* skip if just processing publics */
     {
-        if ((curSeg = ((moddat_t *)inP)->segId) == SEG_ABS)	/* absolute record */
-            CreateFragment(SEG_ABS, ((moddat_t *)inP)->offset, ((moddat_t *)inP)->offset + recLen - 5);
+        if ((curSeg = inP[MODDAT_segId]) == SEG_ABS)	/* absolute record */
+            CreateFragment(SEG_ABS, getWord(inP + MODDAT_offset), getWord(inP + MODDAT_offset) + recLen - 5);
         else						/* relocatable record */
         {
             if (recLen > 1025)		/* only abs > 1025 */
@@ -505,11 +494,11 @@ void Pass1COMDEF()
     if (noCommonSeen)	/* can't have common def if no common segments */
         BadRecordSeq();
     while (inP < erecP) {
-        if ((curSeg = ((comnam_t *)inP)->segId) < SEG_NAMCOM || curSeg == SEG_BLANK)	/* ! a named common */
+        if ((curSeg = inP[COMNAM_segId]) < SEG_NAMCOM || curSeg == SEG_BLANK)	/* ! a named common */
             IllFmt();
         if (comSegInfoP[curSeg].combine + 1 < 2)	/* AUNKNOWN && ANONE invalid */
             IllFmt();
-        if (Lookup(((comnam_t *)inP)->name, &comdefInfoP, F_ALNMASK))	/* already exist ? */
+        if (Lookup((pstr_t *)(inP + COMNAM_name), &comdefInfoP, F_ALNMASK)) /* already exist ? */
         {
             /* if (! both ABYTE) make APAGE */
             if (comdefInfoP->flags != ABYTE || comSegInfoP[curSeg].combine != ABYTE)
@@ -519,13 +508,13 @@ void Pass1COMDEF()
                 if (comSegInfoP[curSeg].lenOrLinkedSeg > comdefInfoP->len)	/* set as max of sizes */
                     comdefInfoP->len = comSegInfoP[curSeg].lenOrLinkedSeg;
                 WriteAndEcho(slash2, 1);			/* warning sizes are different */
-                WriteAndEcho(&comdefInfoP->name[1], comdefInfoP->name[0]);
+                WriteAndEcho(comdefInfoP->name.str, comdefInfoP->name.len);
                 WAEFnAndMod(msgbadcom, sizeof(msgbadcom) - 1);
             }
         }
         else	/* new entry required */
         {
-            comdefInfoP->hashLink = (symbol_t *)GetLow(sizeof(symbol_t) + ((comnam_t *)inP)->name[0]);
+            comdefInfoP->hashLink = (symbol_t *)GetLow(sizeof(symbol_t) + ((pstr_t *)(inP +  COMNAM_name))->len);
             comdefInfoP = comdefInfoP->hashLink;	/* link in and mark new end of chain */
             comdefInfoP->hashLink = 0;
             comdefInfoP->flags = comSegInfoP[curSeg].combine;	/* save the combine value */
@@ -533,7 +522,7 @@ void Pass1COMDEF()
                 FatalErr(ERR236);	/* too many common segments */
             comdefInfoP->linkedSeg = segToUse;	/* record the linked seg for this segment */
             segToUse = segToUse - 1;
-            Pstrcpy(((comnam_t *)inP)->name, comdefInfoP->name);	/* copy the name */
+            Pstrcpy((pstr_t *)(inP + COMNAM_name), &comdefInfoP->name); /* copy the name */
             comdefInfoP->len = comSegInfoP[curSeg].lenOrLinkedSeg;		/* and Size() */
             comdefInfoP->nxtSymbol->hashLink = tailSegOrderLink->hashLink;		/* chain into seg order */
             tailSegOrderLink->hashLink = comdefInfoP;
@@ -541,7 +530,7 @@ void Pass1COMDEF()
         } /* else */
         comSegInfoP[curSeg].combine = ANONE;		/* flag as done */
         comSegInfoP[curSeg].lenOrLinkedSeg = comdefInfoP->linkedSeg;	/* replace len with the linkedSeg */
-        inP = inP + 2 + ((comnam_t *)inP)->name[0];			/* next name */
+        inP += COMNAM_sizeof + ((pstr_t *)(inP + COMNAM_name))->len;			/* next name */
     }	/* do while */
 } /* Pass1COMDEF() */
 
@@ -550,7 +539,7 @@ void MarkPublic()
 {
     symbolP->flags = F_PUBLIC;	/* now public */
     symbolP->linkedSeg = curSeg;	/* location known */
-    symbolP->offsetOrSym = inSegOffset + ((def_t *)inP)->offset;
+    symbolP->offsetOrSym = inSegOffset + getWord(inP + DEF_offset);
     segmap[curSeg] = 0xFF;		/* flag as used seg */
     symbolP->nxtSymbol = nxtSymbolP->hashLink;	/* add to the publics chain */
     nxtSymbolP->hashLink = symbolP;
@@ -566,13 +555,14 @@ void Pass1PUBNAMES()
     curSeg = SelectInSeg(curSeg);	/* get the linked seg */
     inP = inP + 1;
     while (inP < erecP) {		/* while more public definitions */
-        if (Lookup(((def_t *)inP)->name, &symbolP, F_SCOPEMASK))	/* Lookup() extern || public */
+        if (Lookup((pstr_t *)(inP + DEF_name), &symbolP,
+                   F_SCOPEMASK)) /* Lookup() extern || public */
         {
             if (symbolP->flags == F_PUBLIC)			/* Error() if ! same location */
             {
-                if (curSeg != 0 || symbolP->linkedSeg != curSeg || symbolP->offsetOrSym != ((def_t *)inP)->offset)
+                if (curSeg != 0 || symbolP->linkedSeg != curSeg || symbolP->offsetOrSym != getWord(inP + DEF_offset))
                 {
-                    WriteAndEcho(&symbolP->name[1], symbolP->name[0]);
+                    WriteAndEcho(symbolP->name.str, symbolP->name.len);
                     WAEFnAndMod(msgmultdef, sizeof(msgmultdef) - 1);
                 }
             }
@@ -584,13 +574,13 @@ void Pass1PUBNAMES()
         }
         else
         {	/* create a new entry */
-            symbolP->hashLink = (symbol_t *)GetLow(sizeof(symbol_t) + ((def_t *)inP)->name[0]);
+            symbolP->hashLink = (symbol_t *)GetLow(sizeof(symbol_t) + ((pstr_t *)(inP + DEF_name))->len);
             symbolP = symbolP->hashLink;	/* add to HashF() chain */
             symbolP->hashLink = 0;
-            Pstrcpy(((def_t *)inP)->name, symbolP->name);	/* add the name */
+            Pstrcpy((pstr_t *)(inP + DEF_name), &symbolP->name); /* add the name */
             MarkPublic();				/* make it a public */
         }
-        inP = inP + 4 + ((def_t *)inP)->name[0];			/* to next pubdef */
+        inP += 4 + ((pstr_t *)(inP + DEF_name))->len;			/* to next pubdef */
     }	/* do while */
 } /* Pass1PUBNAMES() */
 
@@ -600,14 +590,14 @@ void Pass1EXTNAMES()
         return;
     while (erecP > inP) {		/* while more external definitions */
         externCnt = externCnt + 1;	/* bump the number of externs */
-        if (! Lookup(inP, &symbolP, F_SCOPEMASK))	/* ! currently extern || public */
+        if (! Lookup((pstr_t *)inP, &symbolP, F_SCOPEMASK))	/* ! currently extern || public */
         {
             symbolP->hashLink = (symbol_t *)GetLow(sizeof(symbol_t) + inP[0]);	/* create an entry */
             symbolP = symbolP->hashLink;		/* link in */
             symbolP->hashLink = 0;
             symbolP->flags = F_EXTERN;		/* extern and record symcnt number */
             symbolP->offsetOrSym = (symcnt = symcnt + 1);
-            Pstrcpy(inP, symbolP->name);	/* copy name */
+            Pstrcpy(inP, &symbolP->name);	/* copy name */
             unresolved = unresolved + 1;		/* one more to resolve */
             newUnresolved = newUnresolved + 1;
         }
@@ -623,7 +613,7 @@ void P1Records(byte newModule)
         hmoduleP->link = (curModule = (module_t *)GetLow(sizeof(module_t) + inP[0]));
         curModule->link = 0;
         curModule->symlist = 0;
-        Pstrcpy(inP, curModule->name);
+        Pstrcpy(inP, &curModule->name);
         hmoduleP = curModule;
     }
     externCnt = 0;
@@ -639,7 +629,9 @@ void P1Records(byte newModule)
         case 0x08: break;			/* R_LINENO */
         case 0x0A: IllegalRelo(); break;	/* 0A */
         case 0x0C: IllegalRelo(); break;	/* 0C */
-        case 0x0E: FileError(ERR204, &inFileName[1], true); break;	/* Premature() R_EOF */
+        case 0x0E:
+            FileError(ERR204, inFileName.str, true);
+            break; /* Premature() R_EOF */
         case 0x10: break;			/* R_ANCESTOR */
         case 0x12: break;			/* R_LOCALS */
         case 0x14: IllegalRelo(); break;	/* 14 */
@@ -704,7 +696,7 @@ void P1LibScan()
             while (ReadName() && toResolve > 0) {
                 if (inP[0] == 0)	/* new module - 0 separates */
                     modIdx = modIdx + 1;
-                else if (Lookup(inP, &symbolP, F_EXTERN))	/* matched an unresolved external */
+                else if (Lookup((pstr_t *)inP, &symbolP, F_EXTERN))	/* matched an unresolved external */
                 {
                     /* i = */ GetHigh(4);		/* adds to modlocsP vector - return address is junked */
                     modlocsP[libModulesToLoad].blk = modIdx;	/* record the module id */
@@ -756,10 +748,10 @@ void P1LibUserModules()
         modIdx = modIdx + 1;	/* index for later into libloc data */
         unmatched = 0;		/* set flag for Exit() if (module ! matched */
         curModule = curObjFile->modList;	/* go over the supplied list of modules */
-        while (curModule > 0) {		
+        while (curModule) {		
             if (curModule->scode == 0)	/* ! matched yet */
             {
-                if (Strequ(inP, curModule->name, curModule->name[0] + 1))
+                if (Strequ((char *)inP, (char *)&curModule->name, curModule->name.len + 1))
                     curModule->scode = modIdx;	/* record matched module */
                 else
                     unmatched = true;	/* at least one module not matched */
@@ -773,7 +765,7 @@ void P1LibUserModules()
     for (i = 1; i <= modIdx; i++) {		/* for all locations */
         ReadBlkByt();	/* get the location info */
         curModule = curObjFile->modList;	/* scan the module list to see if (we need this one */
-        while (curModule > 0) {
+        while (curModule) {
             if (i == curModule->scode)
             {
                 curModule->blk = ((loc_t *)inP)->blk;	/* put in the location info */
@@ -784,7 +776,7 @@ void P1LibUserModules()
     }
     hmoduleP = (module_t *)&curObjFile->modList;		/* pointer to remove missing modules from the chain */
     curModule = curObjFile->modList;
-    while (curModule > 0) {
+    while (curModule) {
         if (curModule->scode == 0)
         {
             WAEFnAndMod(msgmodnotinlib, sizeof(msgmodnotinlib) - 1);	/* Module() not in library, looking for */

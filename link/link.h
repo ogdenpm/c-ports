@@ -1,24 +1,12 @@
 /****************************************************************************
- *  link: C port of Intel's LINK v3.0                                       *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  link.h: part of the C port of Intel's ISIS-II link             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include <stdbool.h>
 #include <string.h>
@@ -38,175 +26,226 @@ typedef word *wpointer;
 
 #pragma pack(push, 1)
 typedef union {
-	word w;
-	struct {
-		byte lb, hb;
-	};
+    word w;
+    struct {
+        byte lb, hb;
+    };
 } word_t;
 
 typedef union {
-	word w;
-	struct {
-		byte lb, hb;
-	};
-	byte b[2];
-	byte *bp;
-	word *ap;
+    word w;
+    struct {
+        byte lb, hb;
+    };
+    byte b[2];
+    byte *bp;
+    word *ap;
+    char *cp;
 } address;
 
+typedef struct {		// generic pascal string
+    byte len;
+    char str[0];
+} pstr_t;
+
+typedef struct {		// pascal string for file names
+    byte len;
+    char str[15];
+} psFileName_t;
+
+typedef struct {		// pascal string for module names
+    byte len;
+    char str[31];
+} psModName_t;
+
+
+
+
 typedef struct {
-	word saddr;
-	word eaddr;
+    word saddr;
+    word eaddr;
 } dataFrag_t;
 
 typedef struct {
-	byte state;
-	byte mpage;
+    byte state;
+    byte mpage;
 } page1_t;
 
 typedef struct {
-	byte pageIdx;
-	byte fileIdx;
+    byte pageIdx;
+    byte fileIdx;
 } page2_t;
 
 typedef struct {
-	byte rectyp;
-	word reclen;
-	byte record[1];
+    byte rectyp;
+    word reclen;
+    byte record[1];
 } record_t;
 
 typedef struct _segfrag {
-	struct _segfrag *link;
-	word bot;
-	word top;
+    struct _segfrag *link;
+    word bot;
+    word top;
 } segFrag_t;
 
 typedef union {
-	byte all[9];
-	struct {
-		byte start;
-		byte stackSize;
-		byte restart0;
-		byte map;
-		byte publics;
-		byte symbols;
-		byte lines;
-		byte purge;
-		byte name;
-	};
+    byte all[9];
+    struct {
+        byte start;
+        byte stackSize;
+        byte restart0;
+        byte map;
+        byte publics;
+        byte symbols;
+        byte lines;
+        byte purge;
+        byte name;
+    };
 } seen_t;
 
 typedef struct {
-	byte deviceId;
-	byte name[6];
-	byte ext[3];
-	byte deviceType;
-	byte driveType;
+    byte deviceId;
+    byte name[6];
+    byte ext[3];
+    byte deviceType;
+    byte driveType;
 } spath_t;
 
 typedef struct _symbol {
-	struct _symbol *hashLink;
-	byte flags;
-	byte linkedSeg;
-	union {
-		word offsetOrSym;
-		word len;
-		word symId;
-	};
-	struct _symbol *nxtSymbol;
-	byte name[1];
+    struct _symbol *hashLink;
+    byte flags;
+    byte linkedSeg;
+    union {
+        word offsetOrSym;
+        word len;
+        word symId;
+    };
+    struct _symbol *nxtSymbol;
+    pstr_t name;
 } symbol_t;
 
 typedef struct _module {
-	struct _module *link;
-	word blk;
-	word byt;
-	symbol_t *symlist;
-	word scode;
-	word sdata;
-	byte name[1];
+    struct _module *link;
+    word blk;
+    word byt;
+    symbol_t *symlist;
+    word scode;
+    word sdata;
+    pstr_t name;
 } module_t;
 
 
 typedef struct _library {
-	struct _library *link;
-	module_t *modList;
-	byte publicsMode;
-	byte hasModules;
-	byte name[1];
+    struct _library *link;
+    module_t *modList;
+    byte publicsMode;
+    byte hasModules;
+    pstr_t name;
 } library_t;
 
 typedef struct _reloc {
-	struct _reloc *link;
-	word offset;
+    struct _reloc *link;
+    word offset;
 } reloc_t;
 
 typedef struct _fixup {
-	struct _fixup *link;
-	word typeAndSeg;
-	reloc_t *relocList;
+    struct _fixup *link;
+    word typeAndSeg;
+    reloc_t *relocList;
 } fixup_t;
 
 typedef struct _extfixup {
-	struct _extfixup *link;
-	word offset;
-	word symId;
+    struct _extfixup *link;
+    word offset;
+    word symId;
 } extfixup_t;
 
 // record fragments
-typedef struct {
-	word symId;
-	word offset;
-} extref_t;
+//typedef struct {
+//	word symId;
+//	word offset;
+//} extref_t;
+#define EXTREF_symId	0
+#define EXTREF_offset	2
 
-typedef struct {
-	byte segId;
-	byte fixType;
-} interseg_t;
+//typedef struct {
+//	byte segId;
+//	byte fixType;
+//} interseg_t;
 
-typedef struct {
-	byte segId;
-	word offset;
-	byte dat[1];
-} moddat_t;
+#define INTERSEG_segId		0
+#define INTERSEG_fixType	1
 
-typedef struct {
-	byte modType;
-	byte segId;
-	word offset;
-} modend_t;
+//typedef struct {
+//	byte segId;
+//	word offset;
+//	byte dat[1];
+//} moddat_t;
 
-typedef struct {
-	word offset;
-	word linNum;
-} line_t;
-
-typedef struct {
-	word offset;
-	byte name[1];
-} def_t;
-
-typedef struct {
-	byte segId;
-	byte name[1];
-} comnam_t;
-
-typedef struct {
-	byte segId;
-	word len;
-	byte combine;
-} segdef_t;
+#define MODDAT_segId	0
+#define MODDAT_offset	1
+#define MODDAT_dat		3
 
 
+//typedef struct {
+//	byte modType;
+//	byte segId;
+//	word offset;
+//} modend_t;
+
+#define MODEND_modType	0
+#define MODEND_segId	1
+#define MODEND_offset	2
+#define MODEND_sizeof	4
+
+
+//typedef struct {
+//	word offset;
+//	word linNum;
+//} line_t;
+#define LINE_offset	0
+#define LINE_linNum	2
+
+
+//typedef struct {
+//	word offset;
+//	pstr_t name;
+//} def_t;
+#define DEF_offset	0
+#define DEF_name	2
+
+//typedef struct {
+//	byte segId;
+//	byte name[1];
+//} comnam_t;
+#define COMNAM_segId	0
+#define COMNAM_name		1
+#define COMNAM_sizeof	2	// + name chars
+
+//typedef struct {
+//	byte segId;
+//	word len;
+//	byte combine;
+//} segdef_t;
+
+#define SEGDEF_segId	0
+#define	SEGDEF_len		1
+#define SEGDEF_combine	3
+#define SEGDEF_sizeof   4
+
 typedef struct {
-	byte combine;
-	word lenOrLinkedSeg;
+    byte combine;
+    word lenOrLinkedSeg;
 } comseginfo_t;
 
+
 typedef struct {
-	word blk;
-	word byt;
+    word blk;
+    word byt;
 } loc_t;
+#define LOC_blk	0
+#define LOC_byt	2
+
 #pragma pack(pop)
 
 /* Seek modes */
@@ -352,78 +391,78 @@ typedef struct {
 #define F_EXTERN        0x40
 #define F_PUBLIC        0x80
 // link.plm
-word actRead;
-byte alignType[6];
-pointer membot;
-pointer bufP;
-symbol_t *comdefInfoP;
-byte CRLF[2];
-module_t *curModule;
-library_t *curObjFile;
-bool mapWanted;
-byte DUMMYREC[3];
-pointer ebufP;
-word modEndOffset;
-byte modEndSegId;
-pointer eoutP;
-pointer erecP;
-byte filePath[16];
-symbol_t *hashTab[128];
-symbol_t *headSegOrderLink;
-symbol_t *headUnresolved;
-word inBlk;
-pointer inbP;
-word inByt;
-byte inCRC;
-byte inFileName[16];
-pointer inP;
-record_t *inRecordP;
-byte linkTmpFile[16];
-word maxExternCnt;
-byte outTranId;
-byte outTranVn;
-byte modEndModTyp;
-byte outModuleName[32];
-word npbuf;
-library_t *objFileHead;
-pointer outP;
-address pad$4565;
-byte printFileName[16];
-word printFileNo;
-word inFile;
-byte recErrMsg[40];
-word recLen;
-word recNum;
-pointer sbufP;
-word segLen[6];
-byte segmap[256];
-pointer soutP;
-word statusIO;
-symbol_t *symbolP;
-word tmpfilefd;
-word tofilefd;
-byte toFileName[16];
-pointer topHeap;
-word unresolved;
-byte VERSION[5];
+extern word actRead;
+extern byte alignType[6];
+extern pointer membot;
+extern pointer bufP;
+extern symbol_t *comdefInfoP;
+extern char CRLF[2];
+extern module_t *curModule;
+extern library_t *curObjFile;
+extern bool mapWanted;
+extern byte DUMMYREC[3];
+extern pointer ebufP;
+extern word modEndOffset;
+extern byte modEndSegId;
+extern pointer eoutP;
+extern pointer erecP;
+extern byte filePath[16];
+extern symbol_t *hashTab[128];
+extern symbol_t *headSegOrderLink;
+extern symbol_t *headUnresolved;
+extern word inBlk;
+extern pointer inbP;
+extern word inByt;
+extern byte inCRC;
+extern psFileName_t inFileName;
+extern pointer inP;
+extern record_t *inRecordP;
+extern psFileName_t linkTmpFile;
+extern word maxExternCnt;
+extern byte outTranId;
+extern byte outTranVn;
+extern byte modEndModTyp;
+extern psModName_t outModuleName;
+extern word npbuf;
+extern library_t *objFileHead;
+extern pointer outP;
+extern address pad$4565;
+extern psFileName_t printFileName;
+extern word printFileNo;
+extern word inFile;
+extern char recErrMsg[40];
+extern word recLen;
+extern word recNum;
+extern pointer sbufP;
+extern word segLen[6];
+extern byte segmap[256];
+extern pointer soutP;
+extern word statusIO;
+extern symbol_t *symbolP;
+extern word tmpfilefd;
+extern word tofilefd;
+extern psFileName_t toFileName;
+extern pointer topHeap;
+extern word unresolved;
+extern char VERSION[5];
 
 
 // link3a.plm
-byte controls[19];
+extern byte controls[19];
 
 // linkov.plm
-byte modName[32];
-byte msgrefin[18];
-record_t *outRecordP;
-byte OVERLAYVERSION[5];
+extern psModName_t modName;
+extern char msgrefin[18];
+extern record_t *outRecordP;
+extern char OVERLAYVERSION[5];
 
 
-pointer MEMORY;
+extern pointer MEMORY;
 
 void AddExtMap(symbol_t *symP);
 void AddFileToInputList();
 void BadRecordSeq();
-void BinAsc(word number, byte base, byte pad, pointer bufp, byte ndigits);
+void BinAsc(word number, byte base, byte pad, char *bufp, byte ndigits);
 void ChainUnresolved();
 void CheckFile();
 void ChkLP();
@@ -431,12 +470,12 @@ void ChkRead(word cnt);
 void ChkRP();
 void Close(word conn, wpointer statusP);
 void CloseObjFile();
-void ConOutStr(pointer pstr, word count);
+void ConOutStr(char const *pstr, word count);
 void CreateFragment(byte seg, word bot, word top);
-void CrStrUpper(pointer PCH);
-pointer Deblank(pointer pch);
-void Delete(pointer pathP, wpointer statusP);
-pointer Delimit(pointer pch);
+void CrStrUpper(char *PCH);
+char const *Deblank(char const *pch);
+void Delete(char const *pathP, wpointer statusP);
+char const *Delimit(char const *pch);
 void EmitANCESTOR();
 void EmitCOMDEF();
 void EmitEnding();
@@ -446,32 +485,32 @@ void EmitPUBLICS();
 void EndRecord();
 void ErrNotDiscFile();
 void Error(word ErrorNum);
-void Exit(int retCode);
+_Noreturn void Exit(int retCode);
 void ExpectChar(byte ch, byte errCode);
 void ExpectComma();
 void ExpectType(byte type);
 bool ExtendRec(word cnt);
 void FatalCmdLineErr(word errCode);
-void FatalErr(byte errCode);
-void FileError(word errCode, pointer file, bool errExit);
+_Noreturn void FatalErr(byte errCode);
+void FileError(word errCode, char const *file, bool errExit);
 void FlushTo();
 pointer GetHigh(word count);
 void GetInputListItem();
 pointer GetLow(word count);
-void GetModuleName(pointer pstr);
+void GetModuleName(psModName_t *pstr);
 void GetRecord();
 symbol_t *GetSymbolP(word symId);
-byte HashF(pointer pstr);
+byte HashF(pstr_t *pstr);
 void IllegalRelo();
-void IllFmt();
+_Noreturn void IllFmt();
 void InitExternsMap();
 void InitRecord(byte type);
 //void Load(address pathP, address LoadOffset, address switch, address entryP, address statusP);
-bool Lookup(pointer pstr, symbol_t **pitemRef, byte mask);
-void MakeFullName(spath_t *pinfo, pointer pstr);
+bool Lookup(pstr_t *pstr, symbol_t **pitemRef, byte mask);
+void MakeFullName(spath_t *pinfo, char *pstr);
 pointer MemCk();
 //void MemMov(address cnt, address srcp, address dstp);
-void Open(wpointer connP, pointer pathP, word access, word echo, wpointer statusP);
+void Open(wpointer connP, char const *pathP, word access, word echo, wpointer statusP);
 void OpenObjFile();
 void P1CommonSegments();
 void P1LibScan();
@@ -499,27 +538,32 @@ void Phase1();
 void Phase2();
 void Position(word blk, word byt);
 void PrimeRecord();
-void Pstrcpy(pointer psrc, pointer pdst);
+#define Pstrcpy(psrc, pdst) pstrcpy((pstr_t *)(psrc), (pstr_t *)(pdst))
+void pstrcpy(pstr_t const *psrc, pstr_t *pdst);
 void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP);
 void ReadBlkByt();
 void ReadCmdLine();
 byte ReadName();
 void ReportError(word errCode);
 void Rescan(word conn, wpointer statusP);
-pointer ScanBlank(pointer pch);
+char const *ScanBlank(char const *pch);
 void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer statusP);
 void SeekExtMap();
 byte SelectInSeg(byte seg);
 byte SelectOutSeg(byte seg);
-void SkipNonArgChars(pointer arg1w);
+void SkipNonArgChars(char const *arg1w);
 void SkipRecord();
-void Spath(pointer pathP, spath_t *infoP, wpointer statusP);
+void Spath(char const *pathP, spath_t *infoP, wpointer statusP);
 void Start();
-bool Strequ(pointer pstr1, pointer pstr2, byte len);
-void WAEFnAndMod(pointer buffP, word count);
-void Write(word conn, pointer buffP, word count, wpointer statusP);
-void WriteAndEcho(pointer buffP, word count);
+bool Strequ(char const *pstr1, char const *pstr2, byte len);
+void WAEFnAndMod(char *buffP, word count);
+void Write(word conn, void const *buffP, word count, wpointer statusP);
+void WriteAndEcho(void const *buffP, word count);
 void WriteBaseSizeAlign(word baddr, word bsize, byte align);
-void WriteBytes(pointer bufP, word count);
+void WriteBytes(void const *bufP, word count);
 void WriteCRLF();
 void WriteStats();
+
+// io.c support functions
+word putWord(pointer buf, word val);
+word getWord(pointer buf);

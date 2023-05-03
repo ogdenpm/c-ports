@@ -1,24 +1,12 @@
 /****************************************************************************
- *  link: C port of Intel's LINK v3.0                                       *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  io.c: part of the C port of Intel's ISIS-II link             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // vim:ts=4:shiftwidth=4:expandtab:
 #include <ctype.h>
@@ -28,8 +16,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "Generated/version.h"
-void showVersion(FILE *fp, bool full);
+#include <showVersion.h>
 
 
 #ifdef _WIN32
@@ -40,11 +27,13 @@ void showVersion(FILE *fp, bool full);
 #define write   _write
 #define unlink  _unlink
 #define lseek   _lseek
+#define DIRSEP  "/\\:"
 #else
 #include <unistd.h>
 #include <errno.h>
 #define _MAX_PATH 4096
 #define O_BINARY    0
+#define DIRSEP    "/"
 #endif
 
 #include "link.h"
@@ -54,7 +43,7 @@ void showVersion(FILE *fp, bool full);
 typedef struct {
     byte	deviceId; // isis device Id
     byte	modes;	  // supported modes READ_MODE, WRITE_MODE, UPDATE_MODE and RANDOM_ACCESS
-    byte	name[_MAX_PATH];
+    char	name[_MAX_PATH];
 } osfile_t;
 
 #define STDIN	0
@@ -203,17 +192,14 @@ int main(int argc, char **argv)
     size_t len;
     char *s, *progname;
 
-    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+    CHK_SHOW_VERSION(argc, argv);
 
 #ifdef _WIN32
     (void)_setmode(_fileno(stdin), O_BINARY);
     (void)_setmode(_fileno(stdout), O_BINARY);
 #endif
     /* find program name */
-    for (progname = argv[0]; s = strpbrk(progname, ":/\\"); progname = s + 1)
+    for (progname = argv[0]; (s = strpbrk(progname, DIRSEP)); progname = s + 1)
         ;
     /* only allow alpha numeric char names otherwise it may confuse isis program */
     /* .exe is also excluded*/
@@ -274,7 +260,7 @@ void Close(word conn, wpointer statusP)
 }
 
 
-void Delete(pointer pathP, wpointer statusP)
+void Delete(char const *pathP, wpointer statusP)
 {
     osfile_t osfile;
 
@@ -343,7 +329,7 @@ void Error(word ErrorNum)
         fprintf(stderr, "Unknown error %d.\n", ErrorNum);
 }
 
-void Exit(int retCode)
+_Noreturn void Exit(int retCode)
 {
     exit(retCode);
 }
@@ -357,7 +343,7 @@ void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer status
 
 
 
-void Open(wpointer connP, pointer pathP, word access, word echo, wpointer statusP)
+void Open(wpointer connP, char const *pathP, word access, word echo, wpointer statusP)
 {
     int mode, conn;
     osfile_t osfile;
@@ -526,7 +512,7 @@ void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer status
     else
         *statusP = ERROR_BADPARAM;
 }
-void Write(word conn, pointer buffP, word count, wpointer statusP)
+void Write(word conn, void const *buffP, word count, wpointer statusP)
 {
     if ((*statusP = ChkMode(conn, WRITE_MODE)) != ERROR_SUCCESS)
         return;
@@ -542,7 +528,7 @@ void Write(word conn, pointer buffP, word count, wpointer statusP)
         }
 }
 
-void Rename(pointer oldP, pointer newP, wpointer statusP)
+void Rename(char const *oldP, char const *newP, wpointer statusP)
 {
     osfile_t oldFile, newFile;
 
@@ -562,10 +548,23 @@ void Rename(pointer oldP, pointer newP, wpointer statusP)
 }
 
 
-void Spath(pointer pathP, spath_t *infoP, wpointer statusP)
+void Spath(char const *pathP, spath_t *infoP, wpointer statusP)
 {
     if ((*statusP = ParseIsisName(infoP, pathP)) != ERROR_SUCCESS)
         return;
     if (infoP->deviceType == 3)
         infoP->driveType = 4;
+}
+
+
+// support functions to read / write little eadian numbers
+word putWord(pointer buf, word val) {
+    buf[0] = val & 0xff;
+    buf[1] = val / 256;
+    return val;
+
+}
+
+word getWord(pointer buf) {
+    return buf[0] + buf[1] * 256;
 }
