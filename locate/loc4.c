@@ -1,38 +1,26 @@
 /****************************************************************************
- *  locate: C port of Intel's Locate v3.0                                   *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  loc4.c: part of the C port of Intel's ISIS-II locate             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "loc.h"
 
-byte aMemoryMapOfMod[] = "\r\nMEMORY MAP OF MODULE ";
-byte aStartStopLengt[] = "\r\n\nSTART   STOP LENGTH REL NAME\r\n\n";
-byte aModuleStartAdd[] = "MODULE START address XXXXH";
-byte aModuleIsNotAMa[] = "MODULE IS NOT A MAIN MODULE";
-byte aStartControlIg[] = ", START CONTROL IGNORED";
-byte aRestartControl[] = ", RESTART CONTROL IGNORED";
-byte aAddresses[] = "XXXXH  XXXXH  XXXXH  X  ";
-byte aMemOverlap[] = "  [MEMORY OVERLAP FROM XXXXH THROUGH XXXXH]";
-byte a0LengthSegment[] = "  [0 LENGTH SEGMENT WRAPPED AROUND TO 0000H]";
-byte segNames[] = "ABSOLUTE', 'CODE    ', 'DATA    ', 'STACK   ', 'MEMORY  ";
-byte alignNames[] = "AIPB";
+char aMemoryMapOfMod[] = "\r\nMEMORY MAP OF MODULE ";
+char aStartStopLengt[] = "\r\n\nSTART   STOP LENGTH REL NAME\r\n\n";
+char aModuleStartAdd[] = "MODULE START address XXXXH";
+char aModuleIsNotAMa[] = "MODULE IS NOT A MAIN MODULE";
+char aStartControlIg[] = ", START CONTROL IGNORED";
+char aRestartControl[] = ", RESTART CONTROL IGNORED";
+char aAddresses[] = "XXXXH  XXXXH  XXXXH  X  ";
+char aMemOverlap[] = "  [MEMORY OVERLAP FROM XXXXH THROUGH XXXXH]";
+char a0LengthSegment[] = "  [0 LENGTH SEGMENT WRAPPED AROUND TO 0000H]";
+char segNames[] = "ABSOLUTE" "CODE    " "DATA    " "STACK   " "MEMORY  ";
+char alignNames[] = "AIPB";
 
 pointer GetCommonName(byte segid)
 {
@@ -44,12 +32,12 @@ pointer GetCommonName(byte segid)
 	GetRecord();		/* junk the modhdr record */
 	while (1) {
 		GetRecord();	/* scan comdef records */
-		if (inRecordP->rectyp != R_COMDEF )
+        if (inRecordP[RECORD_rectyp] != R_COMDEF)
 			BadRecordSeq();
 		while (inP < erecP) {	/* look for the seg */
-			if (segid == ((comnam_t *)inP)->segId )
-				return ((comnam_t *)inP)->name;	/* return pointer to name */
-			inP = inP + sizeof(comnam_t) + ((comnam_t *)inP)->name[0];	/* skip to next seg/name */
+			if (segid == inP[COMNAM_segId])
+				return inP + COMNAM_name;	/* return pointer to name */
+			inP += COMNAM_sizeof + PSLen(inP + COMNAM_name);	/* skip to next seg/name */
 		}
 	}
 } /* GetCommonName */
@@ -61,7 +49,7 @@ void PrintMemoryMap()
 
 	if (seen.map)		/* print map header info if asked for */
 	{
-		PrintListingHeader(aMemoryMapOfMod, sizeof(aMemoryMapOfMod)); /* '\r\nMEMORY MAP OF MODULE ' */
+		PrintListingHeader(aMemoryMapOfMod, sizeof(aMemoryMapOfMod) - 1); /* '\r\nMEMORY MAP OF MODULE ' */
 		if (isMain )
 		{
 			BinAsc(startAddr, 16, '0', &aModuleStartAdd[21], 4);  /* insert start address in string */
@@ -119,7 +107,7 @@ void PrintMemoryMap()
 			{
 				PrintString("/", 1);			/* print the / */
 				inP = GetCommonName(curSegFragP->seg);		/* look up the common name in the input file */
-				PrintString(&inP[1], inP[0]);	/* print it and the closing /, name is in pstr format */
+                PrintString(PSStr(inP), PSLen(inP)); /* print it and the closing /, name is in pstr format */
 				PrintString("/", 1);
 			}
 			else							/* standard so used the canned names */
@@ -153,11 +141,10 @@ void PrintMemoryMap()
 } /* PrintMemoryMap */
 
 
-pointer SkipSpc(pointer pch)
+char *SkipSpc(char *pch)
 {
-	while (*pch == ' ') {
-		pch = pch + 1;
-	}
+	while (*pch == ' ')
+		pch++;
 	return pch;
 } /* SkipSpc */
 

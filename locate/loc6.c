@@ -1,35 +1,23 @@
 /****************************************************************************
- *  locate: C port of Intel's Locate v3.0                                   *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  loc6.c: part of the C port of Intel's ISIS-II locate             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "loc.h"
 
 
 spath_t spathInfo;
-byte signonMsg[] = "\fISIS-II OBJECT LOCATER ";
-byte aInvokedBy[] = " INVOKED BY:\r\n";
-byte aCommandTailErr[] = "COMMAND TAIL ERROR NEAR #:";
-byte tmpFileInfo[] = "\0LOCATETMP";
-pointer scmdP;
-pointer cmdP;
+char signonMsg[] = "\fISIS-II OBJECT LOCATER ";
+char aInvokedBy[] = " INVOKED BY:\r\n";
+char aCommandTailErr[] = "COMMAND TAIL ERROR NEAR #:";
+char tmpFileInfo[] = "\0LOCATETMP";
+char *scmdP;
+char *cmdP;
 
 byte controls[] = 
 		"\x0\x0\xfd"		/* 0xfd = 253 = -3 */
@@ -50,12 +38,12 @@ byte controls[] =
 		"\x7\x0\x5" "ORDER"
 		"\x8\x0\x7" "COLUMNS";
 
-byte cin[] = ":CI: ";
-byte cout[] = "\x5" ":CO: ";
-byte mdebug[] = "DEBUG ";
-byte mstar2[] = "**";
-byte mto[] = "TO ";
-byte mtoand[] = "TO&";
+char cin[] = ":CI: ";
+char cout[] = "\x5" ":CO: ";
+char mdebug[] = "DEBUG ";
+char mstar2[] = "**";
+char mto[] = "TO ";
+char mtoand[] = "TO&";
 
 
 void CmdErr(word err)
@@ -66,7 +54,7 @@ void CmdErr(word err)
 			cmdP = cmdP + 1;
 	}
 	else
-		cmdP = PastFileName(cmdP);
+		cmdP = (char *)PastFileName(cmdP);	// safe to remove const
 
 	*cmdP = '#';	/* put a marker in */
 	ConStrOut(aCommandTailErr, 26);
@@ -77,7 +65,7 @@ void CmdErr(word err)
 } /* CmdErr */
 
 
-void SkipNonArgChars(pointer pch)
+void SkipNonArgChars(char *pch)
 {
 	cmdP = SkipSpc(pch);
 	/* skip any continuation bits and leading space */
@@ -142,30 +130,29 @@ void InitSegOrder()
 
 void ErrNotADisk()
 {
-	MakeFullName(&spathInfo, &inFileName[1]);
-	ErrChkReport(ERR17, &inFileName[1], true);	/* not a disk file */
+	MakeFullName(&spathInfo, inFileName.str);
+	ErrChkReport(ERR17, inFileName.str, true);	/* not a disk file */
 } /* ErrNotADisk */
 
 
-void GetPstrName(pointer pstr)
+void GetPstrName(pstr_t *pstr)
 {
 
 	if (*cmdP < '?' || 'Z' < *cmdP)
 		CmdErr(ERR225);	/* invalid Name() */
-	pstr[0] = 0;			/* set length */
-	while ('0' <= *cmdP && *cmdP <= '9' || '?' <= *cmdP && *cmdP <= 'Z') {
-		pstr[0] = pstr[0] + 1;
-		if (pstr[0] > 31)
+	pstr->len = 0;			/* set length */
+	while (('0' <= *cmdP && *cmdP <= '9') || ('?' <= *cmdP && *cmdP <= 'Z')) {
+		pstr->len++;
+		if (pstr->len > 31)
 			CmdErr(ERR226);	/* name too long */
-		pstr[pstr[0]] = *cmdP;
-		cmdP = cmdP + 1;
+		pstr->str[pstr->len - 1] = *cmdP++;
 	}
 } /* GetppstrName */
 
 
 void ProcessControls()
 {
-	pointer p, q;
+	char *p, *q;
 	word_t cindex;
 	byte cid, caux, clen, cSegId;
 
@@ -180,14 +167,15 @@ void ProcessControls()
 	}
 	else if (clen > 0)	/* look up the control */
 		while (cindex.lb < sizeof(controls) - 1) {
-			if (controls[cindex.lb+2] == clen && Strequ(cmdP, &controls[cindex.lb+3], clen))
+            if (controls[cindex.lb + 2] == clen &&
+                Strequ(cmdP, (char *)&controls[cindex.lb + 3], clen))
 			{
 				cid = controls[cindex.lb];	
 				caux = controls[cindex.lb+1];
 				cindex.lb = sizeof(controls) - 1;
 			}
 			else
-				cindex.lb = cindex.lb + controls[cindex.lb + 2] + 3;
+				cindex.lb = cindex.lb +(controls[cindex.lb + 2] + 3);
 		}
 	if (cid == 0)		/* check we have a valid command */
 		CmdErr(ERR229);	/* unrecognised control */
@@ -211,14 +199,14 @@ void ProcessControls()
 		case 4:		/* NAME */
 	    	seen.name = true;		/* got a module name */
 			ExpectLP();
-			GetPstrName(moduleName);	/* getand its value */
+            GetPstrName((pstr_t *)&moduleName); /* getand its value */
 			ExpectRP();
 	    	break;
 	    case 5:		/* PRINT */		/* get the print file */
 			ExpectLP();
 			GetFile();
-			MakeFullName(&spathInfo, &printFileName[1]);
-			printFileName[0] = (byte)(PastFileName(&printFileName[1]) - &printFileName[1]);
+			MakeFullName(&spathInfo, printFileName.str);
+			printFileName.len = (byte)(PastFileName(printFileName.str) - printFileName.str);
 			ExpectRP();
 	    	break;
 	    case 6:		/* ORDER */		/* process the order list */
@@ -228,7 +216,7 @@ void ProcessControls()
 			while (*cmdP != ')') {
 				cindex.lb = 3;			/* skip seg 0 */
 				while (controls[cindex.lb] == 1) {	/* CODE DATA STACK MEMORY */
-					if (Strequ(cmdP, &controls[cindex.lb + 3], controls[cindex.lb + 2]))
+                if (Strequ(cmdP, (char *)&controls[cindex.lb + 3], controls[cindex.lb + 2]))
 					{
 						InsSegIdOrder(controls[cindex.lb + 1]);
 						cmdP = cmdP + controls[cindex.lb + 2];

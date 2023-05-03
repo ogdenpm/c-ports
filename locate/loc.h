@@ -1,24 +1,12 @@
 /****************************************************************************
- *  locate: C port of Intel's Locate v3.0                                   *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  loc.h: part of the C port of Intel's ISIS-II locate             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 /*
  * vim:ts=4:shiftwidth=4:expandtab:
@@ -57,8 +45,26 @@ typedef union {
     };
     byte b[2];
     byte *bp;
+    char *cp;
     word *ap;
 } address;
+
+typedef struct { // pascal generic string
+    byte len;
+    char str[0];
+} pstr_t;
+
+typedef struct { // pascal string for file names
+    byte len;
+    char str[15];
+} psFileName_t;
+
+typedef struct { // pascal string for module names
+    byte len;
+    char str[31];
+} psModName_t;
+
+
 
 typedef struct {
     word saddr;
@@ -75,11 +81,14 @@ typedef struct {
     byte fileIdx;
 } page2_t;
 
-typedef struct {
-    byte rectyp;
-    word reclen;
-    byte record[1];
-} record_t;
+//typedef struct {
+//    byte rectyp;
+//    word reclen;
+//    byte record;
+//} record_t;
+#define RECORD_rectyp   0
+#define RECORD_reclen   1
+#define RECORD_record   3
 
 typedef struct {
     byte flags;
@@ -114,43 +123,65 @@ typedef struct {
 
 
 // record fragments
-typedef struct {
-    word namIdx;
-    word offset;
-} extfix_t;
+//typedef struct {
+//    word namIdx;
+//    word offset;
+//} extfix_t;
+#define EXTFIX_namIdx   0
+#define EXTFIX_offset   2
 
-typedef struct {
-    byte segId;
-    word offset;
-    byte dat[1];
-} moddat_t;
+//typedef struct {
+//    byte segId;
+//    word offset;
+//    byte dat[1];
+//} moddat_t;
 
-typedef struct {
-    byte modType;
-    byte segId;
-    word offset;
-} modend_t;
+#define MODDAT_segId    0
+#define MODDAT_offset   1
+#define MODDAT_dat      3
 
-typedef struct {
-    word offset;
-    word linNum;
-} line_t;
+//typedef struct {
+//    byte modType;
+//    byte segId;
+//    word offset;
+//} modend_t;
+#define MODEND_modType  0
+#define MODEND_segId    1
+#define MODEND_offset   2
 
-typedef struct {
-    word offset;
-    byte name[1];
-} def_t;
+//typedef struct {
+//    word offset;
+//    word linNum;
+//} line_t;
+#define LINE_offset 0
+#define LINE_linNum 2
+#define LINE_sizeof 4
 
-typedef struct {
-    byte segId;
-    byte name[1];
-} comnam_t;
+//typedef struct {
+//    word offset;
+//    byte name[1];
+//} def_t;
+#define DEF_offset  0
+#define DEF_name    2
 
-typedef struct {
-    byte segId;
-    word len;
-    byte combine;
-} segdef_t;
+//typedef struct {
+//    byte segId;
+//    byte name[1];
+//} comnam_t;
+#define COMNAM_segId    0
+#define COMNAM_name     1
+#define COMNAM_sizeof   2   // excludes the name itself
+
+//typedef struct {
+//    byte segId;
+//    word len;
+//    byte combine;
+//} segdef_t;
+#define SEGDEF_segId    0
+#define SEGDEF_len      1
+#define SEGDEF_combine  3
+#define SEGDEF_sizeof   4
+
 #pragma pack(pop)
 
 
@@ -285,11 +316,11 @@ typedef struct {
 extern pointer MEMORY;
 
 extern word actRead;
-extern byte aRecordType[];
+extern char aRecordType[];
 extern pointer baseMemImage;
 extern pointer botHeap;
 extern byte columns;
-extern byte crlf[];
+extern char crlf[];
 extern dataFrag_t *curDataFragP;
 extern segFrag_t *curSegFragP;
 extern pointer eiBufP;
@@ -302,19 +333,19 @@ extern word inBlk;
 extern pointer inbP;
 extern word inByt;
 extern byte inCRC;
-extern byte inFileName[];
+extern psFileName_t inFileName;
 extern dataFrag_t inFragment;
 extern pointer inP;
-extern record_t *inRecordP;
+extern pointer inRecordP;
 extern byte isMain;
 extern byte modhdrX1;
 extern byte modhdrX2;
-extern byte moduleName[];
+extern psModName_t moduleName;
 extern dataFrag_t *nextDataFragP;
 extern segFrag_t *nextSegFragP;
 extern word npbuf;
 extern byte nxtPageNo;
-extern byte outFileName[];
+extern psFileName_t outFileName;
 extern pointer outP;
 extern word outputfd;
 extern bool outRealFile;
@@ -325,7 +356,7 @@ extern page1_t *pageTab1P;
 extern page2_t *pageTab2P;
 extern pointer pbufP;
 extern word printfd;
-extern byte printFileName[];
+extern psFileName_t printFileName;
 extern word readfd;
 extern word recLen;
 extern word recNum;
@@ -340,59 +371,59 @@ extern pointer spbufP;
 extern word startAddr;
 extern word statusIO;
 extern word tmpfd;
-extern byte tmpFileName[];
+extern psFileName_t tmpFileName;
 extern pointer topDataFrags;
 extern pointer topHeap;
 extern bool usePrintBuf;
-extern byte version[];
-extern byte alin[];
-extern byte aMod[];
-extern byte aPub[];
-extern byte aReadFromFile[];
-extern byte aReferenceToUns[];
-extern byte aSym[];
-extern byte aSymbol[];
-extern byte aSymbolTableOfM[];
-extern byte aUnsatisfiedExt[];
-extern byte aValueType[];
-extern byte aWrittenToFile[];
+extern char version[];
+extern char alin[];
+extern char aMod[];
+extern char aPub[];
+extern char aReadFromFile[];
+extern char aReferenceToUns[];
+extern char aSym[];
+extern char aSymbol[];
+extern char aSymbolTableOfM[];
+extern char aUnsatisfiedExt[];
+extern char aValueType[];
+extern char aWrittenToFile[];
 extern byte curcol;
 extern address curColumn;
-extern pointer curListField;
+extern char const *curListField;
 extern byte loHiBoth;
-extern record_t *lsoutP;
+extern pointer lsoutP;
 extern byte nameLen;
 extern byte outSegType;
-extern byte spc32[];
+extern char spc32[];
 extern word unsatisfiedCnt;
 extern word workingSegBase;
-extern byte x5[];
-extern byte a0LengthSegment[];
-extern byte aAddresses[];
-extern byte alignNames[];
-extern byte aMemoryMapOfMod[];
-extern byte aMemOverlap[];
-extern byte aModuleIsNotAMa[];
-extern byte aModuleStartAdd[];
-extern byte aRestartControl[];
-extern byte aStartControlIg[];
-extern byte aStartStopLengt[];
-extern byte segNames[];
-extern byte aCommandTailErr[];
-extern byte aInvokedBy[];
-extern byte cin[];
-extern pointer cmdP;
+extern char x5[];
+extern char a0LengthSegment[];
+extern char aAddresses[];
+extern char alignNames[];
+extern char aMemoryMapOfMod[];
+extern char aMemOverlap[];
+extern char aModuleIsNotAMa[];
+extern char aModuleStartAdd[];
+extern char aRestartControl[];
+extern char aStartControlIg[];
+extern char aStartStopLengt[];
+extern char segNames[];
+extern char aCommandTailErr[];
+extern char aInvokedBy[];
+extern char cin[];
+extern char *cmdP;
 extern byte controls[];
-extern byte cout[];
-extern byte mdebug[];
-extern byte mstar2[];
-extern byte mto[];
-extern byte mtoand[];
-extern pointer scmdP;
-extern byte signonMsg[];
+extern char cout[];
+extern char mdebug[];
+extern char mstar2[];
+extern char mto[];
+extern char mtoand[];
+extern char *scmdP;
+extern char signonMsg[];
 extern spath_t spathInfo;
-extern byte tmpFileInfo[];
-extern byte aInpageSegment2[];
+extern char tmpFileInfo[];
+extern char aInpageSegment2[];
 extern byte nxtSegOrder;
 extern byte pad7935[];
 extern byte segId;
@@ -400,20 +431,20 @@ extern byte segId;
 void AddDataFrag(word saddr, word eaddr);
 pointer AddrInCache(word addr);
 void AddSegFrag(byte flags, byte seg, word start, word len);
-static void Alloc(word cnt);
+//static void Alloc(word cnt);
 pointer AllocNewPage(byte page);
 void AnotherPage(byte page);
 void BadRecordSeq();
-void BinAsc(word number, byte base, byte pad, pointer bufp, byte ndigits);
+void BinAsc(word number, byte base, byte pad, char *bufp, byte ndigits);
 void ChkRead(word cnt);
 void Close(word conn, wpointer statusP);
 void CmdErr(word err);
-void ConAndPrint(pointer buf, word cnt);
-void ConStrOut(pointer buf, word cnt);
-void Delete(pointer pathP, wpointer statusP);
+void ConAndPrint(char const *buf, word cnt);
+void ConStrOut(char const *buf, word cnt);
+void Delete(char const *pathP, wpointer statusP);
 void EmitModDat(dataFrag_t *curDataFragP);
 void EndRecord();
-void ErrChkReport(word errCode, pointer file, bool errExit);
+void ErrChkReport(word errCode, char *file, bool errExit);
 void Errmsg(word errCode);
 void ErrNotADisk();
 void Error(word ErrorNum);
@@ -430,7 +461,7 @@ void ForceSOL();
 pointer GetCommonName(byte segid);
 byte GetCommonSegId();
 void GetFile();
-void GetPstrName(pointer pstr);
+void GetPstrName(pstr_t *pstr);
 void GetRecord();
 void IllegalRecord();
 void IllegalReloc();
@@ -439,24 +470,24 @@ void InitSegOrder();
 void InsSegIdOrder(byte seg);
 void LoadModdat(byte segId);
 void LocateFile();
-void MakeFullName(spath_t *pinfo, pointer pstr);
+void MakeFullName(spath_t *pinfo, char *pstr);
 pointer MemCk();
 void ObjSeek(word blk, word byt);
-void Open(wpointer connP, pointer pathP, word access, word echo, wpointer statusP);
+void Open(wpointer connP, char const *pathP, word access, word echo, wpointer statusP);
 void PageOut(byte page, pointer bufp);
 word ParseLPNumRP();
-word ParseNumber(pointer *ppstr);
-pointer PastAFN(pointer pch);
-pointer PastFileName(pointer pch);
-void PrintColumn(pointer field, pointer pstr);
+word ParseNumber(char **ppstr);
+char *PastAFN(char *pch);
+char *PastFileName(char *pch);
+void PrintColumn(char const *field, pstr_t const *pstr);
 void PrintCrLf();
-void PrintListingHeader(pointer buf, word len);
+void PrintListingHeader(char const *buf, word len);
 void PrintMemoryMap();
-void PrintString(pointer bufp, word cnt);
+void PrintString(char const *bufp, word cnt);
 void ProcAncest();
 void ProcArgsInit();
 void ProcComdef();
-void ProcDefs(byte list, pointer template);
+void ProcDefs(byte list, char *template);
 void ProcessControls();
 void ProcExtnam();
 void ProcHdrAndComDef();
@@ -464,7 +495,12 @@ void ProcLinNum();
 void ProcModdat();
 void ProcModend();
 void ProcModhdr();
-void PStrcpy(pointer psrc, pointer pdst);
+void pstrcpy(pstr_t const *psrc, pstr_t *pdst);
+// pascal string helper macros
+#define PStrcpy(psrc, pdst) pstrcpy((pstr_t *)(psrc), (pstr_t *)(pdst))
+#define PSLen(pstr)         ((pstr_t *)(pstr))->len
+#define PSStr(pstr)         ((pstr_t *)(pstr))->str
+
 void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP);
 void ReadCmdLine();
 void Rescan(word conn, wpointer statusP);
@@ -472,12 +508,16 @@ void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer status
 void SeekOutFile(word mode, wpointer pblk, wpointer pbyt);
 void SeekPagingFile(byte para);
 byte SetWorkingSeg(byte seg);
-void SkipNonArgChars(pointer pch);
-pointer SkipSpc(pointer pch);
-void Spath(pointer pathP, spath_t *infoP, wpointer statusP);
+void SkipNonArgChars(char *pch);
+char *SkipSpc(char *pch);
+void Spath(char const *pathP, spath_t *infoP, wpointer statusP);
 void Start();
-bool Strequ(pointer pstr1, pointer pstr2, byte len);
-void StrUpr(pointer pch);
+bool Strequ(char const *pstr1, char const *pstr2, byte len);
+void StrUpr(char *pch);
 byte ToUpper(byte ch);
-void Write(word conn, pointer buffP, word count, wpointer statusP);
+void Write(word conn, void const *buffP, word count, wpointer statusP);
 void WriteBytes(pointer bufP, word cnt);
+
+
+word getWord(pointer buf);
+word putWord(pointer buf, word val);

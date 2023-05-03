@@ -1,24 +1,12 @@
 /****************************************************************************
- *  locate: C port of Intel's Locate v3.0                                   *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  loc7.c: part of the C port of Intel's ISIS-II locate             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "loc.h"
 
@@ -41,23 +29,23 @@ word ParseLPNumRP()
 
 byte GetCommonSegId()
 {
-	byte name[32];
+	psModName_t name;
 
 	if (*cmdP == '/')
 		return SBLANK;	/* blank common */
-	GetPstrName(name);
-	name[name[0] + 1] = ' ';	/* space at end */
+	GetPstrName((pstr_t *)&name);
+    name.str[name.len] = ' '; /* space at end */
 	ObjSeek(0, 0);
 	GetRecord();		/* skip modhdr record */
 
 	while (1) {
 		GetRecord();
-		if (inRecordP->rectyp != R_COMDEF)
-			ErrChkReport(ERR237, &name[1], true);	/* common not found */
+		if (inRecordP[RECORD_rectyp] != R_COMDEF)
+			ErrChkReport(ERR237, name.str, true);	/* common not found */
 		while (inP < erecP) {
-			if (Strequ(name, ((comnam_t *)inP)->name, name[0]+1))
-				return ((comnam_t *)inP)->segId;
-			inP = inP + 2 + ((comnam_t *)inP)->name[0];
+			if (Strequ((char *)&name, (char *)(inP + COMNAM_name), PSLen(inP + COMNAM_name) + 1))
+				return inP[COMNAM_segId];
+			inP += COMNAM_sizeof + PSLen(inP + COMNAM_name);
 		}
 	}
 } /* GetCommonSegId */
@@ -89,7 +77,7 @@ void InsSegIdOrder(byte seg)
 void ReadCmdLine()
 {
 
-	Read(1, cmdP, 128, &actRead, &statusIO);
+	Read(1, (pointer)cmdP, 128, &actRead, &statusIO);
 	ErrChkReport(statusIO, cin, true);
 	cmdP[actRead] = '\r';
 	StrUpr(cmdP);
@@ -98,7 +86,7 @@ void ReadCmdLine()
 
 void ProcArgsInit()
 {
-	pointer argsP;
+	char *argsP;
 	address p;
 
 	/* work out a good io buf size */
@@ -114,10 +102,10 @@ void ProcArgsInit()
 	sibufP = eoutP = eiBufP - npbuf;	/* output buffer is below this */
 						/* and for now now print buffer */
 	outRecordP = outP = spbufP = pbufP = epbufP = eoutP - npbuf;
-	scmdP = MEMORY;		/* command line buffer */
+	scmdP = (char *)MEMORY;		/* command line buffer */
 	/* if (>= 32k) also use a print buffer */
 	if ((usePrintBuf = pageCacheSize >= 64))
-		scmdP = outRecordP;	/* seems odd to share output buf */
+		scmdP = (char *)outRecordP;	/* seems odd to share output buf */
 	*scmdP = '-';
 	Rescan(1, &statusIO);	/* rewind to get command line args */
 	cmdP = scmdP + 1;
@@ -129,21 +117,21 @@ void ProcArgsInit()
 	while (*cmdP != '\r') {		/* Read() until end of args */
 		if (*cmdP == '&')	/* handle continuation line */
 		{
-			p.bp = cmdP;	/* mark the & */
+			p.cp = cmdP;	/* mark the & */
 			cmdP = SkipSpc(cmdP + 1);	/* check we didn't have anything after */
 			if (*cmdP != '\r')
 				CmdErr(ERR203);	/* invalid syntax */
-			cmdP = p.bp;	/* reset to & */
+			cmdP = p.cp;	/* reset to & */
 			ConStrOut(mstar2, 2);	/* emit ** to user */
 			cmdP[1] = '\r';	/* put the cr lf ** after the & */
 			cmdP[2] = '\n';
 			cmdP[3] = '*';
 			cmdP[4] = '*';
-			cmdP = cmdP + 5;	/* position to Read() the next line */
+			cmdP += 5;	/* position to Read() the next line */
 			ReadCmdLine();	/* Read() another line */
 		}
 		else	/* skip char */
-			cmdP = cmdP + 1;
+			cmdP++;
 	}	/* DO WHILE */
 
 	/* display the sign on message skipping the form feed */
@@ -151,7 +139,7 @@ void ProcArgsInit()
 	ConStrOut(version, 4);
 	ConStrOut(crlf, 2);
 	/* if (we have run into the in buffer) we have a problem */
-	if (cmdP > sibufP)
+	if ((pointer)cmdP > sibufP)
 		CmdErr(ERR210);	/* insufficient memory */
 	/* skip the leading space of the command args */
 	SkipNonArgChars(argsP);
@@ -160,9 +148,9 @@ void ProcArgsInit()
 	/* can only locate a disk file */
 	if (spathInfo.deviceType != 3)
 		ErrNotADisk();
-	MakeFullName(&spathInfo, &inFileName[1]);
+	MakeFullName(&spathInfo, inFileName.str);
 	/* convert to a omf style string by putting the length in at the front */
-	inFileName[0] = (byte)(PastFileName(&inFileName[1]) - &inFileName[1]);
+	inFileName.len = (byte)(PastFileName(inFileName.str) - inFileName.str);
 	/* check for TO (followed by space or & */
 	if (Strequ(cmdP, mto, 3) || Strequ(cmdP, mtoand, 3))
 	{
@@ -178,27 +166,27 @@ void ProcArgsInit()
 		spathInfo.ext[2] = 0;
 	}
 	/* get the output file name in standard format */
-	MakeFullName(&spathInfo, &outFileName[1]);
-	outFileName[0] = (byte)(PastFileName(&outFileName[1]) - &outFileName[1]);
+	MakeFullName(&spathInfo, outFileName.str);
+	outFileName.len = (byte)(PastFileName(outFileName.str) - outFileName.str);
 	/* only accept a disk file or the bit bucket */
 	if (spathInfo.deviceType != 3 && spathInfo.deviceId != 22)	/* 22 -> :BB: */
 		ErrNotADisk();
 	/* copy the disk name over and create the tmp file name */
 	tmpFileInfo[0] = spathInfo.deviceId;
-	MakeFullName((spath_t *)tmpFileInfo, &tmpFileName[1]);
-	tmpFileName[0] = (byte)(PastFileName(&tmpFileName[1]) - &tmpFileName[1]);
+	MakeFullName((spath_t *)tmpFileInfo, tmpFileName.str);
+	tmpFileName.len = (byte)(PastFileName(tmpFileName.str) - tmpFileName.str);
 	/* record if (we are creating a real file */
 	outRealFile = spathInfo.deviceId != 22;
 	/* Open() the file to locate */
-	Open(&readfd, &inFileName[1], 1, 0, &statusIO);
-	ErrChkReport(statusIO, &inFileName[1], true);
+	Open(&readfd, inFileName.str, 1, 0, &statusIO);
+	ErrChkReport(statusIO, inFileName.str, true);
 	recNum = 0;
 	/* check we have a relocation file */
 	GetRecord();
-	if (inRecordP->rectyp != R_MODHDR)
-		ErrChkReport(ERR239, &inFileName[1], true);	/* no module header record */
+	if (inRecordP[RECORD_rectyp] != R_MODHDR)
+		ErrChkReport(ERR239, inFileName.str, true);	/* no module header record */
 	/* assume listing to :CO: */
-	PStrcpy(cout, printFileName);
+	PStrcpy(cout, &printFileName);
 	/* set other defaults and record that we haven't seen the commands */
 	columns = 1;
 	seen.start = 0;
@@ -230,7 +218,7 @@ void ProcArgsInit()
 	roundRobinIndex = 0;
 	pageIndexTmpFil = 0;
 	/* recalculate pageCache size */
-	pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 1))) - 1;
+	pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 256))) - 1;
 	/* set a new baseMemImage after Allocting() pageTab1 slots - one for each page */
 	baseMemImage =  ((pointer)pageTab1P) + (pageCacheSize + 1) * 2 ;
 	/* initialise the paging table control information */
@@ -247,14 +235,14 @@ void ProcArgsInit()
 	/* set up the heap locations below the print buffer */
 	topHeap = topDataFrags = botHeap = spbufP;
 	/* recalculate the pageCacheSize now available */
-	pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = ((page1_t *)(pageTab2P + 1)))) - 1;
+    pageCacheSize = High(botHeap - baseMemImage) - 1;
 	/* create the output file*/
-	Delete(&outFileName[1], &statusIO);
-	Open(&outputfd, &outFileName[1], 3, 0, &statusIO);
-	ErrChkReport(statusIO, &outFileName[1], true);
+	Delete(outFileName.str, &statusIO);
+	Open(&outputfd, outFileName.str, 3, 0, &statusIO);
+	ErrChkReport(statusIO, outFileName.str, true);
 	/* and the print file (or console) */
-	Open(&printfd, &printFileName[1], 2, 0, &statusIO);
-	ErrChkReport(statusIO, &printFileName[1], true);
+	Open(&printfd, printFileName.str, 2, 0, &statusIO);
+	ErrChkReport(statusIO, printFileName.str, true);
 	/* if (! console) emit the signon && command line to the print file */
 	if (printfd > 0)
 	{
@@ -265,26 +253,25 @@ void ProcArgsInit()
 	}
 } /* ProcArgsInit */
 
-byte aInpageSegment2[] = "INPAGE SEGMENT > 256 byteS COERCED TO PAGE BOUNDRY\r\n";
+char aInpageSegment2[] = "INPAGE SEGMENT > 256 byteS COERCED TO PAGE BOUNDRY\r\n";
 byte segId;
 byte pad7935[3];
 
-word AlignAddress(byte align, word size, word laddr)
-{
-	if (size == 0)	/* no size to no alignment needed */
-		return laddr;
+word AlignAddress(byte align, word size, word laddr) {
+    if (size == 0) /* no size to no alignment needed */
+        return laddr;
 
-	if (align == ABYTE)
-		return laddr;	/* no alignment needed */
-	if (align == AINPAGE)
-		if (size <= 256)	/* check if fits in page */
-		{
-			if (High(laddr) == High(laddr + size - 1))
-				return laddr;
-		}
-		else    /* inpage seg > 256 coerced to page boundary */
-			ConAndPrint(aInpageSegment2, 52);	
-	return (laddr + 0xff) & 0xff00;	/* get a whole page */
+    if (align == ABYTE)
+        return laddr; /* no alignment needed */
+    if (align == AINPAGE) {
+        if (size <= 256) /* check if fits in page */
+        {
+            if (High(laddr) == High(laddr + size - 1))
+                return laddr;
+        } else /* inpage seg > 256 coerced to page boundary */
+            ConAndPrint(aInpageSegment2, 52);
+    }
+    return (laddr + 0xff) & 0xff00; /* get a whole page */
 } /* AlignAddress */
 
 
@@ -294,25 +281,25 @@ void ProcModhdr()
 	byte atTopOfMem, loadHasSize;
 
 	if (! seen.name)	/* copy over the module name if ! user overridden */
-		PStrcpy(inP, moduleName);
+		PStrcpy(inP, &moduleName);
 	inP = inP + inP[0] + 1;	/* past name */
 	modhdrX1 = inP[0];		/* copy the reserved bytes */
 	modhdrX2 = inP[1];
 	inP = inP + 2;
 	loadHasSize = 0;
 	while (inP < erecP) {		/* process all of the seg info */
-		if ((segFlags[segId = ((segdef_t *)inP)->segId] & AMASK) != AUNKNOWN)
+		if ((segFlags[segId = inP[SEGDEF_segId]] & AMASK) != AUNKNOWN)
 			IllegalRecord();	/* oops seen twice */
 		if (segId != SSTACK)		/* by default copy the length */
-			segSizes[segId] = ((segdef_t *)inP)->len;
+			segSizes[segId] = getWord(inP + SEGDEF_len);
 		else if (! seen.stackSize)	/* for stack copy if ! user overridden */
-			segSizes[SSTACK] = ((segdef_t *)inP)->len;
+			segSizes[SSTACK] = getWord(inP + SEGDEF_len);
 		if (segSizes[segId] > 0)	/* check we have some data */
 			loadHasSize = true;
-		if (((segdef_t *)inP)->combine - 1 > ABYTE - 1)	/* check valid alignment */
+		if (inP[SEGDEF_combine] - 1 > ABYTE - 1)	/* check valid alignment */
 			IllegalRecord();
-		segFlags[segId] = segFlags[segId] + ((segdef_t *)inP)->combine;	/* set the combine info */
-		inP += sizeof(segdef_t);	/* skip to next seg info */
+		segFlags[segId] += inP[SEGDEF_combine];	/* set the combine info */
+		inP += SEGDEF_sizeof;	/* skip to next seg info */
 	}
 	if ((segFlags[SSTACK] & AMASK) == AUNKNOWN)		/* if STACK ! specified put default */
 		segFlags[SSTACK] = segFlags[SSTACK] + ABYTE;	/* set to byte align */
@@ -323,37 +310,37 @@ void ProcModhdr()
 	loadAddress = 0x3680;				/* ISIS load address */
 	atTopOfMem = 0;
 
-	for (segOrderId = 1; segOrderId <= 254; segOrderId++) {	/* process the segs taking account of user specified order */
-		segId = segOrder[segOrderId];
-		segSize = segSizes[segId];	/* pick up seg to process */
-		if ((segFlags[segId] & FHASADDR) == 0)	/* no address specified */
-		{
-			if (atTopOfMem != 0)	/* check for going over 64k */
-			{
-				if (segSize > 0)	/* program exceeds 64k */
-					ErrChkReport(ERR240, &inFileName[1], true);
-				segFlags[segId] |= FWRAP0;
-			}
+	for (segOrderId = 1; segOrderId <= 254;
+         segOrderId++) { /* process the segs taking account of user specified order */
+        segId   = segOrder[segOrderId];
+        segSize = segSizes[segId];             /* pick up seg to process */
+        if ((segFlags[segId] & FHASADDR) == 0) /* no address specified */
+        {
+            if (atTopOfMem != 0) /* check for going over 64k */
+            {
+                if (segSize > 0) /* program exceeds 64k */
+                    ErrChkReport(ERR240, inFileName.str, true);
+                segFlags[segId] |= FWRAP0;
+            }
+        } else {             /* user specified address */
+            if (segSize > 0) /* reset topOfMemflag */
+                atTopOfMem = 0;
+            loadAddress = segBases[segId]; /* set the loadAddress to user specified */
+        }
+        /* update this segments base address allowing for alignment */
+        segBases[segId] = AlignAddress(segFlags[segId] & AMASK, segSize, loadAddress);
+        if (segId == SMEMORY)
+            if (segSize == 0 && loadHasSize) /* if ! specified && program has size */
+                /* calcualte a MEMORY size */
+                if (atTopOfMem == 0 && MEMCK /*MemCk()*/ > segBases[SMEMORY])
+                    segSizes[SMEMORY] = segSize = MEMCK /*MemCk()*/ - segBases[SMEMORY];
+        /* advance loadAddress and check for memory wrap around */
+        if ((loadAddress = segBases[segId] + segSize) < segBases[segId]) {
+            if (loadAddress == 0) /* at 64k ok else Error() */
+                atTopOfMem = FWRAP0;
+            else
+                ErrChkReport(ERR240, inFileName.str, true); /* exceeds 64k */
 		}
-		else
-		{	/* user specified address */
-			if (segSize > 0)	/* reset topOfMemflag */
-				atTopOfMem = 0;
-			loadAddress = segBases[segId];	/* set the loadAddress to user specified */
-		}
-		/* update this segments base address allowing for alignment */
-		segBases[segId] = AlignAddress(segFlags[segId] & AMASK, segSize, loadAddress);
-		if (segId == SMEMORY)
-			if (segSize == 0 && loadHasSize)	/* if ! specified && program has size */
-								/* calcualte a MEMORY size */
-				if (atTopOfMem == 0 && MEMCK /*MemCk()*/ > segBases[SMEMORY])
-					segSizes[SMEMORY] = segSize = MEMCK /*MemCk()*/ - segBases[SMEMORY];
-		/* advance loadAddress and check for memory wrap around */
-		if ((loadAddress = segBases[segId] + segSize) < segBases[segId])
-			if (loadAddress == 0)		/* at 64k ok else Error() */
-				atTopOfMem = FWRAP0;
-			else
-				ErrChkReport(ERR240, &inFileName[1], true);  /* exceeds 64k */
 	} 
 	segBases[SSTACK] = segBases[SSTACK] + segSizes[SSTACK];	/* stack goes down so update to top */
 	GetRecord();	/* preload next record */
@@ -363,13 +350,13 @@ void ProcModhdr()
 void ProcComdef()
 {
 	while (inP < erecP) {
-		if ((segId = ((comnam_t *)inP)->segId) < SNAMED || segId == SBLANK)
+		if ((segId = inP[COMNAM_segId]) < SNAMED || segId == SBLANK)
 			IllegalRecord();
 		/* check if (combine value not appropriate for common or if this one alReady seen */
 		if ((segFlags[segId] & AMASK) == AUNKNOWN || (segFlags[segId] & FSEGSEEN) != 0)
 			IllegalRecord();
 		segFlags[segId] |= FSEGSEEN;	/* flag as seen */
-		inP = inP + 2 + ((comnam_t *)inP)->name[0];		/* past byte, len, string */
+		inP += COMNAM_sizeof + PSLen(inP + COMNAM_name);		/* past byte, len, string */
 	}
 	GetRecord();
 } /* ProcComdef */
@@ -381,7 +368,7 @@ void ProcHdrAndComDef()
 	GetRecord();		/* get modhdr */
 	ProcModhdr();	/* load the modhdr and set the segment bases */
 
-	while (inRecordP->rectyp == R_COMDEF) {	/* process any comdefs */
+	while (inRecordP[RECORD_rectyp] == R_COMDEF) {	/* process any comdefs */
 		ProcComdef();
 	}
 	for (segId = SNAMED; segId <= SBLANK - 1; segId++) {	/* check commons in modhdr have comdef entries */

@@ -1,24 +1,12 @@
 /****************************************************************************
- *  locate: C port of Intel's Locate v3.0                                   *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  loc3.c: part of the C port of Intel's ISIS-II locate             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 /*
  * vim:ts=4:shiftwidth=4:expandtab:
@@ -40,25 +28,24 @@ void ProcLinNum()
         if (! seen.purge)     /* need to create output record */
         {
             InitRecOut(R_LINNUM);
-            *outP /* outSeg */ = outSegType;
-            outP = outP + 1;
+            *outP++ /* outSeg */ = outSegType;
         }
-        inP = inP + 1;      /* past segid */
+        inP++;      /* past segid */
         while (inP < erecP) {       /* loop over all entries */
             if (! seen.purge) /* emit to output record */
             {
-                ((line_t *)outP)->offset = workingSegBase + ((line_t *)inP)->offset;    /* final location */
-                ((line_t *)outP)->linNum = ((line_t *)inP)->linNum; /* copy the line number */
-                outP = outP + sizeof(line_t);    /* past this entry */
+                putWord(outP + LINE_offset, workingSegBase + getWord(inP + LINE_offset));    /* final location */
+                putWord(outP + LINE_linNum, getWord(inP + LINE_linNum)); /* copy the line number */
+                outP += LINE_sizeof;    /* past this entry */
                 
             }
             if (seen.lines)   /* if required list the mapping */
             {
-                BinAsc(workingSegBase + ((line_t *)inP)->offset, 16, '0', alin, 4);
-                BinAsc(((line_t *)inP)->linNum, 10, ' ', &x5[1], 5);
-                PrintColumn(alin, x5);
+                BinAsc(workingSegBase + getWord(inP + LINE_offset), 16, '0', alin, 4);
+                BinAsc(getWord(inP + LINE_linNum), 10, ' ', PSStr(x5), 5);
+                PrintColumn(alin, (pstr_t *)x5);
             }
-            inP = inP + sizeof(line_t);           /* to next entry */
+            inP += LINE_sizeof;  /* to next entry */
         }
         if (! seen.purge)     /* finish off output record */
             EndRecord();
@@ -71,7 +58,7 @@ void ProcAncest()
 {
     if (seen.lines || seen.symbols)  /* if lines || symbols */
     {
-        PrintColumn(aMod, inP);    /* print the ancestor */
+        PrintColumn(aMod, (pstr_t *)inP);    /* print the ancestor */
         ForceSOL();
     }
     if (! seen.purge)         /* if needed in output */
@@ -84,7 +71,7 @@ void ProcAncest()
 } /* ProcAncest */
 
 
-void ProcDefs(byte list, pointer template)
+void ProcDefs(byte list, char *template)
 {
     if (! seen.purge || list)   /* only process if ! purged || list requested for these symbols */
     {
@@ -97,7 +84,7 @@ void ProcDefs(byte list, pointer template)
             outSegType = SetWorkingSeg(*inP /* inSeg */);  /* sets working base address * returns ABS Seg() */
         if (! seen.purge)
         {
-            InitRecOut(inRecordP->rectyp);    /* initialise the output record */
+            InitRecOut(inRecordP[RECORD_rectyp]); /* initialise the output record */
             *outP /* outSeg */ = outSegType;
             outP = outP + 1;
         }
@@ -105,17 +92,17 @@ void ProcDefs(byte list, pointer template)
         while (inP < erecP) {
             if (! seen.purge)
             {
-                ((def_t *)outP)->offset = workingSegBase + ((def_t *)inP)->offset;  /* add in the base address */
-                PStrcpy(((def_t *)inP)->name, ((def_t *)outP)->name); /* copy the name over */
-                ((def_t *)outP)->name[((def_t *)inP)->name[0] + 1] = 0;     /* add the trailing 0 */
-                outP = outP + 4 + ((def_t *)inP)->name[0];        /* update output record past offset, name and extra 0 */
+                putWord(outP + DEF_offset, workingSegBase + getWord(inP + DEF_offset));  /* add in the base address */
+                PStrcpy(inP + DEF_name, outP + DEF_name); /* copy the name over */
+                PSStr(outP + DEF_name)[PSLen(inP + DEF_name)] = 0;     /* add the trailing 0 */
+                outP += 4 + PSLen(inP + DEF_name);        /* update output record past offset, name and extra 0 */
             }
             if (list)          /* if required list the location */
             {
-                BinAsc(workingSegBase + ((def_t *)inP)->offset, 16, '0', template, 4);
-                PrintColumn(template, ((def_t *)inP)->name);
+                BinAsc(workingSegBase + getWord(inP + DEF_offset), 16, '0', template, 4);
+                PrintColumn(template, (pstr_t *)(inP + DEF_name));
             }
-            inP = inP + 4 + ((def_t *)inP)->name[0];          /* to the next entry - past offset, name and extra 0 */
+            inP += 4 + PSLen(inP + DEF_name);     /* to the next entry - past offset, name and extra 0 */
         }
         if (! seen.purge)     /* if ! purged finish off the output record */
             EndRecord();
@@ -134,29 +121,30 @@ void ProcExtnam()
         /* print to the start of the number */
         ConAndPrint(aUnsatisfiedExt, 21);
         /* print the rest of the message omitting leading spaces in the number */
-        ConAndPrint(curColumn.bp = SkipSpc(&aUnsatisfiedExt[21]), 7 - (word)(curColumn.bp - &aUnsatisfiedExt[21]));
+        curColumn.cp = SkipSpc(&aUnsatisfiedExt[21]);
+        ConAndPrint(curColumn.cp, 7 - (word)(curColumn.cp - &aUnsatisfiedExt[21]));
         /* print the name */
-        ConAndPrint(&inP[1], inP[0]);		// pascal string at *inP
+        ConAndPrint(PSStr(inP), PSLen(inP)); // pascal string at *inP
         ConAndPrint(crlf, 2);
         /* copy the name to the output record */
         PStrcpy(inP, outP);
-        outP[inP[0] + 1] = 0;   /* add the zero */
-        outP = outP + 2 + inP[0];           /* skip past the name in out and in records */
-        inP = inP + 2 + inP[0];
+        PSStr(outP)[PSLen(inP)] = 0;   /* add the zero */
+        outP += 2 + PSLen(inP);      /* skip past the name in out and in records */
+        inP += 2 + PSLen(inP);
     }
     EndRecord();    /* finish off the record */
     GetRecord(); /* prep the next record */
 } /* ProcExtnam */
 
 
-void PrintListingHeader(pointer buf, word len)
+void PrintListingHeader(char const *buf, word len)
 {
     PrintString(buf, len);
-    PrintString(&moduleName[1], moduleName[0]);
+    PrintString(moduleName.str, moduleName.len);
     PrintString(aReadFromFile, 17);    /* '\r\nREAD FROM FILE ' */
-    PrintString(&inFileName[1], inFileName[0]);
+    PrintString(inFileName.str, inFileName.len);
     PrintString(aWrittenToFile, 18); /* '\r\nWRITTEN TO FILE ' */
-    PrintString(&outFileName[1], outFileName[0]);
+    PrintString(outFileName.str, outFileName.len);
     PrintCrLf();
 } /* PrintListingHeader */
 
@@ -166,7 +154,7 @@ void LocateFile()
 {
     ProcHdrAndComDef();     /* determine all of the segment base addresses */
     InitRecOut(R_MODHDR);   /* create header record */
-    WriteBytes(moduleName, moduleName[0]+1);   /* Write() the name */
+    WriteBytes((pointer)&moduleName, moduleName.len + 1); /* Write() the name */
     outP[0] = modhdrX1;  /* copy the passed in x field data */
     outP[1] = modhdrX2;
     outP = outP + 2;
@@ -178,14 +166,14 @@ void LocateFile()
         PrintCrLf();
         /* print the column headings */
         for (curColumn.w = 1; curColumn.w <= columns; curColumn.w++) {
-            PrintColumn(aValueType, aSymbol);
+            PrintColumn(aValueType, (pstr_t *)aSymbol);
         }
         PrintCrLf();
     }
 
     /* process the link file */
-    while (inRecordP->rectyp != R_MODEND) {
-        switch (inRecordP->rectyp >> 1) {
+    while (inRecordP[RECORD_rectyp] != R_MODEND) {
+        switch (inRecordP[RECORD_rectyp] >> 1) {
 		case 0: IllegalReloc(); break; /* 0 */
 		case 1: BadRecordSeq(); break; /* 2 - modhdr alReady processed */
 		case 2: break;                 /* 4 - modend Exited() while alReady */
@@ -193,7 +181,7 @@ void LocateFile()
 		case 4: ProcLinNum(); break;       /* 8 - linnum */
 		case 5: IllegalReloc(); break; /* 0A */
 		case 6: IllegalReloc(); break; /* 0C */
-		case 7: ErrChkReport(ERR204, &inFileName[1], true); break; /* 0E - modeof Premature() EOF */
+		case 7: ErrChkReport(ERR204, inFileName.str, true); break; /* 0E - modeof Premature() EOF */
 		case 8: ProcAncest(); break;       /* 10 - ancest */
 		case 9: ProcDefs(seen.symbols, aSym); break;   /* 12 - locdef */
 		case 10: IllegalReloc(); break; /* 14 */
@@ -214,15 +202,15 @@ void LocateFile()
     }
     ProcModend();       /* Read() the modend and generate the rest of the located file */
     Close(outputfd, &statusIO);
-    ErrChkReport(statusIO, &outFileName[1], true);
+    ErrChkReport(statusIO, outFileName.str, true);
     if (havePagingFile)        /* get rid of any paging file */
     {
         Close(tmpfd, &statusIO);
-        Delete(&tmpFileName[1], &statusIO);
+        Delete(tmpFileName.str, &statusIO);
     }
     ForceSOL();     /* make sure at start of line if (symbols listed */
     PrintMemoryMap();   /* print the final memory map + any overlay Errors() */
     Close(readfd, &statusIO);
-    ErrChkReport(statusIO, &inFileName[1], true);
+    ErrChkReport(statusIO, inFileName.str, true);
 } /* LocateFile */
 
