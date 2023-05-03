@@ -1,21 +1,10 @@
 /****************************************************************************
- *  l83: C port of l83 high level assembler linker                          *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  l83.c: part of the C port of l83 high level assembler linker            *
+ *  Original PL/M program (C) Luiz Pedroso                                  *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
@@ -29,7 +18,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-void showVersion(FILE *fp, bool full);
+#include <showVersion.h>
 
 #define SCODE	1
 #define SDATA	2
@@ -52,7 +41,7 @@ char *prnFile;
 
 // module map
 #define MSIZE	20		// max no. modules l83 can handle
-uint8_t *mName[MSIZE]; 	// pointer to module name
+char *mName[MSIZE]; 	// pointer to module name
 uint16_t mCA[MSIZE];	// uint16_t of ca
 uint16_t nCA[MSIZE];	// length of ca
 uint16_t mIDA[MSIZE];	// uint16_t of ida
@@ -103,7 +92,7 @@ uint16_t mp;                /* auxiliary memory pointer */
 uint8_t hashCode;
 uint16_t temp;
 
-char *symAddress;
+uint8_t *symAddress;
 
 
 /* MNEMONICS FOR 'TYPE' */
@@ -125,6 +114,21 @@ uint16_t tract;
 
 char *MkPath(char *file, char *ext);
 
+#ifndef _MSC_VER
+#include <ctype.h>
+char *strupr(char *s) {
+    for (char *t = s; *t; t++)
+        *t = toupper(*t);
+    return s;
+}
+
+char *strlwr(char *s) {
+    for (char *t = s; *t; t++)
+        *t = tolower(*t);
+    return s;
+}
+#endif
+
 uint16_t DoubleT(uint8_t l, uint8_t h) {
     return (h << 8) + l;
 
@@ -136,13 +140,13 @@ void Store(uint16_t n, uint8_t *a) {
 }
 
 
-void Exit(int rcode) {
+_Noreturn void Exit(int rcode) {
     printf("\nEnd L83\n");
     exit(rcode);
 }
 
 
-__declspec(noreturn) void Error(uint8_t n) {
+_Noreturn void Error(uint8_t n) {
     switch (n) {
     case 0:
         fprintf(stderr, "Too many modules\n");
@@ -251,9 +255,9 @@ void OpenRT() {
 uint16_t GetDirLen(char *path) {
     char *s = path;
     char *t;
-    if (t = strrchr(s, '\\'))       // find last \ directory separator if one
+    if ((t = strrchr(s, '\\')))       // find last \ directory separator if one
         s = t + 1;
-    if (t = strrchr(s, '/'))        // find last / directory separator just in case
+    if ((t = strrchr(s, '/')))        // find last / directory separator just in case
         s = t + 1;
     if (*s && s[1] == ':')          // for windows check for device
         s += 2;
@@ -311,23 +315,23 @@ uint8_t *ReadF(char *fn) {
 
 
 
-bool Compar(uint8_t *a1, uint8_t *a2) { /* true if strings at a1,a2 are equal */
+bool Compar(char const *a1, char const *a2) { /* true if strings at a1,a2 are equal */
     return strcmp(a1, a2) == 0;
 } /* Compar() */
 
-uint8_t HashF(uint8_t *a) {             /* return hascode of name at address symAddress */
+uint8_t HashF(char const *a) {             /* return hascode of name at address symAddress */
     uint8_t h = 0;
     while (*a)
         h += *a++;
     return h & 0x7f;
 }
 
-bool New(uint8_t *a) {                  /* true if name at symAddress is not in the module map */
+bool New(uint8_t const *a) {                  /* true if name at symAddress is not in the module map */
 
-    hashCode = HashF(a);                /* compute hashcode of the name */
+    hashCode = HashF((char *)a);                /* compute hashcode of the name */
     for (uint8_t k = 0; k <= mTop; k++) {
         if (mHash[k] == hashCode) {     // may be equal
-            if (Compar(a, mName[k]))
+            if (Compar((char *)a, (char *)mName[k]))
                 return false;           // equal
         }
     }
@@ -391,14 +395,11 @@ void LstRef() {
     fprintf(fpPrn, " %s\n", &symList[sName]);
 }
 
-void main(int argc, char **argv) {
+int main(int argc, char **argv) {
     int i;
     uint16_t dirLen;
 
-    if (argc == 2 && stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+    CHK_SHOW_VERSION(argc, argv);
 
     for (i = 1; i < argc - 1; i++) {
         if (strcmp(argv[i], "-s") == 0)
@@ -445,7 +446,7 @@ void main(int argc, char **argv) {
                     if (++mTop >= MSIZE)
                         Error(0);
                     symList[rExt - 1] = mTop;   // set pointer to mm
-                    mName[mTop] = symAddress;   // set pointer from mm to symbol
+                    mName[mTop] = (char *)symAddress;   // set pointer from mm to symbol
                     mHash[mTop] = hashCode;     // save syymbol hashcode in mm
                 }   // installed
             } // created
