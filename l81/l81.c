@@ -1,21 +1,10 @@
 /****************************************************************************
- *  l81: C port of l81 high level assembler lexical & parser                *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  l81.c: part of the C port of l81 high level assembler lexer and parser  *
+ *  Original PL/M program (C) Luiz Pedroso                                  *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
@@ -32,9 +21,15 @@ ml80 reconstructed from binary
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-void showVersion(FILE *fp, bool full);
+#include <showVersion.h>
 
 #define CPMEOF	0x1a
+
+#ifdef _MSC_VER
+#define DIRSEP "/\\:"
+#else
+#define DIRSEP "/"
+#endif
 
 
 #define ERR_STRTOOLONG	0xf3
@@ -206,9 +201,9 @@ uint8_t Getc() {
 char *GetExt(char *file)        // helper function for C-port locate position of .ext or return end of src if none
 {
     char *s, *t;
-    for (s = file; t = strpbrk(s, "/\\:"); s = t + 1)       // skip directory separators
+    for (s = file; (t = strpbrk(s, DIRSEP)); s = t + 1)       // skip directory separators
         ;
-    if (t = strrchr(s, '.'))    // we have an extent
+    if ((t = strrchr(s, '.')))    // we have an extent
         return t;
     else
         return strchr(s, '\0'); // return end of src
@@ -258,7 +253,7 @@ bool Numeric(uint8_t c) {       /* true if c is a digit */
 }
 
 bool Alphabetic(uint8_t c) {    /* true if c is a letter or $ */
-    return 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || c == '$';
+    return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '$';
 }
 
 bool Alphanumeric(uint8_t c) {  /* true if c is alphanumeric */
@@ -266,7 +261,7 @@ bool Alphanumeric(uint8_t c) {  /* true if c is alphanumeric */
 }
 
 bool Hex(uint8_t c) {           /* true if c is alphanumeric */
-    return Numeric(c) || 'A' <= c && c <= 'F';
+    return Numeric(c) || ('A' <= c && c <= 'F');
 }
 
 uint8_t HexVal(uint8_t c) {     /* return value of hex character c */
@@ -413,7 +408,7 @@ void GetNum() {                 /* load a number into tokbuf, put its value into
 void GetSpecial() {             /* load a special character into tokbuf */
     tokType = SPECIALC;
     tokVal = 0;
-    if (ic == nc)	            /* double chars */
+    if (ic == nc) {            /* double chars */
         if (ic == '+')
             tokVal = TT_ADC;
         else if (ic == '-')
@@ -428,6 +423,7 @@ void GetSpecial() {             /* load a special character into tokbuf */
             tokVal = TT_CMP;
         else if (ic == '\\')
             tokVal = TT_XOR;
+    }
     if (tokVal != 0)            // skip one extra character
         PgIC();
     else
@@ -504,7 +500,7 @@ uint16_t Link(uint16_t i) {                     /* return link field of symbol i
 }
 
 
-bool Compar(uint8_t *s1, uint8_t *s2) {
+bool Compar(char const *s1, char const *s2) {
     return strcmp(s1, s2) == 0;
 }
 
@@ -514,7 +510,7 @@ uint16_t LookupSym(uint16_t k) {
        yes, 0 otherwise */
     
     for (uint16_t i = hashTab[hashCode]; i > 0; i = Link(i))
-        if (Compar(symList + k, symList + i))
+        if (Compar((char *)symList + k, (char *)symList + i))
             return i;
     return 0;
 }
@@ -539,8 +535,8 @@ uint16_t LrLex() {                  /* lexical analyzer */
        STRING:      lrlval = pointer to string in symlist
        NUMBER:      lrlval = value of hte number
        0:           EOFILE */
-    static uint8_t regs[] = "BCDEHLMA";
-    uint8_t *s;
+    static char regs[] = "BCDEHLMA";
+    char *s;
 
     GetToken();
     while (tokError != 0) {
@@ -743,16 +739,14 @@ void InitTab() {
     }
 }
 
-void main(int argc, char **argv) {
+int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "Usage: l81 [-v] | [-V] | file\n");
         Exit(1);
     }
-    if (stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
-    
+
+    CHK_SHOW_VERSION(argc, argv);
+
     InitTab();
 
     InitFiles(argv[1]);
