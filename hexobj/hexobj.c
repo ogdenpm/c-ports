@@ -1,5 +1,5 @@
 /****************************************************************************
- *  hexobj: C port of Intel's hexobj                                        *
+ *  program: description                                                    *
  *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
  *                                                                          *
  *  This program is free software; you can redistribute it and/or           *
@@ -26,8 +26,9 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <showVersion.h>
 
-void showVersion(FILE *fp, bool full);
+
 // intel OMF record types
 #define MODHDR  2
 #define MODEND  4
@@ -60,7 +61,7 @@ struct {
 // return the trailing filename part of the passed in path
 const char *basename(const char *path) {
     const char *t;
-    while (t = strpbrk(path, ":\\/"))       // allow windows & unix separators - will fail for unix if : in filename!!
+    while ((t = strpbrk(path, ":\\/")))       // allow windows & unix separators - will fail for unix if : in filename!!
         path = t + 1;
     return path;
 }
@@ -172,7 +173,7 @@ bool parseIntelOpt(int argc, char **argv) {
     char cmdOpts[MAXCMDLINE + 1];
     startValue = -1;
 
-    if (argc < 4 || stricmp(argv[2], "to") != 0)
+    if (argc < 4 || strcasecmp(argv[2], "to") != 0)
         return false;
     inFile = argv[1];
     outFile = argv[3];
@@ -190,7 +191,7 @@ bool parseIntelOpt(int argc, char **argv) {
     char *s = deblank(cmdOpts);
     if (*s == '$')
         s = deblank(s + 1);
-    if (strnicmp(s, "start", 5) == 0) {
+    if (strncasecmp(s, "start", 5) == 0) {
         int addr;
         s = deblank(s + 5);
         if (*s != '(')
@@ -321,7 +322,7 @@ void writeModEnd(FILE *fpin, FILE *fpout) {
         uint8_t segId;
         uint8_t offset[2];
         uint8_t crc;
-    } modend = { MODEND, 5, 0, 1 };
+    } modend = { MODEND, { 5, 0 }, 1 };
 
     // note rlen byte already read
     uint16_t recordAddress = getWord(fpin);
@@ -338,7 +339,7 @@ void writeModEof(FILE *fpout) {
         uint8_t type;
         uint8_t length[2];
         uint8_t crc;
-    } modeof = { MODEOF, 1, 0 };
+    } modeof = { MODEOF, { 1, 0 } };
     OutRecord((uint8_t *)&modeof, fpout);
 }
 
@@ -346,12 +347,10 @@ void writeModEof(FILE *fpout) {
 
 int main(int argc, char **argv) {
     FILE *fpin, *fpout;
-    int number = 0;
 
-    if (argc == 2 && stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+
+    CHK_SHOW_VERSION(argc, argv);
+
     // support both a standard command line and the original Intel one
     if (!parseStdOpt(argc, argv) && !parseIntelOpt(argc, argv)) {
         const char *invoke = basename(argv[0]);
