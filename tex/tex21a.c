@@ -1,7 +1,17 @@
+/****************************************************************************
+ *  tex21a.c: part of the C port of tex                             *
+ *  The original CP/M application is Digital Research                       *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
+ *                                                                          *
+ *  It is released for hobbyist use and for academic interest			    *
+ *                                                                          *
+ ****************************************************************************/
+
 #define _CRT_NONSTDC_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <conio.h>
+
 #include <ctype.h>
 #include <memory.h>
 #include <stdbool.h>
@@ -9,8 +19,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
-void showVersion(FILE *fp, bool full);
+#include <showVersion.h>
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
+
+/* common definitions of getch, kbhit and isdevice as implemented in rawio.c */
+bool kbhit();
+int getch();
+bool isdevice(char const *fn);
+
+#ifdef _WIN32
+#define DIRSEP "/\\:"
+#else
+#include <limits.h>
+#define _MAX_PATH PATH_MAX
+#define DIRSEP    "/"
+#endif
+
+#ifndef max
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef min
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#endif
 
 typedef uint8_t byte;
 typedef uint16_t word;
@@ -37,7 +71,7 @@ char copyright[] = " Copyright(c) 1980 Digital Research ";
 #define VERSION   "TEX 2.1"
 #define buildDate "02/13/81"
 
-const byte breakChar[] = "\n\t ?*=:!=|_[]";
+const char breakChar[] = "\n\t ?*=:!=|_[]";
 
 byte ii;
 byte jj;
@@ -80,7 +114,7 @@ void selectDst(void);
 void selectSrc(byte n);
 void selectSrcAndGetc(byte n);
 byte getUCChar(void);
-char *fname(char *name);
+char *basename(char *name);
 bool initFCB(FCB *fcb);
 void putCon(char c);
 void putPrn(char c);
@@ -219,8 +253,8 @@ bool COpt                 = false;
 bool doPageNum            = true;
 bool noUserPageNum        = true;
 byte signPrefix           = 0;
-byte footerLine[133];
-byte headerLine[133];
+char footerLine[133];
+char headerLine[133];
 
 // cmd line variables
 int _argc;
@@ -232,36 +266,28 @@ char *cmdLine;
 
 
 #ifdef _WIN32
-static char const *device[] = { "CON:",  "PRN:",  "AUX:",  "NUL:",  "COM1:", "COM2:",
-                                "COM3:", "COM4:", "COM5:", "COM6:", "COM7:", "COM8:",
-                                "COM9:", "LPT1:", "LPT2:", "LPT3:", "LPT4:", "LPT5:",
-                                "LPT6:", "LPT7:", "LPT8:", "LPT9:", NULL };
 
-static bool isdevice(char const *fn) {
-    char *s = strrchr(fn, ':');
-    if (!s || s[1] != 0)
-        return false;
-    for (char const **dp = device; *dp; dp++) {
-        if (stricmp(fn, *dp) == 0)
-            return true;
-    }
-    return false;
-}
 #endif
+
+
+
 
 void waitKey() {
     fputs("Hit any key to continue:", stdout);
-    getch();
+    if (getch() == '\x3')  // allow abort using control C
+        wrapup();
     putchar('\n');
 }
 
-void wrapup() {
-    if (prnToDev == 0) {
-        fclose(prnFCB.fp);
-        unlink(prnFCB.name);
-    } else if (prnToDev == 'Y')
-        fclose(prnFCB.fp);
-    if (ixInitialised) {
+_Noreturn void wrapup() {
+    if (prnFCB.fp) {
+        if (prnToDev == 0) {
+            fclose(prnFCB.fp);
+            unlink(prnFCB.name);
+        } else if (prnToDev == 'Y')
+            fclose(prnFCB.fp);
+    }
+    if (ixInitialised && ixFCB.fp) {
         fclose(ixFCB.fp);
         unlink(ixFCB.name);
     }
@@ -384,7 +410,7 @@ void selectDst() {
     else
         cputc = nullSub;
 
-    if (OOpt)
+    if (OOpt) {
         if (!pageInRange())
             cputc = nullSub;
         else if (DOpt) {
@@ -392,6 +418,7 @@ void selectDst() {
             if (proportionalSpace)
                 enablePS();
         }
+    }
 }
 
 void selectSrc(byte n) {
@@ -415,14 +442,10 @@ byte getUCChar() {
     return inputChar = toupper(cgetc());
 }
 
-char *fname(char *name) {
+char *basename(char *name) {
     char *s;
-    if (s = strrchr(name, '/'))
+    while ((s = strpbrk(name, DIRSEP)))
         name = s + 1;
-#ifdef _WIN32
-    if (s = strrchr(name, '\\'))
-        name = s + 1;
-#endif
     return name;
 }
 
@@ -813,11 +836,12 @@ void outputLine() {
                     eline = wline = nline;
                     error("Word too long");
                 }
-                if (isJustified)
+                if (isJustified) {
                     if (DOpt)
                         printerIsJustifying = true;
                     else
                         justify();
+                }
             }
             spacingText(eline);
             if (escIdx != 0)
@@ -880,11 +904,12 @@ void finishPage() {
 bool openSrc(FCB *fcb) {
 
     txtBreak();
-    if (initFCB(fcb))
+    if (initFCB(fcb)) {
         if ((fcb->fp = fopen(fcb->name, "rt")))
             return true;
         else
             error("File not found");
+    }
     return false;
 }
 
@@ -910,7 +935,9 @@ void nextSrcOrDone() {
 }
 
 char getNext(FCB *fcb) {
-    int c = getc(fcb->fp);
+    int c;
+    while ((c = getc(fcb->fp)) == '\r') // skip '\r' chars, especially in Linux
+        ;
     if (c == EOF)
         c = CPMEOF;
     fcb->context[fcb->cidx] = c; /* maintain cyclic context */
@@ -1262,11 +1289,12 @@ void getOptions() {
         fatalError("InvalidParameter");
     if (prnToDev == 'X') /* print to console - no page offset */
         pageOffset = 0;
-    if (SOpt)
+    if (SOpt) {
         if (prnToDev == 'X') /* if $S and $PX) paging */
             isPaging = true;
         else
             manualFeed = true; /* else if ($S) manual feed */
+    }
     selectDst();
 
     if (QOpt && DOpt)
@@ -1699,11 +1727,11 @@ void mkName(FCB *fcb, char *ext) {
     char *s;
     if (fcb->path) {
         strcpy(fcb->name, fcb->path);   // copy dir / fullpath
-        s = fname(fcb->name);
+        s = basename(fcb->name);
         if (strcmp(s, ".") == 0 || strcmp(s, "..") == 0)
-            strcat(strcat(s, "/"), fname(texFCB.name));
+            strcat(strcat(s, "/"), basename(texFCB.name));
         else if (*s == 0) // was dir so add input file name
-            strcat(fcb->name, fname(texFCB.name));
+            strcat(fcb->name, basename(texFCB.name));
         else if (strchr(s, '.')) // has user specified ext
             return;
 #ifdef _WIN32
@@ -1712,20 +1740,24 @@ void mkName(FCB *fcb, char *ext) {
 #endif
     } else
         strcpy(fcb->name, texFCB.name); // use input file name as basis
-    if (s = strrchr(fname(fcb->name), '.')) // remove input ext
+    if ((s = strrchr(basename(fcb->name), '.'))) // remove input ext
         *s = 0;
     strcat(fcb->name, ext); // append mkName specified ext
 }
 
+void signalHandler(int signal) { // cleanup
+    wrapup();
+}
+
+
+
 int main(int argc, char **argv) {
     
-    if (argc == 2 && stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+    CHK_SHOW_VERSION(argc, argv);
+
     _argc = argc;
     _argv = argv;
-
+    signal(SIGINT, signalHandler);
     getOptions();        /* pick up options from command line */
     if (prnToDev != 'X') /* unless output is to console show version */
         fputs("\n" VERSION "\n", stdout);

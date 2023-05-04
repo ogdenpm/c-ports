@@ -4,7 +4,9 @@ This is a c-port of Digital Research's tex version 2.1. It is based on my PL/M c
 
 https://github.com/ogdenpm/intel80tools/tree/master/cpmsrc/tex
 
-Note this port currently only works on windows, although there is some partial work to allow it to run under Linux. The key changes would be around replacing kbhit and getch, which are used in the paging options. If a port is done to Linux, remember that the command options begin with $, so care will be needed to prevent the Linux shell from trying to expand $ variables.
+The port now works on Windows and Linux, although the kbhit has been stubbed out as both  operating systems support control C to interrupt a program. Additionally paging now only switches to raw input mode when needed, so processing of console input as part of normal tex processing should work. Note for Linux, to prevent the options e.g. $P from being expanded by the shell, prefix the $ with a \\.
+
+On Windows the logic to determine if output is to a device, tests for the standard windows devices, on Linux it checks for a /dev/ prefix.
 
 In this directory you will  also find a copy of the application manual tex.pdf and the notes below show additional command line options and dot commands supported by version 2.1 and the changes I made as a result of the port.
 
@@ -12,7 +14,7 @@ In this directory you will  also find a copy of the application manual tex.pdf a
 
 The notes below reflect my best guess at the additional dot commands, from looking at the original decompiled source code. A number are options that require a printer, probably Diabalo and Qume, for handling various features including proportional spacing.
 
-If have one of these printers, please let me know if I have made an error.
+If you have one of these printers, please let me know if I have made an error.
 
 ```
 .BO n	Bold for next n characters
@@ -97,6 +99,6 @@ One potential  issue is around the $R option. If this is specified on the comman
 By changing to the directory containing the tex source files, it is unlikely that the $T will be necessary. Also unless overriding the default names or supressing the ix output, the $P and $X options are also unlikely to be used.
 
 ```
-Mark Ogden 11-Mar-2022
+Mark Ogden 3-May-2023
 ```
 
