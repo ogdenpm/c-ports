@@ -35,6 +35,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "l83", "l83\l83.vcxproj", "{
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tex", "tex\tex.vcxproj", "{3A6AC46C-5BF9-4683-A89B-E0758205F661}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "shared", "shared\shared.vcxitems", "{695D41A5-347E-4670-9DFC-51D63C3D02C2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -178,5 +180,24 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6609D21C-EBFE-4BA1-9193-2E19539D1C9E}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		shared\shared.vcxitems*{04c93c95-f060-4725-98d9-c7c839bb3217}*SharedItemsImports = 4
+		shared\shared.vcxitems*{3a6ac46c-5bf9-4683-a89b-e0758205f661}*SharedItemsImports = 4
+		shared\shared.vcxitems*{3d33d82e-bb56-402e-a300-fad5d031e692}*SharedItemsImports = 4
+		shared\shared.vcxitems*{42beb659-1627-47d0-ab0a-06b5e36d9658}*SharedItemsImports = 4
+		shared\shared.vcxitems*{48a5d2c6-e53f-4e7a-a393-e549dd61893f}*SharedItemsImports = 4
+		shared\shared.vcxitems*{57f02ac2-9fb1-4b50-b19f-b2868090bce7}*SharedItemsImports = 4
+		shared\shared.vcxitems*{695d41a5-347e-4670-9dfc-51d63c3d02c2}*SharedItemsImports = 9
+		shared\shared.vcxitems*{75044c4c-1997-4fbd-a9de-57d32066e03e}*SharedItemsImports = 4
+		shared\shared.vcxitems*{7fac39d9-f286-4de6-95bb-79ff4039dea4}*SharedItemsImports = 4
+		shared\shared.vcxitems*{9629449f-abaf-4192-866e-5a2bbb4921b2}*SharedItemsImports = 4
+		shared\shared.vcxitems*{a4d6da5f-876c-46b4-bfd2-08d7cfd21481}*SharedItemsImports = 4
+		shared\shared.vcxitems*{ac582cdf-d68e-44d4-8cd1-aef072e355d9}*SharedItemsImports = 4
+		shared\shared.vcxitems*{c17dfc41-f250-4905-85f4-72a2c3f34938}*SharedItemsImports = 4
+		shared\shared.vcxitems*{e635b9b4-59aa-4eba-841d-896a8131d3dd}*SharedItemsImports = 4
+		shared\shared.vcxitems*{f57cb46a-1e54-4943-8092-46386628806c}*SharedItemsImports = 4
+		shared\shared.vcxitems*{fac6ab79-51b5-4934-98d3-6edfd29520e2}*SharedItemsImports = 4
+		shared\shared.vcxitems*{fb7865fa-bab6-45fc-8b79-a81b414c123a}*SharedItemsImports = 4
 	EndGlobalSection
 EndGlobal
