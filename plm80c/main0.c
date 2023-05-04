@@ -34,7 +34,7 @@ static void ParseCommandLine()
     offCurCh = offLastCh;
     if (offFirstChM1 != 0)
         while (cmdLineP != 0) {
-            ParseControlLine(offFirstChM1 + CharP(cmdLineP));   // ParseControlLine will move to first char
+            ParseControlLine(offFirstChM1 + ByteP(cmdLineP));   // ParseControlLine will move to first char
             offFirstChM1 = 2;   // offset to first char - 1
             cmdLineP = CmdP(cmdLineP)->link;                    // continuation line
         }
@@ -44,7 +44,7 @@ static void ParseCommandLine()
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
-    inChrP = "\n" - 1; // GNxtCh will see \n and get a non blank line
+    inChrP = (byte *)"\n" - 1; // GNxtCh will see \n and get a non blank line
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif

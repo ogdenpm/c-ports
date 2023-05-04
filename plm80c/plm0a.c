@@ -67,7 +67,7 @@ byte tok2oprMap[] = {
 char *macroPtrs[12]; /* six inChrP, infoP pairs stored as pointer not offset_t */
 word macroDepth = 0;
 word tokenVal;
-char *inChrP;		/* has to be pointer as it accesses data outside info/symbol space */
+byte *inChrP;		/* has to be pointer as it accesses data outside info/symbol space */
 word stateStack[100];
 word stateIdx;
 offset_t stmtLabels[10];
@@ -79,7 +79,7 @@ word curStmtCnt = 0;
 word curBlkCnt = 0;
 offset_t curMacroInfoP = 0;
 offset_t markedSymbolP = 0;
-char  lineBuf[128];
+byte  lineBuf[128];
 char  inbuf[1280];
 byte  tokenType;
 byte  tokenStr[256];

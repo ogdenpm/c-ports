@@ -610,13 +610,13 @@ extern word curStmtCnt;
 extern word doBlkCnt;
 extern word ifDepth;
 extern char inbuf[];
-extern char *inChrP;		// has to be pointer as it accesses data outside info/symbol space
+extern byte *inChrP;		// has to be pointer as it accesses data outside info/symbol space
 extern bool isNonCtrlLine;
 extern offset_t stmtStartSymbol;
 extern byte stmtStartToken;
 extern byte nextCh;
 extern byte startLexCode;
-extern char lineBuf[];
+extern byte lineBuf[];
 extern bool lineInfoToWrite;
 extern word macroDepth;
 extern char *macroPtrs[];
@@ -662,7 +662,7 @@ extern word offLastCh;
 extern byte tx1Buf[];
 
 /* plm0b.plm, plm0c.asm*/
-void ParseControlLine(char *pch);
+void ParseControlLine(byte *pch);
 void GNxtCh();
 extern bool trunc;
 
