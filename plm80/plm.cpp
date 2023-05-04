@@ -1,35 +1,25 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: plm.cpp,v 1.2 2004/11/30 23:48:08 Mark Exp $
 #include <cstdio>
 #include "plm.hpp"
 #include "common.hpp"
 #include "trace.hpp"
-#include "Generated\version.h"
-void showVersion(FILE *fp, bool full);
+#include <showVersion.h>
 
-byte *address::memory = new byte[0x10000];
+Byte *address::memory = new Byte[0x10000];
 
+#ifndef _MSC_VER
+#define _stricmp	strcasecmp
+#endif
 
 address topMem;
 address botMem;
@@ -70,22 +60,22 @@ word blk2Used = 400;
 address word_3C34 = 0x9f00;
 word blkSize1 = 0xc400;		// = topmem - 0xc400 - 256 after initialisation 
 word blkSize2 = 0xa400;		// = topmem - 0xa400 - 256 after initialisation 
-byte srcStemLen;
-byte byte_3C3B = 0xff;
-byte IXREFSet = 0xff;
-byte PRINTSet = 0xff;
-byte OBJECTSet = 0xff;
-byte debugFlag;
-byte unexpectedEOF;
-byte haveModule;
-byte fatalErrorCode;
-byte pad3C43 = 1;
+Byte srcStemLen;
+Byte byte_3C3B = 0xff;
+Byte IXREFSet = 0xff;
+Byte PRINTSet = 0xff;
+Byte OBJECTSet = 0xff;
+Byte debugFlag;
+Byte unexpectedEOF;
+Byte haveModule;
+Byte fatalErrorCode;
+Byte pad3C43 = 1;
 address word_3C44 = 0xA000;
-byte CONTROLS[8];	// PRINT etc
+Byte CONTROLS[8];	// PRINT etc
 
-byte pad_3C4E[2];
-byte srcStemName[10];
-byte debugSwitches[26];
+Byte pad_3C4E[2];
+Byte srcStemName[10];
+Byte debugSwitches[26];
 cmdLine_pt cmdLine_p;
 cmdLine_pt startCmdLine_p;
 //char aF0Plm80_ov1[/*15*/] = ":F0:PLM80 .OV1 ";
@@ -101,34 +91,34 @@ char byte_3CF2;
 char *lstBufPtr = &byte_3CF2;     // 3CF3
 word lstChCnt;
 word lstBufSize;
-byte lstFileOpen;	// 3CF9
+Byte lstFileOpen;	// 3CF9
 
-byte linesLeft;
-byte byte_3CFB;
-byte byte_3CFC;
-byte byte_3CFD;
-byte col;
-byte skipCnt;
-byte tabWidth;
-byte TITLELEN = 1;
-byte PAGELEN = 60;
+Byte linesLeft;
+Byte byte_3CFB;
+Byte byte_3CFC;
+Byte byte_3CFD;
+Byte col;
+Byte skipCnt;
+Byte tabWidth;
+Byte TITLELEN = 1;
+Byte PAGELEN = 60;
 word PAGEWIDTH = 120;
-byte listingMargin = 0xff;
+Byte listingMargin = 0xff;
 char DATE[9];
 char aPlm80Compiler[/*20*/] = "PL/M-80 COMPILER    ";
 char TITLE[60] = {" "};
 word ISISVECTOR = 0x40;
 word REBOOTVECTOR = 0;
 
-byte intVecNum = 8;
+Byte intVecNum = 8;
 word intVecLoc;
-byte hasErrors;
+Byte hasErrors;
 //char aOverlay6[/*10*/] = ":F0:PLM80 " ;
 //char a_ov6[/*5*/] = ".OV6 ";
 char version[/*5*/] = "X000";
 char invokeName[/*10*/] = ":F0:PLM80 ";
 //char a_ov0[/*5*/] = ".OV0 ";
-byte pad_3DAC[239];
+Byte pad_3DAC[239];
 
 char aC197619771982I[/*31*/] = "(C) 1976, 1977, 1982 INTEL CORP";
 
@@ -136,10 +126,10 @@ char aProgram_version[] = "program_version_number=";
 char progVersion[/*4*/] = "V4.0";
 
 
-byte state;
+Byte state;
 char *cmdText_p;
 file_t loadFile;
-byte ioBuffer[2048];
+Byte ioBuffer[2048];
 char builtins[] = {
         5, 'C', 'A', 'R', 'R', 'Y', 0,  0,  2,  
         3, 'D', 'E', 'C', 1,  1,  2,  
@@ -217,49 +207,27 @@ address MEMCHK (void);
 void parseInvokeName (void);
 void parseSrcFile (void);
 void setInfoSymValue(word val);
-void setTitle (const char *buf, byte len);
+void setTitle (const char *buf, Byte len);
 void sub_40AC (void);
 void sub_45F6 (void);
 void sub_4767 (void);
 void sub_4845 (void);
-void setMarkerInfo (byte b1, byte b2, byte b3);
+void setMarkerInfo (Byte b1, Byte b2, Byte b3);
 void setPageNo (word val);
-void setMarginAndTabW (byte b1, byte b2);
+void setMarginAndTabW (Byte b1, Byte b2);
 //extern int strncmp (const char *, const char *, size_t);
 //void ei();
 //void hlt();
 
 
-void (*fatalError)(byte errcode) = fatalError_main;
-
-
-void showVersion(char *description, bool full) {
-    fputs(description, stdout);
-    fputs(" - " GIT_VERSION, stdout);
-#ifdef _DEBUG
-    fputs(" {debug}", stdout);
-#endif
-    fputs(" (C)" GIT_YEAR "\n", stdout);
-    if (full) {
-        fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
-        printf("Git: %s [%.10s]", GIT_SHA1, GIT_CTIME);
-#if GIT_BUILDTYPE == 2
-        fputs(" +uncommitted files", stdout);
-#elif GIT_BUILDTYPE == 3
-        fputs(" +untracked files", stdout);
-#endif
-        fputc('\n', stdout);
-    }
-    exit(0);
-}
+void (*fatalError)(Byte errcode) = fatalError_main;
 
 
 int main(int argc, char **argv) {
     int pass = 0;
-    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+    
+    CHK_SHOW_VERSION(argc, argv);
+
     gargc = argc;
     gargv = argv;
     state = 10;
@@ -298,7 +266,7 @@ int main(int argc, char **argv) {
 
 
 
-void fatalError_main(byte errcode)
+void fatalError_main(Byte errcode)
 {
     if (errcode == ERR83)
         fatal("DYNAMIC STORAGE OVERFLOW", 0x18);
@@ -336,7 +304,7 @@ void skipSpace(void) {
             }
 }
 
-byte testToken(const char *buf, byte len) {
+Byte testToken(const char *buf, Byte len) {
     char *p;
 
     p = cmdText_p;
@@ -363,7 +331,7 @@ void skipAlphaNum(void) {
 
 void getCmdLine(void) {
     word status, actual;
-    byte quote, i;
+    Byte quote, i;
 
     Rescan(1, &status);
     if (status != 0)
@@ -374,12 +342,12 @@ void getCmdLine(void) {
         readFile(&conFile, ioBuffer, 128, &actual);
         if (ioBuffer[actual - 1] != '\n' || ioBuffer[actual - 2] != '\r')
             fatal("INVOCATION COMMAND DOES NOT END WITH <CR><LF>", 45);
-        topMem = (byte *)cmdLine_p - actual - 3;
+        topMem = (Byte *)cmdLine_p - actual - 3;
         if (startCmdLine_p == 0)
             startCmdLine_p = topMem;
         else
             cmdLine_p->link = topMem;
-        (cmdLine_p = topMem)->len = (byte)actual;
+        (cmdLine_p = topMem)->len = (Byte)actual;
         movemem(actual, ioBuffer, cmdLine_p->text);	// copy user text over
         quote = 0;
         for (i = 0; i < actual; i++) {
@@ -442,7 +410,7 @@ void parseSrcFile(void) {
     skipAlphaNum();
     if ((nameLen = word(cmdText_p - filename_p)) == 0 || nameLen > 6)
         fatal("SOURCE FILE NAME INCORRECT", 26);
-    srcStemLen = byte(cmdText_p - fullName_p); 
+    srcStemLen = Byte(cmdText_p - fullName_p); 
     FILL(10, srcStemName, ' ');
     movemem(srcStemLen, fullName_p, srcStemName);
     if (*cmdText_p == '.') {
@@ -455,7 +423,7 @@ void parseSrcFile(void) {
     srcFileIdx = 0;
     FILL(16, srcFileTable[0].filename, ' ');
     movemem(nameLen, fullName_p, srcFileTable[0].filename);
-    FILL(4, (byte *)&srcFileTable[0].block, 0);
+    FILL(4, (Byte *)&srcFileTable[0].block, 0);
     skipSpace();
     if (*cmdText_p == '$')
         fatal("ILLEGAL COMMAND TAIL SYNTAX", 27);
@@ -550,7 +518,7 @@ void sub_4845(void) {
     botMem = (word_3C34 < word_3C44) ? word_3C44 : word_3C34;
     botMem += 256;
     hashChains_p = (symbol_pt *)(topMem + 1 - 128);
-    topSymbol = (byte *)hashChains_p - 1;
+    topSymbol = (Byte *)hashChains_p - 1;
     botSymbol = topSymbol + 1;
     topInfo = (botInfo = botMem) + 1;
 
@@ -569,7 +537,7 @@ address MEMCHK(void) {
 
 
 
-void setMarkerInfo(byte b1, byte b2, byte b3) {
+void setMarkerInfo(Byte b1, Byte b2, Byte b3) {
     byte_3CFB = b1;
     byte_3CFC = b2;
     byte_3CFD = b3;
@@ -580,12 +548,12 @@ void setPageNo(word val) {
 }
 
 
-void setMarginAndTabW(byte b1, byte b2) {
+void setMarginAndTabW(Byte b1, Byte b2) {
     listingMargin = b1 - 1;
     tabWidth = b2;
 }
 
-void setTitle(const char *buf, byte len) {
+void setTitle(const char *buf, Byte len) {
     if (len > 60)
         len = 60;
     movemem(len, buf, TITLE);

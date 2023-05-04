@@ -1,63 +1,51 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plmov6.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: plmov6.cpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include "plm.hpp"
 #include "common.hpp"
 
 
-byte hasPrintOrObjectFile;
-byte emittingLine;
-byte listOff;
-byte codeOn;
+Byte hasPrintOrObjectFile;
+Byte emittingLine;
+Byte listOff;
+Byte codeOn;
 word ERRNum;
 word ERRInfo;
 word ERRStmtNum;
-byte moreToDo = 0xff;
+Byte moreToDo = 0xff;
 word curLineCount;
 word sourceLineNum;
 word statementDepth;
 word curStmtNum6;
 word offLastCh;
 word offCurCh;
-byte skipLinePrefix = 0xff;
-byte skipLinePrefixOnError = 0xff;
-byte lstLineLen;
+Byte skipLinePrefix = 0xff;
+Byte skipLinePrefixOnError = 0xff;
+Byte lstLineLen;
 char srcLineBuf[130];
-byte itemType;
+Byte itemType;
 word itemArgs[4];
-byte crCnt;
+Byte crCnt;
 
 
 void emitSourceLineNumber();
-void setSkipLst(byte arg1b);
-void setMarginAndTabW(byte arg1b, byte arg2b);
-void setMarkerInfo(byte arg1b, byte arg2b, byte arg3b);
+void setSkipLst(Byte arg1b);
+void setMarginAndTabW(Byte arg1b, Byte arg2b);
+void setMarkerInfo(Byte arg1b, Byte arg2b, Byte arg3b);
 void flushLstBuf();
 void printExitMsg();
 void lstModuleInfo();
-byte getSourceCh6();
+Byte getSourceCh6();
 void getSourceLine6();
-void fatalError_ov6(byte arg1b);
+void fatalError_ov6(Byte arg1b);
 void sub_66F0();
 void emitError6();
 void emitLinePrefix();
@@ -126,8 +114,8 @@ void sub_3F96() {
 
 
 void sub_404A() {
-    static byte tx2buf[2048];
-    static byte nmsbuf[2048];
+//    static Byte tx2buf[2048];
+//    static Byte nmsbuf[2048];
     static char lstBuf[2048];
     if (PRINT) {
         lstBufPtr = lstBuf;
@@ -172,7 +160,7 @@ void sub_404A() {
 }
 
 void loadNames() {
-    byte i;
+    Byte i;
     curSymbol_p = (topSymbol = localLabels_p - 3) - 1;
     ifread(&nmsFile, &i, 1);
     while (i != 0) {
@@ -213,7 +201,7 @@ void sub_41B6() {
     }
 }
 
-const byte byte_4222[] = {
+const Byte byte_4222[] = {
      // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
         2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    0xE,  1,    1,    1,  //00
         1,    1,    1,    2,    2,    2,    2,    2,    2,    2,    2,    2,    3,    3,    2,    1,  //10
@@ -608,7 +596,7 @@ void emitError6() {
 }
 
 
-void fatalError_ov6(byte arg1b) {
+void fatalError_ov6(Byte arg1b) {
     ERRNum = fatalErrorCode = arg1b;
     ERRInfo = 0;
     ERRStmtNum = curStmtNum6;
@@ -633,8 +621,8 @@ void getSourceLine6() {
 }
 
 
-byte getSourceCh6() {
-    static byte srcbuf[2048];
+Byte getSourceCh6() {
+    static Byte srcbuf[2048];
     if (offLastCh == offCurCh) {
         for (;;) {
             readFile(&srcFile, srcbuf, 1280, &offLastCh);
@@ -643,11 +631,12 @@ byte getSourceCh6() {
                 break;
             if (lstLineLen != 0)
                 return '\n';
-            if (srcFileIdx == 0)
+            if (srcFileIdx == 0) {
                 if (crCnt != 0)
                     return '\n';
                 else
-                    fatalError_ov6(ERR215);	// "COMPILER ERROR: EOF READ IN FINAL ASSEMBLY"
+                    fatalError_ov6(ERR215); // "COMPILER ERROR: EOF READ IN FINAL ASSEMBLY"
+            }
             closeFile(&srcFile);
             srcFileIdx--;		// 10 words in assembly
             initFile(&srcFile, "SOURCE", srcFileTable[srcFileIdx].filename);
@@ -715,7 +704,7 @@ void lstModuleInfo()
 
 void printExitMsg() {
     static char msg[] =  "XXXXX PROGRAM ERROR"; 
-    byte i = num2Asc(programErrCnt, 5, 10, msg);
+    num2Asc(programErrCnt, 5, 10, msg);
     printf("PL/M-80 COMPILATION COMPLETE.  %5d PROGRAM ERROR", programErrCnt);
     if (programErrCnt != 1)
         putchar('S');
@@ -723,8 +712,8 @@ void printExitMsg() {
 }
 
 
-void xputcLst(byte arg1b) {
-    byte i;
+void xputcLst(Byte arg1b) {
+    Byte i;
 
     if (col == 0) {
         if (linesLeft == 0)
@@ -785,7 +774,7 @@ void newLineLst() {
 }
 
 
-void tabLst(byte arg1b) {
+void tabLst(Byte arg1b) {
     if (arg1b > 0x7f) {
         if(col >= (arg1b = -arg1b))
             newLineLst();
@@ -808,17 +797,17 @@ void newPageNextChLst() {
 
 
 
-void setSkipLst(byte arg1b) {
+void setSkipLst(Byte arg1b) {
     skipCnt = arg1b;
 }
 
 
-void xputstr2cLst(const char *arg1w, byte arg2b) {
+void xputstr2cLst(const char *arg1w, Byte arg2b) {
     while (*arg1w != arg2b) 
         xputcLst(*arg1w++);
 }
 
-void  xputnstrLst(const char *arg1w, byte arg2b) {
+void  xputnstrLst(const char *arg1w, Byte arg2b) {
     while (arg2b != 0) {
         xputcLst(*arg1w++);
         arg2b--;
@@ -831,9 +820,9 @@ void xputstrLst(const char *arg1w) {
 }
 
 
-void xnumLst(word arg1w, byte arg2b, byte arg3b) {
+void xnumLst(word arg1w, Byte arg2b, Byte arg3b) {
     char buf[7];
-    byte i;
+    Byte i;
 
     i = num2Asc(arg1w, arg2b, arg3b, buf);
     xputnstrLst(buf, i);
@@ -848,7 +837,7 @@ void emitSourceLineNumber() {
 
 
 
-void putcLst(byte arg1b) {		// 77D2
+void putcLst(Byte arg1b) {		// 77D2
     lstBufPtr[lstChCnt] = arg1b;
     if (lstChCnt == lstBufSize) {
         if (!lstFileOpen) {
@@ -871,13 +860,13 @@ void put2cLst(word arg1w) {
 
 void newPageLst() {
     char pnum[3];
-    byte i, j, k, m;
+    Byte j, k, m;
     if (!PAGING)
         return;
     putcLst(0xc);
     linesLeft = PAGELEN;
     pageNo++;
-    i = num2Asc(pageNo, 3, 10, pnum);
+    num2Asc(pageNo, 3, 10, pnum);
     if (TITLELEN > (j = PAGEWIDTH - 41)) 
         m = j;
     else

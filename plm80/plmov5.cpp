@@ -1,34 +1,22 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plmov5.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: plmov5.cpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include "plm.hpp"
 #include "common.hpp"
 
-byte sub_561E(byte arg1b);
+Byte sub_561E(Byte arg1b);
 void sub_557A();
 void advNextInfo();
 void sub_4EC5();
-void ixiWrite(byte *arg1w, word arg2w);
+void ixiWrite(Byte *arg1w, word arg2w);
 void sub_4D03();
 void sub_4C84();
 void sub_4B4A(const char *arg1w);
@@ -46,34 +34,34 @@ void sub_4602();
 void sub_4541();
 void sub_451A();
 void sub_4287();
-byte cmpSym(word arg1w, word arg2w);
+Byte cmpSym(word arg1w, word arg2w);
 void sub_4140();
 void sub_4121(const char *arg1w);
 
 
-void sub_77BF(byte arg1b, byte arg2b, byte arg3b);
+void sub_77BF(Byte arg1b, Byte arg2b, Byte arg3b);
 
 
 
 
 char lstBuf[1280];
-byte b66CF;
+Byte b66CF;
 word w66D0;
 word w66D4;
 address w66D6;
 address pw66D9;
 address w66DB;
-byte b6783;
-byte b678E;
-byte b678F;
-byte b6790;
-byte b6791;
-byte b6792;
-byte b6793;
+Byte b6783;
+Byte b678E;
+Byte b678F;
+Byte b6790;
+Byte b6791;
+Byte b6792;
+Byte b6793;
 
-byte b3F0B = 0xff;
-byte b40DE = 0;
-byte b40DF = 1;
+Byte b3F0B = 0xff;
+Byte b40DE = 0;
+Byte b40DF = 1;
 
 int overlay5()
 {
@@ -116,8 +104,8 @@ void sub_4140()
 			*(word *)w66DB = curInfo_p;
 			setInfoScope(0);
 			curSymbol_p = getInfoSymbol();
-			if (*(byte *)curSymbol_p > b66CF)
-				b66CF = *(byte *)curSymbol_p;
+			if (*(Byte *)curSymbol_p > b66CF)
+				b66CF = *(Byte *)curSymbol_p;
 		}
 		advNextInfo();
 		if (curInfo_p == 0)
@@ -125,16 +113,16 @@ void sub_4140()
 	}
 }
 
-byte cmpSym(word arg1w, word arg2w)
+Byte cmpSym(word arg1w, word arg2w)
 {
-	byte i, j ;
-	byte *p, *q, *r, *s;
+	Byte i, j ;
+	Byte *p, *q, *r, *s;
 
 	curInfo_p = arg1w;
-	p = (byte *)getInfoSymbol();
+	p = (Byte *)getInfoSymbol();
 	r = p + 1;
 	curInfo_p = arg2w;
-	q = (byte *)getInfoSymbol();
+	q = (Byte *)getInfoSymbol();
 	s = q + 1;
 	if (*p < *q) {
 		i = *p;
@@ -307,7 +295,7 @@ void sub_4602()
 
 void sub_46C4()
 {
-	byte i;
+//	Byte i;
 	word p;
 
 	b678E = 3;
@@ -315,7 +303,7 @@ void sub_46C4()
 	b6790 = b678F + 6;
 	b6791 = b6790 + 7;
 	b6792 = b6791 + b66CF + 2;
-	i = b6792 + 1;
+//	i = b6792 + 1;
 	sub_77BF(b6792, 0x2d, 3);
 	newPageNextChLst();
 	if (XREF) {
@@ -403,8 +391,8 @@ void sub_48A7()
 
 	curSymbol_p = getInfoSymbol();
 	tabLst(-b6791);
-	xputnstrLst(curSymbol_p + 1, *(byte *)curSymbol_p);
-	xputnstrLst(&dots[*(byte *)curSymbol_p], b6792 - col - 2);
+	xputnstrLst(curSymbol_p + 1, *(Byte *)curSymbol_p);
+	xputnstrLst(&dots[*(Byte *)curSymbol_p], b6792 - col - 2);
 	tabLst(1);
 }
 
@@ -459,11 +447,11 @@ void sub_49BB()
 	}
 
 	curSymbol_p = q;
-	xputnstrLst(curSymbol_p + 1, *(byte *)curSymbol_p);
+	xputnstrLst(curSymbol_p + 1, *(Byte *)curSymbol_p);
 	if (r != 0) { //	loc_4A33
 		xputnstrLst(".", 1);
 		curSymbol_p = r;
-		xputnstrLst(curSymbol_p + 1, *(byte *)curSymbol_p);
+		xputnstrLst(curSymbol_p + 1, *(Byte *)curSymbol_p);
 	}
 	xputnstrLst(")", 1);
 	curInfo_p = p;
@@ -478,7 +466,7 @@ void sub_4A42()
 	curInfo_p = getOwningStructure();
 	xputstr2cLst(" MEMBER(", 0);
 	curSymbol_p = getInfoSymbol();
-	xputnstrLst(curSymbol_p + 1, *(byte *)curSymbol_p);
+	xputnstrLst(curSymbol_p + 1, *(Byte *)curSymbol_p);
 	xputnstrLst(")", 1);
 	curInfo_p = p;
 }
@@ -531,7 +519,7 @@ void sub_4A92()
 void sub_4B4A(const char *arg1w)
 {
 	word p;
-	byte i;
+	Byte i;
 
 	sub_4921();
 	i = getInfoType();
@@ -584,14 +572,14 @@ void sub_4B4A(const char *arg1w)
 	sub_480A();
 }
 
-static byte i;
+static Byte i;
 void sub_4C84()
 {
 	
 	curSymbol_p = getInfoSymbol();
-	if (i != ((byte *)curSymbol_p)[1]) {
+	if (i != ((Byte *)curSymbol_p)[1]) {
 		newLineLst();
-		i = ((byte *)curSymbol_p)[1];
+		i = ((Byte *)curSymbol_p)[1];
 	}
 	if (getInfoType() < MACRO_T)
 		switch(getInfoType()) {
@@ -610,7 +598,7 @@ void sub_4C84()
 void sub_4D03()
 {
 	word p, q, r;
-	byte i, j, /*ixibuf[128], */ k;
+	Byte i, j, /*ixibuf[128], */ k;
 
 	openFile(&ixiFile, 2);
 	//assignFileBuffer(&ixiFile, ixibuf, 128, 2);
@@ -618,16 +606,16 @@ void sub_4D03()
 	curSymbol_p = getInfoSymbol();
 	if (curSymbol_p != 0) { //	loc_4D6D
 		ixiWrite(&b3F0B, 1);
-		k = *(byte *)curSymbol_p + 22;
+		k = *(Byte *)curSymbol_p + 22;
 		ixiWrite(&k, 1);
-		ixiWrite(curSymbol_p, 1 + *(byte *)curSymbol_p);
+		ixiWrite(curSymbol_p, 1 + *(Byte *)curSymbol_p);
 	}
 	if (srcFileTable[0].filename[0] == ':')
 		j = 2;
 	else
 		j = 0;
-	ixiWrite((byte *)&srcFileTable[0].filename[j*2], 10);
-	ixiWrite((byte *)"---------", 9);
+	ixiWrite((Byte *)&srcFileTable[0].filename[j*2], 10);
+	ixiWrite((Byte *)"---------", 9);
 
 	for (p = 1; p <= w66D0; p++) {
 		curInfo_p = ((word *)pw66D9)[p];
@@ -640,20 +628,20 @@ void sub_4D03()
 				ixiWrite(&b40DF, 1);
 
 			curSymbol_p = getInfoSymbol();
-			k = *(byte *)curSymbol_p + 6;
+			k = *(Byte *)curSymbol_p + 6;
 			ixiWrite(&k, 1);
 			ixiWrite(curSymbol_p, 1);
-			ixiWrite(curSymbol_p + 1, *(byte *)curSymbol_p);
+			ixiWrite(curSymbol_p + 1, *(Byte *)curSymbol_p);
 			ixiWrite(&i, 1);
 			if (getInfoType() == PROC_T) {
 				r = getDataType();
-				ixiWrite((byte *)&r, 2);	// not portable
+				ixiWrite((Byte *)&r, 2);	// not portable
 			} else {
 				if (testInfoFlag(F_ARRAY))
 					q = getDimension();
 				else
 					q = 0;
-				ixiWrite((byte *)&q, 2);	// not portable
+				ixiWrite((Byte *)&q, 2);	// not portable
 			}
 		}
 	}
@@ -661,7 +649,7 @@ void sub_4D03()
 	closeFile(&ixiFile);
 }
 
-void ixiWrite(byte *arg1w, word arg2w)
+void ixiWrite(Byte *arg1w, word arg2w)
 {
 	ifwrite(&ixiFile, arg1w, arg2w);
 }
@@ -680,7 +668,7 @@ void sub_4EC5()
 
 void sub_557A()
 {
-	byte i, line[30], j;
+	Byte i, line[30], j;
 	word actual;
 
 	for (i = 0; i <= 25; i++)
@@ -701,7 +689,7 @@ void sub_557A()
 }
 
 
-byte sub_561E(byte arg1b)
+Byte sub_561E(Byte arg1b)
 {
 	if (debugSwitches[arg1b - 'A'])
 		return 0xff;

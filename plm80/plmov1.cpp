@@ -1,24 +1,12 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plmov1.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: plmov1.cpp,v 1.2 2005/07/11 20:25:34 Mark Exp $
 // vim:ts=4
@@ -27,7 +15,7 @@
 #include <stdio.h>
 
 
-byte byte_3EBF;
+Byte byte_3EBF;
 
 word markedStSP;
 word T2CntForStmt;
@@ -41,39 +29,39 @@ struct {
     word val;
 } atData;
 
-byte regetTx1Item;
-byte byte_88B3;
+Byte regetTx1Item;
+Byte byte_88B3;
 struct {
-    byte type;
+    Byte type;
     word data[129];
 } tx1Item;
 
 #pragma pack(pop)
-byte tx1Aux2;
-byte tx1Aux1;
-byte tx1RdBuf[512];
-byte tx2Buf[512];
-byte xrfBuf[512];
-byte atBuf[512];
-byte byte_91C0;
+Byte tx1Aux2;
+Byte tx1Aux1;
+Byte tx1RdBuf[512];
+Byte tx2Buf[512];
+Byte xrfBuf[512];
+Byte atBuf[512];
+Byte byte_91C0;
 word parseSP;
 word parseStack[100];
 word operatorSP;
 word operatorStack[50];
 word exSP;
-byte ex1Stack[100];
-byte ex2Stack[100];
+Byte ex1Stack[100];
+Byte ex2Stack[100];
 word ex3Stack[100];
 word stSP;
-byte st1Stack[300];
-byte st2Stack[300];
+Byte st1Stack[300];
+Byte st2Stack[300];
 word st3Stack[300];
 word rValue;
-byte useByteArith;
+Byte useByteArith;
 word word_99BF;
 word word_99C1;
-byte byte_99FF[20];
-byte byte_9A13[20];
+Byte byte_99FF[20];
+Byte byte_9A13[20];
 word procInfoStack[20];
 word hNodes[20];
 word eNodes[20];
@@ -81,10 +69,10 @@ word word_9A9F[20];
 word word_9AC7[20];		// junk
 word controlSP;
 word atStmtNum;
-byte byte_9B40;
+Byte byte_9B40;
 static union {
 		atFData_t atFData;
-		byte pad[256];	// to allow string to be read in
+		Byte pad[256];	// to allow string to be read in
 };
 
 word atOffset;
@@ -116,14 +104,14 @@ void sub_6523();
 void sub_5BF5(word arg1w);
 void flgVisited(word arg1w, word arg2w);
 void sub_5AD8();
-byte sub_59D4();
-byte sub_5945();
+Byte sub_59D4();
+Byte sub_5945();
 void sub_521B();
-byte sub_512E(word arg1w);
+Byte sub_512E(word arg1w);
 void sub_50D5();
 void mkIndexNode();
-void sub_4DCF(byte arg1b);
-byte getCallArgCnt();
+void sub_4DCF(Byte arg1b);
+Byte getCallArgCnt();
 void sub_4D38();
 void sub_4D2C();
 void sub_4CFD(word arg1w);
@@ -142,7 +130,7 @@ void sub_4631();
 void sub_45E0();
 void sub_4599();
 word sub_42EF(word arg1w);
-void sub_4251(byte *arg1w, byte arg2b);
+void sub_4251(Byte *arg1w, Byte arg2b);
 void sub_3F8B();
 void sub_3F19();
 
@@ -167,7 +155,7 @@ void parsePROCEDURE();
 void parseIF();
 void parseSTMTCNT();
 void popControl();
-void pushControl(byte arg1b);
+void pushControl(Byte arg1b);
 void popScope();
 void pushScope(word arg1w);
 void stmtParse15();
@@ -209,38 +197,38 @@ void exprParse3();
 void exprParse2();
 void exprParse1();
 void exprParse0();
-void parsePortNum(byte arg1b);
-void exprMakeNode(byte arg1b, byte arg2b);
+void parsePortNum(Byte arg1b);
+void exprMakeNode(Byte arg1b, Byte arg2b);
 void popOperatorStack();
-void pushOperator(byte arg1b);
+void pushOperator(Byte arg1b);
 void moveExpr2Stmt();
-void stmtPush3(byte arg1b, byte arg2b, word arg3w);
-void exprPush2(byte arg1b, word arg2w);
+void stmtPush3(Byte arg1b, Byte arg2b, word arg3w);
+void exprPush2(Byte arg1b, word arg2w);
 void swapOperandStack();
 void exprPop();
-void exprPush3(byte arg1b, byte arg2b, byte arg3w);
-void pushParseByte(byte arg1b);
+void exprPush3(Byte arg1b, Byte arg2b, Byte arg3w);
+void pushParseByte(Byte arg1b);
 void popParseStack();
 void pushParseWord(word arg1w);
 void wrAtFileWord(word arg1w);
-void wrAtFileByte(byte arg1b);
+void wrAtFileByte(Byte arg1b);
 void wrAtFile(void *buf, word cnt);
-void expectRPAREN(byte arg1b);
+void expectRPAREN(Byte arg1b);
 void resyncRPAREN();
-byte matchTx2AuxFlag(byte arg1b);
-byte notMatchTx2Item(byte arg1b);
-byte matchTx2Item(byte arg1b);
+Byte matchTx2AuxFlag(Byte arg1b);
+Byte notMatchTx2Item(Byte arg1b);
+Byte matchTx2Item(Byte arg1b);
 void getTx1Item();
 void rdTx1Item();
 void setRegetTx1Item();
-void wrTx2ExtError(byte arg1b);
-void wrTx2Error(byte arg1b);
+void wrTx2ExtError(Byte arg1b);
+void wrTx2Error(Byte arg1b);
 void mapLtoT2();
-word wrTx2Item3Arg(byte arg1b, word arg2w, word arg3w, word arg4w);
-word wrTx2Item2Arg(byte arg1b, word arg2w, word arg3w);
-word wrTx2Item1Arg(byte arg1b, word arg2w);
-word wrTx2Item(byte arg1b);
-void wrTx2File(byte *buf, byte cnt);
+word wrTx2Item3Arg(Byte arg1b, word arg2w, word arg3w, word arg4w);
+word wrTx2Item2Arg(Byte arg1b, word arg2w, word arg3w);
+word wrTx2Item1Arg(Byte arg1b, word arg2w);
+word wrTx2Item(Byte arg1b);
+void wrTx2File(Byte *buf, Byte cnt);
 void optWrXrf();
 
 #ifdef WATCH
@@ -307,7 +295,7 @@ void sub_3F19() {
 
 void sub_3F8B() {
 	if (byte_88B3) 
-		wrTx2File((byte *)&linfo, 7);
+		wrTx2File((Byte *)&linfo, 7);
 	closeFile(&tx1File);
 #ifdef _DEBUG
     copyFile(tx1File.fullName, "tx1File.tmp_ov1");
@@ -339,7 +327,7 @@ void sub_3F8B() {
 
 
 // index into precedence table
-byte tx1Aux1Map[] = { 0, 0, 0, 0, 0, 0, 0, 0,
+Byte tx1Aux1Map[] = { 0, 0, 0, 0, 0, 0, 0, 0,
 		      0, 0, 0, 0, 0, 0, 0, 0,
 		      0, 0, 0, 0, 0, 0, 0, 0,
 		      0, 0, 0, 0, 0, 0, 0, 0,
@@ -355,7 +343,7 @@ byte tx1Aux1Map[] = { 0, 0, 0, 0, 0, 0, 0, 0,
 // 0x20 - pass through
 // 0x10 - PROCEDURE, AT, DATA, INITIAL or EXTERNAL
 
-byte tx1Aux2Map[] = {
+Byte tx1Aux2Map[] = {
 		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
 	    0x20, 0, 0, 0, 0, 0, 0x10, 0,
 	    0, 0, 0, 0, 0, 0, 0, 0,
@@ -366,7 +354,7 @@ byte tx1Aux2Map[] = {
 	    0xC0, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0,
 	    0x20, 0, 0, 0x10};
 
-byte tx1ItemLengths[] = {
+Byte tx1ItemLengths[] = {
 	6, 2, 4, 0, 0, 0, 0, 0,
 	6, 2, 2, 2, 2, 2, 2, 2,
 	0, 0, 0, 0, 0, 2, 0, 0,
@@ -379,7 +367,7 @@ byte tx1ItemLengths[] = {
 };
 
 
-byte byte_413F[] = {
+Byte byte_413F[] = {
 	// ?, I_VARIABLE, I_NUMBER, I_PLUSSIGN, I_MINUSSIGN, I_PLUS, I_MINUS, I_STAR
 	0 , T2_VARIABLE, T2_NUMBER, T2_ADDB, T2_MINUSSIGN, T2_PLUS, T2_MINUS, T2_STAR,
 	// I_SLASH, I_MOD, I_AND, I_OR, I_XOR, I_NOT, I_LT, I_LE
@@ -396,7 +384,7 @@ byte byte_413F[] = {
 	T2_SIZE, T2_TIME, T2_ZERO
 };
 
-byte byte_4172[] = {
+Byte byte_4172[] = {
 // I_STRING, I_VARIABLE, I_NUMBER, I_PLUSSIGN, I_MINUSSIGN, I_PLUS, I_MINUS, I_STAR
 		10, 0, 0, 60, 60, 60, 60, 70,
 // I_SLASH, I_MOD, I_AND, I_OR, I_XOR, I_NOT, I_LT, I_LE
@@ -413,14 +401,14 @@ byte byte_4172[] = {
 	    0, 0, 0};
 
 
-byte builtinsMap[] = {
+Byte builtinsMap[] = {
      I_CARRY, I_DEC, I_DOUBLE, I_HIGH, I_INPUT, I_LAST, I_LENGTH, I_LOW,
      I_MOVE, I_OUTPUT, I_PARITY, I_ROL, I_ROR, I_SCL, I_SCR, I_SHL,
      I_SHR, I_SIGN, I_SIZE, I_STACKPTR, I_TIME, I_ZERO};
 
 
 
-void fatalError_ov1(byte errcode) {
+void fatalError_ov1(Byte errcode) {
 	hasErrors = 0xff;
 	fatalErrorCode = byte_91C0 = errcode;
 	throw;
@@ -429,7 +417,7 @@ void fatalError_ov1(byte errcode) {
 
 
 void optWrXrf() {
-	byte tmp[5];
+	Byte tmp[5];
 
 	if (XREF) {
 		tmp[0] = T2_65;
@@ -439,7 +427,7 @@ void optWrXrf() {
 	}
 }
 
-void wrTx2File(byte *buf, byte cnt) {
+void wrTx2File(Byte *buf, Byte cnt) {
 	static int ocnt;
 	ocnt += cnt;
 	T2CntForStmt++;
@@ -449,9 +437,9 @@ void wrTx2File(byte *buf, byte cnt) {
 		ifwrite(&tx2File, buf, cnt);
 }
 
-void sub_4251(byte *arg1w, byte arg2b) {
+void sub_4251(Byte *arg1w, Byte arg2b) {
 	if (byte_88B3 && *arg1w == T2_STMTCNT) {
-		wrTx2File((byte *)&linfo, 7);
+		wrTx2File((Byte *)&linfo, 7);
 		byte_88B3 = 0;
 		if (tx1Item.data[0] == 0)
 			return;
@@ -459,16 +447,16 @@ void sub_4251(byte *arg1w, byte arg2b) {
 	wrTx2File(arg1w, arg2b);
 }
 
-word wrTx2Item(byte arg1b) {
-	byte tmp[1];
+word wrTx2Item(Byte arg1b) {
+	Byte tmp[1];
 	tmp[0] = arg1b;
 	sub_4251(tmp, 1);
 	return T2CntForStmt;
 }
 
 
-word wrTx2Item1Arg(byte arg1b, word arg2w) {
-	byte tmp[3];
+word wrTx2Item1Arg(Byte arg1b, word arg2w) {
+	Byte tmp[3];
 	tmp[0] = arg1b;
 	*(word *)(tmp + 1) = arg2w;
 	sub_4251(tmp, 3);
@@ -476,8 +464,8 @@ word wrTx2Item1Arg(byte arg1b, word arg2w) {
 }
 
 
-word wrTx2Item2Arg(byte arg1b, word arg2w, word arg3w) {
-	byte tmp[5];
+word wrTx2Item2Arg(Byte arg1b, word arg2w, word arg3w) {
+	Byte tmp[5];
 	tmp[0] = arg1b;
 	*(word *)(tmp + 1) = arg2w;
 	*(word *)(tmp + 3) = arg3w;
@@ -485,8 +473,8 @@ word wrTx2Item2Arg(byte arg1b, word arg2w, word arg3w) {
 	return T2CntForStmt;
 }
 
-word wrTx2Item3Arg(byte arg1b, word arg2w, word arg3w, word arg4w) {
-	byte tmp[7];
+word wrTx2Item3Arg(Byte arg1b, word arg2w, word arg3w, word arg4w) {
+	Byte tmp[7];
 	tmp[0] = arg1b;
 	*(word *)(tmp + 1) = arg2w;
 	*(word *)(tmp + 3) = arg3w;
@@ -500,7 +488,7 @@ word sub_42EF(word arg1w) {
 }
 
 
-byte byte_402F[] = {
+Byte byte_402F[] = {
 	// L_LINEINFO, L_SYNTAXERROR, L_TOKENERROR, L_LIST, L_NOLIST, L_CODE, L_NOCODE, L_EJECT,
 	T2_LINEINFO, T2_SYNTAXERROR, T2_TOKENERROR, T2_LIST, T2_NOLIST, T2_CODE, T2_NOCODE, T2_EJECT,
 	// L_INCLUDE, L_STMTCNT, L_LABELDEF, L_LOCALLABEL, L_JMP, L_JMPFALSE, L_PROCEDURE, L_SCOPE,
@@ -521,25 +509,24 @@ byte byte_402F[] = {
 	T2_MODULE, 0, 0, 0};
 
 void mapLtoT2() {
-	byte i;
+	Byte i;
 	i = tx1ItemLengths[tx1Item.type] + 1;
 	tx1Item.type = byte_402F[tx1Item.type];
 	sub_4251(&tx1Item.type, i);
 }
 
-void wrTx2Error(byte arg1b) {
+void wrTx2Error(Byte arg1b) {
 	hasErrors = 0xff;
-	word junk = wrTx2Item1Arg(T2_SYNTAXERROR, arg1b);
+	wrTx2Item1Arg(T2_SYNTAXERROR, arg1b);
 }
 
 
-void wrTx2ExtError(byte arg1b) {
-	word junk;
+void wrTx2ExtError(Byte arg1b) {
 	hasErrors = 0xff;
 	if (curInfo_p != 0) 
-		junk = wrTx2Item2Arg(T2_TOKENERROR, arg1b, info2Off(curInfo_p));
+		wrTx2Item2Arg(T2_TOKENERROR, arg1b, info2Off(curInfo_p));
 	else
-		junk = wrTx2Item1Arg(T2_SYNTAXERROR, arg1b);
+		wrTx2Item1Arg(T2_SYNTAXERROR, arg1b);
 }
 
 void setRegetTx1Item() {
@@ -564,8 +551,8 @@ void rdTx1Item() {
 
 
 void getTx1Item() {
-    byte *p, *q;
-    byte i;
+    Byte *p, *q;
+    Byte i;
 	if (regetTx1Item) {
 		regetTx1Item = 0;
 		return;
@@ -587,8 +574,8 @@ void getTx1Item() {
 			ifwrite(&xrfFile, &tx1Item, 5);
 		} else if (tx1Item.type == L_LINEINFO) {
 			if (byte_88B3)
-				wrTx2File((byte *)&linfo, 7);
-			for (i = 7, p = (byte *)&linfo, q = &tx1Item.type; i != 0; i--)
+				wrTx2File((Byte *)&linfo, 7);
+			for (i = 7, p = (Byte *)&linfo, q = &tx1Item.type; i != 0; i--)
 				*p++ = *q++;
 			linfo.itemType = T2_LINEINFO;
 			byte_88B3 = 0xff;
@@ -605,7 +592,7 @@ void getTx1Item() {
 		tx1Item.data[0] = off2Info(tx1Item.data[0]);
 }
 
-byte matchTx2Item(byte arg1b) {
+Byte matchTx2Item(Byte arg1b) {
 	getTx1Item();
 	if (tx1Item.type == arg1b)
 		return 0xff;
@@ -613,11 +600,11 @@ byte matchTx2Item(byte arg1b) {
 	return 0;
 }
 
-byte notMatchTx2Item(byte arg1b) {
+Byte notMatchTx2Item(Byte arg1b) {
 	return !matchTx2Item(arg1b);
 }
 
-byte matchTx2AuxFlag(byte arg1b) {
+Byte matchTx2AuxFlag(Byte arg1b) {
 	getTx1Item();
 	if (tx1Aux2 & arg1b)
 		return 0xff;
@@ -635,12 +622,11 @@ void sub_4599() {
 
 void resyncRPAREN() {
 	sub_4599();
-	if (matchTx2Item(L_RPAREN))
-#pragma warning(suppress:4390)
-		;
+    matchTx2Item(L_RPAREN);
+
 }
 
-void expectRPAREN(byte arg1b) {
+void expectRPAREN(Byte arg1b) {
 	if (notMatchTx2Item(L_RPAREN)) {
 		wrTx2ExtError(arg1b);
 		resyncRPAREN();
@@ -678,20 +664,21 @@ void sub_4631() {
 
 void sub_467D() {
 	sub_45E0();
-	if(matchTx2Item(L_PERIOD))
-		if (getInfoType() != STRUCT_T)
-			wrTx2ExtError(ERR110);	// INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE
-		else if (notMatchTx2Item(L_VARIABLE))
-			wrTx2ExtError(ERR111);	// INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER
-		else
-			sub_4631();
+	if(matchTx2Item(L_PERIOD)) {
+        if (getInfoType() != STRUCT_T)
+            wrTx2ExtError(ERR110); // INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE
+        else if (notMatchTx2Item(L_VARIABLE))
+            wrTx2ExtError(ERR111); // INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER
+        else
+            sub_4631();
+    }
 }
 
 void wrAtFile(void *buf, word cnt) {
 	ifwrite(&atFile, buf, cnt);
 }
 
-void wrAtFileByte(byte arg1b) {
+void wrAtFileByte(Byte arg1b) {
 	wrAtFile(&arg1b, 1);
 }
 
@@ -741,7 +728,7 @@ void simpleExprNumber() {
 	if (matchTx2Item(L_MINUSSIGN)) {
 		simpleExprUnsigned();
 		if (useByteArith) 
-			rValue = - byte(rValue);
+			rValue = - Byte(rValue);
 		else
 			rValue = - rValue;
 	} else
@@ -878,11 +865,11 @@ void popParseStack() {
 }
 
 
-void pushParseByte(byte arg1b) {
+void pushParseByte(Byte arg1b) {
 	pushParseWord(arg1b);
 }
 
-void exprPush3(byte arg1b, byte arg2b, word arg3w) {
+void exprPush3(Byte arg1b, Byte arg2b, word arg3w) {
 	if (exSP == 0x63)
 		fatalError(ERR121);	// LIMIT EXCEEDED: EXPRESSION TOO COMPLEX
 	ex1Stack[++exSP] = arg1b;
@@ -902,8 +889,8 @@ void swapOperandStack() {
 	if (exSP < 2)
 		fatalError(ERR161);	// COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE
 	word i = exSP - 1;
-	byte op1 = ex1Stack[exSP];
-	byte op2 = ex2Stack[exSP];
+	Byte op1 = ex1Stack[exSP];
+	Byte op2 = ex2Stack[exSP];
 	word op3 = ex3Stack[exSP];
 	ex1Stack[exSP] = ex1Stack[i];
 	ex2Stack[exSP] = ex2Stack[i];
@@ -914,11 +901,11 @@ void swapOperandStack() {
 }
 
 
-void exprPush2(byte arg1b, word arg2w) {
+void exprPush2(Byte arg1b, word arg2w) {
 	exprPush3(arg1b, 0, arg2w);
 }
 
-void stmtPush3(byte arg1b, byte arg2b, word arg3w) {
+void stmtPush3(Byte arg1b, Byte arg2b, word arg3w) {
 	if (stSP == 299)
 		fatalError(ERR122);	// LIMIT EXCEEDED: PROGRAM TOO COMPLEX	
 	st1Stack[++stSP] = arg1b;
@@ -932,7 +919,7 @@ void moveExpr2Stmt() {
 	exprPop();
 }
 
-void pushOperator(byte arg1b) {
+void pushOperator(Byte arg1b) {
 	if (operatorSP == 0x31)
 		fatalError(ERR120);	// LIMIT EXCEEDED: EXPRESSION TOO COMPLEX
 	operatorStack[++operatorSP] = arg1b;
@@ -946,8 +933,8 @@ void popOperatorStack() {
 }
 
 
-void exprMakeNode(byte arg1b, byte arg2b) {
-	byte i, j;
+void exprMakeNode(Byte arg1b, Byte arg2b) {
+	Byte i, j;
 	word w = stSP+1;
 
 	if (exSP < arg2b)
@@ -965,8 +952,8 @@ void exprMakeNode(byte arg1b, byte arg2b) {
 
 
 void acceptOpAndArgs() {
-	byte i;
-	if ((i = (byte)operatorStack[operatorSP]) == I_NOT || i == I_UNARYMINUS)
+	Byte i;
+	if ((i = (Byte)operatorStack[operatorSP]) == I_NOT || i == I_UNARYMINUS)
 		exprMakeNode(i, 1);
 	else
 		exprMakeNode(i, 2);
@@ -1008,10 +995,10 @@ void sub_4D38() {
 }
 
 
-byte getCallArgCnt() {
-	byte i, j, k;
-	i = (byte)parseStack[parseSP];
-	j = (byte)operatorStack[operatorSP];
+Byte getCallArgCnt() {
+	Byte i, j, k;
+	i = (Byte)parseStack[parseSP];
+	j = (Byte)operatorStack[operatorSP];
 	popParseStack();
 	popOperatorStack();
 	if (i == j)
@@ -1034,7 +1021,7 @@ byte getCallArgCnt() {
 	return i;
 }
 
-void sub_4DCF(byte arg1b) {
+void sub_4DCF(Byte arg1b) {
 	if (notMatchTx2Item(L_LPAREN)) {
 		wrTx2ExtError(ERR124);	// MISSING ARGUMENTS FOR BUILT-IN PROCEDURE
 		exprPush2(I_NUMBER, 0);
@@ -1097,7 +1084,7 @@ void sub_4DCF(byte arg1b) {
 
 void mkIndexNode() {
 	word p, q, r;
-	byte i;
+	Byte i;
 	curInfo_p = ex3Stack[exSP-1];	// get var
 	if (ex1Stack[exSP] == I_PLUSSIGN) {	// see if index is of form expr + ??
 		if (st1Stack[p = ex3Stack[exSP] + 1] == I_NUMBER) {	// expr + number
@@ -1128,7 +1115,7 @@ void mkIndexNode() {
 	exprMakeNode(i, 3);
 }
 
-void parsePortNum(byte arg1b) {
+void parsePortNum(Byte arg1b) {
 	word p = 0;
 	if (matchTx2Item(L_LPAREN)) {
 		if (matchTx2Item(L_NUMBER)) {
@@ -1146,7 +1133,7 @@ void parsePortNum(byte arg1b) {
 }
 
 void sub_50D5() {
-	byte i;
+	Byte i;
 	word p = curInfo_p;
 	if ((curInfo_p = curProcInfo_p) == 0)
 		i = 0;
@@ -1161,8 +1148,8 @@ void sub_50D5() {
 		wrTx2ExtError(ERR170);		// ILLEGAL RECURSIVE CALL
 }
 
-byte sub_512E(word arg1w) {
-	byte c;
+Byte sub_512E(word arg1w) {
+	Byte c;
 	if ((c = ex1Stack[arg1w]) == I_OUTPUT || c == I_STACKPTR || c == I_BASED)
 		return 0;
 	if (c == I_VARIABLE) 
@@ -1277,7 +1264,7 @@ void exprParse5() {
 	else if (matchTx2Item(L_STRING)) {
 		if (tx1Item.data[0] == 1)
 			p = tx1Item.data[1] & 0xff;
-		else if (tx1Item.data[0] = 2) {
+		else if (tx1Item.data[0] == 2) {
 //			q = &p;
 //			*(byte *)q = tx1Item.data[1] >> 8;
 //			*(byte *)(q +1) = tx1Item.data[1] & 0xff;
@@ -1379,9 +1366,9 @@ void exprParse11() {
 	if (getInfoType() == BUILTIN_T) {
 		p = builtinsMap[getBuiltinId()];
 		if (p == I_INPUT || p == I_OUTPUT)
-			parsePortNum((byte)p);
+			parsePortNum((Byte)p);
 		else if (p == I_LENGTH || p == I_LAST || p == I_SIZE)
-			sub_4DCF((byte)p);
+			sub_4DCF((Byte)p);
 		else {
 			pushParseWord(p);
 			pushParseWord(getParamCnt());
@@ -1482,9 +1469,9 @@ void exprParse16() {
 
 
 void exprParse17() {
-	byte i, j;
+	Byte i, j;
 	j = getCallArgCnt();
-	i = (byte)parseStack[parseSP];
+	i = (Byte)parseStack[parseSP];
 	popParseStack();
 	exprMakeNode(i, j);
 }
@@ -1543,9 +1530,9 @@ void exprParse() {
     }
 }
 
-byte sub_5945() {
+Byte sub_5945() {
 	resetStacks();
-	byte i = 0;
+	Byte i = 0;
 	do {
 		if (notMatchTx2Item(L_VARIABLE)) {
 			wrTx2ExtError(ERR128);	// INVALID LEFT-HAND OPERAND OF ASSIGNMENT
@@ -1577,8 +1564,8 @@ byte sub_5945() {
 	}
 }
 
-byte sub_59D4() {
-	byte i;
+Byte sub_59D4() {
+	Byte i;
 	resetStacks();
 	if (notMatchTx2Item(L_VARIABLE)) {
 		wrTx2ExtError(ERR117);	// MISSING PROCEDURE NAME IN CALL STATEMENT
@@ -1680,7 +1667,7 @@ void flgVisited(word arg1w, word arg2w) {
 }
 
 void sub_5BF5(word arg1w) {
-    byte i, j;
+    Byte i, j;
     word p = st3Stack[arg1w];
     if ((i = st1Stack[arg1w]) == I_VARIABLE) 
         word_99C1 = wrTx2Item1Arg(T2_VARIABLE, info2Off(p));
@@ -1697,7 +1684,7 @@ void sub_5BF5(word arg1w) {
 }
 
 void stmtParse0() {
-	byte i;
+	Byte i;
 	word_99BF = parseStack[parseSP];
 	popParseStack();
 	if ((i = st1Stack[word_99BF]) == I_OUTPUT)
@@ -1770,11 +1757,11 @@ void stmtParse3() {	// parse call args
 
 void stmtParse4() {
 	word p, q;
-	byte i, j;
+	Byte i, j;
 	q = (p = parseSP - 1) - 1;
 	curInfo_p = parseStack[parseSP];
 	word_99BF = parseStack[p];
-    if ((i = (byte)parseStack[q]) > 2) {	// all bar first 2 args to stack
+    if ((i = (Byte)parseStack[q]) > 2) {	// all bar first 2 args to stack
 		if (curInfo_p == 0) 
 			word_99C1 = wrTx2Item1Arg(T2_STKARG, sub_42EF(st3Stack[word_99BF]));
 		else {
@@ -1801,7 +1788,7 @@ void stmtParse4() {
 
 void stmtParse5() {
 	word p, q, r;
-	byte i;
+	Byte i;
 	word_99BF = parseStack[parseSP];
 	popParseStack();
 	r = st3Stack[word_99BF];
@@ -1818,7 +1805,7 @@ void stmtParse5() {
 
 
 void stmtParse6() {
-	byte i;
+	Byte i;
 	word p;
 	word_99C1 = wrTx2Item(T2_BEGCALL);
 	word_99BF = parseStack[parseSP];
@@ -1836,7 +1823,7 @@ void stmtParse6() {
 
 
 void stmtParse7() {
-	byte i;
+	Byte i;
 	word p, q, r;
 	word_99BF = parseStack[parseSP];
 	popParseStack();
@@ -1854,7 +1841,7 @@ void stmtParse7() {
 
 
 void stmtParse8() {
-	byte i;
+	Byte i;
 	word p;
 	word_99BF = parseStack[parseSP];
 	popParseStack();
@@ -1876,7 +1863,7 @@ void stmtParse9() {
 
 
 void stmtParse10() {
-	byte i;
+	Byte i;
 	word p;
 	word_99BF = parseStack[parseSP];
 	pushParseByte(12);		// mark LHS as used at end
@@ -1892,9 +1879,9 @@ void stmtParse10() {
 
 
 void stmtParse11() {		// do one RHS assignment
-	byte i;
+	Byte i;
 	word p, q, r, s;
-	i = (byte)parseStack[q = (p = parseSP - 1) - 1];
+	i = (Byte)parseStack[q = (p = parseSP - 1) - 1];
 	s = parseStack[parseSP];
 	if (st1Stack[r = parseStack[p]] == I_OUTPUT) {
 		word_99C1 = wrTx2Item1Arg(T2_NUMBER, st3Stack[r]);
@@ -1924,7 +1911,7 @@ void stmtParse12() {		// mark LHS as used
 
 void stmtParse13() {	// binary or unary op
 	word p;
-	byte i;
+	Byte i;
 	word_99BF = parseStack[parseSP];
 	popParseStack();
 	p = st3Stack[word_99BF];
@@ -1960,7 +1947,7 @@ void stmtParse15() {		// rest of MOVE
 }
 
 
-byte byte_40B7[] = {
+Byte byte_40B7[] = {
 	// L_LINEINFO, L_SYNTAXERROR, L_TOKENERROR, L_LIST, L_NOLIST, L_CODE, L_NOCODE, L_EJECT,
 	0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12,
 	// L_INCLUDE, L_STMTCNT, L_LABELDEF, L_LOCALLABEL, L_JMP, L_JMPFALSE, L_PROCEDURE, L_SCOPE, 
@@ -2032,7 +2019,7 @@ void popScope() {
 	blockDepth--;
 }
 
-void pushControl(byte arg1b) {
+void pushControl(Byte arg1b) {
 	if (controlSP == 0x13)
 		fatalError(ERR84);	//  LIMIT EXCEEDED: BLOCK NESTING
 	else {
@@ -2095,14 +2082,14 @@ void chkEndOfStmt() {
 
 
 void sub_67E3() {
-	word p, q, r, s, t, u ,v, w;
+	word p, q, r, s, u ,v, w;
 	p = procInfoStack[controlSP];
 	u = hNodes[controlSP];
 	v = eNodes[controlSP];
 	if((w = word_9A9F[controlSP]) == 0) {
 		curInfo_p = p;
 		if (getInfoType() == BYTE_T)
-			t = wrTx2Item1Arg(T2_LOCALLABEL, genLocalLabel());
+			wrTx2Item1Arg(T2_LOCALLABEL, genLocalLabel());
 		q = sub_677C(p);
 		r = sub_677C(p);
 		s = wrTx2Item1Arg(T2_NUMBER, 1);
@@ -2244,21 +2231,20 @@ void parseDOLOOP() {
 
 
 void parseEND() {
-	word p;
 	switch(byte_99FF[controlSP]) {
 	case 0: curInfo_p = curProcInfo_p;
 		setInfoFlag(F_DEFINED);
 		if (getDataType() != 0 && ! byte_9A13[controlSP])
 			wrTx2Error(ERR156);	// MISSING RETURN STATEMENT IN TYPED PROCEDURE
-		p = wrTx2Item(T2_ENDPROC);
+		wrTx2Item(T2_ENDPROC);
 		curProcInfo_p = procInfoStack[controlSP];
 		break;
 	case 1: break;
-	case 2: p = wrTx2Item1Arg(T2_JMP, hNodes[controlSP]);
-		p = wrTx2Item1Arg(T2_LOCALLABEL, eNodes[controlSP]);
+	case 2: wrTx2Item1Arg(T2_JMP, hNodes[controlSP]);
+		wrTx2Item1Arg(T2_LOCALLABEL, eNodes[controlSP]);
 		break;
-	case 3: p = wrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP]);
-		p = wrTx2Item(T2_ENDCASE);
+	case 3: wrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP]);
+		wrTx2Item(T2_ENDCASE);
 		break;
 	case 4: sub_67E3(); break;
 	}
@@ -2267,24 +2253,22 @@ void parseEND() {
 }
 
 void parseSTATEMENT() {
-	word p;
 	if (sub_5945()) 
-		p = stmtParse(markedStSP);
+		stmtParse(markedStSP);
 	chkEndOfStmt();
 }
 
 
 void parseCALL() {
-	word p;
 	if (sub_59D4())
-		p = stmtParse(markedStSP);
+		stmtParse(markedStSP);
 	chkEndOfStmt();
 }
 
 
 void parseRETURN() {
 	word p;
-	byte i;
+	Byte i;
 	if (curProcInfo_p == 0) {
 		wrTx2Error(ERR155);	// INVALID RETURN IN MAIN PROGRAM
 		return;
@@ -2315,7 +2299,6 @@ void parseEIDIHLT() {
 }
 
 void parseGOTO() {
-	word p;
 	if (notMatchTx2Item(L_VARIABLE)) 
 		wrTx2Error(ERR142);	// MISSING IDENTIFIER FOLLOWING GOTO
 	else {
@@ -2326,7 +2309,7 @@ void parseGOTO() {
 			if ((getInfoScope() >> 8) == 1 && (procChains[blockDepth] >> 8) != 1)
 				setInfoFlag(F_MODGOTO);
 			if ((getInfoScope() >> 8) == 1 || (getInfoScope() >> 8) == (procChains[blockDepth] >> 8)) {
-				p = wrTx2Item1Arg(T2_GO_TO, info2Off(curInfo_p));
+				wrTx2Item1Arg(T2_GO_TO, info2Off(curInfo_p));
 				chkEndOfStmt();
 			} else 
 				wrTx2ExtError(ERR144); // INVALID GOTO LABEL, NOT AT LOCAL OR MODULE LEVEL
@@ -2377,7 +2360,7 @@ void sub_6EE0() {
 }
 
 void sub_6EF6(word arg1w) {
-	static byte i = T2_ERROR;
+	static Byte i = T2_ERROR;
 
 	hasErrors = 0xff;
 	word p = info2Off(curInfo_p);
@@ -2426,9 +2409,9 @@ void sub_701C() {
 }
 
 void sub_7049() {
-	static byte j = 0;
+	static Byte j = 0;
 	word p;
-	byte i;
+	Byte i;
 	if (!byte_9B40 && !IXREF)
 		return;
 	/*
@@ -2477,9 +2460,9 @@ void sub_711F() {
 }
 
 void sub_719D() {
-    byte i;
+    Byte i;
     word p;
-    static byte externalsCnt;
+    static Byte externalsCnt;
     curInfo_p = off2Info(2);
     byte_3C3B = haveModule;
     
@@ -2584,7 +2567,7 @@ void sub_73DC() {
 
 
 void sub_7486() {
-	byte i, j;
+	Byte i, j;
 	if (atFData.varInfoOffset == 0)
 		i = 0;
 	else if (getInfoType() > STRUCT_T || getInfoType() < BYTE_T) {
@@ -2667,8 +2650,8 @@ void sub_7695() {
 
 
 void sub_76D9() {
-    byte i;
-    static byte j = T2_EOF;
+    Byte i;
+    static Byte j = T2_EOF;
     
     if (IXREF || byte_9B40) {
 //        flushFile(&nmsFile);

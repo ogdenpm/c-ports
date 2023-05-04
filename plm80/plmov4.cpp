@@ -1,24 +1,12 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plmov4.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: plmov4.cpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include <stdio.h>
@@ -29,129 +17,129 @@
 
 
 
-byte bo8102;
-byte bo8103;
-byte printOn;
-byte locLabStr[32];		// used to hold symbol name
+Byte bo8102;
+Byte bo8103;
+Byte printOn;
+Byte locLabStr[32];		// used to hold symbol name
 word wa8125[3];
-byte bo812B = 0xff;
+Byte bo812B = 0xff;
 word baseAddr;
-byte b812E;
+Byte b812E;
 word w812F;
 word lineNo;
 word depth;
 word stmtNo;
 word w8137;
 word w8139;
-byte bo813B =  0xff;
-byte bo813C = 0xff;
-byte lstLine[131];
+Byte bo813B =  0xff;
+Byte bo813C = 0xff;
+Byte lstLine[131];
 
 #pragma pack(push, 1)
 struct {
-	byte type;
+	Byte type;
 	word len;
-	byte seg;
+	Byte seg;
 	word addr;
-	byte data[1017];
-	byte crcspc;
+	Byte data[1017];
+	Byte crcspc;
 } rec6_4 = { 6, 0, 1};
 static struct {
-	byte type;
+	Byte type;
 	word len;
-	byte fixtype;
+	Byte fixtype;
 	word data[508];
-	byte crcspc;
+	Byte crcspc;
 } rec22 = { 0x22, 0, 3};
-byte pad89BD;
+Byte pad89BD;
 static struct {
-	byte type;
+	Byte type;
 	word len;
-	byte seg;
-	byte fixtype;
+	Byte seg;
+	Byte fixtype;
 	word data[508];
-	byte crcspc;
+	Byte crcspc;
 } rec24_1 = { 0x24, 0, 2, 3};
 static struct {
-	byte type;
+	Byte type;
 	word len;
-	byte seg;
-	byte fixtype;
+	Byte seg;
+	Byte fixtype;
 	word data[49];
-	byte crcspc;
+	Byte crcspc;
 } rec24_2 = { 0x24, 0, 3, 3};
 struct {
-	byte type;
+	Byte type;
 	word len;
-	byte seg;
-	byte fixtype;
+	Byte seg;
+	Byte fixtype;
 	word data[49];
-	byte crc;
+	Byte crc;
 } rec24_3 = { 0x24, 0, 4, 3};
 static struct {
-	byte type;
+	Byte type;
 	word len;
-	byte fixtype;
+	Byte fixtype;
 	struct {
 		word symId;
 		word addr;
 	} fixdata[254];
-	byte crcspc;
+	Byte crcspc;
 } rec20 = { 0x20, 0, 3};
-byte pad9289;
+Byte pad9289;
 struct {
-	byte type;
+	Byte type;
 	word len;
-	byte seg;
+	Byte seg;
 	struct {
 		word addr;
 		word line;
 	} xref[254];
-	byte crcspc;
+	Byte crcspc;
 } rec8 = { 8, 0, 1};
-byte pad8687[3];
+Byte pad8687[3];
 struct {
-	byte type;
+	Byte type;
 	word len;
-	byte subtype;
-	byte seg;
+	Byte subtype;
+	Byte seg;
 	word addr;
-	byte crc;
+	Byte crc;
 } rec4 = { 4, 4, 0, 1};
 #pragma pack(pop)
 
-byte b9692;
-byte helperId;
-byte helperStr[] = {0, '@', 'P', ' ', ' ', ' ', ' ', ':'};
-byte b969C;
-byte b969D;
-byte *w969E;
+Byte b9692;
+Byte helperId;
+Byte helperStr[] = {0, '@', 'P', ' ', ' ', ' ', ' ', ':'};
+Byte b969C;
+Byte b969D;
+Byte *w969E;
 word wValAry[4];	// word array
-byte *sValAry[4];	// matching string representation
-byte b96B0[38];
-byte b96D6;
+Byte *sValAry[4];	// matching string representation
+Byte b96B0[38];
+Byte b96D6;
 word w96D7;
-byte curExtId;
-byte commentStr[41] = { 0, ';', ' '};
-byte line[81];
-byte opByteCnt;
-byte opBytes[3];
-byte dstRec;
-byte srcbuf[640];
-byte tx1buf[640];
-byte objbuf[640];
+Byte curExtId;
+Byte commentStr[41] = { 0, ';', ' '};
+Byte line[81];
+Byte opByteCnt;
+Byte opBytes[3];
+Byte dstRec;
+Byte srcbuf[640];
+Byte tx1buf[640];
+Byte objbuf[640];
 char lstbuf[640];
 word wA17D;
 word wA17F;
-byte bA187;
+Byte bA187;
 word wA18D;
-byte bA18F;
-byte bA190;
-byte bA1AB;
+Byte bA18F;
+Byte bA190;
+Byte bA1AB;
 word wA1BD;
 
 
-const byte b42A8[] = {
+const Byte b42A8[] = {
 	2, 2, 3, 4, 3, 4, 2, 2, 
 	3, 4, 2, 3, 2, 3, 3, 3, 
 	3, 2, 2, 3, 4, 2, 3, 2, 
@@ -159,7 +147,7 @@ const byte b42A8[] = {
 	2, 3, 2, 3, 2, 2, 3, 2, 
 	2, 1, 2, 2, 3, 4};
 
-const byte b42D6[] = {
+const Byte b42D6[] = {
 	   0,  2,    4,  7,  0xB, 0xE,0x12,0x14,
 	0x16,0x19,0x1D,0x1F,0x22,0x24,0x27,0x2A,
 	0x2D,0x30,0x32,0x34,0x37,0x3B,0x3D,0x40,
@@ -167,7 +155,7 @@ const byte b42D6[] = {
 	0x54,0x56,0x59,0x5B,0x5E,0x60,0x62,0x65,
 	0x67,0x69,0x6A,0x6C,0x6E,0x71};
 
-const byte b4304[] = {
+const Byte b4304[] = {
 	0x24,0x24,0x24,0x24,0x13,0x13,0x18,0x18,
 	0x18,0x18,0x16,0x2C,0x15,0x1F,0x1F,0x20,
 	0x20,0x19,0x19,0x19,0x19,   8,   8,   9,
@@ -175,7 +163,7 @@ const byte b4304[] = {
 	 0xA, 0xA, 0xB, 0xB,0x14,0x14,0x14,0x14,
 	0x14,0x39,0x1A,0x1A,0x1A,0x1A};
 
-const byte b4332[] = {
+const Byte b4332[] = {
 	   0,   0,   0,   0,0x26,0x30,0x30,0x26,
 	0x30,0x20,0x30,0x12,0x12,0x12,   0,0x10,
 	0x10,0x10,0x10,0x10,0x10,0x60,   0,0x26,
@@ -209,11 +197,11 @@ const byte b4332[] = {
 	0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,
 	0x80,0x80,0x80,0x80,0x80,0x80,0x80};
 
-const byte b4431[] = {
+const Byte b4431[] = {
 	0, 0, 1, 1, 2, 2, 3, 3,
 	4, 4, 5, 5, 6, 6, 7, 7,
 	8, 9, 0xA};
-const byte b4444[] = {
+const Byte b4444[] = {
 	   0,   2,   4,   6,   8, 0xA, 0xC,0x10,
 	0x11, 0xE,0x12,   0,   2,   4,   6,   8,
 	 0xA, 0xC,0x10,0x11, 0xE,0x12,   0,   2,
@@ -226,7 +214,7 @@ const byte b4444[] = {
 	0x12, 0xD, 0xF,   7,   9, 0xB,   1,   5,
 	   3};
 
-const byte b4495[][11] = {
+const Byte b4495[][11] = {
 	{0x90,0x91,0x94,0x95,0x98,0x99,0x9A,0x9C,0xA0,0xA1,0x9D},
 	{0x6C,0x6D,0x70,0x71,0x74,0x75,0x76,0x78,0x7C,0x7D,0x79},
 	{   0,   0,   0,   0,   0,   0,0x64,0x65,   0,   0,   0},
@@ -247,11 +235,11 @@ const byte b4495[][11] = {
 	{   0,0x2C,   0,   0,0x2D,0x2E,   0,   0,   0,   0,   0},
 	{0xA4,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0}};
 
-const byte b4566[] = {
+const Byte b4566[] = {
 	   8,0x1C, 0xC,   0, 0xB,0x11,   1, 0xA,
 	 0xF,0x10, 0xD,   9,   2,   3,   4,   5,
 	   6,   7,   0,0x1E,0x12,0xE};
-const byte b457C[] = {
+const Byte b457C[] = {
 	   3,   3,   3,   3,   3,   3, 0xC, 0xD,
 	 0xE, 0xF,0x10,0x11,   0,   0,   0,   0,
 	   0,   0,   0,   0,0x12,   7,   4,   4,
@@ -269,7 +257,7 @@ const byte b457C[] = {
 	0x10,0x10,0x10,0x10,0x10,   0,   0,   0,
 	   0,   0,   0,   0,   0,   0,   0,   0,
 	   1,   1,   0,   0,   0,0};
-const byte b4602[] = {
+const Byte b4602[] = {
 	0xA7,0xA7,0xA7,0xA7,0xA7,0xA7,0xA7,0xA7,
 	0xA7,0xA7,0xA7,0xA8,0xA8,0xA8,0xA8,0xA8,
 	0xA8,0xA8,0xA8,0xA8,0xA8,0xA8,0xA9,0xA9,
@@ -298,29 +286,29 @@ const char *opcodes =
 	"\x2PB" "\x2PD" "\x2PH" "\x3""BPH"
 	"\x3""BBA";
 
-const byte regNo[] = { 7, 0, 2, 4, 7, 1, 3, 5, 6};
+const Byte regNo[] = { 7, 0, 2, 4, 7, 1, 3, 5, 6};
 					// A B D H A C E L M
-const byte regIdx[] = { 0x86,0x88,0x8C,0x90,0x86,0x8A,0x8E,0x92,0x94};
-const byte stkRegNo[] = { 3, 0, 1, 2 };
-const byte stkRegIdx[] = { 0x82, 0x88, 0x8C, 0x90 };	// psw b d h
-const byte b473D[] = {
+const Byte regIdx[] = { 0x86,0x88,0x8C,0x90,0x86,0x8A,0x8E,0x92,0x94};
+const Byte stkRegNo[] = { 3, 0, 1, 2 };
+const Byte stkRegIdx[] = { 0x82, 0x88, 0x8C, 0x90 };	// psw b d h
+const Byte b473D[] = {
 	0x90, 0x98, 7, 0xF, 0x17, 0x1F, 0, 0, 
 	0x80, 0x88, 0, 0, 0xA0, 0xB0, 0xA8, 0, 
 	0, 0, 0, 0xFE, 0xB8, 0xD6, 0xDE, 0xC6, 
 	0xCE, 0xE6, 0xF6, 0xEE, 4, 3, 5, 0xB, 
 	0x87};
-const byte b475E[] = {
+const Byte b475E[] = {
 	9, 0x1D, 0xC, 1, 0, 0, 1, 0, 
 	0, 0, 0xD, 9, 2, 3, 4, 5, 
 	0x20, 0, 1, 0x1F, 0, 0xE};
-const byte b4774[] = {
+const Byte b4774[] = {
 	0x17, 0, 0x19, 0x13, 0, 0, 0x16, 0, 0, 0, 0x1A, 0x18, 3, 
 	2, 5, 4, 0, 0, 0x15, 0, 0, 0x1B};
-const byte b478A[] = {
+const Byte b478A[] = {
 	8, 0, 0xC, 0x14, 0, 0, 1, 0, 
 	0, 0, 0xD, 9, 0, 0, 0, 0, 
 	0, 0, 0, 0, 0, 0xE};
-const byte b47A0[] = {
+const Byte b47A0[] = {
 	0,4,8,0xC,0x10,0x14,0x18,0x1C,
 	0x20,0x24,0x28,0x2C,0x30,0x34,0x38,0x3C,
 	0x40,0x44,0xCF,0x48,0x4C,0x50,0x54,0x58,
@@ -365,7 +353,7 @@ const word w4919[] = {
 	0x13F,0x142,0x14A,0x14D,0x151,0x177,0x17A,0x16A,
 	0x16D,0x205,0x134,0x137,0x13F,0x142,0x14A,0x14D,
 	0x151,0x15A,0x15C,0x15F,0x161};
-const byte b4A03[] = {
+const Byte b4A03[] = {
 	0xB, 8, 0xB, 8, 0x10, 0xD, 9, 0x10, 
 	0xE, 0xB, 9, 0x10, 0xD, 9, 0x10, 0xE, 
 	0xB, 9, 0xB, 8, 0xB, 8, 0x10, 0xD, 
@@ -382,7 +370,7 @@ const byte b4A03[] = {
 	0xA, 8, 0xB, 8, 0xB, 8, 0x10, 0xD, 
 	9, 0x10, 0xE, 0xB, 9};
 
-const byte *b4A78 = (byte *)
+const Byte *b4A78 = (Byte *)
 /* 0000 */ "\x8D" "\tADC\tL\x80"
 /* 0008 */ "\xC6" "\tADI\t\x84\xFF\x80"
 /* 0011 */ "\xE6" "\tANI\t\x84\x01\x80"
@@ -677,7 +665,7 @@ const word w506F[] = {
 /*  B35-12 */ 0x115, 0x251, 0x375, 0xa0, 0x4f2, 0xa0, 0x4f2, 0x1a6, 0x98, 0xb9, 0x1e5, 0x48b,
 /*  B29-26 */ 0x122, 0x2b7, 0x2cb,
 /*  B30-23 */ 0x115, 0x251, 0x375, 0x474, 0xa0, 0x4f2, 0x4c9, 0xa0, 0x4f2, 0x0, 0x4d1, 0x325,
-	      0x285, 0x499, 0x311, 0x177, 0x1af, 0x98, 0xc9, 0x456, 0xb9, 0x1c1, 0x48b,
+		  0x285, 0x499, 0x311, 0x177, 0x1af, 0x98, 0xc9, 0x456, 0xb9, 0x1c1, 0x48b,
 /*  B0 B18 B48 B73 B94 B106 -11 */ 0xea, 0x2f3, 0x3a1,
 /*  B1 B19 B49 B74 B95 B107 -8 */ 0x122, 0x27b, 0x409, 0x325, 0x271, 0x3e1, 0x311, 0x48b,
 /*  B2 B20 B50 B75 B96 B108 -11 */ 0x10f, 0x2c1, 0x396,
@@ -736,24 +724,24 @@ const word w506F[] = {
 };
 
 
-void putnstrLst(byte *arg1w, word arg2w);
+void putnstrLst(Byte *arg1w, word arg2w);
 void newLineLeaderLst();
 void newPageLst();
 void put2cLst(word arg1w);
-void putcLst(byte arg1b);
+void putcLst(Byte arg1b);
 void lstLineNo();
-void xnumLst(word arg1w, byte arg2b, byte arg3b);
-void setSkipLst(byte arg1b);
-void setStartAndTabW(byte arg1b, byte arg2b);
-void sub_77BF(byte arg1b, byte arg2b, byte arg3b);
+void xnumLst(word arg1w, Byte arg2b, Byte arg3b);
+void setSkipLst(Byte arg1b);
+void setStartAndTabW(Byte arg1b, Byte arg2b);
+void sub_77BF(Byte arg1b, Byte arg2b, Byte arg3b);
 void newPageNextChLst();
-void tabLst(byte arg1b);
+void tabLst(Byte arg1b);
 void newLineLst();
 void flushLstBuf();
-void xputcLst(byte arg1b);
+void xputcLst(Byte arg1b);
 void lstModuleInfo();
 void sub_6FEA(word *arg1w, word arg2w);
-void sub_6E5C(byte *arg1w, byte arg2b);
+void sub_6E5C(Byte *arg1w, Byte arg2b);
 void sub_6B9B();
 void sub_6B0E();
 void sub_69E1(word arg1w);
@@ -761,8 +749,8 @@ void sub_6982();
 void rdLocLab();
 void rdWVal();
 void rdBVal();
-void sub_685C(byte arg1b, byte arg2b, byte arg3b);
-void sub_67AD(byte arg1b, byte arg2b);
+void sub_685C(Byte arg1b, Byte arg2b, Byte arg3b);
+void sub_67AD(Byte arg1b, Byte arg2b);
 void sub_6720();
 void sub_66F1();
 void sub_668B();
@@ -777,19 +765,19 @@ void addSmallNum();
 void addHelper();
 void addWord();
 void sub_6175();
-void pstrcat2Line(byte *arg1w);
+void pstrcat2Line(Byte *arg1w);
 void sub_603C();
-void sub_5FE7(word arg1w, byte arg2b);
-byte getSourceCh();
+void sub_5FE7(word arg1w, Byte arg2b);
+Byte getSourceCh();
 void getSourceLine();
 void sub_5E3E();
-void sub_5E1B(byte arg1b);
+void sub_5E1B(Byte arg1b);
 void sub_5DB7();
 void emitError();
 void emitLabel();
 void emitStatementNo();
 void sub_5BD3();
-void addWrdDisp(byte *arg1w, word arg2w);
+void addWrdDisp(Byte *arg1w, word arg2w);
 void flushRecs();
 void setNewAddr();
 void sub_5746();
@@ -842,7 +830,7 @@ void sub_3FC8()
 {
 	if (PRINT) {
 		newPageNextChLst();
- 		xputstr2cLst("ISIS-II PL/M-80 ", 0);
+		xputstr2cLst("ISIS-II PL/M-80 ", 0);
 		xputnstrLst(version, 4);
 		xputstr2cLst(" COMPILATION OF MODULE ", 0);
 		curInfo_p = off2Info(procInfo[1]);
@@ -879,7 +867,7 @@ void sub_408B()
 
 	sub_3FC8();
 	if (botMem < 0xA40A)
-		sub_6E5C((byte *)"COMPILER ERROR: INSUFFICIENT MEMORY FOR FINAL ASSEMBLY", 54);
+		sub_6E5C((Byte *)"COMPILER ERROR: INSUFFICIENT MEMORY FOR FINAL ASSEMBLY", 54);
 	stmtNo = 0;
 	if (PRINT) { //	loc_40E3
 		srcFileIdx = 0;
@@ -909,7 +897,7 @@ void sub_408B()
 
 void sub_4162()
 {
-	byte i, j;
+	Byte i, j;
 
 	if (! byte_3C3B)
 		return;
@@ -943,7 +931,7 @@ void sub_4208()
 	writeRec((rec *)&rec4.type, 0);
 }
 
-static byte b3EBF[4] = { 0xE, 1, 0, 0xF1};
+static Byte b3EBF[4] = { 0xE, 1, 0, 0xF1};
 
 void sub_423C()
 {
@@ -951,7 +939,7 @@ void sub_423C()
 	sub_4208();
 	closeFile(&tx1File);
 #ifdef _DEBUG
-    copyFile(tx1File.fullName, "tx1File.tmp_ov4");
+	copyFile(tx1File.fullName, "tx1File.tmp_ov4");
 #endif
 	if (OBJECT) { //	loc_426B
 		ifwrite(&objFile, b3EBF, 4);
@@ -1087,7 +1075,7 @@ void emitFullError()
 
 void sub_5746()
 {
-	byte fname[19];
+	Byte fname[19];
 
 	switch (b812E) {
 	case 0x9d:	bo8103 = 0;
@@ -1158,7 +1146,7 @@ void flushRecs()
 
 
 
-void addWrdDisp(byte *arg1w, word arg2w)
+void addWrdDisp(Byte *arg1w, word arg2w)
 {
 	if (arg2w != 0) { //	locret_5BD2
 		++*arg1w;
@@ -1256,7 +1244,7 @@ void emitError()
 		if (wA17F == 0) 
 			xputnstrLst("UNKNOWN ERROR", 13);
 		else
-			xputnstrLst((char *)&b5862[wA17D], (byte)wA17F);
+			xputnstrLst((char *)&b5862[wA17D], (Byte)wA17F);
 		newLineLst();
 	}
 }
@@ -1280,7 +1268,7 @@ void sub_5DB7()
 }
 
 
-void sub_5E1B(byte arg1b)
+void sub_5E1B(Byte arg1b)
 {
 	wa8125[0] = fatalErrorCode = arg1b;
 	wa8125[1] = 0;
@@ -1291,7 +1279,7 @@ void sub_5E1B(byte arg1b)
 
 void sub_5E3E()
 {
-	byte i;
+	Byte i;
 	if (printOn) { //	locret_5EA6
 		if (opByteCnt > 0) {
 			tabLst(0xF4);
@@ -1332,7 +1320,7 @@ void getSourceLine()
 	}
 }
 
-byte getSourceCh()
+Byte getSourceCh()
 {
 	if (w8137 == w8139) {
 		while (1) {
@@ -1363,13 +1351,13 @@ byte getSourceCh()
 	return srcbuf[w8139] & 0x7f;
 }
 
-byte ccBits[] = { 0x10, 0x18, 8, 0, 0x18, 0x10};
-byte ccCodes[][3] = {{2, 'N', 'C'}, {1, 'C', ' '}, {1, 'Z', ' '},
+Byte ccBits[] = { 0x10, 0x18, 8, 0, 0x18, 0x10};
+Byte ccCodes[][3] = {{2, 'N', 'C'}, {1, 'C', ' '}, {1, 'Z', ' '},
 		   {2, 'N', 'Z'}, {1, 'C', ' '}, {2, 'N', 'C'}};
 
 word arg1w_5FE7;
 
-void sub_5FE7(word arg1w, byte arg2b)
+void sub_5FE7(word arg1w, Byte arg2b)
 {
 	word p;
 	arg1w_5FE7 = arg1w;
@@ -1429,7 +1417,7 @@ void sub_603C()
 	}
 }
 
-void pstrcat2Line(byte *arg1w)
+void pstrcat2Line(Byte *arg1w)
 {
 	if (arg1w != 0) { //	locret_6174
 		movemem(*arg1w, arg1w + 1, &line[line[0]+1]);
@@ -1440,19 +1428,19 @@ void pstrcat2Line(byte *arg1w)
 
 void sub_6175()
 {
-	byte i, j;
-	byte *p;
+	Byte i, j;
+	Byte *p;
 
 	j= (bA18F >> 4) & 3;	 // ROR(bA18F, 4) AND 3
 	if ((bA190 = bA18F & 0xf) < 4) {
-		i= (byte)wValAry[bA190];
+		i= (Byte)wValAry[bA190];
 		p= sValAry[bA190];
 	} else if (j== 0) {
 		i= stkRegNo[bA190 - 4];
-		p= (byte *)&opcodes[stkRegIdx[bA190 - 4]];
+		p= (Byte *)&opcodes[stkRegIdx[bA190 - 4]];
 	} else {
 		i= regNo[bA190 - 4];
-		p= (byte *)&opcodes[regIdx[bA190 - 4]];
+		p= (Byte *)&opcodes[regIdx[bA190 - 4]];
 	}
 
 	switch(j) {
@@ -1484,7 +1472,7 @@ void addWord()
 
 void addHelper()
 {
-	byte i, j;
+	Byte i, j;
 	word *p, q;
 
 	p = (word *)&opBytes[opByteCnt];
@@ -1502,7 +1490,7 @@ void addHelper()
 	} else {
 		*p = 0;
 		dstRec = 5;
-		curExtId = (byte)((word *)helpers_p)[q];
+		curExtId = (Byte)((word *)helpers_p)[q];
 	}
 	opByteCnt += 2;
 }
@@ -1510,7 +1498,7 @@ void addHelper()
 
 void addSmallNum()
 {
-	byte i;
+	Byte i;
 	
 	opBytes[opByteCnt++] = i = b4A78[++wA18D];
 	// extend to word on opBytes if not 0x84
@@ -1527,16 +1515,16 @@ void addStackOrigin()
 	opBytes[opByteCnt] = 0;
 	opBytes[opByteCnt + 1] = 0;
 	opByteCnt += 2;
-	pstrcat2Line((byte *)"\xE@STACK$ORIGIN ");
+	pstrcat2Line((Byte *)"\xE@STACK$ORIGIN ");
 }
 
 
 
 void addByte()
 {
-	byte *p;
+	Byte *p;
 
-	opBytes[opByteCnt] = (byte)wValAry[bA190];
+	opBytes[opByteCnt] = (Byte)wValAry[bA190];
 	opByteCnt++;
 	if (wValAry[bA190] > 255) {		// reformat number to byte size
 		p = sValAry[bA190];
@@ -1580,7 +1568,7 @@ void emitHelperLabel()
 
 void sub_64CF()
 {
-	byte i;
+	Byte i = 0;	// appease GCC
 	switch(bA190) {
 	case 0: i= b4566[b969D]; break;
 	case 1: i= b475E[b969D]; break;
@@ -1589,13 +1577,13 @@ void sub_64CF()
 	}
 	opBytes[0] = b473D[i];
 	opByteCnt = 1;
-	pstrcat2Line((byte *)&opcodes[b47A0[i]]);
+	pstrcat2Line((Byte *)&opcodes[b47A0[i]]);
 }
 
 
 void sub_654F()
 {
-	byte i;
+	Byte i;
 	word p;
 	if (opByteCnt == 0 || !OBJECT)
 		return;
@@ -1650,7 +1638,7 @@ void sub_668B()
 
 void sub_66F1()
 {
-	byte i;
+	Byte i;
 
 	if (b812E >= 0xAE) { //	locret_671F
 		b812E = b4602[i = b812E - 0xAE];
@@ -1661,7 +1649,7 @@ void sub_66F1()
 
 void sub_6720()
 {
-	static byte i;
+	static Byte i;
 
 	b96D6 = 0;
 	if (b4332[b812E] & 0x80) {
@@ -1679,10 +1667,10 @@ void sub_6720()
 }
 
 
-byte arg1b_67AD;
-byte arg2b_67AD;
+Byte arg1b_67AD;
+Byte arg2b_67AD;
 
-void sub_67AD(byte arg1b, byte arg2b)
+void sub_67AD(Byte arg1b, Byte arg2b)
 {
 	arg1b_67AD = arg1b;
 	arg2b_67AD = arg2b;
@@ -1702,10 +1690,10 @@ void sub_67AD(byte arg1b, byte arg2b)
 	}
 }
 
-void sub_685C(byte arg1b, byte arg2b, byte arg3b)
+void sub_685C(Byte arg1b, Byte arg2b, Byte arg3b)
 {
 	wValAry[arg1b] = arg2b;
-	sValAry[arg1b] = (byte *)&opcodes[arg3b];
+	sValAry[arg1b] = (Byte *)&opcodes[arg3b];
 }
 
 
@@ -1744,7 +1732,7 @@ void sub_6982()
 {
 #pragma pack(push, 1)
 	struct {
-		byte i;
+		Byte i;
 		word p;
 	} s;
 #pragma pack(pop)
@@ -1825,7 +1813,7 @@ void sub_6B9B()
 	}
 }
 
-void sub_6E5C(byte *arg1w, byte arg2b)
+void sub_6E5C(Byte *arg1w, Byte arg2b)
 {
 	printf("\r\n\nPL/M-80 FATAL ERROR --\r\n\n%*s\r\n\nCOMPILATION TERMINATED\r\n\n", arg2b, arg1w);
 	exit(1);
@@ -1855,7 +1843,7 @@ void sub_6FEA(word *arg1w, word arg2w)
 
 
 
-void sub_77BF(byte arg1b, byte arg2b, byte arg3b)
+void sub_77BF(Byte arg1b, Byte arg2b, Byte arg3b)
 {
 	byte_3CFB = arg1b;
 	byte_3CFC = arg2b;
@@ -1863,7 +1851,7 @@ void sub_77BF(byte arg1b, byte arg2b, byte arg3b)
 }
 
 
-void setStartAndTabW(byte arg1b, byte arg2b)
+void setStartAndTabW(Byte arg1b, Byte arg2b)
 {
 	listingMargin = arg1b - 1;
 	tabWidth = arg2b;

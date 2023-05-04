@@ -1,24 +1,12 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  io.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: io.cpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include <stdlib.h>
@@ -45,10 +33,11 @@ static char cmdLine[256];
 enum {STDIN = 1, STDOUT = 0};   // flipped from dos/unix standard
 
 
-
+#if 0
 static int fixFd(int fd) {
     return fd > STDIN ? fd : 1 - fd;
 }
+#endif
 
 void Close(FILE *conn, word * status_p) {
     *status_p = fclose(conn) < 0 ? errno : 0;
@@ -59,7 +48,7 @@ void Load(char *path_p, word load_offset, word sw, word * entry_p, word * status
 }
 
 
-char *mapFile(char *path_p) {
+char *mapFile(char const *path_p) {
     static char path[128];
     char *s = path;
     char drive;
@@ -87,17 +76,21 @@ char *mapFile(char *path_p) {
 }
 
 
-void Open(FILE **conn_p, char *path_p, word access, word echo, word * status_p) {
+void Open(FILE **conn_p, char const *path_p, word access, word echo, word * status_p) {
     const char *mode;
     FILE *fp; 
 
     errno = 0;
     if (strncmp(path_p, ":CI:", 4) == 0) {  // console input
         fp = stdin;
+#ifdef _WIN32
         (void)_setmode(_fileno(fp), _O_BINARY);
+#endif
     } else if (strncmp(path_p, ":CO:", 4) == 0) {
         fp = stdout;
+#ifdef _WIN32
         (void)_setmode(_fileno(fp), _O_BINARY);
+#endif
     } else {
         switch (access) {
         default:
@@ -138,12 +131,12 @@ void Rescan(word conn, word *status_p) {
 
     strcpy(cmdLine, ":F0:");
     s = gargv[0];
-    if (t = strrchr(s, '\\'))
+    if ((t = strrchr(s, '\\')))
         s = t + 1;
-    if (t = strrchr(s, '/'))
+    if ((t = strrchr(s, '/')))
         s = t + 1;
     strcat(cmdLine, s);
-    if (t = strrchr(cmdLine, '.'))
+    if ((t = strrchr(cmdLine, '.')))
         *t = 0;
     while (i-- > 0) {
         strcat(cmdLine, " ");
@@ -167,7 +160,7 @@ void Delete(char *path, word *status_p)
 
 
 #ifdef _DEBUG
-void copyFile(char *src, char* dst) // handles isis src file name
+void copyFile(char const *src, char const* dst) // handles isis src file name
 {
     char buffer[2048];
     size_t actual;

@@ -1,24 +1,12 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  common.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: common.cpp,v 1.2 2004/11/30 23:48:08 Mark Exp $
 #include <assert.h>
@@ -29,11 +17,11 @@
 #endif
 
 
-const byte tblOffsets[] = { 0, 0, 0, 0, 0, 0, 0, 0,
+const Byte tblOffsets[] = { 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 1, 1, 1, 1, 1, 1,
     1, 1, 2, 2
 };
-const byte tblBitFlags[] = { 0x80, 0x40, 0x20, 0x10, 0x10, 8, 8, 4,
+const Byte tblBitFlags[] = { 0x80, 0x40, 0x20, 0x10, 0x10, 8, 8, 4,
     2, 1, 0x80, 0x40, 0x20, 0x10, 8, 4,
     2, 1, 0x80, 0x40
 };
@@ -84,26 +72,26 @@ void setInfoScope(word val)
     curInfo_p->infoScope = val;
 }
 
-void setInfoLen(byte len)
+void setInfoLen(Byte len)
 {
     curInfo_p->len = len;
 }
 
-void setInfoType(byte val)
+void setInfoType(Byte val)
 {
     curInfo_p->type = val;
 }
 
-void setFlag(byte *base, byte flagId)
+void setFlag(Byte *base, Byte flagId)
 {
     base[tblOffsets[flagId]] |= tblBitFlags[flagId];
 }
 
-byte num2Asc(word num, byte width, byte radix, char *buf)
+Byte num2Asc(word num, Byte width, Byte radix, char *buf)
 {
-    byte lbuf[18];
-    byte padch = ' ';
-    byte fmt, j, lwidth, firstch, i;
+    Byte lbuf[18];
+    Byte padch = ' ';
+    Byte fmt, j, lwidth, firstch, i;
 
     if (width > 0x7f) {
     padch = '0';
@@ -142,7 +130,7 @@ byte num2Asc(word num, byte width, byte radix, char *buf)
 }
 
 
-void cpyTill(const char *src, char *dest, word maxcnt, byte endch)
+void cpyTill(const char *src, char *dest, word maxcnt, Byte endch)
 {
     while (maxcnt-- != 0 && *src != endch)
     *dest++ = *src++;
@@ -150,7 +138,7 @@ void cpyTill(const char *src, char *dest, word maxcnt, byte endch)
 
 
 
-void printStr(char *buf, byte cnt)
+void printStr(char *buf, Byte cnt)
 {
     word status;
     Write(stdout, buf, cnt, &status);
@@ -211,7 +199,7 @@ void lookup(unsigned char *s)
     curSymbol_p = hashChains_p[hval];
 
     for (p = 0; curSymbol_p != 0; p = curSymbol_p, curSymbol_p = curSymbol_p->link) {
-        if (strncmp((char *)curSymbol_p->name, (char *)s, (byte) (s[0] + 1)) == 0) {
+        if (strncmp((char *)curSymbol_p->name, (char *)s, (Byte) (s[0] + 1)) == 0) {
             if (p != 0) {	// move to front if not already there
                 p->link = curSymbol_p->link;	// remove curSymbol from chain;
                 curSymbol_p->link = hashChains_p[hval];	// and move to front;
@@ -231,8 +219,8 @@ void lookup(unsigned char *s)
 
 word hash(unsigned char *p)
 {
-    byte c = 0;
-    byte len;
+    Byte c = 0;
+    Byte len;
 
     for (len = *p; len; len--) {
     c = (c << 1) + ((c >> 7) & 1) + *p++;
@@ -240,7 +228,7 @@ word hash(unsigned char *p)
     return c & 0x3f;
 }
 
-void setDATE(const char *buf, byte len)
+void setDATE(const char *buf, Byte len)
 {
     if (len > 9)
     len = 9;
@@ -250,7 +238,7 @@ void setDATE(const char *buf, byte len)
 
 void setPAGELEN(word plen)
 {
-    PAGELEN = (byte) plen;
+    PAGELEN = (Byte) plen;
 }
 
 
@@ -269,7 +257,7 @@ void setPAGEWIDTH(word pwidth)
 // 6 -> BuiltIn
 // 7 -> Macro (being expanded)
 // 9 -> temp
-byte infoLengths[] = { 10, 12, 18, 18, 18, 22, 11, 10, 8, 9 };
+Byte infoLengths[] = { 10, 12, 18, 18, 18, 22, 11, 10, 8, 9 };
 
 info_pt allocInfo(word size)
 {
@@ -283,9 +271,9 @@ info_pt allocInfo(word size)
     return base;
 }
 
-void createInfo(word val, byte type)
+void createInfo(word val, Byte type)
 {
-    byte len = infoLengths[type];
+    Byte len = infoLengths[type];
     curInfo_p = allocInfo(len);
     if (curSymbol_p != 0) {
         setNextInfo(curSymbol_p->infoChain);
@@ -298,13 +286,13 @@ void createInfo(word val, byte type)
 }
 
 
-byte getParamCnt() {
+Byte getParamCnt() {
     return curInfo_p->type == PROC_T ?  curInfo_p->paramCnt : curInfo_p->builtinParamCnt;
 }
 
 
 
-void setParamCnt(byte cnt)
+void setParamCnt(Byte cnt)
 {
     if (curInfo_p->type == PROC_T)
         curInfo_p->paramCnt = cnt;
@@ -312,13 +300,13 @@ void setParamCnt(byte cnt)
         curInfo_p->builtinParamCnt = cnt;
 }
 
-byte getDataType()
+Byte getDataType()
 {
     return (curInfo_p->type == PROC_T) ? curInfo_p->dataType : curInfo_p->builtinDataType;
 }
 
 
-void setDataType(byte type)
+void setDataType(Byte type)
 {
     if (curInfo_p->type == PROC_T)
         curInfo_p->dataType = type;
@@ -333,8 +321,6 @@ void chain(char *filename)
     word entry /* = 0 ? */ ;
     file_t loadFile;
 
-    word sw = (debugFlag) ? 2 : 1;
-
     Load(filename, 0, (word) (debugFlag ? 2 : 1), &entry, &status);
     if (status != 0) {
     initFile(&loadFile, "LOAD ", filename);
@@ -342,7 +328,7 @@ void chain(char *filename)
     }
 }
 
-void fatal(const char *str, byte len)
+void fatal(const char *str, Byte len)
 {
     printf("\r\n\nPL/M-80 FATAL ERROR --\r\n\n%*s\r\n\nCOMPILATION TERMINATED\r\n\n", len, str);
 
@@ -360,7 +346,7 @@ void initFile(file_t * fp, const char *shortName, const char *fullname)
     cpyTill(fullname, fp->fullName, 15, ' ');
 }
 
-void openFile(file_t * fp, byte access)
+void openFile(file_t * fp, Byte access)
 {
     word status;
 
@@ -394,24 +380,21 @@ void tellFile(file_t * fp, loc_t * loc)
         fatalIO(fp, errno);
     else {
         loc->block = (word)pos / 128;
-        loc->byte = (word)pos % 128;
+        loc->Byte = (word)pos % 128;
     }
 }
 
 
 void seekFile(file_t * fp, loc_t * loc)
 {
-    if (fseek(fp->aftn, loc->block * 128 + loc->byte, SEEK_SET) < 0)
+    if (fseek(fp->aftn, loc->block * 128 + loc->Byte, SEEK_SET) < 0)
         fatalIO(fp, errno);
 }
 
 
 void rewindFile(file_t * fp)
 {
-    loc_t loc;
-    loc.byte = loc.block = 0;
-    seekFile(fp, &loc);
-    long junk = ftell(fp->aftn);
+    rewind(fp->aftn);
 }
 
 
@@ -420,13 +403,13 @@ void backupPos(loc_t * lp, word cnt)
     loc_t loc;
 
     loc.block = cnt / 128;
-    loc.byte = cnt % 128;
+    loc.Byte = cnt % 128;
     lp->block -= loc.block;
-    if (loc.byte > lp->byte) {
+    if (loc.Byte > lp->Byte) {
     lp->block--;
-    lp->byte += 128 - loc.byte;
+    lp->Byte += 128 - loc.Byte;
     } else
-    lp->byte -= loc.byte;
+    lp->Byte -= loc.Byte;
 }
 
 
@@ -527,17 +510,17 @@ void SeekEnd(file_t *fp)
 
 
 
-void setInfoFlag(byte flagId)
+void setInfoFlag(Byte flagId)
 {
     setFlag(curInfo_p->flags, flagId);
 }
 
-void setBuiltinId(byte val)
+void setBuiltinId(Byte val)
 {
     curInfo_p->builtinId = val;
 }
 
-void setCondFlag(byte val)
+void setCondFlag(Byte val)
 {
     curInfo_p->cflag = val;
 }
@@ -564,7 +547,7 @@ void findScopedInfo(word val)
     p = 0;
     while (curInfo_p != 0) {
         if (val == getInfoScope()) {
-            byte infoType = getInfoType();
+            Byte infoType = getInfoType();
             if (infoType == LIT_T || infoType == MACRO_T || !testInfoFlag(F_MEMBER)) {
                 if (p != 0) {	// not at start of chain
                     info_pt symval = getNextInfo();
@@ -604,7 +587,7 @@ info_pt getNextInfo()
 
 
 
-byte getInfoType()
+Byte getInfoType()
 {
     return curInfo_p->type;
 }
@@ -621,31 +604,31 @@ word getInfoScope()
     return curInfo_p->infoScope;
 }
 
-byte testFlag(byte *base, byte flagId)
+Byte testFlag(Byte *base, Byte flagId)
 {
     return (base[tblOffsets[flagId]] & tblBitFlags[flagId]) ? 0xff : 0;
 }
 
 
-void clrFlags(byte *base)
+void clrFlags(Byte *base)
 {
-    byte i;
+    Byte i;
     for (i = 0; i <= 2; i++)
     base[i] = 0;
 }
 
 
 
-void clrFlag(byte *base, byte flagId)
+void clrFlag(Byte *base, Byte flagId)
 {
     base[tblOffsets[flagId]] &= ~tblBitFlags[flagId];
 }
 
 
 
-void cpyFlags(byte *base)
+void cpyFlags(Byte *base)
 {
-    byte i;
+    Byte i;
     for (i = 0; i <= 2; i++)
     curInfo_p->flags[i] = base[i];
 }
@@ -653,7 +636,7 @@ void cpyFlags(byte *base)
 
 
 
-byte testInfoFlag(byte flagId)
+Byte testInfoFlag(Byte flagId)
 {
     return testFlag(curInfo_p->flags, flagId);
 }
@@ -681,22 +664,22 @@ word getBasedOffset() {
     return curInfo_p->basedOffset;
 }
 
-byte getBuiltinId()
+Byte getBuiltinId()
 {
     return curInfo_p->builtinId;
 }
 
-byte getCondFlag()
+Byte getCondFlag()
 {
     return curInfo_p->cflag;
 }
 
-byte getInfoExternId() {
+Byte getInfoExternId() {
     return curInfo_p->externId;
 }
 
 
-void setInfoExternId(byte val) {
+void setInfoExternId(Byte val) {
     curInfo_p->externId = val;
 }
 
@@ -736,12 +719,12 @@ void setOwningStructure(info_pt  val)
             (val == 0) ? 0 : info2Off(val);
 }
 
-byte getProcId()
+Byte getProcId()
 {
     return curInfo_p->procID;
 }
 
-byte getExternId()
+Byte getExternId()
 {
     return curInfo_p->externId;
 }
@@ -751,7 +734,7 @@ word getParentOffsetOrSize()
     return curInfo_p->parentOffset;
 }
 
-byte getIntrNo()
+Byte getIntrNo()
 {
     return curInfo_p->intrNo;
 }

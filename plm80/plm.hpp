@@ -1,35 +1,24 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm.hpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
+#pragma once
 
 // $Id: plm.hpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #pragma pack(push, 1)
-typedef	unsigned char byte;
+typedef	unsigned char Byte;
 typedef unsigned short word;
 
 #ifdef _DEBUG
-void copyFile(char *src, char *dst);
+void copyFile(char const *src, char const *dst);
 #endif
 
 const char ISISEOF = (char) 0x81;
@@ -40,22 +29,22 @@ struct symbol_t;
 class symbol_pt;
 
 class address {
-    static byte *memory;
+    static Byte *memory;
     word loc;
 protected:
-    byte *getaddr() { return memory + loc; }
+    Byte *getaddr() { return memory + loc; }
     void setloc(int n) { loc = n; }
     void setloc(address n) { loc = n.getloc(); }
-    void setaddr(void *p) { loc = word((byte *)p - memory); }
+    void setaddr(void *p) { loc = word((Byte *)p - memory); }
     word getloc() { return loc; }
 public:
     address(int n=0) : loc(n) {}
-    address(void *p) : loc(word((byte *)p - memory)) {}
+    address(void *p) : loc(word((Byte *)p - memory)) {}
     address& operator =(int n) { loc = n; return *this; }
     address& operator =(address n) { loc = n.getloc(); return *this;}
-    address& operator =(void *p) { loc = word((byte *)p - memory); return *this;}
+    address& operator =(void *p) { loc = word((Byte *)p - memory); return *this;}
     operator word() { return loc; }
-    operator byte *() { return memory + loc; }
+    operator Byte *() { return memory + loc; }
     operator char *() { return (char *)(memory + loc); }
     operator void *() { return (void *)(memory + loc); }
     operator word *() { return (word *)(memory + loc); }
@@ -119,15 +108,15 @@ public:
 
 struct cmdLine_t {
     cmdLine_pt link;
-    byte	len;
+    Byte	len;
     char	text[1];
 };
 
 
 
 struct info_t {
-    byte	len;				// 0
-    byte	type;				// 1
+    Byte	len;				// 0
+    Byte	type;				// 1
     word	symbolOffset;		// 2
     word	infoScope;			// 4
     union {						// 6
@@ -135,49 +124,49 @@ struct info_t {
         word	addr;
     };
     union {						// 8
-        byte	flags[3];
+        Byte	flags[3];
         word litaddr;       // can't use address here because its in a union
         struct {
-            byte builtinId;
-            byte builtinParamCnt;
-            byte builtinDataType;
+            Byte builtinId;
+            Byte builtinParamCnt;
+            Byte builtinDataType;
         };
-        byte cflag;				// used for simple controls
+        Byte cflag;				// used for simple controls
     };
-    byte	externId;			// 11
+    Byte	externId;			// 11
     word	dimension;			// 12
     word	basedOffset;
     union {						// 14
         word parentOffset;
         word size;
     };
-    byte	dataType;			// 18
-    byte	intrNo;				// 19
-    byte	paramCnt;			// 20
-    byte	procID;				// 21
+    Byte	dataType;			// 18
+    Byte	intrNo;				// 19
+    Byte	paramCnt;			// 20
+    Byte	procID;				// 21
 };
 
 
 struct symbol_t {
     symbol_pt link;   //	symbol_t *link;
     info_pt infoChain; // info_pt infoChain;
-    byte	name[1];
+    Byte	name[1];
 };
 
 
 
 struct loc_t {
     word	block;
-    word	byte;
+    word	Byte;
 };
 
 
 struct control_t {
-    byte tokenId;
-    byte primary;
-    byte controlId;
-    byte controlVal;
-    byte PrimaryId;
+    Byte tokenId;
+    Byte primary;
+    Byte controlId;
+    Byte controlVal;
+    Byte PrimaryId;
 };
 
 struct macroStk_t {
@@ -554,7 +543,7 @@ MACRO_T, UNK_T, TEMP_T };
 enum /* AT file types */ { AT_AHDR = 0, AT_DHDR, AT_2, AT_STRING, AT_DATA, AT_END, AT_EOF};
 
 typedef struct {
-    byte type;
+    Byte type;
     word info_p;
     word stmtNum;
     word varInfoOffset;
@@ -576,7 +565,7 @@ void Load(char *path_p, word load_offset, word sw, word * entry_p, word * status
 
 #define movemem(cnt, src, dest) memmove(dest, src, cnt)
 
-void Open(FILE ** conn_p, char *path_p, word access, word echo, word * status_p);
+void Open(FILE ** conn_p, char const *path_p, word access, word echo, word * status_p);
 void Read(FILE *conn, void *buf_p, word count, word * actual_p, word * status_p);
 //void reboot();
 void Rescan(word conn, word *status_p);
@@ -587,14 +576,14 @@ void Delete(char *path, word *status_p);
 struct srcFiletbl_t{
     char filename[16];
     word block;
-    word byte;
+    word Byte;
 };
 
 struct file_t {
     FILE *aftn;
     char shortName[6];
     char fullName[16];
-    byte *bufptr;
+    Byte *bufptr;
     word bufSize;
     word actual;
     word curoff;
@@ -643,18 +632,18 @@ extern word blk2Used;
 extern address word_3C34;
 extern word blkSize1;
 extern word blkSize2;
-extern byte srcStemLen;
-extern byte byte_3C3B;
-extern byte IXREFSet;
-extern byte PRINTSet;
-extern byte OBJECTSet;
-extern byte debugFlag;
-extern byte unexpectedEOF;
-extern byte haveModule;
-extern byte fatalErrorCode;
-extern byte pad3C43;
+extern Byte srcStemLen;
+extern Byte byte_3C3B;
+extern Byte IXREFSet;
+extern Byte PRINTSet;
+extern Byte OBJECTSet;
+extern Byte debugFlag;
+extern Byte unexpectedEOF;
+extern Byte haveModule;
+extern Byte fatalErrorCode;
+extern Byte pad3C43;
 extern address word_3C44;
-extern byte CONTROLS[];
+extern Byte CONTROLS[];
 #define PRINT	CONTROLS[0]
 #define XREF	CONTROLS[1]
 #define SYMBOLS	CONTROLS[2]
@@ -665,9 +654,9 @@ extern byte CONTROLS[];
 #define IXREF	CONTROLS[7]
 
 
-extern byte pad_3C4E[2];
-extern byte srcStemName[10];
-extern byte debugSwitches[26];
+extern Byte pad_3C4E[2];
+extern Byte srcStemName[10];
+extern Byte debugSwitches[26];
 extern cmdLine_pt cmdLine_p;
 extern cmdLine_pt startCmdLine_p;
 //extern char aF0Plm80_ov1[/*15*/];
@@ -684,33 +673,33 @@ extern char *lstBufPtr;     // 3CF3
 extern word lstChCnt;
 extern word lstBufSize;
 
-extern byte lstFileOpen;	// 3CF9
-extern byte linesLeft;
-extern byte byte_3CFB;
-extern byte byte_3CFC;
-extern byte byte_3CFD;
-extern byte col;
-extern byte skipCnt;
-extern byte tabWidth;
-extern byte TITLELEN;
-extern byte PAGELEN;
+extern Byte lstFileOpen;	// 3CF9
+extern Byte linesLeft;
+extern Byte byte_3CFB;
+extern Byte byte_3CFC;
+extern Byte byte_3CFD;
+extern Byte col;
+extern Byte skipCnt;
+extern Byte tabWidth;
+extern Byte TITLELEN;
+extern Byte PAGELEN;
 extern word PAGEWIDTH;
-extern byte listingMargin;
+extern Byte listingMargin;
 extern char DATE[9];
 extern char aPlm80Compiler[/*20*/];
 extern char TITLE[60];
 extern word ISISVECTOR;
 extern word REBOOTVECTOR;
 
-extern byte intVecNum;
+extern Byte intVecNum;
 extern word intVecLoc;
-extern byte hasErrors;
+extern Byte hasErrors;
 //extern char aOverlay6[/*10*/];
 //extern char a_ov6[/*5*/];
 extern char version[/*5*/];
 extern char invokeName[/*10*/];
 //extern char a_ov0[/*5*/];
-extern byte pad_3DAC[];
+extern Byte pad_3DAC[];
 extern char aC197619771982I[/*31*/];
 
 int overlay0();
@@ -721,20 +710,20 @@ int overlay4();
 int overlay5();
 int overlay6();
 
-void fatalError_main(byte errcode);
-void fatalError_ov0(byte errcode);
-void fatalError_ov1(byte errcode);
-void fatalError_ov6(byte errcode);
+void fatalError_main(Byte errcode);
+void fatalError_ov0(Byte errcode);
+void fatalError_ov1(Byte errcode);
+void fatalError_ov6(Byte errcode);
 
 typedef struct {
-    byte type;
+    Byte type;
     word len;
-    byte data[1];
+    Byte data[1];
 } rec;
 
-void recAddWord(rec *arg1w, byte arg2b, word arg3w);
-void recAddByte(rec *arg1w, byte arg2b, byte arg3b);
-void writeRec(rec *arg1w, byte arg2b);
+void recAddWord(rec *arg1w, Byte arg2b, word arg3w);
+void recAddByte(rec *arg1w, Byte arg2b, Byte arg3b);
+void writeRec(rec *arg1w, Byte arg2b);
 
 
 // useful inline functions
@@ -743,22 +732,22 @@ inline address off2Info(word val) { return botInfo + val; }
 
 
 void printExitMsg();
-void putcLst(byte ch);
+void putcLst(Byte ch);
 void putnstrLst(const char *arg1w, word arg2b);
 void newLineLst();
 void newLineLeaderLst();
-void xputcLst(byte arg1b);
-void xputnstrLst(const char *arg1w, byte arg2w);
-void xputstr2cLst(const char *arg1w, byte arg2b);
-void xnumLst(word arg1w, byte arg2b, byte arg3b);
-void tabLst(byte arg1b);
+void xputcLst(Byte arg1b);
+void xputnstrLst(const char *arg1w, Byte arg2w);
+void xputstr2cLst(const char *arg1w, Byte arg2b);
+void xnumLst(word arg1w, Byte arg2b, Byte arg3b);
+void tabLst(Byte arg1b);
 void newPageNextChLst();
 void put2cLst(word arg1w);
 void newPageLst();
-void setSkipLst(byte arg1b);
+void setSkipLst(Byte arg1b);
 void lstModuleInfo();
 struct _linfo {
-    byte itemType; // 0
+    Byte itemType; // 0
     word lineCnt;
     word stmtCnt;
     word blkCnt;

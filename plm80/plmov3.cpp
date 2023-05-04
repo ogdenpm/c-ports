@@ -1,24 +1,12 @@
 /****************************************************************************
- *  oldplm80: Old C++ port of PLM80 v4.0                                    *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plmov3.cpp: part of the C port of Intel's ISIS-II plm80             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C++ by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 // $Id: plmov3.cpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include <stdio.h>
@@ -27,71 +15,71 @@
 #include "trace.hpp"
 
 
-byte b3EBF = 0xA4;
-byte b3EC0 = 0x9C;
+Byte b3EBF = 0xA4;
+Byte b3EC0 = 0x9C;
 
 #pragma pack(push, 1)
 
 typedef struct {
-		byte type;
+		Byte type;
 		word len;
-		byte data[300];
+		Byte data[300];
 } rec300;
 
 typedef struct {
-		byte type;
+		Byte type;
 		word len;
-		byte data[1021];	// possibly 1020
+		Byte data[1021];	// possibly 1020
 } rec1020;
 
 struct {
-		byte type;
+		Byte type;
 		word len;
-		byte data[51];
+		Byte data[51];
 } rec2 = {2};
 
 struct {
-		byte type;
+		Byte type;
 		word len;
-		byte seg;
+		Byte seg;
 		word addr;
-		byte data[300];
+		Byte data[300];
 } rec6 = {6};
 
 typedef struct {
-		byte type;
+		Byte type;
 		word len;
-		byte data[150];
+		Byte data[150];
 } rec150;
 
 #pragma pack(pop)
 
-static byte tx1Buf[1280];
-byte nmsBuf[1280];
-static byte atBuf[1280];
-byte objBuf[1280];
+//static Byte tx1Buf[1280];
+Byte nmsBuf[1280];
+//static Byte atBuf[1280];
+Byte objBuf[1280];
 word w7197;
-byte b7199;
+Byte b7199;
 rec150 rec22 = {0x22,0 , {3}};	// might be rec151
 rec150 rec24_1 = {0x24, 0, {1, 3}};	// might be rec151
 rec150 rec24_2 = {0x24, 0, {2, 3}};	// might be rec151
 rec150 rec24_4 = {0x24, 0, {4, 3}};	// might be rec151
 rec150 rec20 = {0x20,0 , {3}};
 static atFData_t atFData;
-byte ba8016[255];
+Byte ba8016[255];
 word w8115;
 word w8117;
 word w8119;
 word w811B;
-byte b811D;
+Byte b811D;
 
-byte b4789[] = {
+Byte b4789[] = {
 	2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3,
 	3, 2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2,
 	2, 3, 2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4
 };
 
-byte b47B7[] = {
+Byte b47B7[] = {
 	   0,    2,    4,    7,  0xB,  0xE, 0x12, 0x14,
 	0x16, 0x19, 0x1D, 0x1F, 0x22, 0x24, 0x27, 0x2A,
 	0x2D, 0x30, 0x32, 0x34, 0x37, 0x3B, 0x3D, 0x40,
@@ -106,7 +94,7 @@ byte b47B7[] = {
 	0x1A, 0x1A, 0x1A, 0x1A
 };
 
-byte b4813[] = {
+Byte b4813[] = {
 	3, 7, 3,    7,   2, 3,   8, 1, 3,   1, 8, 2, 3,   8,    1,   3,
 	1, 8, 3,    7,   3, 7,   2, 3, 8,   1, 3, 1, 8,   2, 0x1D,   3,
 	1, 7, 2, 0x12,   2, 1, 0xA, 2, 1,   8, 2, 1, 8,   2,    1,   7,
@@ -118,9 +106,9 @@ byte b4813[] = {
 };
 
 
-void recAddWord(rec *arg1w, byte arg2b, word arg3w);
-void recAddByte(rec *arg1w, byte arg2b, byte arg3b);
-void writeRec(rec *arg1w, byte arg2b);
+void recAddWord(rec *arg1w, Byte arg2b, word arg3w);
+void recAddByte(rec *arg1w, Byte arg2b, Byte arg3b);
+void writeRec(rec *arg1w, Byte arg2b);
 void advNextInfo();
 void sub_4DA8();
 void sub_4D85();
@@ -135,8 +123,8 @@ void sub_49F9();
 void writeError(word arg1w, word arg2w, word arg3w);
 word sub_4984();
 word sub_4938();
-void sub_4908(rec *arg1w, word arg2w, byte arg3b);
-void AddRecPStr(rec *recp, byte off, byte len, byte *str);
+void sub_4908(rec *arg1w, word arg2w, Byte arg3b);
+void AddRecPStr(rec *recp, Byte off, Byte len, Byte *str);
 void sub_4889();
 void sub_4746();
 void sub_46B7();
@@ -257,7 +245,7 @@ void sub_40B6()
 	word p;
 
 	for (p = 1; p <= localLabelCnt; p++) {
-		curInfo_p = off2Info(procInfo[((byte *)word_381E)[p]]);
+		curInfo_p = off2Info(procInfo[((Byte *)word_381E)[p]]);
 		((word *)localLabels_p)[p] += getAddr();
 	}
 }
@@ -267,7 +255,7 @@ void sub_40B6()
 
 void sub_4105()
 {
-	byte i, j, k, m;
+	Byte i, j, k, m;
 	word p;
 
 	if (!byte_3C3B)
@@ -299,7 +287,7 @@ void sub_4105()
 
 void sub_4201()
 {
-	byte i;
+	Byte i;
 
 	curSymbol_p = (topSymbol = localLabels_p - 3) - 1;
 	ifread(&nmsFile, &i, 1);
@@ -351,10 +339,10 @@ void sub_436C()
 {
 	rec *p;
 	word  q;
-	byte i, j;
+	Byte i, j;
 	word r, s;
-	byte k, m;
-	byte t[6];
+	Byte k;
+	Byte t[6];
 
 
 
@@ -430,7 +418,7 @@ void sub_436C()
 				++s;
 				if (rec18.len + 8 >= 299)
 					writeRec((rec *)&rec18, 0);
-				m = num2Asc(k, 0xfc, 10, (char *)&t[2]);
+				num2Asc(k, 0xfc, 10, (char *)&t[2]);
 				AddRecPStr((rec *)&rec18, 0, 6, t);
 				recAddByte((rec *)&rec18, 0, 0);
 			}
@@ -488,7 +476,7 @@ void sub_4746()
 }
 
 
-byte b4888 = 0xA3;
+Byte b4888 = 0xA3;
 
 
 
@@ -504,9 +492,9 @@ void sub_4889()
 
 
 
-void AddRecPStr(rec *recp, byte off, byte len, byte *str)
+void AddRecPStr(rec *recp, Byte off, Byte len, Byte *str)
 {
-	byte i;
+	Byte i;
 	recAddByte(recp, off, len);
 	for (i = 0; len != i; i++) {
 		recAddByte(recp, off, str[i]);
@@ -516,7 +504,7 @@ void AddRecPStr(rec *recp, byte off, byte len, byte *str)
 
 
 
-void sub_4908(rec *arg1w, word arg2w, byte arg3b)
+void sub_4908(rec *arg1w, word arg2w, Byte arg3b)
 {
 	if (arg1w->len + arg3b >= arg2w) {
 		sub_4889();
@@ -707,7 +695,7 @@ void sub_4CAC()
 {
 	if (getInfoType() == BYTE_T) {
 		sub_4908((rec*)&rec6, 0x12c, 1);
-		recAddByte((rec*)&rec6, 3, (byte)atFData.val);
+		recAddByte((rec*)&rec6, 3, (Byte)atFData.val);
 		++w7197;
 	} else {
 		sub_4908((rec*)&rec6, 0x12C, 2);
@@ -726,12 +714,12 @@ void sub_4CF9()
 
 void sub_4D13()
 {
-	byte *w8120;
+	Byte *w8120;
 	if (getInfoType() == BYTE_T) {
 		atFData.val = ba8016[w8117];
 		++w8117;
 	} else {
-			w8120 = (byte *)&atFData.val;
+			w8120 = (Byte *)&atFData.val;
 			w8120[1] = ba8016[w8117];
 			++w8117;
 			if (w8117 < w8115) {
@@ -759,7 +747,7 @@ void sub_4D85()
 
 void sub_4DA8()
 {
-	byte i, j;
+	Byte i, j;
 	word p;
 	rec *q;
 
@@ -813,14 +801,14 @@ void sub_4DA8()
 }
 
 
-void writeRec(rec *recp, byte adjust)
+void writeRec(rec *recp, Byte adjust)
 {
-	byte *buf;
-	byte crc;
+	Byte *buf;
+	Byte crc;
 	word p;
 	word len;
 
-	buf = (byte *)recp;
+	buf = (Byte *)recp;
 	if (recp->len > 0 && OBJECT) {
 			recp->len += adjust + 1;
 			len = recp->len + 2;
@@ -835,17 +823,17 @@ void writeRec(rec *recp, byte adjust)
 
 
 
-void recAddByte(rec *recp, byte off, byte val)
+void recAddByte(rec *recp, Byte off, Byte val)
 {
 	recp->data[recp->len++ + off] = val;
 }
 
 
 
-void recAddWord(rec *recp, byte off, word val)
+void recAddWord(rec *recp, Byte off, word val)
 {
-	recAddByte(recp, off, (byte)val);
-	recAddByte(recp, off, (byte)(val >> 8));
+	recAddByte(recp, off, (Byte)val);
+	recAddByte(recp, off, (Byte)(val >> 8));
 }
 
 
