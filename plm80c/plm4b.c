@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm4b.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -251,16 +239,16 @@ void FlushRecs()
 
 
 
-void AddWrdDisp(pointer str, word arg2w)
+void AddWrdDisp(pstr_t *pstr, word arg2w)
 {
     if (arg2w != 0) { 
-        str[0]++;
         if (arg2w > 0x8000) {
-            str[str[0]] = '-';
+            pstr->str[pstr->len] = '-';
             arg2w = -arg2w;
         } else
-            str[str[0]] = '+';
-        str[0] += Num2Asc(arg2w, 0, -16, &str[str[0] + 1]);
+            pstr->str[pstr->len] = '+';
+        pstr->len++;
+        pstr->len += Num2Asc(arg2w, 0, -16, pstr->str + pstr->len);
     }
 }
 
@@ -363,7 +351,7 @@ void EmitError()
             curInfoP = errData.info + botInfo;
             curSymbolP = GetSymbol();
             if (curSymbolP != 0)
-                XwrnstrLst(&SymbolP(curSymbolP)->name[1], SymbolP(curSymbolP)->name[0]);
+                XwrnstrLst(SymbolP(curSymbolP)->name.str, SymbolP(curSymbolP)->name.len);
             else
                 Xputstr2cLst("<LONG CONSTANT>", 0);
             XwrnstrLst("', ", 3);
@@ -373,7 +361,7 @@ void EmitError()
         if (errLen == 0) 
             XwrnstrLst("UNKNOWN ERROR", 13);
         else
-            XwrnstrLst(&errStrings[errOff], (byte)errLen);
+            XwrnstrLst((char *) & errStrings[errOff], (byte)errLen);
         NewLineLst();
     }
 }
@@ -403,7 +391,7 @@ void ListCodeBytes()
         }
         TabLst(-26);
         SetStartAndTabW(26, 8);
-        XwrnstrLst(&line[1], line[0]);
+        XwrnstrLst((char *)&line[1], line[0]);
         NewLineLst();
     }
 }
@@ -432,7 +420,7 @@ static byte GetSourceCh()
             }
             CloseF(&srcFil);        /* unnest include file */
             srcFileIdx = srcFileIdx - 10;
-            InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]);
+            InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]);
             OpenF(&srcFil, 1);
             SeekF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
         }

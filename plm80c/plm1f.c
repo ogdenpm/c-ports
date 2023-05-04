@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm1f.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -33,10 +21,10 @@ static void Sub_6EF6(word arg)
     byte T2_Error = T2_ERROR;
     hasErrors = true;
     p = curInfoP - botInfo;
-    Fwrite(&tx2File, &(T2_Error), 1);
-    Fwrite(&tx2File, (pointer)&arg, 2);
-    Fwrite(&tx2File, (pointer)&p, 2);
-    Fwrite(&tx2File, (pointer)&atStmtNum, 2);
+    Fwrite(&tx2File, &T2_Error, 1);
+    Fwrite(&tx2File, &arg, 2);
+    Fwrite(&tx2File, &p, 2);
+    Fwrite(&tx2File, &atStmtNum, 2);
 }
 
 static word GetElementSize()
@@ -100,12 +88,12 @@ static void Sub_7049()
         while (curSymbolP != 0) {
             if ((curInfoP = SymbolP(curSymbolP)->infoP) != 0 && High(curInfoP) != 0xff)
             {
-                p = p - SymbolP(curSymbolP)->name[0] - 1;
+                p = p - SymbolP(curSymbolP)->name.len - 1;
                 while (curInfoP != 0) {
                     SetSymbol(p);
                     curInfoP = GetLinkOffset();
                 }
-                Fwrite(&nmsFile, SymbolP(curSymbolP)->name, SymbolP(curSymbolP)->name[0] + 1);
+                Fwrite(&nmsFile, &SymbolP(curSymbolP)->name, SymbolP(curSymbolP)->name.len + 1);
             }
             curSymbolP = SymbolP(curSymbolP)->link;
         }
@@ -174,7 +162,7 @@ static void Sub_719D()
     standAlone = haveModuleLevelUnit;
 
     while (curInfoP != 0) {
-        if (GetType() >= BYTE_T && GetType() <= STRUCT_T
+        if ((GetType() >= BYTE_T && GetType() <= STRUCT_T)
             || GetType() == PROC_T || GetType() == LABEL_T)
         {
             if (TestInfoFlag(F_EXTERNAL))
@@ -329,13 +317,13 @@ static void ProcAtFile()
         Fread(&atFile, &atFData.type, 1);
         switch (atFData.type) {
         case 0: Sub_73DC(); break;					/* AT_AHDR */
-        case 1: Fread(&atFile, (pointer)&atFData.infoP, 4); break;	/* AT_DHDR */
-        case 2: Fread(&atFile, (pointer)&atFData.var.val, 2); break;		/* AT_2 */
+        case 1: Fread(&atFile, &atFData.infoP, 4); break;	/* AT_DHDR */
+        case 2: Fread(&atFile, &atFData.var.val, 2); break;		/* AT_2 */
         case 3:						/* AT_STRING */
-            Fread(&atFile, (pointer)&atFData.var.val, 2);
-            Fread(&atFile, (pointer)&atFData.type, atFData.var.val);
+            Fread(&atFile, &atFData.var.val, 2);
+            Fread(&atFile, &atFData.type, atFData.var.val);
             break;
-        case 4: Fread(&atFile, (pointer)&atFData.var.infoOffset, 8); break; /* AT_DATA */
+        case 4: Fread(&atFile, &atFData.var.infoOffset, 8); break; /* AT_DATA */
         case 5: break;						/* AT_END */
         case 6:return;						/* AT_EOF */
         }

@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  debug.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 #include <stdio.h>
@@ -71,7 +59,7 @@ void showInfo(offset_t off, FILE *fp)
     switch (symMode) {
     case 0: fprintf(fp,", sym = %04X", topInfo - info->sym); break;
     case 1: sym = SymbolP(topSymbol - info->sym);
-            fprintf(fp,", sym = %.*s", sym->name[0], &sym->name[1]);
+            fprintf(fp,", sym = %.*s", sym->name.len, sym->name.str);
             break;
     case 2: ps = PstrP(topSymbol - 1 - info->sym);
             fprintf(fp,", sym = %.*s", ps->len, ps->str);
@@ -129,7 +117,7 @@ void dumpBuf(file_t *fp)
     putchar('\n');
 }
 
-void copyFile(pointer src, pointer dst) // handles isis src file name
+void copyFile(char const *src, char const *dst) // handles isis src file name
 {
     byte buffer[2048];
     word actual, status;
@@ -244,6 +232,7 @@ void DumpLexStream() // to be used after Start1
     int w1, w2, w3;
     sym_t *sym;
     char inc[18];
+    int ignore;     // gcc complains if result of fread is ignored
 
     if ((fp = Fopen(tx1File.fNam, "rb")) == NULL) {
         fprintf(stderr, "can't open lex stream\n");
@@ -275,7 +264,7 @@ void DumpLexStream() // to be used after Start1
                 if (sym == NULL)
                     fprintf(fpout, " %d -NULL-", w1);
                 else
-                    fprintf(fpout, "%d %.*s", w1, sym->name[0], &sym->name[1]);
+                    fprintf(fpout, "%d %.*s", w1, sym->name.len, sym->name.str);
                 break;
             case L_STRING:
                 w1 = getWord(fp);
@@ -297,7 +286,7 @@ void DumpLexStream() // to be used after Start1
                 if (sym == NULL)
                     fprintf(fpout, " -NULL-");
                 else
-                    fprintf(fpout, " %.*s", sym->name[0], &sym->name[1]);
+                    fprintf(fpout, " %.*s", sym->name.len, sym->name.str);
                 break;
             case L_AT: case L_INITIAL: case L_DATA:
                 //w1 = getWord(fp);
@@ -314,10 +303,11 @@ void DumpLexStream() // to be used after Start1
                 }
                 break;
             case L_INCLUDE:
-                fread(inc + 12, 1, 6, fp);
-                fread(inc + 6, 1, 6, fp);
-                fread(inc, 1, 6, fp);
+                ignore = fread(inc + 12, 1, 6, fp);
+                ignore = fread(inc + 6, 1, 6, fp);
+                ignore = fread(inc, 1, 6, fp);
                 fprintf(fpout, " %.16s", inc);
+                (void)ignore;   // remove compliant that ignore is set but not used
                 break;
             }
             putc('\n', fpout);

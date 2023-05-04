@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm2e.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 #include <stdio.h>
@@ -174,11 +162,8 @@ static void Sub_7FFC()
 	}
 	else if (bC298 == 0x14) {
 		bC294 = 5 - bC297;
-		if (bC0B5[0] == bC0B5[1])
-			if (bC0B3[bC295] == 0)
-				bC298 = 0xE;
-			else
-				bC298 = 0x11;
+        if (bC0B5[0] == bC0B5[1])
+            bC298 = bC0B3[bC295] == 0 ? 0xE : 0x11;
 	}
 	else if (bC298 == 8) {
 		if (tx2op1[bC0B7[bC295]] != 0) {
@@ -219,7 +204,7 @@ static void Sub_8086()
 
 static void Sub_8148(byte arg1b, byte arg2b)
 {
-	byte i;
+//	byte i;
 	if (arg2b == 0)
 		return;
 	if (arg2b == 1 || arg2b == 2) {
@@ -239,7 +224,7 @@ static void Sub_8148(byte arg1b, byte arg2b)
 		bC1DB = bC1DB + 3;
 	}
 	else {
-		i = bC1DB;
+//		i = bC1DB;
 		Sub_636A(bC295);
 	}
 }

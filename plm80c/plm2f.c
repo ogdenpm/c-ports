@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm2f.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -199,6 +187,7 @@ static void Sub_8ECD(byte arg1b, byte arg2b)
 static void Sub_8DCD()
 {
     byte h, i, j, k, m, n;
+    h = i = 0;  // set to avoid compiler warning
 
     j = 198;
     for (wC1D6 = wC2AB; wC1D6 <= wC2AD; wC1D6++) {

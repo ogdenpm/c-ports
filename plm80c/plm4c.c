@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm4c.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 #include <stdio.h>
@@ -31,18 +19,18 @@ static word l_arg1w;
 static word wA18D;
 static byte bA18F, bA190;
 
-static void PstrCat2Line(pointer strP)
+static void PstrCat2Line(pstr_t *strP)
 {
-    if (strP != 0) {
-        memmove(&line[line[0] + 1], strP + 1, strP[0]);
-        line[0] = line[0] + strP[0];
+    if (strP) {
+        memmove(&line[line[0] + 1], strP->str, strP->len);
+        line[0] += strP->len;
     }
 }
 
 static void Sub_6175()
 {
     byte i, j;
-    pointer p;
+    pstr_t *p;
 
     j= (bA18F >> 4) & 3;	
     bA190 = bA18F & 0xf;
@@ -51,10 +39,10 @@ static void Sub_6175()
         p= sValAry[bA190];
     } else if (j == 0) {
         i= stkRegNo[bA190 - 4];
-        p= &opcodes[stkRegIdx[bA190 - 4]];
+        p = (pstr_t *)&opcodes[stkRegIdx[bA190 - 4]];
     } else {
         i= regNo[bA190 - 4];
-        p= &opcodes[regIdx[bA190 - 4]];
+        p = (pstr_t *)&opcodes[regIdx[bA190 - 4]];
     }
 
     switch (j) {
@@ -96,7 +84,7 @@ static void AddHelper()
         q = b42D6[(j >> 2)] + (j & 3);
     }
     helperStr[0] = Num2Asc(q, -4, 10, &helperStr[3]) + 2;
-    PstrCat2Line(helperStr);
+    PstrCat2Line((pstr_t *)helperStr);
     if (standAlone) {
         *pw = WordP(helpersP)[q];
         dstRec = 1;
@@ -119,7 +107,7 @@ static void AddSmallNum()
     if (bA190 != 0) {
         opBytes[opByteCnt++] = 0;
     }
-    line[0] += Num2Asc(i, 0, 10, &line[line[0] + 1]);
+    line[0] += Num2Asc(i, 0, 10, (char *)&line[line[0] + 1]);
 }
 
 
@@ -130,20 +118,20 @@ static void AddStackOrigin()
     opBytes[opByteCnt] = 0;
     opBytes[opByteCnt + 1] = 0;
     opByteCnt += 2;
-    PstrCat2Line(stackOrigin);
+    PstrCat2Line((pstr_t *)stackOrigin);
 }
 
 
 
 static void AddByte()
 {
-    pointer str;
+    pstr_t *pstr;
 
     opBytes[opByteCnt] = (byte)wValAry[bA190];
     opByteCnt++;
     if (wValAry[bA190] > 255) {		/* reformat number to byte Size() */
-        str = sValAry[bA190];
-        str[0] = Num2Asc(Low(wValAry[bA190]), 0, -16, &str[1]);
+        pstr = sValAry[bA190];
+        pstr->len = Num2Asc(Low(wValAry[bA190]), 0, -16, pstr->str);
     }
     PstrCat2Line(sValAry[bA190]);
 }
@@ -163,7 +151,7 @@ static void AddPCRel()
     opByteCnt += 2;
     line[line[0] + 1] = '$';
     line[0]++;
-    AddWrdDisp(line, q);
+    AddWrdDisp((pstr_t *)line, q);
 }
 
 
@@ -172,14 +160,14 @@ static void AddPCRel()
 static void AddCcCode()
 {
     opBytes[0] |= ccBits[b969C];
-    PstrCat2Line(&ccCodes[3 * b969C]);
+    PstrCat2Line((pstr_t *)&ccCodes[3 * b969C]);
 }
 
 
 static void EmitHelperLabel()
 {
     helperStr[0] = Num2Asc(helperId, -4, 10, &helperStr[3]) + 3;
-    PstrCat2Line(helperStr);
+    PstrCat2Line((pstr_t *)helperStr);
     helperId = helperId + 1;
 }
 
@@ -197,7 +185,7 @@ static void Sub_64CF()
     }
     opBytes[0] = b473D[i];
     opByteCnt = 1;
-    PstrCat2Line(&opcodes[b47A0[i]]);
+    PstrCat2Line((pstr_t *)&opcodes[b47A0[i]]);
 }
 
 static void Sub_603C()
@@ -233,7 +221,7 @@ static void Sub_603C()
             case 7: AddPCRel(); break;
             case 8: AddCcCode(); break;
             case 9: EmitHelperLabel(); break;
-            case 10: PstrCat2Line(w969E); break;
+            case 10: PstrCat2Line((pstr_t *)ps969E); break;
             case 11: Sub_64CF(); break;
             }
         }
@@ -333,36 +321,36 @@ static byte arg1b_67AD, arg2b_67AD;
 static void Sub_685C(byte arg1b, byte arg2b, byte arg3b)
 {
     wValAry[arg1b] = arg2b;
-    sValAry[arg1b] = &opcodes[arg3b];
+    sValAry[arg1b] = (pstr_t *)&opcodes[arg3b];
 }
 
 
 
 static void RdBVal()
 {
-    Fread(&tx1File, (pointer)&wValAry[arg2b_67AD], 1);
+    Fread(&tx1File, &wValAry[arg2b_67AD], 1);
     wValAry[arg2b_67AD] &= 0xff;
-    b96B0[0] = Num2Asc(wValAry[arg2b_67AD], 0, -16, &b96B0[1]);
-    sValAry[arg2b_67AD] = b96B0;
+    ps96B0[0] = Num2Asc(wValAry[arg2b_67AD], 0, -16, &ps96B0[1]);
+    sValAry[arg2b_67AD] = (pstr_t *)ps96B0;
 }
 
 
 
 static void RdWVal()
 {
-    Fread(&tx1File, (pointer) &wValAry[arg2b_67AD], 2);
-    b96B0[0] = Num2Asc(wValAry[arg2b_67AD], 0, -16, &b96B0[1]);
-    sValAry[arg2b_67AD] = b96B0;
+    Fread(&tx1File,  &wValAry[arg2b_67AD], 2);
+    ps96B0[0] = Num2Asc(wValAry[arg2b_67AD], 0, -16, &ps96B0[1]);
+    sValAry[arg2b_67AD] = (pstr_t *)ps96B0;
 }
 
 static void RdLocLab()
 {
 
-    Fread(&tx1File, (pointer)&w96D7, 2);
+    Fread(&tx1File, &w96D7, 2);
     wValAry[arg2b_67AD] = WordP(localLabelsP)[w96D7];
     locLabStr[1] = '@';
     locLabStr[0] = Num2Asc(w96D7, 0, 10, &locLabStr[2]) + 1;
-    sValAry[arg2b_67AD] = locLabStr;
+    sValAry[arg2b_67AD] = (pstr_t *)locLabStr;
     b96D6 = 1;
 }
 
@@ -373,30 +361,30 @@ static void Sub_6982()
 #pragma pack(push, 1)
     struct { byte i; word p; } s;
 #pragma pack(pop)
-    Fread(&tx1File, (pointer)&s, 3);
-    w969E = commentStr;
+    Fread(&tx1File, &s, 3);
+    ps969E = (pstr_t *)commentStr;
     commentStr[0] = Num2Asc(s.i, 0, 10, &commentStr[3]) + 2;
     wValAry[arg2b_67AD] = s.p;
-    b96B0[0] = Num2Asc(s.p, 0, 10, &b96B0[1]);
-    sValAry[arg2b_67AD] = b96B0;
+    ps96B0[0] = Num2Asc(s.p, 0, 10, &ps96B0[1]);
+    sValAry[arg2b_67AD] = (pstr_t *)ps96B0;
 }
 
 
 static void Sub_69E1(word disp)
 {
-    Fread(&tx1File, (pointer)&curInfoP, 2);
+    Fread(&tx1File, &curInfoP, 2);
     curInfoP = curInfoP + botInfo;
     wValAry[arg2b_67AD] = GetLinkVal() + disp;
     curSymbolP = GetSymbol();
     if (curSymbolP != 0) {
-        b96B0[0] = SymbolP(curSymbolP)->name[0];
-        memmove(&b96B0[1], &SymbolP(curSymbolP)->name[1], b96B0[0]); 
+        ps96B0[0] = SymbolP(curSymbolP)->name.len;
+        memmove(&ps96B0[1], SymbolP(curSymbolP)->name.str, ps96B0[0]); 
     } else {
-        b96B0[0] = 1;
-        b96B0[1] = '$';
+        ps96B0[0] = 1;
+        ps96B0[1] = '$';
         disp = wValAry[arg2b_67AD] - baseAddr;
     }
-    sValAry[arg2b_67AD] =  b96B0;
+    sValAry[arg2b_67AD] =  (pstr_t *)ps96B0;
     AddWrdDisp(sValAry[arg2b_67AD], disp);
     if (TestInfoFlag(F_EXTERNAL)) {
         b96D6 = 5;
@@ -424,16 +412,16 @@ static void Sub_6B0E()
 {
     word p[3];
 
-    Fread(&tx1File, (pointer)p, 6);
+    Fread(&tx1File, p, 6);
     curInfoP = p[1] + botInfo;
     wValAry[arg2b_67AD] = p[2];
-    b96B0[0] = Num2Asc(p[2], 0, -16, b96B0 + 1);
-    sValAry[arg2b_67AD] = b96B0;
-    w969E = commentStr;
+    ps96B0[0] = Num2Asc(p[2], 0, -16, ps96B0 + 1);
+    sValAry[arg2b_67AD] = (pstr_t *)ps96B0;
+    ps969E = (pstr_t *)commentStr;
     curSymbolP = GetSymbol();
-    commentStr[0] = SymbolP(curSymbolP)->name[0] + 2;
-    memmove(commentStr + 3, &SymbolP(curSymbolP)->name[1], SymbolP(curSymbolP)->name[0]);
-    AddWrdDisp(w969E, p[0]);
+    commentStr[0] = SymbolP(curSymbolP)->name.len + 2;
+    memmove(commentStr + 3, SymbolP(curSymbolP)->name.str, SymbolP(curSymbolP)->name.len);
+    AddWrdDisp(ps969E, p[0]);
 }
 
 
@@ -484,7 +472,7 @@ void Sub_6720()
         Fread(&tx1File, &b969C, 1);
         b969D = b4273[b969C];
     }
-    w969E = 0;
+    ps969E = 0;
     bA1AB = (b4029[cfCode] >> 4) & 7;
     if (bA1AB != 0) {
         if (bA1AB <= 3)

@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm1b.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -42,7 +30,7 @@ void GetTx1Item()
         } else if ((tx1Item.type == L_XREFUSE && XREF)
               || (tx1Item.type == L_XREFDEF && (IXREF || XREF || SYMBOLS))) {
             tx1Item.dataw[1] = curStmtNum;
-            Fwrite(&xrfFile, (pointer)&tx1Item, 5);             // write the L_XREFUSE/L_XREFDEF infoP and stmtNum to xrfFile
+            Fwrite(&xrfFile, &tx1Item, 5);             // write the L_XREFUSE/L_XREFDEF infoP and stmtNum to xrfFile
         } else if (tx1Item.type == L_LINEINFO) {
             if (tx2LinfoPending)                                // write any pending lInfo
                 WrTx2File((pointer)&linfo, 7);
@@ -153,13 +141,14 @@ void ChkStructureMember()
 void GetVariable()
 {
     ChkIdentifier();
-    if (MatchTx1Item(L_PERIOD))
+    if (MatchTx1Item(L_PERIOD)) {
         if (GetType() != STRUCT_T)
-            WrTx2ExtError(110);	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
+            WrTx2ExtError(110); /* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
         else if (NotMatchTx1Item(L_IDENTIFIER))
-            WrTx2ExtError(111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
+            WrTx2ExtError(111); /* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
         else
             ChkStructureMember();
+    }
 }
 
 void WrAtFile(pointer buf, word cnt)

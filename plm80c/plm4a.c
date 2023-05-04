@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm4a.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -65,7 +53,7 @@ byte opcodes[] =
     "\x3" "not" "\x3M10" "\x3" "CPI" "\x3" "CMP"
     "\x3SUI" "\x3SBI" "\x3" "ADI" "\x3" "ACI"
     "\x3" "ANI" "\x3ORI" "\x3XRI" "\x3INR"
-    "\x3INX" "\x3" "DCR" "\x3" "DCX" "\x5" "ADD\rA"
+    "\x3INX" "\x3" "DCR" "\x3" "DCX" "\x5" "ADD\tA"
     "\x3PSW" "\x1" "A" "\x1" "B" "\x1" "C"
     "\x1" "D" "\x1" "E" "\x1H" "\x1L"
     "\x1M" "\x2" "AH" "\x2" "DH" "\x2" "DA"
@@ -528,7 +516,7 @@ static void EmitSource()
 {
     word p[3], s, t;
 
-    Fread(&tx1File, (pointer)p, 6);
+    Fread(&tx1File, p, 6);
     if (p[1] > 0 || p[2] == 0)
         s = p[0];
     else {
@@ -554,7 +542,7 @@ static void AddrCheck(word arg1w)
 
 static void NewStatementNo()
 {
-    Fread(&tx1File, (pointer)&stmtNo, 2);
+    Fread(&tx1File, &stmtNo, 2);
     if (stmtNo == 0)
         return;
     if (DEBUG) { 
@@ -572,7 +560,7 @@ static void NewStatementNo()
 
 static void EmitLocalLabel()
 {
-    Fread(&tx1File, (pointer)&w96D7, 2);
+    Fread(&tx1File, &w96D7, 2);
     locLabStr[1] = '@';
     locLabStr[0] = Num2Asc(w96D7, 0, 10, &locLabStr[2]) + 1;
     AddrCheck(WordP(localLabelsP)[w96D7]);
@@ -581,18 +569,18 @@ static void EmitLocalLabel()
 
 static void EmitSymLabel()
 {
-    Fread(&tx1File, (pointer)&curInfoP, 2);
+    Fread(&tx1File, &curInfoP, 2);
     curInfoP = curInfoP + botInfo;
     curSymbolP = GetSymbol();
-    locLabStr[0] = SymbolP(curSymbolP)->name[0];
-    memmove(&locLabStr[1], &SymbolP(curSymbolP)->name[1], locLabStr[0]);
+    locLabStr[0] = SymbolP(curSymbolP)->name.len;
+    memmove(&locLabStr[1], SymbolP(curSymbolP)->name.str, locLabStr[0]);
     AddrCheck(GetLinkVal());
     EmitLabel();
 }
 
 static void EmitSimpleError()
 {
-    Fread(&tx1File, (pointer)&errData, 2);
+    Fread(&tx1File, &errData, 2);
     errData.info = 0;
     errData.stmt = stmtNo;
     EmitError();
@@ -601,14 +589,14 @@ static void EmitSimpleError()
 
 static void EmitNearError()
 {
-    Fread(&tx1File, (pointer)&errData, 4);
+    Fread(&tx1File, &errData, 4);
     errData.stmt = stmtNo;
     EmitError();
 }
 
 static void EmitFullError()
 {
-    Fread(&tx1File, (pointer)&errData, 6);
+    Fread(&tx1File, &errData, 6);
     EmitError();
 }
 
@@ -616,12 +604,13 @@ static void EmitFullError()
 
 static void SetNewAddr()
 {
-    Fread(&tx1File, (pointer)&curInfoP, 2);
-    Fread(&tx1File, (pointer)&baseAddr, 2);
+    Fread(&tx1File, &curInfoP, 2);
+    Fread(&tx1File, &baseAddr, 2);
     curInfoP = curInfoP + botInfo;
     baseAddr += GetLinkVal();
     FlushRecs();
 }
+
 
 void Sub_54BA()
 {
@@ -629,7 +618,7 @@ void Sub_54BA()
     if (cfCode == T2_LINEINFO)
         EmitSource();
     else if (cfCode == 0x86)
-        Fread(&tx1File, (pointer)&stmtNo, 2);
+        Fread(&tx1File, &stmtNo, 2);
     else if (cfCode == T2_STMTCNT)
         NewStatementNo();
     else if (cfCode == T2_LOCALLABEL || cfCode == T2_CASELABEL)
@@ -643,7 +632,7 @@ void Sub_54BA()
     else if (cfCode == T2_TOKENERROR)
         EmitNearError();
     else if (T2_LIST <= cfCode && cfCode <= T2_INCLUDE)
-        MiscControl();
+        MiscControl(&tx1File);
     else if (cfCode == T2_EOF)
         bo812B = false;
     else if (cfCode == T2_ERROR)

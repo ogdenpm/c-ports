@@ -1,28 +1,16 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  main3.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "plm.h"
 
-static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+//static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 static void Sub_3F3C()
 {
@@ -110,10 +98,10 @@ static void Sub_4105()
         return;
 
     Fwrite(&tx1File, "\xA4", 1);
-    Fwrite(&tx1File, (pointer)&procInfo[1], 2);
+    Fwrite(&tx1File, &procInfo[1], 2);
     curInfoP = procInfo[1] + botInfo;
     p = w7197 - GetLinkVal();
-    Fwrite(&tx1File, (pointer)&p, 2);
+    Fwrite(&tx1File, &p, 2);
     for (i = 0; i <= 45; i++) {
         k = b42D6[i];
         j = k + b42A8[i];
@@ -142,8 +130,8 @@ static void Sub_4201()
     Fread(&nmsFile, &i, 1);
     while (i != 0) {
         curSymbolP = curSymbolP - i - 1;
-        SymbolP(curSymbolP)->name[0] = i;
-        Fread(&nmsFile, &SymbolP(curSymbolP)->name[1], i);
+        SymbolP(curSymbolP)->name.len = i;
+        Fread(&nmsFile, SymbolP(curSymbolP)->name.str, i);
         Fread(&nmsFile, &i, 1);
     }
     botSymbol = curSymbolP + 4;
@@ -158,7 +146,7 @@ static void Sub_426E()
     if (curSymbolP == 0)
         RecAddByte(rec2, 0, 0);
     else
-        Sub_48BA(rec2, 0, SymbolP(curSymbolP)->name[0], &SymbolP(curSymbolP)->name[1]);
+        Sub_48BA(rec2, 0, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
     RecAddByte(rec2, 0, 1);
     RecAddByte(rec2, 0, (version[1] << 4) | (version[3] & 0xf));
     RecAddByte(rec2, 0, 1);
@@ -181,7 +169,8 @@ static void Sub_436C()
 {
     pointer p;
     word q, r, s;
-    byte i, j, k, m, t[6];
+    byte i, j, k;
+    char t[6];
 
     s = 0;
     curInfoP = botInfo + 2;
@@ -189,10 +178,10 @@ static void Sub_436C()
         curSymbolP = GetSymbol();
         if (LABEL_T <= GetType() && GetType() <= PROC_T && curSymbolP != 0) {
             if (TestInfoFlag(F_EXTERNAL) && !TestInfoFlag(F_AT)) {
-                if (((rec_t *)rec18)->len + SymbolP(curSymbolP)->name[0] + 2 >= 299)
+                if (((rec_t *)rec18)->len + SymbolP(curSymbolP)->name.len + 2 >= 299)
                     WriteRec(rec18, 0);
                 s = s + 1;
-                Sub_48BA(rec18, 0, SymbolP(curSymbolP)->name[0], &SymbolP(curSymbolP)->name[1]);
+                Sub_48BA(rec18, 0, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
                 RecAddByte(rec18, 0, 0);
             } else if (!(TestInfoFlag(F_AUTOMATIC) || TestInfoFlag(F_BASED) || TestInfoFlag(F_MEMBER))) {
                 if (TestInfoFlag(F_DATA) || GetType() == LABEL_T || GetType() == PROC_T) {
@@ -214,10 +203,10 @@ static void Sub_436C()
                 }
 
                 if (TestInfoFlag(F_PUBLIC)) {
-                    if (q + SymbolP(curSymbolP)->name[0] + 4 >= 299)
+                    if (q + SymbolP(curSymbolP)->name.len + 4 >= 299)
                         WriteRec(p, 1);
                     RecAddWord(p, 1, GetLinkVal());
-                    Sub_48BA(p, 1, SymbolP(curSymbolP)->name[0], &SymbolP(curSymbolP)->name[1]);
+                    Sub_48BA(p, 1, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
                     RecAddByte(p, 1, 0);
                 }
                 if (DEBUG) {
@@ -232,11 +221,11 @@ static void Sub_436C()
                         curInfoP = r;
                     }
                     if (!j) {
-                        if (i != ((rec_t *)rec12)->val[0] || ((rec_t *)rec12)->len + SymbolP(curSymbolP)->name[0] + 4 >= 1019)
+                        if (i != ((rec_t *)rec12)->val[0] || ((rec_t *)rec12)->len + SymbolP(curSymbolP)->name.len + 4 >= 1019)
                             WriteRec(rec12, 1);
                         ((rec_t *)rec12)->val[0] = i;
                         RecAddWord(rec12, 1, GetLinkVal());
-                        Sub_48BA(rec12, 1, SymbolP(curSymbolP)->name[0], &SymbolP(curSymbolP)->name[1]);
+                        Sub_48BA(rec12, 1, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
                         RecAddByte(rec12, 1, 0);
                     }
                 }
@@ -254,7 +243,7 @@ static void Sub_436C()
                 s = s + 1;
                 if (((rec_t *)rec18)->len + 8 >= 299)
                     WriteRec(rec18, 0);
-                m = Num2Asc(k, 0xfc, 10, &t[2]);
+                Num2Asc(k, 0xfc, 10, &t[2]);
                 Sub_48BA(rec18, 0, 6, t);
                 RecAddByte(rec18, 0, 0);
             }

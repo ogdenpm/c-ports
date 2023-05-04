@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm3a.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -65,14 +53,14 @@ void Sub_4889()
 
 
 
-void Sub_48BA(pointer arg1w, byte arg2b, byte arg3b, pointer arg4bP)
+void Sub_48BA(pointer arg1w, byte arg2b, byte arg3b, char  const *arg4bP)
 {
     byte i;
 
     RecAddByte(arg1w, arg2b, arg3b);
     i = 0;
     while (i != arg3b) {
-        RecAddByte(arg1w, arg2b, arg4bP[i]);
+        RecAddByte(arg1w, arg2b, (byte)arg4bP[i]);
         i = i + 1;
     }
 }
@@ -130,7 +118,7 @@ void Sub_49BC(word arg1w, word arg2w, word arg3w)
 
     if (b7199) {
         Fwrite(&tx1File, &a3, 1);
-        Fwrite(&tx1File, (pointer)tmp, 6);
+        Fwrite(&tx1File, tmp, 6);
     } else
         programErrCnt = programErrCnt + 1;
 }
@@ -179,13 +167,13 @@ static void Sub_4BF4()
     if (!b811D || w8117 >= w8115) {
         Fread(&atFile, &atFData.type, 1);
         switch (atFData.type - 2) {
-        case 0: Fread(&atFile, (pointer)&atFData.var.val, 2); break; /* ATI_2 */
+        case 0: Fread(&atFile, &atFData.var.val, 2); break; /* ATI_2 */
         case 1:     /* ATI_STRING */
-            Fread(&atFile, (pointer)&w8115, 2);
+            Fread(&atFile, &w8115, 2);
             Fread(&atFile, dat, w8115);
             w8117 = 0;
             break;
-        case 2: Fread(&atFile, (pointer)&atFData.var.infoOffset, 8); break; /* ATI_DATA */
+        case 2: Fread(&atFile, &atFData.var.infoOffset, 8); break; /* ATI_DATA */
         case 3: break;    /* ATI_END */
         }
     }

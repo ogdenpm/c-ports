@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm0e.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -113,16 +101,16 @@ static void Token2Num()
 
 static void NestMacro()
 {
-    pointer tmp;
+    char *tmp;
 
-    tmp = off2Ptr(GetLitAddr() + 2);
+    tmp = (char *)off2Ptr(GetLitAddr() + 2);
     WrXrefUse();
     if (macroDepth == 10)
         TokenErrorAt(ERR7);	/* LIMIT EXCEEDED: MACROS NESTED TOO DEEPLY */
     else {
         SetType(MACRO_T);   // mark the type as  MACRO_T to spot recursive expansion
         macroPtrs[macroDepth = macroDepth + 2] = inChrP;    // push the current location
-        macroPtrs[macroDepth + 1] = off2Ptr(curMacroInfoP); // and infoP
+        macroPtrs[macroDepth + 1] = (char *)off2Ptr(curMacroInfoP); // and infoP
         inChrP = tmp - 1;               // adjust for initial increment in GNxtCh()
         curMacroInfoP = curInfoP;       // set up the new infoP
     }
@@ -130,20 +118,21 @@ static void NestMacro()
 
 static bool IsNotLit()
 {
-    Lookup(tokenStr);
+    Lookup((pstr_t *)tokenStr);
     markedSymbolP = curSymbolP;
     if (High(SymbolP(curSymbolP)->infoP) == 0xFF)	/* simple key word */
         tokenType = Low(SymbolP(curSymbolP)->infoP);
     else {
         FindInfo();
-        if (curInfoP != 0)
+        if (curInfoP != 0) {
             if (GetType() == LIT_T) {
                 NestMacro();
                 return false;
             } else if (GetType() == MACRO_T) {
-                TokenErrorAt(ERR6);	/* ILLEGAL MACRO REFERENCE, RECURSIVE EXPANSION */
+                TokenErrorAt(ERR6); /* ILLEGAL MACRO REFERENCE, RECURSIVE EXPANSION */
                 return false;
             }
+        }
     }
     return true;
 }

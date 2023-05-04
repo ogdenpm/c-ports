@@ -1,28 +1,16 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  main6.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "plm.h"
 
-static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+//static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 void Sub_3F96()
 {
@@ -34,7 +22,7 @@ void Sub_3F96()
         curInfoP = botInfo + procInfo[1];
         curSymbolP = GetSymbol();
         if (curSymbolP != 0)
-            XwrnstrLst(&SymbolP(curSymbolP)->name[1], SymbolP(curSymbolP)->name[0]);
+            XwrnstrLst(SymbolP(curSymbolP)->name.str, SymbolP(curSymbolP)->name.len);
         NewLineLst();
         if (OBJECT)
             Xputstr2cLst("NO OBJECT MODULE GENERATED", 0);
@@ -45,7 +33,7 @@ void Sub_3F96()
         cmdLineP = startCmdLineP;
         while (cmdLineP != 0) {
             TabLst(-23);
-            Xputstr2cLst(&CmdP(cmdLineP)->pstr[1], '\r');
+            Xputstr2cLst(CmdP(cmdLineP)->pstr.str, '\r');
             cmdLineP = CmdP(cmdLineP)->link;
         }
         NewLineLst();
@@ -81,7 +69,7 @@ void Sub_404A()
     stmtNo = 0;
     if (PRINT) {
         srcFileIdx = 0;
-        InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]); /* note word array used */
+        InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]); /* note word array used */
         OpenF(&srcFil, 1);
     }
     curInfoP = procInfo[1] + botInfo;
@@ -106,8 +94,8 @@ void Sub_4149()     // similar to Sub_4201 in main3.c
     Fread(&nmsFile, &b7ADA, 1);
     while (b7ADA != 0) {
         curSymbolP = curSymbolP - b7ADA - 1;
-        SymbolP(curSymbolP)->name[0] = b7ADA;
-        Fread(&nmsFile, &SymbolP(curSymbolP)->name[1], b7ADA);
+        SymbolP(curSymbolP)->name.len = b7ADA;
+        Fread(&nmsFile, SymbolP(curSymbolP)->name.str, b7ADA);
         Fread(&nmsFile, &b7ADA, 1);
     }
     botSymbol = curSymbolP + 4;

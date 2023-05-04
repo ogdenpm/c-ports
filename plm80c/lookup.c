@@ -1,30 +1,18 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  lookup.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "plm.h"
 
-byte Hash(pointer pstr)
+byte Hash(pstr_t *pstr)
 {
-    pointer p = pstr;
+    pointer p = (pointer)pstr;
     byte len = *p;
     byte hash = 0;
 
@@ -37,7 +25,7 @@ byte Hash(pointer pstr)
 
 
 
-void Lookup(pointer pstr)
+void Lookup(pstr_t *pstr)
 {
 	offset_t p, q, r;
     word hval;
@@ -47,8 +35,8 @@ void Lookup(pointer pstr)
 	curSymbolP = WordP(hashChainsP)[hval];
 	p = 0;
 	while (curSymbolP != 0) {
-		if (SymbolP(curSymbolP)->name[0] == pstr[0]) {
-			cmp = Strncmp(&SymbolP(curSymbolP)->name[1], pstr + 1, pstr[0]);
+		if (SymbolP(curSymbolP)->name.len == pstr->len) {
+			cmp = Strncmp(SymbolP(curSymbolP)->name.str, pstr->str, pstr->len);
 			if (cmp == 0) {
 				if (p != 0 ) {
 					q = SymbolP(curSymbolP)->link;
@@ -65,9 +53,9 @@ void Lookup(pointer pstr)
 		p = curSymbolP;
 		curSymbolP = SymbolP(curSymbolP)->link;
 	}
-	Alloc(0, pstr[0] + 1);
-	curSymbolP = AllocSymbol(sizeof(sym_t) + pstr[0]);
-	memmove(SymbolP(curSymbolP)->name, pstr, pstr[0] + 1);
+	Alloc(0, pstr->len + 1);
+	curSymbolP = AllocSymbol(sizeof(sym_t) + pstr->len);
+	memmove(&SymbolP(curSymbolP)->name, pstr, pstr->len + 1);
 	SymbolP(curSymbolP)->infoP = 0;
 	SymbolP(curSymbolP)->link = WordP(hashChainsP)[hval];
 	WordP(hashChainsP)[hval] = curSymbolP;

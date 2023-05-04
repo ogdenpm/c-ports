@@ -1,28 +1,16 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  main4.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "plm.h"
 
-static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+//static char copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 static byte objEOF[] = {0xe, 1, 0, 0xf1};
 
 static byte b4304[] = {
@@ -44,7 +32,7 @@ static void Sub_3FC8()
         curInfoP = botInfo + procInfo[1];
         curSymbolP = GetSymbol();
         if (curSymbolP != 0)
-            XwrnstrLst(&SymbolP(curSymbolP)->name[1], SymbolP(curSymbolP)->name[0]);
+            XwrnstrLst(SymbolP(curSymbolP)->name.str, SymbolP(curSymbolP)->name.len);
         NewLineLst();
         if (OBJECT) { 
             Xputstr2cLst("OBJECT MODULE PLACED IN ", 0);
@@ -60,7 +48,7 @@ static void Sub_3FC8()
             cmdLineP = startCmdLineP;
             while (cmdLineP != 0) {
                 TabLst(-23);
-                Xputstr2cLst(&CmdP(cmdLineP)->pstr[1], '\r');
+                Xputstr2cLst(CmdP(cmdLineP)->pstr.str, '\r');
                 cmdLineP = CmdP(cmdLineP)->link;
             }
             NewLineLst();
@@ -82,7 +70,7 @@ void Sub_408B()
     stmtNo = 0;
     if (PRINT) {
         srcFileIdx = 0;
-        InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]);
+        InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]);
         OpenF(&srcFil, 1);
     }
 
@@ -169,7 +157,8 @@ void Sub_423C()
 
 word Start4()
 {
-// rec24_2 is has different seg c.f. plm3a.c
+    offCurCh = offLastCh;   // clear input buffer
+    // rec24_2 is has different seg c.f. plm3a.c
     ((rec_t *)rec24_1)->val[0] = 2; // data seg
     ((rec_t *)rec24_2)->val[0] = 3; // stack seg
 

@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  data.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -84,9 +72,9 @@ offset_t cmdLineP;
 offset_t startCmdLineP;
 //byte overlay[7][FILE_NAME_LEN] = { ":F0:PLM80 .OV0 ", ":F0:PLM80 .OV1 ", ":F0:PLM80 .OV2 ", ":F0:PLM80 .OV3 ",
 //								   ":F0:PLM80 .OV4 ", ":F0:PLM80 .OV5 ", ":F0:PLM80 .OV6 "};
-byte ixiFileName[FILE_NAME_LEN];
-byte lstFileName[FILE_NAME_LEN];
-byte objFileName[FILE_NAME_LEN];
+char ixiFileName[FILE_NAME_LEN];
+char lstFileName[FILE_NAME_LEN];
+char objFileName[FILE_NAME_LEN];
 word pageNo = 0;
 byte b3CF2;
 pointer lBufP = &b3CF2;	
@@ -102,9 +90,9 @@ byte TITLELEN = 1;
 byte PAGELEN = 60;
 byte PWIDTH = 120;
 byte margin = 0xFF;
-byte DATE[9];
-byte plm80Compiler[] = "PL/M-80 COMPILER    ";
-byte TITLE[60] = " ";
+char DATE[9];
+char plm80Compiler[] = "PL/M-80 COMPILER    ";
+char TITLE[60] = " ";
 //word ISIS = 0x40;
 word REBOOTVECTOR = 0;
 
@@ -115,7 +103,7 @@ word intVecLoc = 0;
 bool hasErrors = false;
 //byte overlay6[]  = ":F0:PLM80 ";
 //byte ov6[] = ".OV6 ";
-byte version[] = "X000";
+char version[] = "X000";
 //byte pad3DA1;
 //byte invokeName[] = ":F0:PLM80 ";
 //byte ov0[] =  ".OV0 ";

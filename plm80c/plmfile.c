@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plmfile.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -61,11 +49,11 @@ void Fflush(file_t *fp)
     }
 }
 
-void Fread(file_t *fp, pointer buf, word cnt) {
+void Fread(file_t *fp, void *bufP, word cnt) {
 
 //	if (fread(buf, 1, cnt, fp->aftn) != cnt)
 //		fatalIO(fp, IOERR_254);
-
+    byte *buf  = bufP;
     word inbuf = fp->actual - fp->curoff;
 
     for (;;) {
@@ -85,11 +73,11 @@ void Fread(file_t *fp, pointer buf, word cnt) {
     }
 }
 
-void Fwrite(file_t * fp, pointer buf, word len)
+void Fwrite(file_t * fp, void const *bufP, word len)
 {
 //	if (fwrite(buf, 1, len, fp->aftn) != len)
 //		fatalIO(fp, errno);
-
+    byte const *buf = bufP;
     word wcnt;
     word spaceInBuf = fp->bsize - fp->curoff;
 #ifdef _DEBUG
@@ -114,7 +102,7 @@ void Fwrite(file_t * fp, pointer buf, word len)
     }
 }
 
-void InitF(file_t *fileP, pointer sNam, pointer fNam)
+void InitF(file_t *fileP, char const *sNam, char const *fNam)
 {
     fileP->aftn = 0;
     memset(fileP->sNam, ' ', 22);
@@ -132,7 +120,7 @@ void OpenF(file_t *fileP, byte access)
         FatlIO(fileP, status);
 } /* OpenF() */
 
-void ReadF(file_t *fileP, pointer bufP, word len, wpointer actualP)
+void ReadF(file_t *fileP, void *bufP, word len, wpointer actualP)
 {
     word status;
 

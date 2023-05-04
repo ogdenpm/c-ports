@@ -1,29 +1,17 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plmb.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
 // plmc.c
-static byte vtext[] = "program_version_number=";
+//static byte vtext[] = "program_version_number=";
 byte verNo[] = "V4.0";
 
 // plmf.c
@@ -106,14 +94,14 @@ static void InstallBuiltins()
 
     p = builtins;
     while (*p != 0) {
-        Lookup(p);
+        Lookup((pstr_t *)p);
         CreateInfo(0, BUILTIN_T);
         SetBuiltinId(p[*p + 1]);
         SetParamCnt(p[*p + 2]);
         SetDataType(p[*p + 3]);
         p += *p + 4;
     }
-    Lookup("\x6MEMORY");
+    Lookup((pstr_t *)"\x6MEMORY");
     CreateInfo(0, BYTE_T);
     SetInfoFlag(F_LABEL);
     SetInfoFlag(F_MEMORY);
@@ -127,7 +115,7 @@ static void InstallKeywords()
 
     p = keywords;
     while (*p != 0) {
-        Lookup(p);
+        Lookup((pstr_t *)p);
         SymbolP(curSymbolP)->infoP = 0xFF00 | p[*p + 1];
         p += *p + 2;
     }
@@ -165,7 +153,7 @@ void InitKeywordsAndBuiltins()
     InstallBuiltins();
 } /* InitKeywordsAndBuiltins() */
 
-void SetDate(pointer str, byte len)
+void SetDate(char *str, byte len)
 {
     if (len > 9)
         len = 9;
@@ -193,7 +181,7 @@ void SetMarginAndTabW(byte startCol, byte width)
 }
 
 
-void SetTitle(pointer str, byte len)
+void SetTitle(char *str, byte len)
 {
     if (len > 60)
         len = 60;

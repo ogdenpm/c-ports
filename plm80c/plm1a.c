@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm1a.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -151,7 +139,7 @@ void OptWrXrf()
     struct {byte type; word info; word stmt;} tmp = { T2_65, curInfoP - botInfo, curStmtNum };
 #pragma pack(pop)
 
-    Fwrite(&xrfFile, (pointer)&tmp, 5);
+    Fwrite(&xrfFile, &tmp, 5);
 }
 
 void WrTx2File(pointer buf, byte cnt)
@@ -247,16 +235,17 @@ void RdTx1Item()
 {
     word tx1ItemLen;
 
-    Fread(&tx1File, (pointer)&tx1Item, 1);      // read the lex item type
+    Fread(&tx1File, &tx1Item, 1);      // read the lex item type
     tx1ItemLen = tx1ItemLengths[tx1Item.type];  // get the size supplementary information
-    if (tx1ItemLen != 0)
-        if (tx1ItemLen != 255) {		/* i.e. not a string */
-            Fread(&tx1File, (pointer)tx1Item.dataw, tx1ItemLen);    // read the words of data
+    if (tx1ItemLen != 0) {
+        if (tx1ItemLen != 255) {                        /* i.e. not a string */
+            Fread(&tx1File, tx1Item.dataw, tx1ItemLen); // read the words of data
         } else {
-            Fread(&tx1File, (pointer)tx1Item.dataw, 2);             // read the length of string
+            Fread(&tx1File, tx1Item.dataw, 2); // read the length of string
             tx1ItemLen = tx1Item.dataw[0];
-            Fread(&tx1File, (pointer)&tx1Item.dataw[1], tx1Item.dataw[0]);  // read the string itself
+            Fread(&tx1File, &tx1Item.dataw[1], tx1Item.dataw[0]); // read the string itself
         }
+    }
     tx1Aux1 = tx1Aux1Map[tx1Item.type];     // ?precedence
     tx1Aux2 = tx1Aux2Map[tx1Item.type];     // ?flags
 }

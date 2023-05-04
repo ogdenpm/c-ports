@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm0a.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -76,23 +64,23 @@ byte tok2oprMap[] = {
 
 
 /* public variables */
-pointer macroPtrs[12]; /* six inChrP, infoP pairs stored as pointer not offset_t */
+char *macroPtrs[12]; /* six inChrP, infoP pairs stored as pointer not offset_t */
 word macroDepth = 0;
 word tokenVal;
-pointer inChrP;		/* has to be pointer as it accesses data outside info/symbol space */
+char *inChrP;		/* has to be pointer as it accesses data outside info/symbol space */
 word stateStack[100];
 word stateIdx;
 offset_t stmtLabels[10];
 word stmtLabelCnt;
-word curProcInfoP;
+//word curProcInfoP;    in main1.c
 word offCurCh = 0;
 word offLastCh = 0;
 word curStmtCnt = 0;
 word curBlkCnt = 0;
 offset_t curMacroInfoP = 0;
 offset_t markedSymbolP = 0;
-byte  lineBuf[128];
-byte  inbuf[1280];
+char  lineBuf[128];
+char  inbuf[1280];
 byte  tokenType;
 byte  tokenStr[256];
 byte  nextCh;
@@ -105,7 +93,7 @@ offset_t stmtStartSymbol;
 bool  lineInfoToWrite = false;
 bool  isNonCtrlLine = false;
 bool  yyAgain = false;
-linfo_t linfo = { 0, 0 };
+// linfo_t linfo = { 0, 0 }; in main1.c
 // byte  curDoBlkCnt, curProcId initial(0, 0);
 byte curScope[2] = { 0, 0 };
 wpointer curScopeP;
@@ -124,9 +112,8 @@ void CreateTxi1File()
     tx1File.curoff = tmp;
 } /* CreateTxi1File() */
 
-void WriteTx1(pointer buf, word len)
-{
-    if (tx1File.aftn == 0)
+void WriteTx1(void const *buf, word len) {
+    if (tx1File.aftn == 0) {
         if (tx1File.curoff > 1024)
             CreateTxi1File();
         else {
@@ -134,7 +121,8 @@ void WriteTx1(pointer buf, word len)
             tx1File.curoff = tx1File.curoff + len;
             return;
         }
-        Fwrite(&tx1File, buf, len);
+    }
+    Fwrite(&tx1File, buf, len);
 } /* WriteTx1() */
 
 void RewindTx1()
@@ -155,7 +143,7 @@ void WriteLineInfo()
 } /* WriteLineInfo() */
 
 
-void WrBuf(pointer buf, word len)
+void WrBuf(void const *buf, word len)
 {
     WriteLineInfo();
     WriteTx1(buf, len);

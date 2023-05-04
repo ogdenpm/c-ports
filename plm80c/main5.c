@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  main5.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -33,14 +21,14 @@ offset_t dictionaryP;
 offset_t dictTopP;
 
 
-static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
-static byte dots[] = ". . . . . . . . . . . . . . . . . . . . ";
-static byte dashes[] = "------------------------------------";
+//static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+static char dots[] = ". . . . . . . . . . . . . . . . . . . . ";
+static char dashes[] = "------------------------------------";
 byte b3F0B = 0xFF;	/* ixi module header */
 
 
 
-void Sub_4121(pointer str)
+void Sub_4121(char const *str)
 {
     NewLineLst();
     Xputstr2cLst("*** WARNING -- ", 0);
@@ -205,7 +193,7 @@ static void LoadXref()
         Fread(&xrfFile, &b6783, 1);
         if (b6783 == 0)
             break;
-        Fread(&xrfFile, (pointer)pa, 4);
+        Fread(&xrfFile, pa, 4);
         if (b6783 == 0x42 || XREF) {
             curInfoP = pa[0] + botInfo;
             xrefItemP = w66D4 + 1;
@@ -400,7 +388,7 @@ static void Sub_4A42()
     curInfoP = p;
 }
 
-static void Sub_4A78(pointer str)
+static void Sub_4A78(char const  *str)
 {
     Sub_4921();
     Sub_48A7();
@@ -411,7 +399,7 @@ static void Sub_4A78(pointer str)
 
 static void Sub_4A92()
 {
-    pointer p;
+    char const *p;
 
     Sub_4921();
     Sub_48E2(GetLinkVal(), GetDimension2());
@@ -445,7 +433,7 @@ static void Sub_4A92()
     Sub_480A();
 }
 
-static void Sub_4B4A(pointer str)
+static void Sub_4B4A(char const *str)
 {
     word p;
     byte i;
@@ -579,7 +567,7 @@ void PrintRefs()
 
 
 // lifted
-static void Sub_4EAA(pointer buf, word cnt)
+static void Sub_4EAA(void const *buf, word cnt)
 {
     Fwrite(&ixiFile, buf, cnt);
 }
@@ -602,7 +590,7 @@ void CreateIxrefFile()
         k = 22 + PstrP(curSymbolP)->len;
         Sub_4EAA(&k, 1);
         Sub_4EAA(&PstrP(curSymbolP)->len, 1);		/* module name len */
-        Sub_4EAA(PstrP(curSymbolP)->str, PstrP(curSymbolP)->len);	/* module name */
+        Sub_4EAA((pointer)PstrP(curSymbolP)->str, PstrP(curSymbolP)->len);	/* module name */
     }
     if (Low(srcFileTable[0]) == ':')
         j = 2;
@@ -659,17 +647,17 @@ void Sub_4EC5()
 word Start5()
 {
     MEMORY = 0x6936;
-	botMem = MEMORY + 0x100;
-	topSymbol = topSymbol + 4;
-	if (PRINT) {
-		lBufP = lstBuf;
-		lBufSz = 1279;
-	}
-	Sub_4EC5();
-	if (PRINT)
-		LstModuleInfo();
-	DeletF(&xrfFile);
-	EndCompile();
-	Exit();
+    botMem = MEMORY + 0x100;
+    topSymbol = topSymbol + 4;
+    if (PRINT) {
+        lBufP = lstBuf;
+        lBufSz = 1279;
+    }
+    Sub_4EC5();
+    if (PRINT)
+        LstModuleInfo();
+    DeletF(&xrfFile);
+    EndCompile();
+    Exit();
 }
 

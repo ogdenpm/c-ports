@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm1e.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -582,7 +570,7 @@ static void  ChkEndOfStmt()
 
 static void Sub_67E3()
 {
-    word p, q, r, s, t, u, v, w;
+    word p, q, r, s, u, v, w;
 
     p = procInfoStack[controlSP];
     u = hNodes[controlSP];
@@ -590,7 +578,7 @@ static void Sub_67E3()
     if ((w = w9A9F[controlSP]) == 0) {
         curInfoP = p;
         if (GetType() == BYTE_T)
-            t = WrTx2Item1Arg(T2_LOCALLABEL, NewLocalLabel());
+            WrTx2Item1Arg(T2_LOCALLABEL, NewLocalLabel());
         q = Sub_677C(p);
         r = Sub_677C(p);
         s = WrTx2Item1Arg(T2_NUMBER, 1);
@@ -737,24 +725,23 @@ static void IterativeDoStatement()
 
 static void ParseEND()
 {
-    word p;
     switch (b99FF[controlSP]) {
     case 0:
         curInfoP = curProcInfoP;
         SetInfoFlag(F_DEFINED);
         if (GetDataType() != 0 && !b9A13[controlSP])
             WrTx2Error(ERR156); /* MISSING RETURN STATEMENT IN TYPED PROCEDURE */
-        p = WrTx2Item(T2_ENDPROC);
+         WrTx2Item(T2_ENDPROC);
         curProcInfoP = procInfoStack[controlSP];
         break;
     case 1: break;
     case 2:
-        p = WrTx2Item1Arg(T2_JMP, hNodes[controlSP]);
-        p = WrTx2Item1Arg(T2_LOCALLABEL, eNodes[controlSP]);
+        WrTx2Item1Arg(T2_JMP, hNodes[controlSP]);
+        WrTx2Item1Arg(T2_LOCALLABEL, eNodes[controlSP]);
         break;
     case 3:
-        p = WrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP]);
-        p = WrTx2Item(T2_ENDCASE);
+        WrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP]);
+        WrTx2Item(T2_ENDCASE);
         break;
     case 4: Sub_67E3();
         break;
@@ -765,18 +752,16 @@ static void ParseEND()
 
 static void ParseStatement()
 {
-    word p;
     if (Sub_5945())
-        p = SerialiseParse(markedStSP);
+        SerialiseParse(markedStSP);
     ChkEndOfStmt();
 }
 
 
 static void ParseCALL()
 {
-    word p;
     if (Sub_59D4())
-        p = SerialiseParse(markedStSP);
+        SerialiseParse(markedStSP);
     ChkEndOfStmt();
 }
 

@@ -1,41 +1,29 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plma.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
 
-
 #include "plm.h"
 
-static byte signonMsg[] = "\r\nISIS-II PL/M-80 COMPILER ";
-static byte noMemMsg[] = "NOT ENOUGH MEMORY FOR A COMPILATION";
-static byte aIxi[] = ".IXI";
-static byte aObj[] = ".OBJ";
-static byte aLst[] = ".LST";
-static byte aInvocationComm[] = "INVOCATION COMMAND DOES NOT END WITH <CR><LF>";
-static byte aIncorrectDevice[] = "INCORRECT DEVICE SPEC";
-static byte aSourceFileNotDisk[] = "SOURCE FILE NOT A DISKETTE FILE";
-static byte aSourceFileName[] = "SOURCE FILE NAME INCORRECT";
-static byte aSourceFileBadExt[] = "SOURCE FILE EXTENSION INCORRECT";
-static byte aIllegalCommand[] = "ILLEGAL COMMAND TAIL SYNTAX";
+static char signonMsg[] = "\r\nISIS-II PL/M-80 COMPILER ";
+static char noMemMsg[] = "NOT ENOUGH MEMORY FOR A COMPILATION";
+static char aIxi[] = ".IXI";
+static char aObj[] = ".OBJ";
+static char aLst[] = ".LST";
+static char aInvocationComm[] = "INVOCATION COMMAND DOES NOT END WITH <CR><LF>";
+static char aIncorrectDevice[] = "INCORRECT DEVICE SPEC";
+static char aSourceFileNotDisk[] = "SOURCE FILE NOT A DISKETTE FILE";
+static char aSourceFileName[] = "SOURCE FILE NAME INCORRECT";
+static char aSourceFileBadExt[] = "SOURCE FILE EXTENSION INCORRECT";
+static char aIllegalCommand[] = "ILLEGAL COMMAND TAIL SYNTAX";
 
 static byte  ioBuffer[128];     // only 128 bytes read so 2048 was overkill
-pointer cmdTextP;
+char *cmdTextP;
 
 
 static void SkipSpace()
@@ -45,15 +33,15 @@ static void SkipSpace()
             cmdTextP++;
         else if (CmdP(cmdLineP)->link) {
             cmdLineP = CmdP(cmdLineP)->link;
-            cmdTextP = &CmdP(cmdLineP)->pstr[1];
+            cmdTextP = CmdP(cmdLineP)->pstr.str;
         }
     }
 } /* SkipSpace() */
 
-
-static bool TestToken(pointer str, byte len)
+#if 0
+static bool TestToken(char *str, byte len)
 {
-    pointer p;
+    char *p;
 
     p = cmdTextP;
     while (len-- != 0) {
@@ -64,12 +52,13 @@ static bool TestToken(pointer str, byte len)
     }
     return true;
 } /* TestToken() */
+#endif
 
 
 static void SkipAlphaNum()
 {
-    while ('A' <= *cmdTextP && *cmdTextP <= 'Z' || 'a' <= *cmdTextP && *cmdTextP <= 'z'
-                || '0' <= *cmdTextP && *cmdTextP <= '9')
+    while (('A' <= *cmdTextP && *cmdTextP <= 'Z') || ('a' <= *cmdTextP && *cmdTextP <= 'z')
+                || ('0' <= *cmdTextP && *cmdTextP <= '9'))
         cmdTextP++;
 } /* SkipAlphaNum() */
 
@@ -97,8 +86,8 @@ static void GetCmdLine()
         else
             CmdP(cmdLineP)->link = topMem;
         cmdLineP = topMem;
-        CmdP(cmdLineP)->pstr[0] = (byte)actual;
-        memmove(&CmdP(cmdLineP)->pstr[1], ioBuffer, actual);
+        CmdP(cmdLineP)->pstr.len = (byte)actual;
+        memmove(&CmdP(cmdLineP)->pstr.str, ioBuffer, actual);
         inQuote = false;
         for (i = 0; i < actual; i++) {
             if (ioBuffer[i] == QUOTE)
@@ -147,8 +136,8 @@ static void ParseInvokeName()
     
 static void ParseSrcFileName()
 {
-    pointer fullName;
-    pointer fileName;
+    char *fullName;
+    char *fileName;
     word nameLen;
 
     while (*cmdTextP != ' ' && *cmdTextP != '\r' && *cmdTextP != '&')
@@ -188,7 +177,7 @@ static void ParseSrcFileName()
     if (*cmdTextP == '\r')
         offFirstChM1 = 0;
     else
-        offFirstChM1 = (word)(cmdTextP - ByteP(cmdLineP) - 1);
+        offFirstChM1 = (word)(cmdTextP - CharP(cmdLineP) - 1);
 } /* ParseSrcFileName() */
 
 static void InitFilesAndDefaults()
@@ -244,7 +233,7 @@ void SignOnAndGetSourceName()
     PrintStr(signonMsg, Length(signonMsg));
     PrintStr(version, 4);
     PrintStr("\r\n", 2);
-    cmdTextP = &CmdP(cmdLineP)->pstr[1];
+    cmdTextP = CmdP(cmdLineP)->pstr.str;
     blkSize1 = topMem - blkSize1 - 256;
     blkSize2 = topMem - blkSize2 - 256;
     ParseInvokeName();

@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm.h: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -428,6 +416,11 @@ typedef union {
 } address;
 
 typedef struct {
+    byte len;
+    char str[0];
+} pstr_t;
+
+typedef struct {
     byte deviceId;
     byte name[6];
     byte ext[3];
@@ -437,8 +430,8 @@ typedef struct {
 
 typedef struct {
     word aftn;
-    byte sNam[6];
-    byte fNam[16];
+    char sNam[6];
+    char fNam[16];
     pointer bufP;
     word bsize;
     word actual;
@@ -467,7 +460,7 @@ typedef struct {
 typedef struct {
     offset_t link;
     offset_t infoP;
-    byte name[1];
+    pstr_t name;
 } sym_t;
 
 typedef struct {
@@ -486,7 +479,7 @@ typedef struct {
 
 typedef struct {
     offset_t link;
-    byte pstr[1];
+    pstr_t pstr;
 } cmd_t;
 
 typedef struct {
@@ -505,11 +498,6 @@ typedef struct {
     byte type;
     word dataw[129];
 } tx1item_t;
-
-typedef struct {
-    byte len;
-    byte str[1];
-} pstr_t;
 
 typedef struct {	// generic record header
     byte type;
@@ -544,13 +532,14 @@ pointer off2Ptr(offset_t off);
 offset_t ptr2Off(pointer addr);
 
 // useful macros to cast off2Ptr
-#define ByteP(off)   off2Ptr(off)
-#define WordP(off)   ((wpointer)off2Ptr(off))
-#define InfoP(off)   ((info_t *)off2Ptr(off))
-#define LitP(off)    ((lit_t *)off2Ptr(off))
-#define SymbolP(off) ((sym_t *)off2Ptr(off))
-#define CmdP(off)    ((cmd_t *)off2Ptr(off))
-#define PstrP(off)   ((pstr_t *)off2Ptr(off))
+#define ByteP(off)      off2Ptr(off)
+#define CharP(off)      ((char *)off2Ptr(off))
+#define WordP(off)      ((wpointer)off2Ptr(off))
+#define InfoP(off)      ((info_t *)off2Ptr(off))
+#define LitP(off)       ((lit_t *)off2Ptr(off))
+#define SymbolP(off)    ((sym_t *)off2Ptr(off))
+#define CmdP(off)       ((cmd_t *)off2Ptr(off))
+#define PstrP(off)      ((pstr_t *)off2Ptr(off))
 
 
 // array sizes
@@ -585,7 +574,7 @@ word Start5();
 word Start6();
 
 /* plmA.plm */
-extern pointer cmdTextP;
+extern char *cmdTextP;
 void SignOnAndGetSourceName();
 
 /* plmb.plm */
@@ -597,13 +586,13 @@ extern byte verNo[];
 /* plmd.plm */
 void SetMarginAndTabW(byte startCol, byte width);
 void SetPageNo(word v);
-void SetTitle(pointer str,byte len);
+void SetTitle(char *str,byte len);
 
 /* plmd.plm,lstsp4.plm,lstsp5.plm,lstsp6.plm */
 void SetMarkerInfo(byte markerCol, byte marker, byte textCol);
 
 /* plmd.plm,plm0h.plm */
-void SetDate(pointer str,byte len);
+void SetDate(char *str,byte len);
 void SetPageLen(word len);
 void SetPageWidth(word width);
 
@@ -620,17 +609,17 @@ extern wpointer curScopeP;
 extern word curStmtCnt;
 extern word doBlkCnt;
 extern word ifDepth;
-extern byte inbuf[];
-extern pointer inChrP;		// has to be pointer as it accesses data outside info/symbol space
+extern char inbuf[];
+extern char *inChrP;		// has to be pointer as it accesses data outside info/symbol space
 extern bool isNonCtrlLine;
 extern offset_t stmtStartSymbol;
 extern byte stmtStartToken;
 extern byte nextCh;
 extern byte startLexCode;
-extern byte lineBuf[];
+extern char lineBuf[];
 extern bool lineInfoToWrite;
 extern word macroDepth;
-extern pointer macroPtrs[];
+extern char *macroPtrs[];
 extern offset_t markedSymbolP;
 extern bool skippingCOND;
 extern byte state;
@@ -651,10 +640,10 @@ void RewindTx1();
 void SyntaxError(byte err);
 void TokenError(byte err, offset_t symP);
 void TokenErrorAt(byte err);
-void WrBuf(pointer buf,word len);
+void WrBuf(void const *buf,word len);
 void WrByte(byte v);
 void WriteLineInfo();
-void WriteTx1(pointer buf, word len);
+void WriteTx1(void const *buf, word len);
 void WrInfoOffset(offset_t addr);
 void WrLexToken();
 void WrWord(word v);
@@ -673,7 +662,7 @@ extern word offLastCh;
 extern byte tx1Buf[];
 
 /* plm0b.plm, plm0c.asm*/
-void ParseControlLine(pointer pch);
+void ParseControlLine(char *pch);
 void GNxtCh();
 extern bool trunc;
 
@@ -1031,7 +1020,7 @@ extern byte rec6[];
 extern byte rec6_4[];
 extern word w7197;
 void Sub_4889();
-void Sub_48BA(pointer arg1w, byte arg2b, byte arg3b, pointer arg4bP);
+void Sub_48BA(pointer arg1w, byte arg2b, byte arg3b, char const *arg4bP);
 void Sub_4908(pointer arg1wP, word arg2w, byte arg3b);
 word Sub_4938();
 word Sub_4984();
@@ -1064,8 +1053,8 @@ void NewPageNextChLst();
 void SetSkipLst(byte arg1b);
 void TabLst(byte arg1b);
 void XnumLst(word num,byte width,byte radix);
-void Xputstr2cLst(pointer str,byte endch);
-void XwrnstrLst(pointer str,byte cnt);
+void Xputstr2cLst(char const *str,byte endch);
+void XwrnstrLst(char const *str,byte cnt);
 
 /* plm overlay 4 */
 /* File(main4.plm) */
@@ -1082,7 +1071,7 @@ void NlLead();
 extern byte b9692;
 extern byte b969C;
 extern byte b969D;
-extern byte b96B0[];
+extern char ps96B0[];
 //extern byte b96B1[];
 extern byte b96D6;
 extern word baseAddr;
@@ -1090,27 +1079,27 @@ extern bool bo812B;
 extern bool linePrefixChecked;
 extern bool linePrefixEmitted;
 extern byte cfCode;
-extern byte commentStr[];
+extern char commentStr[];
 extern byte curExtId;
 extern word blkCnt;
 extern byte dstRec;
 //extern byte endHelperId; now local var
 extern byte helperId;
 //extern byte helperModId; now local var
-extern byte helperStr[];
-extern byte line[];
-extern byte locLabStr[];
+extern char helperStr[];    // pstr
+extern byte line[];         // pstr
+extern char locLabStr[];
 extern err_t errData;
-extern byte lstLine[];
+extern char lstLine[];
 extern byte opByteCnt;
 extern byte opBytes[];
 //rec4_t rec4;
 //rec6_t rec6_4;
 //rec8_t rec8;
 extern word stmtNo;
-extern pointer sValAry[];
+extern pstr_t *sValAry[];
 extern word w812F;
-extern pointer w969E;
+extern pstr_t *ps969E;
 extern word w96D7;
 extern word wValAry[];
 
@@ -1154,7 +1143,7 @@ extern word w506F[];
 void Sub_54BA();
 
 /* plm4b.plm */
-void AddWrdDisp(pointer strP, word arg2w);
+void AddWrdDisp(pstr_t *pstr, word arg2w);
 void EmitLabel();
 void EmitStatementNo();
 void FlushRecs();
@@ -1214,7 +1203,7 @@ extern word stmtNo;
 
 /* plm6a.plm */
 void Sub_42E7();
-void MiscControl();     // merged with 
+void MiscControl(file_t *txFile);     // merged with 
 /* plm6b.plm */
 void EmitLinePrefix();
 
@@ -1243,7 +1232,7 @@ extern int infoMode;
 void showInfo(offset_t off, FILE *fp);
 void dumpAllInfo();
 void dumpBuf(file_t *fp);
-void copyFile(pointer src, pointer dst);
+void copyFile(char const *src, char const *dst);
 char *tx2Name(byte op);
 void DumpLexStream();
 #endif
@@ -1279,7 +1268,7 @@ void ClrFlag(pointer base,byte flag);
 void CpyFlags(pointer base);
 
 /* cpytil.plm */
-void CpyTill(pointer srcP, pointer dstP, word cnt, byte endch);
+void CpyTill(char const *srcP, char *dstP, word cnt, byte endch);
 
 /* CreatF.plm */
 void CreatF(file_t *fp, pointer buf, word bsize, byte mode);
@@ -1310,7 +1299,7 @@ extern byte controls[];
 extern word csegSize;
 extern word curInfoP;	// individually cast
 extern offset_t curSymbolP;
-extern byte DATE[];
+extern char DATE[];
 extern word dsegSize;
 extern byte fatalErrorCode;
 extern bool hasErrors;
@@ -1321,7 +1310,7 @@ extern word intVecLoc;
 extern byte intVecNum;
 extern address ISIS;
 extern file_t ixiFile;
-extern byte ixiFileName[];
+extern char ixiFileName[];
 extern bool IXREFSet;
 extern pointer lBufP;
 extern word lBufSz;
@@ -1333,18 +1322,18 @@ extern byte linLft;
 extern word localLabelCnt;
 extern offset_t localLabelsP;
 extern file_t lstFil;
-extern byte lstFileName[];
+extern char lstFileName[];
 extern byte margin;
 extern file_t nmsFile;
 extern word objBlk;
 extern word objByte;
 extern bool OBJECTSet;
 extern file_t objFile;
-extern byte objFileName[];
+extern char objFileName[];
 extern word offFirstChM1;
 extern byte PAGELEN;
 extern word pageNo;
-extern byte plm80Compiler[];
+extern char plm80Compiler[];
 
 extern bool PRINTSet;
 extern word procChains[];
@@ -1360,7 +1349,7 @@ extern byte srcStemLen;
 extern byte srcStemName[];
 extern bool standAlone;
 extern offset_t startCmdLineP;
-extern byte TITLE[];
+extern char TITLE[];
 extern byte TITLELEN;
 extern offset_t topInfo;
 extern offset_t topMem;
@@ -1369,7 +1358,7 @@ extern byte tWidth;
 extern file_t tx1File;
 extern file_t tx2File;
 extern bool afterEOF;
-extern byte version[];
+extern char version[];
 extern offset_t w381E;
 extern offset_t w3822;
 extern word cmdLineCaptured;
@@ -1378,7 +1367,7 @@ extern offset_t ov0Boundary;
 extern file_t xrfFile;
 
 /* Delete.plm */
-void Delete(pointer pathP, wpointer statusP);
+void Delete(char const *pathP, wpointer statusP);
 
 /* DeletF.plm */
 void DeletF(file_t *fileP);
@@ -1392,7 +1381,7 @@ void Error(word ErrorNum);
 /* exit.plm */
 NORETURN(Exit());
 /* Fatal.plm */
-void Fatal(pointer str,byte len);
+void Fatal(char const *str,byte len);
 
 /* FatlIO.plm */
 void FatlIO(file_t *fileP, word errNum);
@@ -1414,10 +1403,10 @@ void FindMemberInfo();
 void FindScopedInfo(word scp);
 
 /* fread.asm */
-void Fread(file_t *file, pointer buf, word cnt);
+void Fread(file_t *file, void *buf, word cnt);
 
 /* fwrite.asm */
-void Fwrite(file_t *file, pointer buf, word cnt);
+void Fwrite(file_t *file, void const *buf, word cnt);
 
 /* gibin.plm */
 byte GetBuiltinId();
@@ -1480,16 +1469,16 @@ offset_t GetSymbol();
 byte GetType();
 
 /* InitF.plm */
-void InitF(file_t *fileP, pointer sNam, pointer fNam);
+void InitF(file_t *fileP, char const *sNam, char const *fNam);
 
 /* itoa.plm */
-byte Num2Asc(word num,byte width,byte radix,pointer bufP);
+byte Num2Asc(word num,byte width,byte radix,char *bufP);
 
 /* Load.plm */
-void Load(pointer pathP, word LoadOffset, word switch_, wpointer entryP, wpointer statusP);
+void Load(char const *pathP, word LoadOffset, word switch_, wpointer entryP, wpointer statusP);
 
 /* Lookup.plm */
-void Lookup(pointer pstr);
+void Lookup(pstr_t *pstr);
 
 /* lstinf.plm */
 void LstModuleInfo();
@@ -1504,25 +1493,25 @@ offset_t MemCk();
 void movmem(address cnt,address src,address dst);
 
 /* Open.plm */
-void Open(wpointer connP, pointer pathP, word access, word echo, wpointer statusP);
+void Open(wpointer connP, char const *pathP, word access, word echo, wpointer statusP);
 
 /* OpenF.plm */
 void OpenF(file_t *fileP,byte access);
 
 /* prints.plm */
-void PrintStr(pointer str,byte len);
+void PrintStr(char const *str,byte len);
 
 /* PutLst.asm */
 void PutLst(byte ch);
 
 /* Read.plm */
-void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP);
+void Read(word conn, void *buffP, word count, wpointer actualP, wpointer statusP);
 
 /* Readf.plm */
-void ReadF(file_t *fileP, pointer bufP, word len, wpointer actualP);
+void ReadF(file_t *fileP, void *bufP, word len, wpointer actualP);
 
 /* Rename.plm */
-void Rename(pointer oldP,pointer newP,wpointer statusP);
+void Rename(char const *oldP,char const *newP,wpointer statusP);
 
 /* Rescan.plm */
 void Rescan(word conn, wpointer statusP);
@@ -1600,7 +1589,7 @@ void SetSymbol(offset_t symbol);
 void SetType(byte type);
 
 /* strcmp.plm */
-byte Strncmp(pointer s1P, pointer s2P,byte cnt);
+byte Strncmp(char const *s1P, char const *s2P,byte cnt);
 
 /* TellF.plm */
 void TellF(file_t * fileP, loc_t *locP);
@@ -1615,16 +1604,16 @@ bool TestFlag(pointer base,byte flag);
 void Wr2cLst(word arg1w);
 
 /* wrclst.asm */
-void WrcLst(byte ch);
+void WrcLst(char ch);
 
 /* Write.plm */
-void Write(word conn, pointer buffP, word count, wpointer statusP);
+void Write(word conn, void const *buffP, word count, wpointer statusP);
 
 /* WriteF.plm */
 void WriteF(file_t *fp, pointer buf, word count);
 
 /* wrslst.plm */
-void WrnStrLst(pointer strP, word cnt);
+void WrnStrLst(char const *strP, word cnt);
 
 /* zerflg.plm */
 void ClrFlags(pointer base);

@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm2d.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -204,10 +192,7 @@ static bool Sub_7801()
             return false;
     if ((bC27F & 4) != 0) {
         if ((bC27F & 8) != 0)
-            if (wC27B != 0)
-                return true;
-            else
-                return false;
+            return wC27B != 0;
         p = w502A[b5048[arg1b_765B] >> 3];
         if (p != wC27B)
             return false;
@@ -226,40 +211,33 @@ static bool Sub_7801()
         return false;
 }
 
-static void Sub_7925()
-{
+static void Sub_7925() {
     byte i, j, k;
 
     arg1b_765B = arg1b_765B - 1;
-    i = b5221[arg1b_765B] + bC27A;
-    j = b5048[arg1b_765B] & 3;
+    i          = b5221[arg1b_765B] + bC27A;
+    j          = b5048[arg1b_765B] & 3;
     if (i == 0xAD) {
         if (j == 0)
             wC27B = 0;
         Sub_611A();
         bC27F = 0;
-        k = 1;
-        if (curOp != T2_STAR)
-            if (curOp != T2_SLASH)
-                if (curOp != T2_MOD)
-                    if (wC27B < 0x100)
-                        if (Sub_76E2(arg2b_765B))
-                            if (arg3b_765B == 0)
-                                k = 0;
-                            else if (Sub_76E2(arg2b_765B))
-                                k = 0;
+        k     = 1;
+        if (curOp != T2_STAR && curOp != T2_SLASH && curOp != T2_MOD && wC27B < 0x100 &&
+            Sub_76E2(arg2b_765B) && (arg3b_765B == 0 || Sub_76E2(arg2b_765B)))
+            k = 0;
         Sub_5F4B(wC27B, 0, k, 8);
     } else {
         if (j == 1) {
-            tx2op1[tx2qp] = arg3b_765B;
-            tx2Auxw[arg2b_765B] = tx2Auxw[arg2b_765B] - 1;  
+            tx2op1[tx2qp]       = arg3b_765B;
+            tx2Auxw[arg2b_765B] = tx2Auxw[arg2b_765B] - 1;
         } else {
             if (tx2op2[tx2qp] != 0)
-                tx2Auxw[tx2op2[tx2qp]] = tx2Auxw[tx2op2[tx2qp]] - 1;  
+                tx2Auxw[tx2op2[tx2qp]] = tx2Auxw[tx2op2[tx2qp]] - 1;
             if ((bC1D2 & 4) != 0) {
                 tx2op1[tx2qp] = tx2op2[1];
                 if (boC20F) {
-                    i = 0x43 - i;
+                    i      = 0x43 - i;
                     boC20F = false;
                 }
             }

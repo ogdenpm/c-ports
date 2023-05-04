@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm6a.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -71,9 +59,8 @@ static void Error_6()
 }
 
 
-void MiscControl() // was also in plm4a.c
-{
-    byte name[19];
+void MiscControl(file_t *txFile) {
+    char name[19];
 
     switch (cfCode) {
     case T2_LIST: listOff = false; break;
@@ -89,9 +76,9 @@ void MiscControl() // was also in plm4a.c
             TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
             Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
             srcFileIdx = srcFileIdx + 10;
-            Fread(&tx2File, &name[13], 6);	/* Read() in name of include file */
-            Fread(&tx2File, &name[6], 7);
-            Fread(&tx2File, &name[0], 7);	/* overwrites the type byte */
+            Fread(txFile, &name[13], 6);	/* Read() in name of include file */
+            Fread(txFile, &name[6], 7);
+            Fread(txFile, &name[0], 7);	/* overwrites the type byte */
             memmove((pointer)&srcFileTable[srcFileIdx], name, 16);
             CloseF(&srcFil);
             InitF(&srcFil, "SOURCE", &name[1]);
@@ -109,7 +96,7 @@ void Sub_42E7()
     Fread(&tx2File, &cfCode, 1);
 
     if (cfCode != T2_INCLUDE )
-        Fread(&tx2File, (pointer)itemArgs, (b5124[cfCode] & 3) * 2);
+        Fread(&tx2File, itemArgs, (b5124[cfCode] & 3) * 2);
     if (cfCode == T2_LINEINFO)
         UpdateLineInfo();
     else if (cfCode == T2_STMTCNT)
@@ -121,7 +108,7 @@ void Sub_42E7()
     else if (cfCode == T2_ERROR)
         Error_6();
     else if (T2_LIST <= cfCode && cfCode <= T2_INCLUDE)
-        MiscControl();
+        MiscControl(&tx2File);
     else if (cfCode == T2_EOF)
         b7AE4 = false;
 }

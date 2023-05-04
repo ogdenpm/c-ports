@@ -1,24 +1,12 @@
 /****************************************************************************
- *  plm80: C port of Intel's ISIS-II PLM80 v4.0                             *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  plm0b.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include "plm.h"
 
@@ -83,10 +71,10 @@ static byte optTable[] =            // name      tokenId   primary controlId   c
 "\x4" "COND\0\x1\xFF\x16\0"     // COND         0         1       0xFF        22        0
 "\x6NOCOND\0\x1\xFF\x17\0";     // NOCOND       0         1       0xFF        23        0
 
-static byte ebadTail[] = "ILLEGAL COMMAND TAIL SYNTAX OR VALUE";
-static byte ebadcontrol[] = "UNRECOGNIZED CONTROL IN COMMAND TAIL";
-static byte errNotDisk[] = "INCLUDE FILE IS NOT A DISKETTE FILE";
-static byte errWorkFiles[] = "MISPLACED CONTROL: WORKFILES ALREADY OPEN";
+static char ebadTail[] = "ILLEGAL COMMAND TAIL SYNTAX OR VALUE";
+static char ebadcontrol[] = "UNRECOGNIZED CONTROL IN COMMAND TAIL";
+static char errNotDisk[] = "INCLUDE FILE IS NOT A DISKETTE FILE";
+static char errWorkFiles[] = "MISPLACED CONTROL: WORKFILES ALREADY OPEN";
 
 byte primaryCtrlSeen[14];   // C defaults to all false
 static struct {
@@ -100,12 +88,12 @@ static byte saveDepth;
 static bool CODE = false;
 static bool LIST = true;
 static bool COND = true;
-static pointer curChP;
+static char *curChP;
 static byte chrClass;
 static byte tknLen;
-static pointer optStrValP;
+static char *optStrValP;
 static word optNumValue;
-static byte optFileName[16];
+static char optFileName[16];
 static bool ixiGiven;
 static bool objGiven;
 static bool lstGiven;
@@ -130,7 +118,7 @@ static void NxtCh()
     curChP++;
     if (*curChP == CR || (offFirstChM1 != 0 && *curChP == '&')) // end of line or & on the command line
         chrClass = CC_NEWLINE;
-    else if ((chrClass = cClass[*curChP]) == CC_NONPRINT)
+    else if ((chrClass = cClass[*(pointer)curChP]) == CC_NONPRINT)
         *curChP = ' ';
     if (*curChP >= 'a')
         *curChP &= 0x5f;
@@ -234,7 +222,7 @@ static void AcceptFileName()
 }
 
 
-static word Asc2Num(pointer firstChP, pointer lastChP, byte radix)
+static word Asc2Num(char *firstChP, char *lastChP, byte radix)
 {
     word num;
     unsigned trial;  // use unsigned (>= 32 bit) to smiplify test for overflow
@@ -245,9 +233,9 @@ static word Asc2Num(pointer firstChP, pointer lastChP, byte radix)
 
     num = 0;
     while (firstChP <= lastChP) {
-        if (cClass[*firstChP] <= CC_DECDIGIT)
+        if (cClass[*(pointer)firstChP] <= CC_DECDIGIT)
             digit = *firstChP - '0';
-        else if (cClass[*firstChP] < CC_ALPHA)
+        else if (cClass[*(pointer)firstChP] < CC_ALPHA)
             digit = *firstChP - '7';
         else
             return 0xffff;
@@ -262,12 +250,12 @@ static word Asc2Num(pointer firstChP, pointer lastChP, byte radix)
     return num;
 }
 
-static byte ChkRadix(pointer *pLastCh)
+static byte ChkRadix(char **pLastCh)
 {
-    pointer p;
+    char *p;
 
     p = *pLastCh;
-    if (cClass[*p] <= CC_DECDIGIT)
+    if (cClass[*(pointer)p] <= CC_DECDIGIT)
         return 10;
     *pLastCh = *pLastCh - 1;
     if (*p == 'B')
@@ -284,7 +272,7 @@ static byte ChkRadix(pointer *pLastCh)
 
 static word ParseNum()
 {
-    pointer firstCh, nextCh;
+    char *firstCh, *nextCh;
     byte radix;
 
     NxtCh();
@@ -323,29 +311,26 @@ static void GetToken()
 
 static void ParseId(byte maxLen)
 {
-    byte pstr[33];
+    static char pstr[33];
 
-    optStrValP = &pstr[1];
+    optStrValP =  pstr + 1;
     tknLen = 0;
     SkipWhite();
     if (chrClass == CC_HEXCHAR || chrClass == CC_ALPHA)     // A-Z
         while (chrClass <= CC_ALPHA || chrClass == CC_DOLLAR) { // 0-9 A-Z $
             if (chrClass != CC_DOLLAR && tknLen <= maxLen) {
                 pstr[tknLen + 1] = *curChP;
-                tknLen = tknLen + 1;
+                tknLen++;
             }
             NxtCh();
         }
-    if (tknLen > maxLen)
-        pstr[0] = maxLen;
-    else
-        pstr[0] = tknLen;
+    pstr[0] = tknLen > maxLen ? maxLen : tknLen;
 }
 
 
 static void GetVar()
 {
-    pointer tmp;
+    char *tmp;
     tmp = curChP - 1;
     ParseId(31);
     if (tknLen == 0) {
@@ -359,7 +344,7 @@ static void GetVar()
         tknLen = tknLen - 1;
         BadCmdTail(ERR184); /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
     }
-    Lookup(optStrValP - 1);
+    Lookup((pstr_t *)(optStrValP - 1));
     if (High(SymbolP(curSymbolP)->infoP) == 0xFF) {/* special */
         curInfoP = BADINFO;
         curChP = tmp;
@@ -373,20 +358,19 @@ static void GetVar()
 
 // return logical operator
 // none (0), OR (1), AND (2), XOR (3), bad (4)
-static byte GetLogical()
-{
+static byte GetLogical() {
     ParseId(3);
     if (tknLen == 0 && chrClass == CC_NEWLINE)
         return 0;
     if (tknLen == 2) {
         if (Strncmp(optStrValP, "OR", 2) == 0)
             return 1;
-    } else if (tknLen == 3)
+    } else if (tknLen == 3) {
         if (Strncmp(optStrValP, "AND", 3) == 0)
             return 2;
         else if (Strncmp(optStrValP, "XOR", 3) == 0)
             return 3;
-
+    }
     BadCmdTail(ERR185); /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
     SkipToRPARorEOL();
     return 4;
@@ -421,7 +405,7 @@ static byte GetTest()
 static byte ChkNot()    // checks for potentially multiple NOT prefixes
 {
     byte notStatus;
-    pointer tmp;
+    char *tmp;
 
     notStatus = 0;
 
@@ -638,12 +622,11 @@ static void OptInclude()
         BadCmdTail(ERR15);  /* MISSING INCLUDE CONTROL PARAMETER */
         return;
     }
-    if (optFileName[0] == ':') {
-        if (optFileName[1] != 'F')
-            if (offFirstChM1 != 0)
-                Fatal(errNotDisk, Length(errNotDisk));
-            else
-                FatalError(ERR98);  /* INCLUDE FILE IS not A DISKETTE FILE */
+    if (optFileName[0] == ':' && optFileName[1] != 'F') {
+        if (offFirstChM1 != 0)
+            Fatal(errNotDisk, Length(errNotDisk));
+        else
+            FatalError(ERR98); /* INCLUDE FILE IS not A DISKETTE FILE */
     }
     if (srcFileIdx >= 50)
         SyntaxError(ERR13); /* LIMIT EXCEEDED: INCLUDE NESTING */
@@ -722,18 +705,17 @@ static void OptIntVector()
 static bool isOK;
 static pointer lFname;
 
-static void AcceptRangeChrs(byte lch, byte hch)
-{
-    if (isOK)
+static void AcceptRangeChrs(byte lch, byte hch) {
+    if (isOK) {
         if (*curChP < lch || hch < *curChP) {
-            BadCmdTail(ERR12);  /* INVALID CONTROL PARAMETER */
+            BadCmdTail(ERR12); /* INVALID CONTROL PARAMETER */
             SkipToRPARorEOL();
             isOK = false;
         } else {
-            *lFname = *curChP;
-            lFname = lFname + 1;
+            *lFname++ = *curChP;
             NxtCh();
         }
+    }
 }
 
 static bool AcceptDrive(pointer fname, byte follow)
@@ -925,7 +907,7 @@ static void FindOption()
 
     while (clen != 0) {
         if (clen == tknLen)
-            if (Strncmp(optStrValP, &optTable[off] + 1, (byte)clen) == 0) {
+            if (Strncmp(optStrValP, (char *)(&optTable[off] + 1), (byte)clen) == 0) {
                 tknFlagsP = (tknflags_t *)(&optTable[off] + clen + 1);
                 return;
             }
@@ -946,11 +928,10 @@ static void SkipControlParam()
 
 
 
-static void ParseControl()
-{
+static void ParseControl() {
     GetToken();
     if (tknLen == 0) {
-        BadCmdTail(ERR8);   /* INVALID CONTROL FORMAT */
+        BadCmdTail(ERR8); /* INVALID CONTROL FORMAT */
         SkipControlParam();
     } else {
         FindOption();
@@ -958,24 +939,24 @@ static void ParseControl()
             UnknownCtrl();
             SkipControlParam();
         } else {
-            if (tknFlagsP->primary == 0)
+            if (tknFlagsP->primary == 0) {
                 if (isNonCtrlLine) {
                     SyntaxError(ERR10); /* ILLEGAL USE OF PRIMARY CONTROL AFTER NON-CONTROL LINE */
                     SkipControlParam();
                     return;
                 } else if (primaryCtrlSeen[tknFlagsP->primaryId]) {
-                    BadCmdTail(ERR95);  /* ILLEGAL RESPECIFICATION OF PRIMARY CONTROL IGNORED */
+                    BadCmdTail(ERR95); /* ILLEGAL RESPECIFICATION OF PRIMARY CONTROL IGNORED */
                     SkipControlParam();
                     return;
                 } else
                     primaryCtrlSeen[tknFlagsP->primaryId] = true;
 
-                if (tknFlagsP->controlId != 0xFF)       // simple control
-                    if (tknFlagsP->tokenId == 0)        // simple update to control value only
+                if (tknFlagsP->controlId != 0xFF) // simple control
+                    if (tknFlagsP->tokenId == 0)  // simple update to control value only
                         controls[tknFlagsP->controlId] = tknFlagsP->controlVal;
-                    else {                              // write control to lexical stream
+                    else { // write control to lexical stream
                         WrByte(tknFlagsP->tokenId);
-                        if (tknFlagsP->tokenId == L_CODE)       // update values for CODE and LIST
+                        if (tknFlagsP->tokenId == L_CODE) // update values for CODE and LIST
                             CODE = true;
                         else if (tknFlagsP->tokenId == L_NOCODE)
                             CODE = false;
@@ -983,13 +964,15 @@ static void ParseControl()
                             LIST = true;
                         else if (tknFlagsP->tokenId == L_NOLIST)
                             LIST = false;
-                    } else
-                        ParseControlExtra();      // not a simple control do further processing
+                    }
+                else
+                    ParseControlExtra(); // not a simple control do further processing
+            }
         }
     }
 }
 
-void ParseControlLine(pointer pch)
+void ParseControlLine(char *pch)
 {
     curChP = pch;
     chrClass = 0;
@@ -1012,25 +995,25 @@ void ParseControlLine(pointer pch)
 }
 
 
-static void ChkEndSkipping(pointer pch)
-{
+static void ChkEndSkipping(char *pch) {
     curChP = pch;
     if (*curChP == '$') {
         chrClass = 0;
         NxtCh();
         SkipWhite();
         GetToken();
-        if (tknLen == 2 && Strncmp(optStrValP, "IF", 2) == 0)   // nested IF
+        if (tknLen == 2 && Strncmp(optStrValP, "IF", 2) == 0) // nested IF
             ifDepth++;
         else if (tknLen == 5 && Strncmp(optStrValP, "ENDIF", 5) == 0) {
-            if (--ifDepth < skippingIfDepth)                  // end of skipping
+            if (--ifDepth < skippingIfDepth) // end of skipping
                 skippingCOND = false;
-        } else if (skippingIfDepth == ifDepth && inIFpart)    // else/elseif at same level as initial IF
+        } else if (skippingIfDepth == ifDepth && inIFpart) { // else/elseif at same level as initial IF
             if (tknLen == 4 && Strncmp(optStrValP, "ELSE", 4) == 0)
-                skippingCOND = false;                         // else so now not skipping
+                skippingCOND = false; // else so now not skipping
             else if (tknLen == 6 && Strncmp(optStrValP, "ELSEIF", 6) == 0)
-                skippingCOND = !ParseIfCond();                // still skipping if condition false
-        if (!skippingCOND)          // no longer skipping so record any change of listing status
+                skippingCOND = !ParseIfCond(); // still skipping if condition false
+        }
+        if (!skippingCOND) // no longer skipping so record any change of listing status
             if (!COND)
                 if (LIST)
                     WrByte(L_LIST);
@@ -1111,7 +1094,7 @@ static void GetSrcLine()
 
 static void GetCodeLine()
 {
-    pointer startOfLine;
+    char *startOfLine;
 
     while (1) {
         GetSrcLine();
@@ -1144,7 +1127,7 @@ static void GetCodeLine()
         } else {
             CloseF(&srcFil);                // close nested file & reload caller file at saved position
             srcFileIdx = srcFileIdx - 10;
-            InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]);
+            InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]);
             OpenF(&srcFil, 1);
             SeekF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
             offCurCh = offLastCh;           // force buffer reload
@@ -1160,7 +1143,7 @@ static void GetLin()
         tmp = curInfoP;
         curInfoP = curMacroInfoP;
         SetType(LIT_T);         // reset info entry to LIT_T from MACRO_T
-        curMacroInfoP = ptr2Off(macroPtrs[macroDepth + 1]); // get the caller lit's infoP
+        curMacroInfoP = ptr2Off((pointer)macroPtrs[macroDepth + 1]); // get the caller lit's infoP
         inChrP = macroPtrs[macroDepth]; // get the curent loc in the expansion
         macroDepth -= 2;    // prep for next line
         curInfoP = tmp;
