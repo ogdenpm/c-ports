@@ -1,24 +1,12 @@
 /****************************************************************************
- *  objhex: C port of Intel's ISIS-II objhex                                *
- *  Copyright (C) 2020 Mark Ogden <mark.pm.ogden@btinternet.com>            *
+ *  objhex.c: part of the C port of Intel's ISIS-II objhex             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *																			*
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  This program is free software; you can redistribute it and/or           *
- *  modify it under the terms of the GNU General Public License             *
- *  as published by the Free Software Foundation; either version 2          *
- *  of the License, or (at your option) any later version.                  *
- *                                                                          *
- *  This program is distributed in the hope that it will be useful,         *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU General Public License for more details.                            *
- *                                                                          *
- *  You should have received a copy of the GNU General Public License       *
- *  along with this program; if not, write to the Free Software             *
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,              *
- *  MA  02110-1301, USA.                                                    *
+ *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,8 +14,15 @@
 #include <stdbool.h>
 #include <string.h>
 
-void showVersion(FILE *fp, bool full);
-
+#include <showVersion.h>
+#ifdef _WIN32
+#define DIRSEP "/\\:"
+#else
+#define DIRSEP "/"
+#endif
+#ifndef _MSC_VER
+#define stricmp strcasecmp
+#endif
 
 #define MODHDR  2
 #define MODEND  4
@@ -53,17 +48,14 @@ uint16_t getAddress(FILE *fp) {
 // return the trailing filename part of the passed in path
 const char *basename(const char *path) {
     const char *t;
-    while (t = strpbrk(path, ":\\/"))       // allow windows & unix separators - will fail for unix if : in filename!!
+    while ((t = strpbrk(path, DIRSEP)))       // allow windows & unix separators - will fail for unix if : in filename!!
         path = t + 1;
     return path;
 }
 
 int main(int argc, char **argv) {
 
-    if (argc == 2 && stricmp(argv[1], "-v") == 0) {
-        showVersion(stdout, argv[1][1] == 'V');
-        exit(0);
-    }
+    CHK_SHOW_VERSION(argc, argv);
 
     if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0)) ) {
         fprintf(stderr, "usage: %s -v | -V | objfile [to] hexfile\n", basename(argv[0]));
