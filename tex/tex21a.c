@@ -291,6 +291,7 @@ _Noreturn void wrapup() {
         fclose(ixFCB.fp);
         unlink(ixFCB.name);
     }
+    fclose(stdout);
     fputs("\nTex Aborted\n", stderr);
     exit(1);
 }
@@ -1280,7 +1281,7 @@ void getOptions() {
                     fatalError("InvalidParameter");
                 fileOptChar = 0;
             }
-        } else if (inputChar == '$')
+        } else if (inputChar == '$'|| (inputChar == '-' && srcFileOpt == SRCCMDLINE)) // -param support
             dollarSeen = true;
         if (inputChar == '\n')
             break;
