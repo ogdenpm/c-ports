@@ -546,7 +546,7 @@ static void NewStatementNo()
     if (stmtNo == 0)
         return;
     if (DEBUG) { 
-        if (((rec_t *)rec8)->len + 4 >= 1020)
+        if (getWord(((rec_t *)rec8)->len) + 4 >= 1020)
             WriteRec(rec8, 1);
         RecAddWord(rec8, 1, baseAddr);
         RecAddWord(rec8, 1, stmtNo);

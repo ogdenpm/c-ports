@@ -234,7 +234,7 @@ void FlushRecs()
     WriteRec(rec24_2, 2);
     WriteRec(rec24_3, 2);
     WriteRec(rec20, 1);
-    ((rec6_t *)rec6_4)->addr = baseAddr;
+    putWord(((rec6_t *)rec6_4)->addr, baseAddr);
 }
 
 

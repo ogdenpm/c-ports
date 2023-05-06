@@ -13,34 +13,34 @@
 void WriteRec(pointer recP, byte arg2b)
 {
     word p;
-    wpointer lenP;
+    pointer lenP;
     byte crc;
     word cnt;
 
-    lenP = &((rec_t *)recP)->len;
-    if (*lenP > 0 && OBJECT ) {
+    lenP = ((rec_t *)recP)->len;
+    if (getWord(lenP) > 0 && OBJECT ) {
         crc = 0;
         p = 0;
-        *lenP += arg2b + 1;
-        cnt = *lenP + 2;
+        putWord(lenP, getWord(lenP) + arg2b + 1);
+        cnt = getWord(lenP) + 2;
         while (p < cnt)
             crc -= recP[p++];
 
         recP[cnt] = crc;	/* insert checksum */
         Fwrite(&objFile, recP, cnt + 1);
     }
-    *lenP = 0;
+    putWord(lenP, 0);
 }
 
 
 
 void RecAddByte(pointer recP, byte arg2b, byte arg3b)
 {
-    wpointer lenP;
+    pointer lenP;
 
-    lenP = &((rec_t *)recP)->len;
-    ((rec_t *)recP)->val[*lenP + arg2b] = arg3b;
-    *lenP = *lenP + 1;
+    lenP = ((rec_t *)recP)->len;
+    ((rec_t *)recP)->val[getWord(lenP) + arg2b] = arg3b;
+    putWord(lenP, getWord(lenP) + 1);
 }
 
 

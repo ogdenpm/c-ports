@@ -238,33 +238,33 @@ static void Sub_654F()
 
     if (opByteCnt == 0 || ! OBJECT)
         return;
-    if (((rec_t *)rec6_4)->len + opByteCnt >= 1018)
+    if (getWord(((rec_t *)rec6_4)->len) + opByteCnt >= 1018)
         FlushRecs();
     p = baseAddr + opByteCnt - 2;	
     switch (dstRec) {
     case 0: break;
     case 1:
-            if (((rec_t *)rec22)->len + 2 >= 1018)
+            if (getWord(((rec_t *)rec22)->len) + 2 >= 1018)
                 FlushRecs();
             RecAddWord(rec22, 1, p);
             break; 
     case 2:
-            if (((rec_t *)rec24_1)->len + 2 >= 1017)
+            if (getWord(((rec_t *)rec24_1)->len) + 2 >= 1017)
                 FlushRecs();
             RecAddWord(rec24_1, 2, p);
             break;
     case 3:
-            if (((rec_t *)rec24_2)->len + 2 >= 99)
+            if (getWord(((rec_t *)rec24_2)->len) + 2 >= 99)
                 FlushRecs();
             RecAddWord(rec24_2, 2, p);
             break;
     case 4:
-            if (((rec_t *)rec24_3)->len + 2 >= 99)
+            if (getWord(((rec_t *)rec24_3)->len) + 2 >= 99)
                 FlushRecs();
             RecAddWord(rec24_3, 2, p);
             break;
     case 5:
-            if (((rec_t *)rec20)->len + 4 >= 1018)
+            if (getWord(((rec_t *)rec20)->len) + 4 >= 1018)
                 FlushRecs();
             RecAddWord(rec20, 1, curExtId);
             RecAddWord(rec20, 1, p);
@@ -491,9 +491,9 @@ void Sub_668B()
     if (cfCode == 0x87) { 
         baseAddr = GetLinkVal();
         if (DEBUG) {
-            ((rec_t *)rec8)->len -= 4;
+            putWord(((rec_t *)rec8)->len, getWord(((rec_t *)rec8)->len) - 4);
             RecAddWord(rec8, 1, baseAddr);
-            ((rec_t *)rec8)->len += 2;
+            putWord(((rec_t *)rec8)->len, getWord(((rec_t *)rec8)->len) + 2);
         }
         FlushRecs();
     }

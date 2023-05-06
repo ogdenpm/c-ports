@@ -31,6 +31,7 @@ typedef unsigned short word;
 typedef byte *pointer;
 typedef word *wpointer;
 typedef word offset_t;
+typedef byte leword[2];     // to support writing of intel OMF words
 
 #define High(n)	((n) >> 8)
 #define Low(n)	((n) & 0xff)
@@ -501,24 +502,24 @@ typedef struct {
 
 typedef struct {	// generic record header
     byte type;
-    word len;
+    leword len;
     byte val[1];
 } rec_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte subType;
     byte seg;
-    word addr;
+    leword addr;
     byte crc;
 } rec4_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte seg;
-    word addr;
+    leword addr;
     byte val[1];
 } rec6_t;
 
@@ -1002,8 +1003,10 @@ void Sub_A153();
 
 /* plm overlay 3 */
 /* File(main3.plm) no externals */
+word putWord(pointer buf, word val);
+word getWord(pointer buf);
 
-/* plm3a.plm */
+                 /* plm3a.plm */
 extern byte b42A8[];
 extern byte b42D6[];
 extern byte b4813[];

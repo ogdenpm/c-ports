@@ -77,7 +77,7 @@ void Sub_408B()
     CreatF(&tx1File, tx1Buf, 640, 1);
     CreatF(&objFile, objBuf, 640, 2);
     curInfoP = procInfo[1] + botInfo;
-    baseAddr = ((rec6_t *)rec6_4)->addr = GetLinkVal();
+    baseAddr = putWord(((rec6_t *)rec6_4)->addr, GetLinkVal());
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
@@ -121,10 +121,10 @@ void Sub_4208()
     if (haveModuleLevelUnit) { 
         ((rec4_t *)rec4)->subType = 1;
         curInfoP = procInfo[1] + botInfo;
-        ((rec4_t *)rec4)->addr = GetLinkVal();
+        putWord(((rec4_t *)rec4)->addr, GetLinkVal());
     } else {
         ((rec4_t *)rec4)->subType = 0;
-        ((rec4_t *)rec4)->addr = 0;
+        putWord(((rec4_t *)rec4)->addr, 0);
     }
     WriteRec(rec4, 0);
 }

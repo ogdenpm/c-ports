@@ -73,7 +73,7 @@ void Sub_4908(pointer arg1wP, word arg2w, byte arg3b)
     arg1wP = arg1wP + 1;
     if (*(wpointer)arg1wP + arg3b >= arg2w) {
         Sub_4889();
-        ((rec6_t *)rec6)->addr = w7197;
+        putWord(((rec6_t *)rec6)->addr, w7197);
     }
 }
 
@@ -312,8 +312,8 @@ static void Sub_4A31()
     else
         ((rec6_t *)rec6)->seg = 2;
 
-    ((rec6_t *)rec6)->addr = GetLinkVal();
-    w7197 = ((rec6_t *)rec6)->addr;
+    putWord(((rec6_t *)rec6)->addr, GetLinkVal());
+    w7197 = getWord(((rec6_t *)rec6)->addr);
     if (curInfoP == botInfo)
         b811D = false;
     else if (TestInfoFlag(F_EXTERNAL)) {

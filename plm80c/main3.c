@@ -11,9 +11,17 @@
 #include "plm.h"
 
 //static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+word putWord(pointer buf, word val) {
+    buf[0] = val & 0xff;
+    buf[1] = val >> 8;
+    return val;
+}
 
-static void Sub_3F3C()
-{
+word getWord(pointer buf) {
+    return buf[0] + buf[1] * 256;
+}
+
+static void Sub_3F3C() {
     b7199 = PRINT | OBJECT;
     if (OBJECTSet) {
         DeletF(&objFile);
@@ -178,7 +186,7 @@ static void Sub_436C()
         curSymbolP = GetSymbol();
         if (LABEL_T <= GetType() && GetType() <= PROC_T && curSymbolP != 0) {
             if (TestInfoFlag(F_EXTERNAL) && !TestInfoFlag(F_AT)) {
-                if (((rec_t *)rec18)->len + SymbolP(curSymbolP)->name.len + 2 >= 299)
+                if (getWord(((rec_t *)rec18)->len) + SymbolP(curSymbolP)->name.len + 2 >= 299)
                     WriteRec(rec18, 0);
                 s = s + 1;
                 Sub_48BA(rec18, 0, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
@@ -186,19 +194,19 @@ static void Sub_436C()
             } else if (!(TestInfoFlag(F_AUTOMATIC) || TestInfoFlag(F_BASED) || TestInfoFlag(F_MEMBER))) {
                 if (TestInfoFlag(F_DATA) || GetType() == LABEL_T || GetType() == PROC_T) {
                     p = rec16_2;
-                    q = ((rec_t *)rec16_2)->len;
+                    q = getWord(((rec_t *)rec16_2)->len);
                     i = 1;
                 } else if (TestInfoFlag(F_MEMORY)) {
                     p = rec16_4;
-                    q = ((rec_t *)rec16_4)->len;
+                    q = getWord(((rec_t *)rec16_4)->len);
                     i = 4;
                 } else if (TestInfoFlag(F_ABSOLUTE)) {
                     p = rec16_1;
-                    q = ((rec_t *)rec16_1)->len;
+                    q = getWord(((rec_t *)rec16_1)->len);
                     i = 0;
                 } else {
                     p = rec16_3;
-                    q = ((rec_t *)rec16_3)->len;
+                    q = getWord(((rec_t *)rec16_3)->len);
                     i = 2;
                 }
 
@@ -221,7 +229,7 @@ static void Sub_436C()
                         curInfoP = r;
                     }
                     if (!j) {
-                        if (i != ((rec_t *)rec12)->val[0] || ((rec_t *)rec12)->len + SymbolP(curSymbolP)->name.len + 4 >= 1019)
+                        if (i != ((rec_t *)rec12)->val[0] || getWord(((rec_t *)rec12)->len) + SymbolP(curSymbolP)->name.len + 4 >= 1019)
                             WriteRec(rec12, 1);
                         ((rec_t *)rec12)->val[0] = i;
                         RecAddWord(rec12, 1, GetLinkVal());
@@ -241,7 +249,7 @@ static void Sub_436C()
             if (WordP(helpersP)[k] != 0) {
                 WordP(helpersP)[k] = s;
                 s = s + 1;
-                if (((rec_t *)rec18)->len + 8 >= 299)
+                if (getWord(((rec_t *)rec18)->len) + 8 >= 299)
                     WriteRec(rec18, 0);
                 Num2Asc(k, 0xfc, 10, &t[2]);
                 Sub_48BA(rec18, 0, 6, t);
@@ -268,11 +276,11 @@ static void Sub_46B7()
     for (p = 1; p <= procCnt; p++) {
         curInfoP = procInfo[p] + botInfo;
         if (TestInfoFlag(F_INTERRUPT)) {
-            ((rec6_t *)rec6)->addr = intVecLoc + intVecNum * GetIntrNo();
+            putWord(((rec6_t *)rec6)->addr, intVecLoc + intVecNum * GetIntrNo());
             RecAddByte(rec6, 3, 0xC3);
             RecAddWord(rec6, 3, GetLinkVal());
             WriteRec(rec6, 3);
-            RecAddWord(rec24_1, 2, ((rec6_t *)rec6)->addr + 1);
+            RecAddWord(rec24_1, 2, getWord(((rec6_t *)rec6)->addr) + 1);
             WriteRec(rec24_1, 2);
         }
     }
