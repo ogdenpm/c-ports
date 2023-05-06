@@ -13,7 +13,7 @@
 #include "asm80.h"
 
 static byte fixupInitialLen[] = {1, 2, 1, 3};
-static wpointer fixupRecLenPtrs[] = {&rPublics.len, &rInterseg.len, &rExtref.len, &rContent.len};
+static leword *fixupRecLenPtrs[] = {&rPublics.len, &rInterseg.len, &rExtref.len, &rContent.len};
 static byte fixupRecLenChks[] = {123, 58, 57, 124};
 static byte b6D7E[] = {10, 0x12, 0x40}; /* 11 bits 00010010010 index left to right */
 
@@ -68,20 +68,20 @@ static byte GetFixupType(void) {
 
 void ReinitFixupRecs(void) {
     byte i;
-    wpointer dtaP;	// to check for conflicts with global dtaP usage in plm
+    leword *dtaP;	// to check for conflicts with global dtaP usage in plm
 
     for (i = 0; i <= 3; i++) {
         ii = (i - 1) & 3; /* order as content, publics, interseg, externals */
         dtaP = fixupRecLenPtrs[ii];
-        if (*dtaP > fixupInitialLen[ii])
-            WriteRec((pointer)dtaP - 1);
+        if (getWord(*dtaP) > fixupInitialLen[ii])
+            WriteRec(*dtaP - 1);
 
-        *dtaP = fixupInitialLen[ii];
+        putWord(*dtaP,  fixupInitialLen[ii]);
         fixIdxs[ii] = 0;
         if (curFixupType !=  ii)
             initFixupReq[ii] = true;
     }
-    rContent.offset = itemOffset + segLocation[rContent.segid = activeSeg];
+    putWord(rContent.offset, itemOffset + segLocation[rContent.segid = activeSeg]);
     rPublics.segid = curFixupHiLoSegId;
     rInterseg.segid = tokenAttr[spIdx] & 7;
     rInterseg.hilo = rExtref.hilo = curFixupHiLoSegId;
@@ -91,18 +91,20 @@ void ReinitFixupRecs(void) {
 
 static void AddFixupRec(void) {
     word effectiveOffset;
-    wpointer dtaP;				// to check doesn't conflict with plm global usage 
+    leword *dtaP;				// to check doesn't conflict with plm global usage 
 
     dtaP = fixupRecLenPtrs[curFixupType = GetFixupType()];
-    if (*dtaP > fixupRecLenChks[curFixupType] || rContent.len + tokenSize[spIdx] > 124)
+    if (getWord(*dtaP) > fixupRecLenChks[curFixupType] || getWord(rContent.len) + tokenSize[spIdx] > 124)
         ReinitFixupRecs();
 
     if (firstContent) {
         firstContent = false;
-        rContent.offset = segLocation[rContent.segid = activeSeg] + itemOffset;
+        putWord(rContent.offset, segLocation[rContent.segid = activeSeg] + itemOffset);
     } else {
-        effectiveOffset = rContent.offset + fix6Idx;		// lifted out to make sure it is calculated
-        if (rContent.segid != activeSeg || effectiveOffset != segLocation[activeSeg] + itemOffset || effectiveOffset < rContent.offset)
+        effectiveOffset =
+            getWord(rContent.offset) + fix6Idx; // lifted out to make sure it is calculated
+        if (rContent.segid != activeSeg || effectiveOffset != segLocation[activeSeg] + itemOffset ||
+            effectiveOffset < getWord(rContent.offset))
             ReinitFixupRecs();
     }
 
@@ -138,26 +140,26 @@ static void RecAddContentBytes(void) {
     for (byte i = 1; i <= tokenSize[spIdx]; i++)
         rContent.dta[fix6Idx++] = *contentBytePtr++;
 
-    rContent.len = rContent.len + tokenSize[spIdx];
+    putWord(rContent.len, getWord(rContent.len) + tokenSize[spIdx]);
 }
 
 
 
 static void IntraSegFix(void) {
-    rReloc.len = rReloc.len + 2;
-    rReloc.dta[fix22Idx++] = fixOffset;
+    putWord(rReloc.len, getWord(rReloc.len) + 2);
+    putWord(rReloc.dta[fix22Idx++], fixOffset);
 }
 
 
 static void InterSegFix(void) {
-    rInterseg.len += 2;
-    rInterseg.dta[fix24Idx++] = fixOffset;
+    putWord(rInterseg.len, getWord(rInterseg.len) + 2);
+    putWord(rInterseg.dta[fix24Idx++], fixOffset);
 }
 
 static void ExternalFix(void) {
-    rExtref.dta[fix20Idx++] = tokenSymId[spIdx];
-    rExtref.dta[fix20Idx++] = fixOffset;
-    rExtref.len += 4;
+    putWord(rExtref.dta[fix20Idx++], tokenSymId[spIdx]);
+    putWord(rExtref.dta[fix20Idx++], fixOffset);
+    putWord(rExtref.len, getWord(rExtref.len) + 4);
 }
 
 static void Sub7131(void)
@@ -182,13 +184,13 @@ void WriteExtName(void)
 {
     byte i;
 
-    if (rExtnames.len + 9 > 125) {   /* check room for name */
+    if (getWord(rExtnames.len) + 9 > 125) {   /* check room for name */
         WriteRec((pointer)&rExtnames);    /* flush existing extNam Record() */
         rExtnames.type = OMF_EXTNAMES;
-        rExtnames.len = 0;
+        putWord(rExtnames.len, 0);
         extNamIdx = 0;
     }
-    rExtnames.len += nameLen + 2;    /* update length for this ref */
+    putWord(rExtnames.len, getWord(rExtnames.len) + nameLen + 2);    /* update length for this ref */
     rExtnames.dta[extNamIdx] = nameLen;        /* Write() len */
     extNamIdx++;
     for (i = 0; i <= nameLen; i++)            /* and name */
@@ -220,7 +222,7 @@ void AddSymbol(void) {
 
 void FlushSymRec(byte segId, byte isPublic)			/* args to because procedure is no longer nested */
 {
-    if ((rPublics.len = (word)(recSymP - &rPublics.segid)) > 1)    /* something to Write() */
+    if (putWord(rPublics.len, (word)(recSymP - &rPublics.segid)) > 1)    /* something to Write() */
         WriteRec((pointer)&rPublics);
     rPublics.type = isPublic ? OMF_PUBLICS : OMF_LOCALS;        /* PUBLIC or DoLocal */
     rPublics.segid = segId;
@@ -259,8 +261,8 @@ void WriteModhdr(void)
     /* fill the module name */
     memcpy(rModhdr.dta + 1, aModulePage, (rModhdr.dta[0] = moduleNameLen));
     dtaP            = (char *) & rModhdr.dta[moduleNameLen + 1];
-    *(wpointer)dtaP = 0;    /* the trnId & trnVn bytes */
-    dtaP++;					/* past trnId byte */
+    *dtaP++ = 0;    // trnId
+    *dtaP           = 0; // trnVn
     if (segLocation[SEG_CODE] < maxSegSize[SEG_CODE])    /* code segment */
         segLocation[SEG_CODE] = maxSegSize[SEG_CODE];
     if (segLocation[SEG_DATA] < maxSegSize[SEG_DATA])    /* data segment */
@@ -268,11 +270,11 @@ void WriteModhdr(void)
 
     for (i = 1; i <= 4; i++) {
         *++dtaP = i;        /* seg id */
-        *(word *)(++dtaP) = segLocation[i];    /* seg size */
+        putWord((pointer)(++dtaP), segLocation[i]);    /* seg size */
         dtaP += 2;
         *dtaP = alignTypes[i - 1];    /* aln typ */
     }
-    rModhdr.len = moduleNameLen + (2 + 4 * 4 + 1);    /* set record length (trnId/trnVn 4 * (segid, segLocation, align), crc) */
+    putWord(rModhdr.len, moduleNameLen + (2 + 4 * 4 + 1));    /* set record length (trnId/trnVn 4 * (segid, segLocation, align), crc) */
     WriteRec((pointer)&rModhdr);
 }
 
@@ -280,7 +282,7 @@ void WriteModend(void)
 {
     rModend.modtyp = startDefined;
     rModend.segid = startSeg;
-    rModend.offset = startOffset;
+    putWord(rModend.offset, startOffset);
     WriteRec((pointer)&rModend);
     *(byte *)&rEof.len = 0;
     WriteRec((pointer)&rEof);
@@ -316,7 +318,7 @@ void Ovl11(void) {
         Seek(objfd, SEEKEND, &azero, &azero, &statusIO);    /* back to end */
     }
     rPublics.type = OMF_PUBLICS;          /* public declarations record */
-    rPublics.len = 1;
+    putWord(rPublics.len, 1);
     rPublics.segid = SEG_ABS;
     rPublics.dta[0] = 0;
     WriteSymbols(true);      /* EMIT PUBLICS */

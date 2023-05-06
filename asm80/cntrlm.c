@@ -18,7 +18,7 @@ static byte controlTable[] = {
         xxxx -> number of chars in name string
     name string
 */
-            "\x35" "TRACE"     "\x3A" "MACRODEBUG"
+            "\x35" "DEBUG"     "\x3A" "MACRODEBUG"
             "\x34" "XREF"      "\x37" "SYMBOLS"
             "\x36" "PAGING"    "\x33" "TTY"
             "\x25" "MOD85"     "\x35" "PRINT"

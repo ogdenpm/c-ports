@@ -15,7 +15,7 @@ typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
 typedef word *wpointer;
-
+typedef byte leword[2];     // used to force word matches OMF definition
 
 typedef union {
     word w;
@@ -37,61 +37,61 @@ typedef union {
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte segid;
-    word offset;
+    leword offset;
     byte dta[121];
     byte crc;
 } content_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte crc;
 } eof_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte dta[124];
     byte crc;
 } extnames_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte hilo;
-    word dta[30];
+    leword dta[30];
     byte crc;
 } extref_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte segid;
     byte hilo;
-    word dta[29];
+    leword dta[29];
     byte crc;
 } interseg_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte modtyp;
     byte segid;
-    word offset;
+    leword offset;
     byte crc;
 } modend_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte dta[26];
 } modhdr_t;
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte segid;
     byte dta[124];
     byte crc;
@@ -99,9 +99,9 @@ typedef struct {
 
 typedef struct {
     byte type;
-    word len;
+    leword len;
     byte hilo;
-    word dta[62];
+    leword dta[62];
 } reloc_t;
 
 typedef struct {

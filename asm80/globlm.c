@@ -72,15 +72,15 @@ byte fixIdxs[4] = {0, 0, 0, 0};
 byte extNamIdx = 0;
 bool initFixupReq[4] = {true, true, true, true};
 bool firstContent = true;
-eof_t rEof = {0xE, 0};
-extnames_t rExtnames = { 0x18, 0, { 0 } };
+eof_t rEof = {0xE};
+extnames_t rExtnames = { 0x18};
 byte moduleNameLen = 6;
-content_t rContent = {0x18, 0, 0};  /* seems odd would expect 6 not 0x18 */
-publics_t rPublics   = { 0x16, 1, 0, { 0 }, 0 };
+content_t rContent   = { 0x18}; /* seems odd would expect 6 not 0x18 */
+publics_t rPublics   = { 0x16, { 1 },};
 //rReloc RELOC_T at[&rPublics];
 interseg_t rInterseg;
 extref_t rExtref;
-modend_t rModend = { 4, 4, 0};
+modend_t rModend = { 4, { 4 }};
 word wZERO = 0;
 //static byte pad6741 = 0xa;
 bool inComment = false;

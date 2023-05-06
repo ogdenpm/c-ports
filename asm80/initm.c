@@ -174,12 +174,12 @@ void ResetData(void) {    /* extended initialisation */
 
 void InitRecTypes(void) {
     rContent.type = OMF_CONTENT;
-    rContent.len = 3;
+    putWord(rContent.len, 3);
     rPublics.type = OMF_RELOC;
-    rPublics.len = 1;
+    putWord(rPublics.len, 1);
     rInterseg.type = OMF_INTERSEG;
-    rInterseg.len = 2;
+    putWord(rInterseg.len, 2);
     rExtref.type = OMF_EXTREF;
-    rExtref.len = 1;
+    putWord(rExtref.len, 1);
 }
 

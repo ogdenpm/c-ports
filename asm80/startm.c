@@ -355,7 +355,7 @@ void Start(void) {
     DoPass();
     phase = 2;
     if (controls.object) {
-        if (rExtnames.len > 0)
+        if (getWord(rExtnames.len) > 0)
             WriteRec((pointer)&rExtnames);    /* in overlay 2 */
 
         if (externId == 0)
