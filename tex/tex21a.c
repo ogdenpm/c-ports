@@ -291,7 +291,7 @@ _Noreturn void wrapup() {
         fclose(ixFCB.fp);
         unlink(ixFCB.name);
     }
-    fclose(stdout);
+    fclose(stdout); // avoid printing after Tex Aborted message
     fputs("\nTex Aborted\n", stderr);
     exit(1);
 }
