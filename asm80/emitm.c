@@ -286,17 +286,16 @@ void WriteModend(void)
     WriteRec((pointer)&rEof);
 }
 
-void Ovl8(void)
-{
+void Ovl8(void) {
     itemOffset = 0;
-    tokI = 1;
-    spIdx = 1;
+    tokI       = 1;
+    spIdx      = 1;
     if (b6B33)
-        ;
-    else
+        return;
+
     while (spIdx != 0) {
-        spIdx = NxtTokI();
-        endItem = tokStart[spIdx] + tokenSize[spIdx];
+        spIdx     = NxtTokI();
+        endItem   = tokStart[spIdx] + tokenSize[spIdx];
         startItem = tokStart[spIdx];
         if (IsSkipping() || !isInstr)
             endItem = startItem;

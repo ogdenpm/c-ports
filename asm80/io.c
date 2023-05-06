@@ -519,7 +519,7 @@ void Write(word conn, const void *buffP, word count, wpointer statusP)
 
     if (conn == BB_DEV)
         return;
-
+    
     if (write(aft[conn].fd, buffP, count) != count)
         switch (errno) {
         case ENOSPC: *statusP = ERROR_DISKFULL; break;

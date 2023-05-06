@@ -22,7 +22,7 @@ enum {CC_BAD = 0, CC_WS, CC_SEMI, CC_COLON, CC_CR, CC_PUN, CC_DOLLAR,
 #define FF  '\f'
 #define LF  '\n'
 #define TAB '\t'
-#define MACROEOB    0xFE
+#define MACROEOB    0xFF
 #define MACROPARAM	0x80
 
 #define	MAXSYMSIZE	6

@@ -168,8 +168,9 @@ void GetMacroToken(void) {
             CollectByte(curChar);
             if (macro.top.mtype == M_IRPC)
                 macro.top.cnt++;
-
-            if ((curChar == '!') & (GetCh() != CR)) {
+            /* optimisation may swap evaluation order so force */
+            bool test = curChar == '!';
+            if (test & (GetCh() != CR)) {
                 CollectByte(curChar);
                 curChar = GetCh();
             }
@@ -196,7 +197,7 @@ void GetMacroToken(void) {
                 PopToken();
                 pNextArg = macro.top.pCurArg;
                 opSP--;
-#ifdef _DEBUG
+#ifdef TRACE
                 printf("nested macro poped token & opStack\n");
 #endif
                 reget = 1;
@@ -210,12 +211,11 @@ void GetMacroToken(void) {
         macro.top.mtype = M_MACRO;
     }
 
-    if (! isPercent)
-        if (! TestBit(curChar, b7183)) {    /* ! CR, COMMA or SEMI */
-            Skip2EOL();
-            SyntaxError();
-            reget = 1;
-        }
+    if (!isPercent && !TestBit(curChar, b7183)) {    /* ! CR, COMMA or SEMI */
+        Skip2EOL();
+        SyntaxError();
+        reget = 1;
+    }
 }
 
 

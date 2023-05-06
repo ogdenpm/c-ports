@@ -364,6 +364,7 @@ void HandleOp(void) {
             Cond2Acc(tokenType[0] == K_NUL);
             PopToken();
             acc1RelocFlags = 0;
+            break;
     }
 
     if (topOp != T_CR)
@@ -398,7 +399,7 @@ void Parse(void) {
             skipping if and not cr or if related keyword
             or spooling and not macro related keyword or in quotes
         */
-#ifdef _DEBUG
+#ifdef TRACE
         printf("Parse: ");
         ShowYYType();
 #endif
@@ -425,7 +426,7 @@ void Parse(void) {
                 inNestedParen = expectOp;
                 expectOp = true;
             }
-#ifdef _DEBUG
+#ifdef TRACE
             printf("\n>>>> Shift\n");
             DumpOpStack();
             DumpTokenStack(false);
@@ -437,7 +438,7 @@ void Parse(void) {
         }
 
     /* REDUCE */
-#ifdef _DEBUG
+#ifdef TRACE
         printf("\n<<<< Start - reduce\n");
         DumpOpStack();
         DumpTokenStack(false);
@@ -499,7 +500,7 @@ void Parse(void) {
                 yyType = topOp;         // the next item to read and mark as operator
                 expectOp = true;
             }
-#ifdef _DEBUG
+#ifdef TRACE
         printf("\n<<<< End - reduce\n");
         DumpOpStack();
         DumpTokenStack(false);

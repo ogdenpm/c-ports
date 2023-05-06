@@ -81,9 +81,7 @@ void FinishLine(void) {
         if (tokenIdx < 2 || inDB || inDW)
             ii = 0;
 
-        w6BCE = tokStart[ii] + tokenSize[ii];
-        if (IsSkipping() || !isInstr)
-            w6BCE = lineBuf;
+        w6BCE = IsSkipping() || ! isInstr ? lineBuf : tokStart[ii] + tokenSize[ii];
 
         if (ChkGenObj())
             Ovl8();

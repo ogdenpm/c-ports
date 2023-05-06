@@ -11,7 +11,7 @@
 #include "asm80.h"
 
 byte aExtents[] = " LSTOBJ";
-static byte aDebug[] = "DEBUG";
+static byte aDebug[] = "TRACE";
 
 
 /* skip white space in command line */
@@ -23,7 +23,7 @@ void CmdSkipWhite(void) {
 
 /*
     return drive ('0'-'9') of current program.
-    skips DEBUG if present
+    skips TRACE if present
     returns '0' if no drive specified
 */
 byte GetDrive(void) {
@@ -31,7 +31,7 @@ byte GetDrive(void) {
         cmdchP += 2;
         return *cmdchP;
     } else
-        for (ii = 0; ii <= 4; ii++) {        /* case insensitive compare to DEBUG */
+        for (ii = 0; ii <= 4; ii++) {        /* case insensitive compare to TRACE */
         if (*cmdchP != aDebug[ii] && aDebug[ii] + 0x20 != *cmdchP)
                 return '0';    /* must be a file name so drive 0 */
             cmdchP++;

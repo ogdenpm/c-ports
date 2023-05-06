@@ -102,7 +102,7 @@ byte HaveTokens(void)
 
 
 void PopToken(void) {
-#ifdef _DEBUG
+#ifdef TRACE
     DumpTokenStack(true);
 #endif
     tokStart[0] = tokStart[tokenIdx];
@@ -191,7 +191,7 @@ void PushToken(byte type)
         tokenSym.stack[0] = NULL; // (tokensym_t *)wZERO; to work around gcc complaint
         tokenSymId[0] = wZERO;
     }
-#ifdef _DEBUG
+#ifdef TRACE
     DumpTokenStack(false);
 #endif
 }

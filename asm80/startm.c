@@ -305,8 +305,8 @@ void InitialControls(void) {
 
 
 void InitLine(void) {
-    startLineP = inChP + 1;    
-    lineChCnt = 0;
+    startLineP = inChP + 1;
+    lineChCnt  = 0;
     if (pendingInclude)
         OpenSrc();
 #ifdef SHOWLINE
@@ -316,23 +316,23 @@ void InitLine(void) {
     putchar('\n');
 #endif
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
-    inExpression = expectingOperands = xRefPending = haveUserSymbol =
-    inDB = inDW = condAsmSeen = showAddr = usrLookupIsID =
-    excludeCommentInExpansion = b9060 = needsAbsValue = false;
+        inExpression = expectingOperands = xRefPending = haveUserSymbol = inDB = inDW =
+            condAsmSeen = showAddr = usrLookupIsID = excludeCommentInExpansion = b9060 =
+                needsAbsValue                                                  = false;
     gotLabel                                                                   = bZERO;
     atStartLine = expectingOpcode = isInstr = expectOp = bTRUE;
-    controls.eject = tokenIdx = argNestCnt =
-    tokenSize[0] = tokenType[0] = acc1ValType = acc2ValType = acc1RelocFlags = bZERO;
+    controls.eject = tokenIdx = argNestCnt = tokenSize[0] = tokenType[0] = acc1ValType =
+        acc2ValType = acc1RelocFlags = bZERO;
     hasVarRef = inQuotes = inComment = false;
 
-    asmErrCode = ' ';
-    macroP = macroLine;
-    startMacroLine = macroInPtr;
-    expandingMacro = expandingMacro > 0 ? 0xff : 0;
-    tokI = 1;
+    asmErrCode                       = ' ';
+    macroP                           = macroLine;
+    startMacroLine                   = macroInPtr;
+    expandingMacro                   = expandingMacro > 0 ? 0xff : 0;
+    tokI                             = 1;
     srcLineCnt++;
     macroP = macroLine;
-//    skipIf[0] = skipIf[0] > 0 ? 0xff : 0; // does nothing as skipIf is bool
+    //    skipIf[0] = skipIf[0] > 0 ? 0xff : 0; // does nothing as skipIf is bool
 }
 
 void Start(void) {
