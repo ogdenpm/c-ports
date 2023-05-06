@@ -18,6 +18,12 @@ There are also a three of script files from my [versionTools](https://github.com
 
 ## Recent major changes
 
+### 6-May-2023
+
+- Fixed sequence point issue with asm80. The compiler legally swapped lhs and rhs for an & operation, but this had unexpected side effects.
+- asm80 & plm80c now support le endian processors
+  Note as the old C++ port of pl/m is depreciated, I do not intend to make it portable across non le endian processors. It does however now support build on C++17 and later.
+
 ### 4-May-2023
 
 - I have replaced the versioning model with one that is simpler to generate. A description can be found in the document Scripts/versionTools.pdf.
