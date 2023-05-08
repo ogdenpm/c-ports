@@ -306,7 +306,7 @@ bool ShowLine(void) {
         = 2 -> finalise
 */
 void EmitXref(byte xrefMode, char const *name) {
-    byte i, byteval;
+    char hexLine[6];
 
     if ((!IsPhase1() || !controls.xref || IsSkipping()) && !xRefPending)
         return;
@@ -315,18 +315,8 @@ void EmitXref(byte xrefMode, char const *name) {
     if (xrefMode != XREF_FIN) {    /* ! finalise */
         OutStrN(name, 6);        /* label ref */
         xRefPending = false;
-        byteval = srcLineCnt >> 8;    /* line number in hex - high byte first */
-        i = 0;
-        while (i < 4) {
-            if (++i & 1)    /* high nibble ? */
-            {
-                if (i == 3)    /* get low byte */
-                    byteval = srcLineCnt & 0xff;
-                /* emit high nibble */
-                Outch(Nibble2Ascii(byteval >> 4));
-            } else    /* emit low nibble */
-                Outch(Nibble2Ascii(byteval));
-        }
+        sprintf(hexLine, "%04X", srcLineCnt);
+        OutStr(hexLine);
     } else {    /* finalise */
         OutStrN(lstFile, 15);    /* listing file name */
         if (controls.paging)        /* whether paging '1' or '0' */
@@ -334,11 +324,8 @@ void EmitXref(byte xrefMode, char const *name) {
         else
             Outch('0');
         /* page length and page width as 2 hex chars */
-        Outch(Nibble2Ascii(controls.pageLength >> 4));
-        Outch(Nibble2Ascii(controls.pageLength));
-        Outch(Nibble2Ascii(controls.pageWidth >> 4));
-        Outch(Nibble2Ascii(controls.pageWidth));
-        Outch('3');    /* end of file */
+        sprintf(hexLine, "%02X%02X3", controls.pageLength, controls.pageWidth);
+        OutStr(hexLine);    // 3 marks end of file
         Flushout();
         CloseF(xreffd);
     }

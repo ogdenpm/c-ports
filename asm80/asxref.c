@@ -155,7 +155,7 @@ static void OpenListFile(void)
         Open(&connP, path, UPDATE_MODE, 0, &status);    /* file */
 
     StatusChk(status);
-    Seek(connP, SEEKEND, &dummy, &dummy, &status);    /* seek end */
+    Seek(connP, 0L, SEEK_END, &status);    /* seek end */
     if (status == 0x13)    /* bad seek on non file is ok */
         return;
     StatusChk(status);

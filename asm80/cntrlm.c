@@ -9,6 +9,7 @@
  ****************************************************************************/
 
 #include "asm80.h"
+#include <ctype.h>
 
 static byte controlTable[] = {
 /* format of entries
@@ -34,11 +35,11 @@ bool savedCtlList, savedCtlGen;
 bool controlError;
 
 
-static bool ChkParen(byte arg1b)
+static bool ChkParen(byte parenType)
 {
     SkipWhite();
     reget = 0;
-    return arg1b + '(' == curChar;
+    return parenType == curChar;
 }
 
 
@@ -50,11 +51,11 @@ static byte GetTok(void) {
         return curChar;
 
     SkipWhite_2();
-    if ((curChar > 'A'-1 && 'Z'+1 > curChar) || (curChar > 'a'-1 && 'z'+1 > curChar)) {  /* letter */
+    if (isalpha(curChar)) {  /* letter */
         GetId(O_ID);
         if (BlankAsmErrCode() && tokenSize[0] < 14)
             memcpy(tokBuf, lineBuf, tokBufLen = tokenSize[0]);
-    } else if (curChar > '0'-1  &&  '9'+1 > curChar) {   /* digit ? */
+    } else if (isdigit(curChar)) {   /* digit ? */
         GetNum();
         if (BlankAsmErrCode()) {
             tokNumVal = GetNumVal();
@@ -89,10 +90,10 @@ static bool FinaliseFileNameOpt(char *arg1w)
     if (tokBufIdx == 0)
         return false;
 
-    tokBuf[tokBufIdx] = ' ';
+    tokBuf[tokBufIdx] = '\0';
     tokBufLen = tokBufIdx;
     if (IsWhite())
-        return ChkParen(1);
+        return ChkParen(')');
     return true;
 }
 
@@ -107,8 +108,7 @@ static void GetFileNameOpt(void) {
         }
 
         tokBuf[tokBufIdx] = curChar;
-        tokBufIdx = tokBufIdx + 1;
-        if (tokBufIdx > 14)
+        if (++tokBufIdx > 14)   //CHANGE: 255
             break;
         curChar = GetCh();
     }
@@ -119,12 +119,12 @@ static void GetFileNameOpt(void) {
 
 static void GetFileParam(void) {
     tokBufIdx = 0;
-    if (! ChkParen(0))    /* ( */
+    if (!ChkParen('(')) /* ( */
         FileError();
     else {
         GetFileNameOpt();
-        memcpy(curFileNameP, tokBuf, tokBufIdx + 1);
-        if (! ChkParen(1))    /* ) */
+        strcpy(curFileNameP, tokBuf);    //CHANGE: curFileNameP = strdup
+        if (! ChkParen(')'))    /* ) */
             FileError();
     }
 }
@@ -136,8 +136,7 @@ static void GetMacroFileDrive(void) {
     ii = 0;
 
     while (! IsRParen() && ii < 4) {
-        asmacRef[ii] = curChar;
-        ii = ii + 1;
+        asmacRef[ii++] = curChar;
         curChar = GetCh();
     }
 
@@ -153,10 +152,10 @@ static void GetMacroFileDrive(void) {
 
 
 static bool GetControlNumArg(void) {
-    if (ChkParen(0)) {   /* ( */
+    if (ChkParen('(')) { /* ( */
         tokVal = GetTok();
         if (tokType == TT_NUM)
-            return ChkParen(1);    /* ) */
+            return ChkParen(')');    /* ) */
     }
     return false;
 }
@@ -241,6 +240,7 @@ static void ProcessControl(void) {
     switch (controlId - 5) {
     case 0:            /* TTY */
             controls.tty = true;
+            return;
     case 1:            /* MOD85 */
             controls.mod85 = true;
             return;
@@ -256,7 +256,7 @@ static void ProcessControl(void) {
             return;
     case 4:            /* MACROFILE */
             controlFileType = 3;
-            if (ChkParen(0))    /* optional drive for tmp file */
+            if (ChkParen('(')) /* optional drive for tmp file */
                 GetMacroFileDrive();
             else
                 reget = 1;
@@ -287,7 +287,7 @@ static void ProcessControl(void) {
                     StackError();
                 else
                 {
-                    fileIdx = fileIdx + 1;
+                    fileIdx++;
                     curFileNameP = files[fileIdx].name;
                     GetFileParam();
                     pendingInclude = true;
@@ -298,13 +298,13 @@ static void ProcessControl(void) {
             }
             break;
     case 8:            /* TITLE */
-            if (ChkParen(0)) {
+            if (ChkParen('(')) {
                 tokVal = GetTok();
                 if (tokType == TT_STR && tokBufLen != 0) {
                     if (phase != 1 || (IsPhase1() && primaryValid)) {
                         memcpy(titleStr, tokBuf, tokBufLen);
                         titleStr[titleLen = tokBufLen] = 0;
-                        if (ChkParen(1)) {
+                        if (ChkParen(')')) {
                             controls.title = true;
                             return;
                         }

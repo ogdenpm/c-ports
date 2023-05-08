@@ -185,9 +185,9 @@ char asxref[] = ":F0:ASXREF ";
 char asmacRef[] = ":F0:ASMAC.TMP ";
 word srcLineCnt = 1;
 //static byte pad6A50[2] = "  ";        /* protects for very big files */
-byte asciiLineNo[4] = "   0";
+word lineNo;
 byte spIdx;
-char lastErrorLine[4] = "   0";
+word lastErrorLine;
 controls_t controls = { .all = {false, false, false, true, true, false, false,
 			 true, true, false, 120, 66, 0, false, 0, 0, 0,
 			 true, true, true} };
@@ -245,7 +245,7 @@ byte ii;
 byte jj;
 byte kk;
 //static byte b9B34 = 0;
-char *curFileNameP;
+char *curFileNameP;	//CHANGE: char ** or change model to return string from GetFileParam
 
 address aVar;
 

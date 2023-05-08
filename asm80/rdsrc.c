@@ -40,7 +40,13 @@ void ReadF(byte conn, char *buffP, word count)
 
 void SeekI(byte seekOp)
 {
-    Seek(srcfd, seekOp, &seekIBlk, &seekIByte, &statusIO);
+    if (seekOp == SEEKABS)
+        Seek(srcfd, (long)seekIBlk * 128 + seekIByte, SEEK_SET, &statusIO);
+    else {
+        long where = Tell(srcfd, &statusIO);
+        seekIBlk   = where / 128;
+        seekIByte  = where % 128;
+    }
     IoErrChk();
 }
 

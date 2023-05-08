@@ -62,8 +62,7 @@ void GetAsmFile(void) {
     symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
     endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
-    Rescan(1, &statusIO);    /* get the command line */
-    IoErrChk();
+    Rescan();    /* get the command line */
     Read(1, cmdLineBuf, 128, &actRead.w, &statusIO);
     IoErrChk();
     actRead.cp = actRead.w + cmdLineBuf;    /* convert to pointer */
@@ -99,8 +98,8 @@ void GetAsmFile(void) {
             // PMO ii = false moved to after AddExtents as AddExtents leaves ii = 4 which is false in plm
             ii = false; /* don't copy extent for lst & obj files */
         }
-        kk = kk + 1;
-        cmdchP = cmdchP + 1;
+        kk++;
+        cmdchP++;
     }
     controlsP = cmdchP;        /* controls start after file name */
     if (ii)            /* no extent in source file */
@@ -133,13 +132,10 @@ void ResetData(void) {    /* extended initialisation */
         maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
         effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
     passCnt++;
-#ifdef _MSC_VER
-#pragma warning(disable:4244)
-#endif
-    srcLineCnt = curOp = pageCnt = pageLineCnt = 1;
-#ifdef _MSC_VER
-#pragma warning(default: 4224)
-#endif
+
+    srcLineCnt = pageCnt = pageLineCnt = 1;
+    curOp                              = T_CR;
+
     b68AE = false;
     curChar = ' ';
     for (ii = 0; ii <= 11; ii++)          /* reset all the control seen flags */
@@ -164,7 +160,7 @@ void ResetData(void) {    /* extended initialisation */
 #pragma GCC diagnostic pop
 #endif
         startLineP = inBuf;
-        Seek(infd, SEEKABS, &azero, &azero, &statusIO);    /* rewind */
+        Seek(infd, 0L, SEEK_SET, &statusIO);    /* rewind */
         IoErrChk();
     }
 

@@ -393,7 +393,6 @@ byte Lookup(byte tableId) {
    converted into ??number as a unique local label
     ESC	0x1B		end of spooled macro, returns ESC to higher order routines to handle
 */
-
 byte GetCh(void) {
     static byte curCH, prevCH;
 
@@ -401,12 +400,13 @@ byte GetCh(void) {
         prevCH = curCH;
         do {
             curCH = lookAhead;
-            if (expandingMacro)
-                while ((lookAhead = *macro.top.bufP++) == MACROEOB) {
+            if (expandingMacro) {
+                while ((lookAhead = *macro.top.bufP) == MACROEOB) {
                     ReadM(curMacroBlk + 1);
                     macro.top.bufP = macroBuf;
                 }
-            else
+                macro.top.bufP++;
+            } else
                 lookAhead = scanCmdLine ? GetCmdCh() : GetSrcCh();
         } while (curCH == 0 || curCH == 0x7F || curCH == FF);
 

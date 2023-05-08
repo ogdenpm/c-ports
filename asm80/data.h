@@ -30,8 +30,8 @@ extern char signonMsg[];
 #define aModulePage	(signonMsg + 43)
 extern byte bZERO;
 extern byte bTRUE;
-extern char const *aErrStrs[];
-extern byte aErrStrsLen[];
+//extern char const *aErrStrs[];
+//extern byte aErrStrsLen[];
 
 // defined in globlm.c
 
@@ -190,9 +190,9 @@ extern char asxrefTmp[];
 extern char asxref[];
 extern char asmacRef[];
 extern word srcLineCnt;
-extern byte asciiLineNo[4];
+extern word lineNo;
 extern byte spIdx;
-extern char lastErrorLine[4];
+extern word lastErrorLine;
 extern controls_t controls;
 extern bool ctlListChanged;
 extern byte titleLen;

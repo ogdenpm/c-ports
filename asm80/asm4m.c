@@ -12,11 +12,9 @@
 
 bool StrUcEqu(char const *s, char const *t)
 {
-    while (*s != 0) {
-        if (*s != *t && *s != (*t & 0x5F))
+    while (*s) {
+        if (*s++ != (*t++ & 0x5f))
             return false;
-        s++;
-        t++;
     }
     return true;
 }
@@ -44,26 +42,10 @@ void Sub546F(void) {
 
 
 void FinishLine(void) {
-    pointer linenoP;
-    bool updating;
 
     Sub546F();
     if (IsPhase2Print()) {    /* update the ascii line number */
-        linenoP = &asciiLineNo[3];    /* point to last digit */
-        updating = true;
-
-        while (updating) {        /* adjust the line number */
-            if (*linenoP == '9')    /* if 9 then roll over to 0 */
-                *linenoP = '0';
-            else {
-                if (*linenoP == ' ')    /* new digit */
-                    *linenoP = '1';
-                else            /* just increment */
-                    ++*linenoP;
-                updating = false;
-            }
-            linenoP--;
-        }
+        lineNo++;
 
         if (ShowLine() || ! BlankAsmErrCode())
             PrintLine();

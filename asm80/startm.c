@@ -9,6 +9,7 @@
  ****************************************************************************/
 
 #include "asm80.h"
+#include <ctype.h>
 
 word seekMZero = 0;
 byte b3782[2] = { 0x80, 0x81 };
@@ -19,8 +20,8 @@ byte bZERO = 0;
 byte bTRUE = true;
 //static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
 
-char const* aErrStrs[] = { "\r\nSTACK", "\r\nTABLE", "\r\nCOMMAND", "\r\nEOF", "\r\nFILE", "\r\nMEMORY" };
-byte aErrStrsLen[] = {7, 7, 9, 5, 6, 8};
+static char const* aErrStrs[] = { "\r\nSTACK", "\r\nTABLE", "\r\nCOMMAND", "\r\nEOF", "\r\nFILE", "\r\nMEMORY" };
+//byte aErrStrsLen[] = {7, 7, 9, 5, 6, 8};
 
 
 pointer Physmem(void) {
@@ -29,12 +30,7 @@ pointer Physmem(void) {
 
 
 byte GetCmdCh(void) {
-    byte ch;
-
-    ch = *cmdchP++;
-    if ('a' <= ch && ch <= 'z')
-        ch = ch & 0x5F;
-    return ch;
+    return toupper(*cmdchP++);
 }    
 
 
@@ -58,8 +54,8 @@ void Outch(char c)
     *outP++ = c;
 }
 
-void OutStrN(char const *s, byte n)
-{
+
+void OutStrN(char const *s, byte n) {
 
     while (n-- > 0)
         Outch(*s++);
@@ -126,12 +122,13 @@ bool IsPhase2Print(void) {
 }
 
 
-void WrConsole(char const *bufP, word count)
-{
+void WrConsole(char const *bufP, word count) {
     Write(0, bufP, count, &statusIO);
     IoErrChk();
 }
-
+void WrStrConsole(char const *bufP) {
+    WrConsole(bufP, (word)strlen(bufP));
+}
 
 void RuntimeError(byte errCode)
 {
@@ -147,16 +144,16 @@ void RuntimeError(byte errCode)
     if (errCode == RTE_FILE)        /* file Error() */
         aVar.cp = " ERROR, ";    /* replace message */
 
-    WrConsole(aErrStrs[errCode], aErrStrsLen[errCode]);    /* Write() the ERROR type */
-    WrConsole(aVar.cp, 8);    /* Write() the ERROR string */
+    WrStrConsole(aErrStrs[errCode]);    /* Write() the ERROR type */
+    WrStrConsole(aVar.cp);    /* Write() the ERROR string */
     if (IsPhase2Print()) {       /* repeat to the print file if required */
-        OutStrN(aErrStrs[errCode], aErrStrsLen[errCode]);
-        OutStrN(aVar.cp, 8);
+        OutStr(aErrStrs[errCode]);
+        OutStr(aVar.cp);
     }
 
     if (errCode == RTE_FILE || errCode == RTE_EOF) {    /* file or EOF Error() */
         if (tokBufIdx == 0) {
-            WrConsole("BAD SYNTAX\r\n", 12);
+            WrStrConsole("BAD SYNTAX\r\n");
             if (! scanCmdLine) {
                 Skip2NextLine();
                 outfd = 0;		// :CO:
@@ -164,8 +161,8 @@ void RuntimeError(byte errCode)
                 Outch(LF);
             }
         } else {
-            WrConsole(curFileNameP, tokBufIdx);
-            WrConsole(ascCRLF, 2);
+            WrStrConsole(curFileNameP);
+            WrStrConsole("\r\n");
         }
     }
 
@@ -205,10 +202,7 @@ word SafeOpen(char const *pathP, word access)
 
 byte Nibble2Ascii(byte n)
 {
-    n = (n & 0xF) + '0';
-    if (n > '9')
-        n = n + 7;
-    return n;
+    return "0123456789ABCDEF"[n & 0xf];
 }
 
 void Put2Hex(void (*pfunc)(byte), byte val)
@@ -294,7 +288,7 @@ void InitialControls(void) {
     if (pendingInclude)
         OpenSrc();
     
-    pendingInclude = isControlLine = scanCmdLine = bZERO;
+    pendingInclude = isControlLine = scanCmdLine = false;
     ParseControlLines();            /* initial control lines allow primary controls */
     primaryValid = false;            /* not allowed from now on */
     controls.debug = controls.debug && controls.object;    /* debug doesn't make sense if no object code */

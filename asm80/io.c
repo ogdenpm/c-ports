@@ -27,6 +27,7 @@
 #define write   _write
 #define unlink  _unlink
 #define lseek   _lseek
+#define tell    _tell
 #else
 #include <unistd.h>
 #include <errno.h>
@@ -464,23 +465,22 @@ void Read(word conn, char *buffP, word count, wpointer actualP, wpointer statusP
             *statusP = ERROR_NOTREADY;
     }
 }
-void Rescan(word conn, wpointer statusP)
+void Rescan()
 {
-    if (conn == CI_DEV) {
         _commandLinePtr = _commandLine;
-        *statusP = ERROR_SUCCESS;
-    }
-    else
-        *statusP = ERROR_NOTLINEMODE;
+}
+
+long Tell(word conn, wpointer statusP) {
+        if ((*statusP = ChkMode(conn, RANDOM_ACCESS)) != ERROR_SUCCESS)
+        return 0;
+    long offset = tell(aft[conn].fd);
+    *statusP    = offset >= 0 ? 0 : ERROR_BADPARAM;
+    return offset;
 }
 
 
-
-void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer statusP)
+void Seek(word conn, long offset, int origin, wpointer statusP)
 {
-    long offset;
-    int origin;
-
     if ((*statusP = ChkMode(conn, RANDOM_ACCESS)) != ERROR_SUCCESS)
         return;
 
@@ -488,30 +488,9 @@ void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer status
         *statusP = ERROR_SEEKWRITE;
         return;
     }
-
-    if (mode != SEEKTELL)
-        offset = *blockP * 128 + *byteP;
-
-    switch (mode) {
-    case SEEKTELL:
-        offset = lseek(aft[conn].fd, 0L, SEEK_CUR);
-        *blockP = (word) (offset / 128);
-        *byteP = offset % 128;
-        *statusP = 0;
-        return;
-    case SEEKABS:	origin = SEEK_SET; break;
-    case SEEKBACK:	offset = -offset;
-    case SEEKFWD:	origin = SEEK_CUR; break;
-    case SEEKEND:	origin = SEEK_END; offset = 0;  break;
-    default: fprintf(stderr, "Unsupported seek mode %d\n", mode);
-        *statusP = ERROR_BADMODE;
-        return;
-    }
-    if (lseek(aft[conn].fd, offset, origin) >= 0)
-        *statusP = 0;
-    else
-        *statusP = ERROR_BADPARAM;
+     *statusP = lseek(aft[conn].fd, offset, origin) >= 0 ? 0 : ERROR_BADPARAM;
 }
+
 void Write(word conn, const void *buffP, word count, wpointer statusP)
 {
     if ((*statusP = ChkMode(conn, WRITE_MODE)) != ERROR_SUCCESS)

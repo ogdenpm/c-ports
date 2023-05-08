@@ -90,15 +90,9 @@ static void Acc1ToDecimal(void) {
     byte buf[6];
 
     PushToken(CR);
-    kk = 0;
-    /* build number in reverse digit order */
-    do {
-        buf[++kk] = accum1 % 10 + '0';
-    } while ((accum1 /= 10) > 0);
-
-    /* insert in collect buffer in order */
-    while (kk > 0)
-        CollectByte(buf[kk--]);
+    sprintf(buf, "%u", accum1);
+    for (char *s = buf; *s; s++)
+        CollectByte(*s);
 }
 
 
@@ -131,9 +125,8 @@ static void InitSpoolMode(void) {
 
 
 static void ChkForLocationError(void) {
-    if (usrLookupIsID)
-        if (asmErrCode != 'U')
-            LocationError();
+    if (usrLookupIsID && asmErrCode != 'U')
+        LocationError();
 }
 
 
