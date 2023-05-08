@@ -173,7 +173,6 @@ static bool ReadTmp(char *buf, byte cnt)
 
 static void WriteStr(const char *str, word len)
 {
-    printf(">>%*s", len, str);
     Write(connP, (const pointer)str, len, &status);
     StatusChk(status);
 }
