@@ -79,7 +79,7 @@ void MiscControl(file_t *txFile) {
             Fread(txFile, &name[13], 6);	/* Read() in name of include file */
             Fread(txFile, &name[6], 7);
             Fread(txFile, &name[0], 7);	/* overwrites the type byte */
-            memmove((pointer)&srcFileTable[srcFileIdx], name, 16);
+            memmove((pointer)&srcFileTable[srcFileIdx], name + 1, 16);
             CloseF(&srcFil);
             InitF(&srcFil, "SOURCE", &name[1]);
             OpenF(&srcFil, 1);
