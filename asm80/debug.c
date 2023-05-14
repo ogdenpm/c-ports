@@ -61,7 +61,7 @@ void DumpOpStack(void) {
 
 void DumpTokenStackItem(int i, bool pop)
 {
-    char token[7];
+    char tok[7];
     tokensym_t *s;
 
     if (i == 0 && pop)
@@ -69,21 +69,21 @@ void DumpTokenStackItem(int i, bool pop)
     else
         printf("%1d", pop ? i - 1 : i);
 
-    if (tokenSize[i] == 4) {
-        UnpackToken((wpointer)tokStart[i], token);
-        printf(" %6.6s", token);
+    if (token[i].size == 4) {
+        UnpackToken((wpointer)token[i].start, tok);
+        printf(" %6.6s", tok);
     }
-    else if (tokenSize[i] == 1)
-        printf(" %6d", *(pointer)tokStart[i]);
-    else if (tokenSize[i] == 2)
-        printf(" %6d", *(wpointer)tokStart[i]);
+    else if (token[i].size == 1)
+        printf(" %6d", *token[i].start);
+    else if (token[i].size == 2)
+        printf(" %6d", *(wpointer)token[i].start);
     else
-        printf(" %6.*s", tokenSize[i], tokStart[i]);
-    printf("  %02X   %02X  %3d  %3d", tokenType[i], tokenAttr[i], tokenSize[i], tokenSymId[i]);
-    s = tokenSym.stack[i];
+        printf(" %6.*s", token[i].size, token[i].start);
+    printf("  %02X   %02X  %3d  %3d", token[i].type, token[i].attr, token[i].size, token[i].symId);
+    s = token[i].symbol;
     if (s /*&& (symTab[TID_SYMBOL] <= s && s <= endSymTab[TID_SYMBOL] || symTab[TID_MACRO] <= s && s <= endSymTab[TID_MACRO]) */) {
-        UnpackToken(s->tok, token);
-        printf("   %6.6s %04X   %02X   %02X\n", token, s->addr, s->type, s->flags);
+        UnpackToken(s->tok, tok);
+        printf("   %6.6s %04X   %02X   %02X\n", tok, s->addr, s->type, s->flags);
     }
     else
         printf("\n");

@@ -29,22 +29,22 @@ void Sub546F(void) {
     if (expectingOperands)
         SyntaxError();
     if (HaveTokens())
-        if (!(tokenType[spIdx] == O_DATA || lineNumberEmitted))
+        if (!(token[spIdx].type == O_DATA || lineNumberEmitted))
             SyntaxError();
     if (inDB || inDW) {
-            if (tokenIdx == 1 && ! BlankAsmErrCode() && tokenSize[0] != 1)
-            tokenSize[0] = 2;
+            if (tokenIdx == 1 && ! BlankAsmErrCode() && token[0].size != 1)
+            token[0].size = 2;
     }
     else if (! BlankAsmErrCode() && HaveTokens())
-        if (tokenSize[spIdx] > 3)
-            tokenSize[spIdx] = 3;
+        if (token[spIdx].size > 3)
+            token[spIdx].size = 3;
 }
 
 
 void FinishLine(void) {
 
     Sub546F();
-    if (IsPhase2Print()) {    /* update the ascii line number */
+    if (IsPhase2Print()) {    /* update the line number */
         lineNo++;
 
         if (ShowLine() || ! BlankAsmErrCode())
@@ -52,18 +52,16 @@ void FinishLine(void) {
     }
 
     if (skipRuntimeError) {
-        outP++;
-        Flushout();
-        Exit(1);
+        exit(1);
     }
 
-    if (! isControlLine)
+    if (!isControlLine)
     {
         ii = 2;
         if (tokenIdx < 2 || inDB || inDW)
             ii = 0;
 
-        w6BCE = IsSkipping() || ! isInstr ? lineBuf : tokStart[ii] + tokenSize[ii];
+        w6BCE = IsSkipping() || ! isInstr ? lineBuf : token[ii].start + token[ii].size;
 
         if (ChkGenObj())
             Ovl8();
@@ -71,9 +69,8 @@ void FinishLine(void) {
         segLocation[activeSeg] = effectiveAddr.w = (word)(segLocation[activeSeg] + (w6BCE - lineBuf));
     }
 
-    if (controls.xref && haveUserSymbol)
-        if (phase == 1)
-            EmitXref(XREF_REF, name);
+    if (controls.xref && haveUserSymbol && phase == 1)
+        EmitXref(XREF_REF, name);
 
     FlushM();
 
@@ -88,7 +85,6 @@ void FinishLine(void) {
         if (IsPhase2Print() && controls.symbols)
             Sub7041_8447();
 
-        EmitXref(XREF_FIN, name);    /* finalise xref file */
         if (ChkGenObj())
             ReinitFixupRecs();
     }

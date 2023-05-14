@@ -105,13 +105,8 @@ void PopToken(void) {
 #ifdef TRACE
     DumpTokenStack(true);
 #endif
-    tokStart[0] = tokStart[tokenIdx];
-    tokenSym.stack[0] = tokenSym.stack[tokenIdx];
-    tokenType[0] = tokenType[tokenIdx];
-    tokenAttr[0] = tokenAttr[tokenIdx];
-    tokenSize[0] = tokenSize[tokenIdx];
-    tokenSymId[0] = tokenSymId[tokenIdx];
-    if (HaveTokens())
+    token[0]          = token[tokenIdx];
+    if (tokenIdx)
         tokenIdx--;
 }
 
@@ -173,23 +168,16 @@ void UnNest(byte sw)
     }
 }
 
-void PushToken(byte type)
-{
+void PushToken(byte type) {
     if (tokenIdx >= 8)
         StackError();
     else {
-        tokenIdx = tokenIdx + 1;
-        tokStart[tokenIdx] = tokStart[0];
-        tokenSym.stack[tokenIdx] = tokenSym.stack[0];
-        tokenType[tokenIdx] = tokenType[0];
-        tokenAttr[tokenIdx] = tokenAttr[0];
-        tokenSize[tokenIdx] = tokenSize[0];
-        tokenSymId[tokenIdx] = tokenSymId[0];    
-        tokStart[0] += tokenSize[0];    /* advance for next token */
-        tokenType[0] = type;
-        tokenAttr[0] = tokenSize[0] = bZERO;
-        tokenSym.stack[0] = NULL; // (tokensym_t *)wZERO; to work around gcc complaint
-        tokenSymId[0] = wZERO;
+        token[++tokenIdx] = token[0];
+        token[0].start += token[0].size; /* advance for next token */
+        token[0].type = type;
+        token[0].attr = token[0].size = 0;
+        token[0].symbol               = NULL;
+        token[0].symId                = 0;
     }
 #ifdef TRACE
     DumpTokenStack(false);
@@ -200,9 +188,9 @@ void CollectByte(byte c)
 {
     pointer s;
 
-    if ((s = tokPtr + tokenSize[0]) < endLineBuf) {   /* check for lineBuf overrun */
+    if ((s = tokPtr + token[0].size) < endLineBuf) {   /* check for lineBuf overrun */
         *s = c;
-        tokenSize[0]++;
+        token[0].size++;
     }
     else
         StackError();
@@ -223,12 +211,12 @@ void GetId(byte type)
 
 
 void GetNum(void) {
-    word accum;
+    word num;
     byte radix, digit, i;
 //    byte chrs based tokPtr [1];
 
     GetId(O_NUMBER);
-    radix = tokPtr[--tokenSize[0]];
+    radix = tokPtr[--token[0].size];
     if (radix == 'H')
         radix = 16;
 
@@ -244,10 +232,10 @@ void GetNum(void) {
     if (radix > 16)
         radix = 10;
     else
-        tokenSize[0]--;
+        token[0].size--;
 
-    accum = 0;
-    for (i = 0; i <= tokenSize[0]; i++) {
+    num = 0;
+    for (i = 0; i <= token[0].size; i++) {
         if (tokPtr[i] == '?' || tokPtr[i] == '@') {
             IllegalCharError();
             digit = 0;
@@ -255,18 +243,18 @@ void GetNum(void) {
             if ((digit = tokPtr[i] - '0') > 9)
                 digit = digit - 7;
             if (digit >= radix)
-                if (! (tokenType[2] == O_NULVAL)) { /* bug? risk that may be random - tokenIdx may be < 2 */
+                if (! (token[2].type == O_NULVAL)) { /* bug? risk that may be random - tokenIdx may be < 2 */
                     IllegalCharError();
                     digit = 0;
                 }
         }
 
-        accum = accum * radix + digit;
+        num = num * radix + digit;
     }
     /* replace with packed number */
-    tokenSize[0] = 0;
-    CollectByte((accum) & 0xff);
-    CollectByte((accum) >> 8);
+    token[0].size = 0;
+    CollectByte((num) & 0xff);
+    CollectByte((num) >> 8);
 }
 
 void GetStr(void) {

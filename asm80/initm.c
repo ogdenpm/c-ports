@@ -10,13 +10,13 @@
 
 #include "asm80.h"
 
-byte aExtents[] = " LSTOBJ";
-static byte aDebug[] = "TRACE";
+byte aExtents[] = " lstobj";
+static byte aDebug[] = "DEBUG";
 
 
 /* skip white space in command line */
 void CmdSkipWhite(void) { 
-    while ((*cmdchP == ' ' || *cmdchP == TAB) && cmdchP != actRead.cp) {
+    while (*cmdchP && (*cmdchP == ' ' || *cmdchP == TAB)) {
         cmdchP++;
     }
 }
@@ -48,6 +48,7 @@ void AddExtents(void) {
         lstFile[kk + ii] = aExtents[ii];
         objFile[kk + ii] = aExtents[ii+3];
     }
+    lstFile[kk + 4] = objFile[kk + 4] = '\0';
 }
 
 
@@ -62,18 +63,11 @@ void GetAsmFile(void) {
     symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
     endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
-    Rescan();    /* get the command line */
-    Read(1, cmdLineBuf, 128, &actRead.w, &statusIO);
-    IoErrChk();
-    actRead.cp = actRead.w + cmdLineBuf;    /* convert to pointer */
+   
     scanCmdLine = true;        /* scanning command line */
-
-    Write(0, signonMsg, 0x29, &statusIO);
-    Write(0, signonMsg, 2, &statusIO);
-    IoErrChk();
+    puts("\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1");
 
     CmdSkipWhite();
-    asxref[2] = GetDrive();     /* asxref tmp file defaults to current drive */
 
     while (! IsWhiteOrCr(*cmdchP)) {    /* skip to end of program name */
         cmdchP++;
@@ -83,12 +77,9 @@ void GetAsmFile(void) {
     if (*cmdchP == CR)        /* no args !! */
         RuntimeError(RTE_FILE);
 
-    infd = SafeOpen(cmdchP, READ_MODE);    /* Open() file for reading */
-    rootfd = srcfd = infd;
     ii = true;      /* copying name */
-
     kk = 0;     /* length of file name */
-    while (! IsWhiteOrCr(*cmdchP)) {    /* copy file name over to the files list */
+    while (! IsWhiteOrCr(*cmdchP) && kk < 14) {    /* copy file name over to the files list */
         files[0].name[kk] = *cmdchP;
         if (ii)        /* and the name for the lst && obj files */
             lstFile[kk] = objFile[kk] = *cmdchP;
@@ -101,6 +92,8 @@ void GetAsmFile(void) {
         kk++;
         cmdchP++;
     }
+    files[0].name[kk] = '\0';
+    srcfp = files[0].fp = SafeOpen(files[0].name, "rt"); /* Open() file for reading */
     controlsP = cmdchP;        /* controls start after file name */
     if (ii)            /* no extent in source file */
     {
@@ -110,27 +103,24 @@ void GetAsmFile(void) {
     }
 
     files[0].name[kk] = ' ';    /* append trailing space */
-    /* set drive for macro and asxref tmp files if specified in source file */
-    if (lstFile[0] == ':' && lstFile[2] != '0')
-        asmacRef[2] = asxrefTmp[2] = lstFile[2];    //Fixed 20230429
 }
 
 
 void ResetData(void) {    /* extended initialisation */
 
     InitLine();
-    expandingMacro = mSpoolMode = bZERO;
+    expandingMacro = mSpoolMode = 0;
     b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] =  expandingMacroParameter =
         finished = segDeclared[0]  = segDeclared[1] = inComment = hasVarRef = pendingInclude = false;
-    noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
-    controls.gen = bTRUE;
-    controls.cond = bTRUE;
-    macroDepth = macroSpoolNestDepth = macroCondStk[0] = macroCondSP = bZERO; 
-    saveIdx = lookAhead = activeSeg = ifDepth = opSP = opStack[0] = bZERO;
-    macroBlkCnt = wZERO;
+    noOpsYet = primaryValid = controls.list = ctlListChanged = true;
+    controls.gen = true;
+    controls.cond = true;
+    macroDepth = macroSpoolNestDepth = macroCondStk[0] = macroCondSP = 0; 
+    saveIdx = lookAhead = activeSeg = ifDepth = opSP = opStack[0] = 0;
+    macroBlkCnt = 0;
     segLocation[SEG_ABS] = segLocation[SEG_CODE] = segLocation[SEG_DATA] =
         maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
-        effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
+        effectiveAddr.w = localIdCnt = externId = errCnt = 0;
     passCnt++;
 
     srcLineCnt = pageCnt = pageLineCnt = 1;
@@ -143,29 +133,16 @@ void ResetData(void) {    /* extended initialisation */
 
     curMacroBlk = 0xFFFF;
     if (! IsPhase1()) {   /* close any Open() include file */
-        if (fileIdx != 0) {
-            CloseF(srcfd);
-            IoErrChk();
-            srcfd = rootfd;
+        while (fileIdx != 0) {
+            if (fclose(files[fileIdx].fp))
+                IoError(files[fileIdx].name,  "Close error");
+            fileIdx--;
         }
-
-        fileIdx = bZERO;    /* reset files for another pass */
-        endInBufP = inBuf;
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
-        inChP = endInBufP - 1;
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        startLineP = inBuf;
-        Seek(infd, 0L, SEEK_SET, &statusIO);    /* rewind */
-        IoErrChk();
+        srcfp   = files[0].fp;
+        rewind(srcfp);
     }
 
     baseMacroTbl = Physmem() + 0xBF;
-    endOutBuf = &outbuf[OUT_BUF_SIZE];
 }
 
 void InitRecTypes(void) {

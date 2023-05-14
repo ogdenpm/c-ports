@@ -26,6 +26,7 @@ enum {CC_BAD = 0, CC_WS, CC_SEMI, CC_COLON, CC_CR, CC_PUN, CC_DOLLAR,
 #define MACROPARAM	0x80
 
 #define	MAXSYMSIZE	6
+#define MAXLINE     (132-24)
 
 /* op types */
 enum {T_VALUE = 0, T_CR, T_LPAREN, T_RPAREN, T_STAR, T_PLUS, T_COMMA,

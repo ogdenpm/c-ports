@@ -14,14 +14,13 @@
 word seekMZero = 0;
 byte b3782[2] = { 0x80, 0x81 };
 char spaces24[] = "                        ";
-char ascCRLF[] = "\r\n";
-char signonMsg[] = "\r\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\tMODULE \t PAGE ";
+char ascCRLF[] = "\n";
+char signonMsg[] = "\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\tMODULE \t PAGE ";
 byte bZERO = 0;
 byte bTRUE = true;
 //static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
 
-static char const* aErrStrs[] = { "\r\nSTACK", "\r\nTABLE", "\r\nCOMMAND", "\r\nEOF", "\r\nFILE", "\r\nMEMORY" };
-//byte aErrStrsLen[] = {7, 7, 9, 5, 6, 8};
+static char const* aErrStrs[] = { "STACK", "TABLE", "COMMAND", "EOF", "FILE", "MEMORY" };
 
 
 pointer Physmem(void) {
@@ -34,38 +33,11 @@ byte GetCmdCh(void) {
 }    
 
 
-void IoErrChk(void) {
-    if (statusIO == 0)
-        return;
-    Error(statusIO);
-    Exit(1);
-}
-
-
-void Flushout(void) {
-    Write(outfd, outbuf, (word)(outP - outbuf), &statusIO);
-    outP = outbuf;
-}
-
 void Outch(char c)
 {
-    if (outP == endOutBuf)
-        Flushout();
-    *outP++ = c;
+        putc(c, lstFp);
 }
 
-
-void OutStrN(char const *s, byte n) {
-
-    while (n-- > 0)
-        Outch(*s++);
-}
-
-
-void CloseF(word conn)
-{
-    Close(conn, &statusIO);
-}
 
 bool IsSpace(void) {
     return curChar == ' ';
@@ -122,12 +94,8 @@ bool IsPhase2Print(void) {
 }
 
 
-void WrConsole(char const *bufP, word count) {
-    Write(0, bufP, count, &statusIO);
-    IoErrChk();
-}
 void WrStrConsole(char const *bufP) {
-    WrConsole(bufP, (word)strlen(bufP));
+    printf(bufP);
 }
 
 void RuntimeError(byte errCode)
@@ -139,64 +107,38 @@ void RuntimeError(byte errCode)
         b6B33 = true;
         return;
     }
+    fprintf(stderr, "\n%s ERROR%s", aErrStrs[errCode], errCode == RTE_FILE ? ", " : "\n");
+    if (IsPhase2Print()) /* repeat to the print file if required */
+        fprintf(lstFp, "\n%s ERROR%s", aErrStrs[errCode], errCode == RTE_FILE ? ", " : "\n");
 
-    aVar.cp = " ERROR\r\n";        /* assume " ERROR\r\n" */
-    if (errCode == RTE_FILE)        /* file Error() */
-        aVar.cp = " ERROR, ";    /* replace message */
-
-    WrStrConsole(aErrStrs[errCode]);    /* Write() the ERROR type */
-    WrStrConsole(aVar.cp);    /* Write() the ERROR string */
-    if (IsPhase2Print()) {       /* repeat to the print file if required */
-        OutStr(aErrStrs[errCode]);
-        OutStr(aVar.cp);
-    }
 
     if (errCode == RTE_FILE || errCode == RTE_EOF) {    /* file or EOF Error() */
         if (tokBufIdx == 0) {
-            WrStrConsole("BAD SYNTAX\r\n");
-            if (! scanCmdLine) {
+            fputs("BAD SYNTAX\n", stderr);
+            if (!scanCmdLine) {
                 Skip2NextLine();
-                outfd = 0;		// :CO:
-                PrintDecimal(srcLineCnt);    /* overlay 1 */
-                Outch(LF);
+                fprintf(stderr, "%4u\n", srcLineCnt);
             }
-        } else {
-            WrStrConsole(curFileNameP);
-            WrStrConsole("\r\n");
-        }
+        } else
+            fputs(curFileNameP, stderr);
     }
 
     if (errCode == RTE_STACK) {   /* stackError - suppress cascade errors */
         skipRuntimeError = true;
         return;
     }
-
-    Exit(1);
-}
-
-void IoError(char const *path)
-{
-    tokBufIdx = 0;
-    curFileNameP = (char *)path;
-
-    while (*path != ' ' && *path != CR && *path != TAB) {
-        tokBufIdx++;
-        path++;
-    }
-    if (missingEnd)
-        RuntimeError(RTE_EOF);    /* EOF Error*/
-    RuntimeError(RTE_FILE);        /* file Error() */
+    errCnt++;
+    exit(1);
 }
 
 /* open file for read with status check */
-word SafeOpen(char const *pathP, word access)
+FILE *SafeOpen(char const *pathP, char *access)
 {
-    word conn;
+    FILE *fp;
 
-    Open(&conn, pathP, access, 0, &openStatus);
-    if (openStatus != 0)
-        IoError(pathP);
-    return conn;
+    if (!(fp = Fopen(pathP, access)))
+        IoError(pathP, "Open error");
+    return fp;
 }
 
 
@@ -299,15 +241,12 @@ void InitialControls(void) {
 
 
 void InitLine(void) {
-    startLineP = inChP + 1;
     lineChCnt  = 0;
     if (pendingInclude)
         OpenSrc();
 #ifdef SHOWLINE
-    for (char *s = startLineP; s < endInBufP && *s != '\r' && *s != '\n';)
-        putchar(*s++);
-    putchar('\r');
-    putchar('\n');
+    for (int i  = 0; i < lineChCnt; i++)
+        putchar(inBuf[i]);
 #endif
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
         inExpression = expectingOperands = xRefPending = haveUserSymbol = inDB = inDW =
@@ -315,7 +254,7 @@ void InitLine(void) {
                 needsAbsValue                                                  = false;
     gotLabel                                                                   = bZERO;
     atStartLine = expectingOpcode = isInstr = expectOp = bTRUE;
-    controls.eject = tokenIdx = argNestCnt = tokenSize[0] = tokenType[0] = acc1ValType =
+    controls.eject = tokenIdx = argNestCnt = token[0].size = token[0].type = acc1ValType =
         acc2ValType = acc1RelocFlags = bZERO;
     hasVarRef = inQuotes = inComment = false;
 
@@ -326,7 +265,6 @@ void InitLine(void) {
     tokI                             = 1;
     srcLineCnt++;
     macroP = macroLine;
-    //    skipIf[0] = skipIf[0] > 0 ? 0xff : 0; // does nothing as skipIf is bool
 }
 
 void Start(void) {
@@ -334,17 +272,11 @@ void Start(void) {
     phase = 1;
     ResetData();
     InitialControls();
-    macrofd = SafeOpen(asmacRef, UPDATE_MODE);
+    if (!(macroFp = tmpfile()))
+        IoError("Macro file", "Create error");
 
-    if (controls.object) {
-        Delete(objFile, &statusIO);
-        objfd = SafeOpen(objFile, UPDATE_MODE);
-    }
-
-    if (controls.xref) {
-        xreffd = SafeOpen(asxrefTmp, WRITE_MODE);
-        outfd = xreffd;
-    }
+    if (controls.object)
+        objFp = SafeOpen(objFile, "wb+");
 
     DoPass();
     phase = 2;
@@ -357,22 +289,19 @@ void Start(void) {
         InitRecTypes();
     }
     if (controls.print)
-        outfd = SafeOpen(lstFile, WRITE_MODE);
+        lstFp = SafeOpen(lstFile, "wt");
     ResetData();
     InitialControls();
     DoPass();
-    if (controls.print) {
-        AsmComplete();
-        Flushout();
-    }
+    if (controls.print)
+        AsmComplete(lstFp);
 
     if (controls.object) {
         Ovl11();
         WriteModend();
     }
 
-    if (! StrUcEqu(":CO:", lstFile))
-        FinishPrint();
+    FinishPrint();
     FinishAssembly();
 }
 

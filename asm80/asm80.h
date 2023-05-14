@@ -17,6 +17,7 @@
 
 #ifdef _MSC_VER
 #define NORETURN(func)      __declspec(noreturn) void func
+#define unlink	_unlink
 #elif __GNUC__
 #define NORETURN(func)     __attribute__((noreturn)) void func 
 #else

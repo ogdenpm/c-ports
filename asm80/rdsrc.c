@@ -12,153 +12,74 @@
 
 bool pendingInclude = false;
 bool includeOnCmdLine = false;
-//static byte padb6C23;
-byte fileIdx = {0};
-char *endInBufP = inBuf;
-bool missingEnd = false;
-word srcfd;
-word rootfd;
-char *inChP = inBuf - 1;
-char *startLineP = inBuf;
+byte fileIdx = 0;
+FILE *srcfp;
+FILE *rootfp;
 byte lineChCnt = 0; 
 file_t files[6];
-static word seekIBlk;
-static word seekIByte;
-//static byte pad6CAD;
-static char *savInBufP;
-static char *savEndInBufP;
-//static word pad6CB2[4];
-static word readFActual;
-//static word pad6CBC;
-
-
-void ReadF(byte conn, char *buffP, word count)
-{
-    Read(conn, buffP, count, &readFActual, &statusIO);
-    IoErrChk();
-}
-
-void SeekI(byte seekOp)
-{
-    if (seekOp == SEEKABS)
-        Seek(srcfd, (long)seekIBlk * 128 + seekIByte, SEEK_SET, &statusIO);
-    else {
-        long where = Tell(srcfd, &statusIO);
-        seekIBlk   = where / 128;
-        seekIByte  = where % 128;
-    }
-    IoErrChk();
-}
-
-
-void ReadSrc(char *bufLoc)
-{
- //   byte pad;
-
-    ReadF((byte)srcfd, bufLoc, (word)(&inBuf[sizeInBuf] - bufLoc));
-    endInBufP = bufLoc + readFActual;
-}
-
 
 
 void CloseSrc(void) /* close current source file. Revert to any parent file */
 {
-    Close(srcfd, &statusIO);
-    IoErrChk();
-    if (fileIdx == 0) {		/* if it the original file we had no end statement so error */
-        missingEnd = true;
-        IoError(files[0].name);
-        return;
-    }
-    fileIdx--;
-    /* Open() the previous file */
-    if (fileIdx == 0)		/* original source is kept open across include files */
-        srcfd = rootfd;
-    else
-        srcfd = SafeOpen(files[fileIdx].name, READ_MODE);
+    if (fclose(srcfp) == EOF)
+        IoError(files[fileIdx].name, "Close Error");
 
-    seekIByte = files[fileIdx].byt;    /* move to saved location */
-    seekIBlk = files[fileIdx].blk;
-    SeekI(SEEKABS);
-    endInBufP = inBuf;        /* force Read() */
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
-    inChP = inBuf - 1;
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+    if (fileIdx == 0)		/* if it the original file we had no end statement so error */
+        IoError(files[0].name, "EOF - missing 'end'");
+    else   /* reconnect to previous file */
+        srcfp = files[--fileIdx].fp;
 }
 
-
+/*
+    Until the main code is modified to use '\n' as the end of a line
+    the code below squashes '\r' in the input stream and replaces
+    '\n' with '\r\n'. Note a single '\r' is also treated as '\r\n'
+    This will allow the assembler to handle Linux/Unix created source
+*/
 byte GetSrcCh(void) /* get next source character */
 {
-    char *insertPt;
-    while (1) {
-        inChP++;
+    int c;
+    static bool retLF = false;
 
-        if (inChP == endInBufP) {   /* buffer all used */
-            savInBufP = startLineP;
-            savEndInBufP = endInBufP;
-            /* copy the current line down to start of buffer */
-            if (savEndInBufP - savInBufP > 0)
-                memcpy(inBuf, startLineP, savEndInBufP - savInBufP);
-            startLineP = inBuf;
-            /* Read() in  characters to rest of inBuf */
-            ReadSrc(insertPt = startLineP + (savEndInBufP - savInBufP));
-            inChP = insertPt;
-        }
-
-        if (readFActual == 0) {		/* end of file so close this one*/
-            CloseSrc();
-            continue;
-        }
-        break;
+    if (retLF) {
+        retLF = false;
+        return '\n';
     }
-
-    lineChCnt++;			// track chars on this line
-    return *inChP & 0x7F;	// remove parity
+    // get the next real character
+    while ((c = getc(srcfp)) == EOF) {
+        if (ferror(srcfp))
+            IoError(files[fileIdx].name, "Read error");
+        if (lineChCnt) {
+            c = '\n';       // terminate the line
+            break;
+        }
+        CloseSrc(); // un-nest file if needed
+    }
+    // as the source is now opened in text mode
+    // for Windows a '\r' is mapped to '\n;
+    // for Linux, it could be start of '\r\n'
+    if (c == '\r') {
+#ifndef _WIN32
+        if ((c = getc(srcfp)) != '\n' && c != EOF)
+            ungetc(c, srcfp);
+#endif
+        c = '\n';
+    }
+    if (c == '\n') {
+        retLF = true;
+        if (lineChCnt > MAXLINE)
+            strcpy(inBuf + MAXLINE - 2, "..\r\n"); // indicate truncated
+        else
+            strcpy(inBuf + lineChCnt, "\r\n");
+        lineChCnt += 2;
+        return '\r';
+    }
+    if (lineChCnt++ < MAXLINE)
+        inBuf[lineChCnt - 1] = c;
+    return c & 0x7f;
 }
 
-
 void OpenSrc(void) {
-    byte curByteLoc;
-    word curBlkLoc;
-
     pendingInclude = false;
-    SeekI(SEEKTELL);
-    if (seekIByte == 128) {        /* adjust for 128 boundary */
-        seekIBlk++;
-        seekIByte = 0;
-    }
-
-    curBlkLoc = (word)(endInBufP - startLineP);    /* un-used characters */
-//x:                        /* forces code alignment */
-    if ((curByteLoc = curBlkLoc % 128) > seekIByte) {
-        seekIByte += 128;	    /* adjust to allow for un-used chars */
-        seekIBlk--;
-    }
-    /* save the current file location */
-    files[fileIdx - 1].byt = seekIByte - curByteLoc;
-    files[fileIdx - 1].blk = seekIBlk - curBlkLoc / 128;
-    if (srcfd != rootfd)        /* close if include file */
-    {
-        Close(srcfd, &statusIO);
-        IoErrChk();
-    }
-
-    endInBufP = inBuf;            /* force Read() */
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
-    inChP = endInBufP - 1;
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-    startLineP = inBuf;
-    files[fileIdx].blk = 0;            /* record at start of file */
-    files[fileIdx].byt = 0;    
-    srcfd = SafeOpen(files[fileIdx].name, READ_MODE);    /* Open() the file */
+    files[fileIdx].fp = srcfp = SafeOpen(files[fileIdx].name, "rt"); /* Open() the file */
 }

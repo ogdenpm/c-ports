@@ -158,9 +158,7 @@ void ResultType(void) {
 
 
 void SwapAccBytes(void) {
-    byte tmp = accum1Lb;
-    accum1Lb = accum1Hb;
-    accum1Hb = tmp;
+    accum1 = (word)((accum1 >> 8) + (accum1 << 8));
 }
 
 
@@ -172,60 +170,56 @@ void SetExpectOperands(void) {
 
 
 void LogError(byte ch) {
-    if (tokenType[tokenIdx] != O_NULVAL) {  /* ignore error if processing an optional value */
+    if (token[tokenIdx].type != O_NULVAL) {  /* ignore error if processing an optional value */
         SourceError(ch);
         return;
     }
-    if (tokenSize[0] == 0)                  /* make into a NUL */
-        tokenType[tokenIdx] = K_NUL;
+    if (token[0].size == 0)                  /* make into a NUL */
+        token[tokenIdx].type = K_NUL;
 }
 
-word GetNumVal(void) // load numeric value from top of stack
-{
-    wpointer valP;
+word GetNumVal(void) { // load numeric value from top of stack
 
-    acc1RelocFlags = 0;         // initialise to absoulte zero value
+    acc1RelocFlags = 0;         // initialise to absolute zero value
     accum1 = 0;
     acc1ValType = O_NAME;       // with NAME type
-    if (tokenType[0] == O_NULVAL)
+    if (token[0].type == O_NULVAL)
         PushToken(O_PARAM);
-    if (tokenIdx == 0 || (tokenType[0] == O_DATA && !b6B36))
+    if (tokenIdx == 0 || (token[0].type == O_DATA && !b6B36))
         LogError('Q');		// questionable syntax - possible missing opcode
     else {
-        if (tokenType[0] == O_NAME || tokenType[0] == T_COMMA)      // can't handle undefined name or missing name
+        if (token[0].type == O_NAME || token[0].type == T_COMMA)      // can't handle undefined name or missing name
             LogError('U');	// undefined symbol - if here in pass2 then genuine error
         else {
-            acc1ValType = tokenType[0];                             // update the value type
+            acc1ValType = token[0].type;                             // update the value type
             if (TestBit(acc1ValType, typeHasTokSym)) {
-                tokPtr = &tokenSym.curP->flags;    /* point to flags */
-                acc1RelocFlags = *tokPtr & ~UF_PUBLIC; /* remove public attribute */
-                valP = (wpointer)(tokPtr = (pointer)&tokenSym.curP->value);    /* point to value */
-                acc1RelocVal = *valP;            /* pick up value */
-                tokenSize[0] = 2;        /* word value */
-
-            } else if (tokenSize[0] == 0)
+                acc1RelocFlags = topSymbol->flags & ~UF_PUBLIC; /* remove public attribute */
+                *(wpointer)tokPtr = acc1RelocVal   = topSymbol->value;
+                token[0].size = 2;        /* word value */
+            } else if (token[0].size == 0)
                 LogError('V');		// value illegal
             else {
-                if (tokenSize[0] > 2)
+                if (token[0].size > 2)
                     LogError('V');
-                acc1RelocFlags = tokenAttr[0] & ~UF_PUBLIC;    /* remove public attribute */
-                acc1RelocVal = tokenSymId[0];        /* use the symbol Id() */
+                acc1RelocFlags = token[0].attr & ~UF_PUBLIC;    /* remove public attribute */
+                acc1RelocVal = token[0].symId;        /* use the symbol Id() */
             }
 
-            if (tokenSize[0] > 0)    /* get low byte */
-                accum1Lb = *tokPtr;
-            if (tokenSize[0] > 1)    /* and high byte if ! a register */
-                accum1Hb = tokenType[0] != K_REGNAME ? tokPtr[1] : 0;
+            /* modified to avoid assumption of little endian */
+            if (token[0].size > 1) { /* and high byte if ! a register */
+                accum1 = *(wpointer)tokPtr;
+                if (token[0].type == K_REGNAME)
+                    accum1 &= 0xff;
+            } else if (token[0].size > 0) /* get low byte */
+                accum1 = *tokPtr;
         }
 
-        if (has16bitOperand)                    // For 16 bit string operand swap bytes
-            if (tokenSize[0] == 2)
-                if (tokenType[0] == O_STRING)
-                    SwapAccBytes();
+        // For 16 bit string operand swap bytes
+        if (has16bitOperand && token[0].size == 2 && token[0].type == O_STRING)
+            SwapAccBytes();
 
-        if ((acc1RelocFlags & UF_EXTRN) != 0)
-            if (tokenType[0] < 9)
-                accum1 = 0;
+        if ((acc1RelocFlags & UF_EXTRN) && token[0].type < 9)
+            accum1 = 0;
 
         PopToken();
     }
@@ -306,27 +300,17 @@ bool ShowLine(void) {
         = 2 -> finalise
 */
 void EmitXref(byte xrefMode, char const *name) {
-    char hexLine[6];
+    // code below is currently needed as name may not be terminated
+    // eventually this will be eliminated
+    char cName[7];
+    memcpy(cName, name, 6);
+    cName[6] = 0;
+    char *s  = strchr(cName, ' ');
+    if (s)
+        *s = '\0';
+    
 
     if ((!IsPhase1() || !controls.xref || IsSkipping()) && !xRefPending)
         return;
-
-    Outch(xrefMode + '0');    /* convert to hex char */
-    if (xrefMode != XREF_FIN) {    /* ! finalise */
-        OutStrN(name, 6);        /* label ref */
-        xRefPending = false;
-        sprintf(hexLine, "%04X", srcLineCnt);
-        OutStr(hexLine);
-    } else {    /* finalise */
-        OutStrN(lstFile, 15);    /* listing file name */
-        if (controls.paging)        /* whether paging '1' or '0' */
-            Outch('1');
-        else
-            Outch('0');
-        /* page length and page width as 2 hex chars */
-        sprintf(hexLine, "%02X%02X3", controls.pageLength, controls.pageWidth);
-        OutStr(hexLine);    // 3 marks end of file
-        Flushout();
-        CloseF(xreffd);
-    }
+    InsertXref(xrefMode == XREF_DEF, cName, srcLineCnt);
 }

@@ -7,7 +7,7 @@
  *  It is released for hobbyist use and for academic interest			    *
  *                                                                          *
  ****************************************************************************/
-
+#include "plm80types.h"
 // linker defined
 extern byte *MEMORY;
 // defined in asm2m.c
@@ -26,8 +26,8 @@ extern char spaces24[];
 #define spaces2		(spaces24 + 22)
 extern char ascCRLF[];
 extern char signonMsg[];
-#define asmHeader	(signonMsg + 2)
-#define aModulePage	(signonMsg + 43)
+#define asmHeader	(signonMsg + 1)
+#define aModulePage	(signonMsg + 42)
 extern byte bZERO;
 extern byte bTRUE;
 //extern char const *aErrStrs[];
@@ -55,7 +55,7 @@ extern byte macroSpoolNestDepth;
 extern byte paramCnt;
 extern byte startNestCnt;
 extern byte argNestCnt;
-extern pointer pMacro;
+extern tokensym_t *pMacro;
 extern pointer macroInPtr;
 extern macroStk_t macro;
 extern word curMacroBlk;
@@ -110,13 +110,9 @@ extern byte startDefined;	/* 0 or 1 */
 extern word startOffset;
 extern byte tokenIdx;
 extern byte lineBuf[128];
-extern pointer tokStart[9];
-#define tokPtr	tokStart[0]
-extern tokensymStk_t tokenSym;
-extern byte tokenType[9];
-extern byte tokenSize[9];
-extern byte tokenAttr[9];
-extern word tokenSymId[9];
+extern token_t token[];
+#define tokPtr	token[0].start
+#define topSymbol token[0].symbol
 extern pointer endLineBuf;
 extern byte ifDepth;
 extern bool skipIf[9];
@@ -156,11 +152,10 @@ extern byte passCnt;
 extern bool createdUsrSym;
 extern bool usrLookupIsID;
 extern bool needsAbsValue;
-extern word objfd;
-extern word xreffd;
-extern word infd;
-extern word outfd;
-extern word macrofd;
+extern FILE *objFp;
+extern FILE *inFp;
+extern FILE *lstFp;
+extern FILE *macroFp;
 extern word statusIO;
 extern word openStatus;  /* status of last open for Read */
 extern byte asmErrCode;
@@ -179,16 +174,9 @@ extern bool showAddr;
 extern bool lineNumberEmitted;
 extern bool b68AE;
 extern char tokStr[7];
-extern word sizeInBuf;
-extern char inBuf[IN_BUF_SIZE];
-extern byte outbuf[OUT_BUF_SIZE+1];
-extern pointer outP;
-extern pointer endOutBuf;
+extern char inBuf[];
 extern char objFile[15];
 extern char lstFile[15];
-extern char asxrefTmp[];
-extern char asxref[];
-extern char asmacRef[];
 extern word srcLineCnt;
 extern word lineNo;
 extern byte spIdx;
@@ -230,11 +218,9 @@ extern bool expectOp;
 extern bool b6B36;
 extern word segLocation[5];
 extern word maxSegSize[3];
-extern char cmdLineBuf[129];
-extern address actRead;
+extern char *cmdLineBuf;
 extern word errCnt;
 extern pointer w6BCE;
-extern word azero;
 extern char *cmdchP;
 extern char *controlsP;
 extern bool skipRuntimeError;
@@ -246,8 +232,6 @@ extern char *curFileNameP;
 
 extern address aVar;
 
-extern word controlFileType;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
-
 // defined in keym.h
 extern keyword_t extKeywords[151];
 
@@ -256,11 +240,7 @@ extern keyword_t extKeywords[151];
 extern bool pendingInclude;
 extern bool includeOnCmdLine;
 extern byte fileIdx;
-extern char *endInBufP;
-extern bool missingEnd;
-extern word srcfd;
-extern word rootfd;
-extern char *inChP;
-extern char *startLineP;
+extern FILE *srcfp;
+extern FILE *rootfp;
 extern byte lineChCnt;
 extern file_t files[6];

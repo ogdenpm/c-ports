@@ -8,7 +8,7 @@
  *                                                                          *
  ****************************************************************************/
 
-// vim:ts=4:expandtab:shiftwidth=4:
+ // vim:ts=4:expandtab:shiftwidth=4:
 #include "asm80.h"
 
 byte tokReq[] = {
@@ -43,7 +43,7 @@ void SkipWhite_2(void) {
 byte NonHiddenSymbol(void) {
     // name based nameP word;
 
-    word *nameP = tokenSym.curP->tok;
+    word* nameP = topSymbol->tok;
     /* check name < '??0' or '??9' < name */
     return (*nameP < 0x4679) || controls.macroDebug || (0x4682 < *nameP);
 }
@@ -54,8 +54,9 @@ void SeekM(word blk)
 {
     if (blk != nxtMacroBlk) {		// if already there then nothing to do
         long where = blk * 128;
-        Seek(macrofd, where, SEEK_SET, &statusIO);  // see to the required block
-        IoErrChk();
+        if (fseek(macroFp, where, SEEK_SET)) // see to the required block
+            IoError("macro file", "Seek error");
+        
     }
     nxtMacroBlk = blk + 1;					// update next block info
 }
@@ -63,22 +64,21 @@ void SeekM(word blk)
 
 
 /* read in macro from disk - located at given block */
-void ReadM(word blk)
-{
+void ReadM(word blk) {
     word actual;
 
-    if (blk >= maxMacroBlk)			// does not exist
+    if (blk >= maxMacroBlk) // does not exist
         actual = 0;
-    else if (blk == curMacroBlk)	// already correct
+    else if (blk == curMacroBlk) // already correct
         return;
-    else {							// load the buffer
+    else { // load the buffer
         SeekM(blk);
-        Read(macrofd, (char *)macroBuf, 128, &actual, &statusIO);
-        IoErrChk();
+        if ((actual = (word)fread(macroBuf, 1, 128, macroFp)) == 0 && ferror(macroFp))
+            IoError("Macro file", "Read error");
     }
 
-    macro.top.blk = curMacroBlk = blk;	// set relevant trackers
-    macroBuf[actual] = MACROEOB;    /* flag end of macro buffer */
+    macro.top.blk = curMacroBlk = blk;      // set relevant trackers
+    macroBuf[actual]            = MACROEOB; /* flag end of macro buffer */
 }
 
 /* write the macro to disk */
@@ -86,8 +86,8 @@ void WriteM(void)
 {
     if (phase == 1) {	// only needs writing on pass 1
         SeekM(maxMacroBlk++);	// seek to end and update marker to account for this block
-        Write(macrofd, symHighMark, 128, &statusIO);
-        IoErrChk();
+        if (fwrite(symHighMark, 1, 128, macroFp) != 128 && ferror(macroFp))
+                IoError("Macro file", "Write error");
     }
     macroBlkCnt++;		// update the buffer count for this macro
 }
@@ -196,7 +196,7 @@ void Tokenise(void) {
             CollectByte(segLocation[activeSeg] & 0xff); /* its value is the current seg's size*/
             CollectByte(segLocation[activeSeg] >> 8);
             if (activeSeg != SEG_ABS)   // if not abs set seg and relocatable flags
-                tokenAttr[0] |= activeSeg | UF_RBOTH;
+                token[0].attr |= activeSeg | UF_RBOTH;
             gotValue();
             break;
         case CC_QUOTE:
@@ -222,16 +222,16 @@ void Tokenise(void) {
         case CC_LET:
             startMacroToken = macroInPtr - 1;
             GetId(O_NAME);    /* assume it's a name */
-            if (tokenSize[0] > MAXSYMSIZE)  /* cap length */
-                tokenSize[0] = MAXSYMSIZE;
+            if (token[0].size > MAXSYMSIZE)  /* cap length */
+                token[0].size = MAXSYMSIZE;
 
             if (controls.xref) {
                 memcpy(savName, name, MAXSYMSIZE);
                 memcpy(name, spaces6, MAXSYMSIZE);
             }
             /* copy the token to name */
-            memcpy(name, tokPtr, tokenSize[0]);
-            nameLen = tokenSize[0];
+            memcpy(name, tokPtr, token[0].size);
+            nameLen = token[0].size;
             PackToken();        /* make into 4 byte name */
             if (haveUserSymbol) {			// user symbol not followed by a colon
                 haveNonLabelSymbol = true;
@@ -240,7 +240,7 @@ void Tokenise(void) {
 
 
             if (Lookup(TID_MACRO) != O_NAME && (mSpoolMode & 1)) {
-                kk = tokenType[0] == 0; // assignment pulled out to allow short circuit tests
+                kk = token[0].type == 0; // assignment pulled out to allow short circuit tests
                 if (!inQuotes || (kk && (curChar == '&' || startMacroToken[-1] == '&'))) {
                     macroInPtr = startMacroToken;
                     InsertCharInMacroTbl(kk ? 0x80 : 0x81);
@@ -251,13 +251,13 @@ void Tokenise(void) {
             }
             else if (yyType != O_MACROPARAM && mSpoolMode != 2) {		// skip if capturing macro parameter or local names
                 if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
-                    tokenType[0] = Lookup(TID_SYMBOL);    /* look up in symbol space */
+                    token[0].type = Lookup(TID_SYMBOL);    /* look up in symbol space */
                     haveUserSymbol = true;        /* note we have a user symbol */
                 }
 
-                yyType = tokenType[0];
-                needsAbsValue = absValueReq[tokenType[0]]; /* DS, ORG, IF, K_MACRONAME, IRP, IRPC DoRept */
-                if (!tokReq[tokenType[0]]) /* i.e. not instruction, reg or K_MACRONAME or punctuation */
+                yyType = token[0].type;
+                needsAbsValue = absValueReq[token[0].type]; /* DS, ORG, IF, K_MACRONAME, IRP, IRPC DoRept */
+                if (!tokReq[token[0].type]) /* i.e. not instruction, reg or K_MACRONAME or punctuation */
                     PopToken();
 
                 // for name seen to lhs of op emit xref, for SET/EQU/MACRO PARAM then this is defining

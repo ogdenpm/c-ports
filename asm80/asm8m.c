@@ -39,14 +39,14 @@ static bool IsEndParam(void) {
 
 static void InitParamCollect(void) {
     symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;	// init macro parameter table
-    paramCnt = macro.top.localsCnt = bZERO;	// no params yet
+    paramCnt = macro.top.localsCnt = 0;	// no params yet
     yyType = O_MACROPARAM;
 }
 
 
 static void Sub720A(void) {
     savedMtype = macro.top.mtype;
-    if (! expandingMacro)
+    if (!expandingMacro)
         expandingMacro = 1;
 
     if (macroDepth == 0)
@@ -89,7 +89,7 @@ void DoIrpX(byte mtype)
 static void Acc1ToDecimal(void) {
     byte buf[6];
 
-    PushToken(CR);
+    PushToken(O_PARAM);
     sprintf(buf, "%u", accum1);
     for (char *s = buf; *s; s++)
         CollectByte(*s);
@@ -184,7 +184,7 @@ void GetMacroToken(void) {
     inMacroBody = false;
     if (macro.top.mtype == M_INVOKE)
     {
-        if ((! inAngleBrackets) && tokenSize[0] == 5)
+        if ((! inAngleBrackets) && token[0].size == 5)
             if (StrUcEqu("MACRO", (char *)tokPtr)) {	// nested macro definition
                 yyType = K_MACRO;
                 PopToken();
@@ -216,7 +216,7 @@ void GetMacroToken(void) {
 void DoMacro(void) {
     if (Sub727F()) {
         expectingOperands = false;
-        pMacro = (pointer)&tokenSym.curP->blk;
+        pMacro = topSymbol;
         UpdateSymbolEntry(0, T_MACRONAME);
         macro.top.mtype = M_MACRO;
         InitParamCollect();
@@ -225,15 +225,15 @@ void DoMacro(void) {
 
 void DoMacroBody(void) {
     if (HaveTokens()) {
-        if (tokenType[0] == 0)		// saved parameters have type 0
+        if (token[0].type == 0)		// saved parameters have type 0
             MultipleDefError();		// so if found we have a multiple definition
 
         InsertMacroSym(++paramCnt, 0);	// add the parameter setting type to 0
     }
-    else if (! (macro.top.mtype == M_MACRO))	// only MACRO is allowed to have no parameters
+    else if (macro.top.mtype != M_MACRO)	// only MACRO is allowed to have no parameters
         SyntaxError();
 
-    if (! macro.top.mtype == M_MACRO) {	// none MACRO have parameters -> dummy,value
+    if (macro.top.mtype != M_MACRO) {	// none MACRO have parameters -> dummy,value
         SkipWhite();					// as dummy is entered above look for , value
         if (IsComma()) {
             reget = 0;
@@ -259,9 +259,8 @@ void DoMacroBody(void) {
         if (! MPorNoErrCode())	// skip if multiple defined, phase or no error 
         {
             macro.top.mtype = M_BODY;
-            pMacro += 2;		// now points to type
-            if ((*pMacro & 0x7F) == T_MACRONAME)
-                *pMacro = asmErrCode == 'L' ? (O_NAME + 0x80) : O_NAME;	// location error illegal forward ref
+            if ((pMacro->type & 0x7F) == T_MACRONAME)
+                pMacro->type = asmErrCode == 'L' ? (O_NAME + 0x80) : O_NAME;	// location error illegal forward ref
         }
         InitSpoolMode();
     }
@@ -289,9 +288,8 @@ void DoEndm(void) {
                 WriteM();
                 symHighMark = (pointer)(endSymTab[TID_MACRO] = symTab[TID_MACRO]);	// reset macro parameter symbol table
                 if (macro.top.mtype == M_MACRO) {
-                    *(word *)pMacro = baseMacroBlk;
-                    pMacro += 3;		// points to flags
-                    *pMacro = macro.top.localsCnt;		// number of locals
+                    pMacro->blk = baseMacroBlk;
+                    pMacro->nlocals = macro.top.localsCnt;		// number of locals
                 } else {
                     macro.top.savedBlk = baseMacroBlk;
                     Sub720A();
@@ -326,16 +324,16 @@ void DoIterParam(void) {
     if (savedTokenIdx + 1 != tokenIdx)
         SyntaxError();
     else if (! b9060) {
-        if (tokenType[0] != O_PARAM) {
+        if (token[0].type != O_PARAM) {
             accum1 = GetNumVal();
             Acc1ToDecimal();
         }
 
         if (macro.top.mtype == M_IRPC)
-            macro.top.cnt = tokenSize[0] == 0 ? 1 : tokenSize[0];	// plm uses true->FF and byte arithmetic. Replaced here for clarity
+            macro.top.cnt = token[0].size == 0 ? 1 : token[0].size;	// plm uses true->FF and byte arithmetic. Replaced here for clarity
 
-        CollectByte((tokenSize[0] + 1) | 0x80);						// append a byte to record the token length + 0x80
-        baseMacroTbl = AddMacroText(tokPtr, tokPtr + tokenSize[0] - 1);
+        CollectByte((token[0].size + 1) | 0x80);						// append a byte to record the token length + 0x80
+        baseMacroTbl = AddMacroText(tokPtr, tokPtr + token[0].size - 1);
         PopToken();
 
         if (macro.top.mtype == M_MACRO || (macro.top.mtype == M_IRP && argNestCnt > 0))
@@ -365,7 +363,7 @@ void DoIterParam(void) {
         } else {
             baseMacroTbl = AddMacroText(b3782, b3782 + 1);		// append 0x80 0x81
             if (macro.top.mtype == M_MACRO) {
-                macro.top.localsCnt = tokenSym.curP->flags;
+                macro.top.localsCnt = topSymbol->flags;
                 macro.top.savedBlk = GetNumVal();
                 Sub720A();
             } else if (macro.top.cnt == 0)
@@ -398,10 +396,10 @@ void DoRept(void) {
 void DoLocal(void) {
     if (mSpoolMode == 2) {
         if (HaveTokens()) {
-            if ((byte)(++macro.top.localsCnt) == 0)		// 256 locals!!
+            if (++macro.top.localsCnt == 0)		// 256 locals!!
                 StackError();
 
-            if (tokenType[0] != O_NAME)					// already seen so error
+            if (token[0].type != O_NAME)					// already seen so error
                 MultipleDefError();
 
             InsertMacroSym(macro.top.localsCnt, 1);		// save this local with index
@@ -432,5 +430,5 @@ void Sub78CE(void) {
         Sub720A();
     }
     lookAhead = 0;
-    b6B2C = atStartLine = bTRUE;
+    b6B2C = atStartLine = true;
 }

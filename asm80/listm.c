@@ -9,6 +9,7 @@
  ****************************************************************************/
 
 #include "asm80.h"
+#include <stdarg.h>
 /* to force the code generation this needs a non-standard definition of put2Hex */
 void Put2Hex(void (*func)(char), word arg2w);
 static void PrintChar(char c);
@@ -18,9 +19,22 @@ static char aAssemblyComple[] = "\r\nASSEMBLY COMPLETE,   NO ERRORS";
 static char spaceLP[] = " (     )";
 #define space5RP (spaceLP + 2)
 // static word pad754E;
-static char lstHeader[]             = "  LOC  OBJ         LINE        SOURCE STATEMENT\r\n\n";
-static char const *symbolMsgTable[] = { "\r\nPUBLIC SYMBOLS\r\n", "\r\nEXTERNAL SYMBOLS\r\n",
-                                        "\r\nUSER SYMBOLS\r\n" };
+static char lstHeader[]             = "  LOC  OBJ         LINE        SOURCE STATEMENT\n\n";
+static char const *symbolMsgTable[] = { "\nPUBLIC SYMBOLS\n", "\nEXTERNAL SYMBOLS\n",
+                                        "\nUSER SYMBOLS\n" };
+
+int Printf(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char buf[256];
+    int cnt = vsprintf(buf, fmt, args);
+    for (char *s = buf; *s; s++)
+        PrintChar(*s);
+    va_end(args);
+    return cnt;
+}
+
+
 
 static void Out2Hex(byte n) {
     Put2Hex(Outch, n);
@@ -38,11 +52,6 @@ static void PrintStr(char const *str) {
 static void PrintNStr(byte cnt, char const *str) {
     while (cnt-- > 0)
         PrintChar(*str++);
-}
-
-static void PrintCRLF(void) {
-    PrintChar(CR);
-    PrintChar(LF);
 }
 
 static char aNumStr[] = "     ";
@@ -78,18 +87,22 @@ static void NewPageHeader(void) {
     PrintStr("\n\n\n");
     PrintStr(asmHeader);
     PrintDecimal(pageCnt);
-    PrintCRLF();
+    PrintChar(LF);
     if (controls.title)
         PrintNStr(titleLen, titleStr);
 
-    PrintCRLF();
-    PrintCRLF();
+    PrintChar(LF);
+    PrintChar(LF);
     if (!b68AE)
         PrintStr(lstHeader);
     pageCnt++;
 }
 
 void NewPage(void) {
+    if (curCol) {
+        Outch(LF);
+        curCol = 0;
+    }
     if (controls.tty)
         SkipToEOP();
     else
@@ -111,12 +124,15 @@ void DoEject(void) {
 static void PrintChar(char c) {
     byte cnt;
 
+    if (c == CR)
+        return;
     if (c == FF) {
         NewPage();
         return;
     }
 
-    if (c == LF)
+
+    if (c == LF) {
         if (controls.paging) {
             if (++pageLineCnt >= controls.pageLength - 2) {
                 if (controls.tty)
@@ -127,9 +143,8 @@ static void PrintChar(char c) {
                 return;
             }
         }
-
-    if (c == CR)
-        curCol = 0;
+        curCol = 0; // replaces '\r' to reset col to 0
+    }
 
     cnt = 1;
     if (c == TAB) {
@@ -140,9 +155,9 @@ static void PrintChar(char c) {
     while (cnt != 0) {
         if (curCol < 132) {
             if (c >= ' ')
-                curCol = curCol + 1;
+                curCol++;
             if (curCol > controls.pageWidth) {
-                PrintCRLF();
+                PrintChar(LF);
                 PrintStr(spaces24);
                 curCol++;
             }
@@ -153,13 +168,6 @@ static void PrintChar(char c) {
 }
 
 static byte segChar[] = " CDSME"; /* seg id char */
-
-void PrintAddr2(void (*printFunc)(byte), byte zeroAddr) // no longer used
-{
-    tokenSym.bPtr--; /* backup into value */
-
-    printFunc(zeroAddr ? 0 : *tokenSym.bPtr); /* print word or 0 */
-}
 
 void Sub7041_8447(void) {
     byte symGrp;
@@ -175,13 +183,13 @@ void Sub7041_8447(void) {
     for (symGrp = 0; symGrp <= 2; symGrp++) {
         kk             = IsPhase2Print() && controls.symbols;
         controls.debug = controls.debug || controls.macroDebug;
-        tokenSym.curP  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
-        PrintCRLF();
+        topSymbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
+        PrintChar(LF);
         PrintStr(symbolMsgTable[symGrp]);
 
-        while (++tokenSym.curP < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
-            type  = tokenSym.curP->type;
-            flags = tokenSym.curP->flags;
+        while (++topSymbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
+            type  = topSymbol->type;
+            flags = topSymbol->flags;
             if (type != 9)
                 if (type != 6)
                     if (NonHiddenSymbol()) {
@@ -189,10 +197,10 @@ void Sub7041_8447(void) {
 
                         if (symGrp != 0 || type != 3)
                             if (symGrp == 2 || (flags & symGrpFlags[symGrp]) != 0) {
-                                UnpackToken(tokenSym.curP->tok, tokStr);
+                                UnpackToken(topSymbol->tok, tokStr);
                                 if (kk) {
                                     if (controls.pageWidth - curCol < 17)
-                                        PrintCRLF();
+                                        PrintChar(LF);
 
                                     PrintStr(tokStr);
                                     PrintChar(' ');
@@ -204,8 +212,8 @@ void Sub7041_8447(void) {
                                         PrintChar(segChar[flags & UF_SEGMASK]);
 
                                     PrintChar(' ');
-                                    Print2Hex(zeroAddr ? 0 : tokenSym.curP->value >> 8);
-                                    Print2Hex(zeroAddr ? 0 : tokenSym.curP->value & 0xff);
+                                    Print2Hex(zeroAddr ? 0 : topSymbol->value >> 8);
+                                    Print2Hex(zeroAddr ? 0 : topSymbol->value & 0xff);
                                     PrintStr(spaces4);
                                 }
                             }
@@ -217,13 +225,12 @@ void Sub7041_8447(void) {
         b68AE = false;
 
     if (kk)
-        PrintCRLF();
+        PrintChar(LF);
 }
 
 void PrintCmdLine(void) {
     Outch(FF);
     DoEject();
-    *actRead.bp = 0;
     PrintStr(cmdLineBuf);
     NewPageHeader();
 }
@@ -262,7 +269,7 @@ static void PrintCodeBytes(void) {
     }
 
     Outch(' ');
-    if ((kk = tokenAttr[spIdx]) & UF_EXTRN) /* UF_EXTRN */
+    if ((kk = token[spIdx].attr) & UF_EXTRN) /* UF_EXTRN */
         Outch('E');
     else if (!showAddr)
         Outch(' ');
@@ -273,23 +280,18 @@ static void PrintCodeBytes(void) {
 static void PrintErrorLineChain(void) {
     if (!errorOnLine)
         return;
-    char tmp[10];
-    sprintf(tmp, " (%4u)\r\n", lastErrorLine);
-    PrintStr(tmp);
+    Printf(" (%4u)\n", lastErrorLine);
     lastErrorLine = lineNo;
 }
 
 void PrintLine(void) {
     while (1) {
-        endItem = (startItem = tokStart[spIdx]) + tokenSize[spIdx];
+        endItem = (startItem = token[spIdx].start) + token[spIdx].size;
         if (IsSkipping())
             endItem = startItem;
 
         Outch(asmErrCode);
-        if (mSpoolMode == 0xFF)
-            Outch('-');
-        else
-            Outch(' ');
+        Outch(mSpoolMode == 0xFF ? '-' : ' ');
 
         if (!BlankAsmErrCode()) {
             asmErrCode  = ' ';
@@ -303,37 +305,21 @@ void PrintLine(void) {
         if (fileIdx > 0) {
             byte nestLevel[] = "  1234";
             /* plm uses byte arith so pendingInclude = true(255) treated as -1 */
-            Outch(nestLevel[ii = pendingInclude ? fileIdx + 1 : fileIdx]);
-            if (ii > 0)
-                Outch('=');
-            else
-                Outch(' ');
+            Outch(nestLevel[ii = pendingInclude ? fileIdx - 1 : fileIdx]);
+            Outch(ii > 0 ? '=' : ' ');
         } else
-            OutStr(spaces2);
+            OutStr("  ");
 
-        if (lineNumberEmitted) {
-            OutStr(spaces4);
-            PrintCRLF();
-        } else {
+        if (lineNumberEmitted)
+            PrintStr("    \n");
+        else {
             lineNumberEmitted = true;
-            char tmp[5];
-            sprintf(tmp, "%4u", lineNo);
-            OutStr(tmp);
-            if (expandingMacro > 1)
-                Outch('+');
-            else
-                Outch(' ');
+            curCol            = 19;
             if (expandingMacro > 1) {
-                curCol  = 24;
                 *macroP = 0;
-                PrintStr(macroLine);
-                PrintChar(LF);
-            } else {
-                curCol = 24;
-                PrintNStr(lineChCnt, startLineP);
-                if (*inChP != LF)
-                    PrintChar(LF);
-            }
+                Printf("%4u+%s\n", lineNo, macroLine);
+            } else
+                Printf("%4u %s", lineNo, inBuf);
         }
 
         if (isControlLine) {
@@ -343,7 +329,7 @@ void PrintLine(void) {
             while (MoreBytes()) {
                 OutStr(spaces2);
                 PrintCodeBytes();
-                PrintCRLF();
+                PrintChar(LF);
             }
 
             if (spIdx > 0 && (inDB || inDW)) {
@@ -357,37 +343,29 @@ void PrintLine(void) {
     PrintErrorLineChain();
 }
 
-void AsmComplete(void) {
-    if (errCnt > 0)
-        Itoa(errCnt, aNoErrors);
-    PrintNStr(32 - (errCnt == 1), aAssemblyComple);
-    if (errCnt > 0) {
-        char tmp[9];
-        sprintf(tmp, " (%4u)", lastErrorLine);
-        PrintStr(tmp);
-    }
-    Outch(CR);
-    Outch(LF);
+void AsmComplete(FILE *fp) {
+    char msg[80];
+    if (!errCnt)
+        sprintf(msg, "\nASSEMBLY COMPLETE,   NO ERRORS\n");
+    else
+        sprintf(msg, "\nASSEMBLY COMPLETE, %4u ERROR%s (%4u )\n", errCnt,
+                errCnt != 1 ? "S" : "", lastErrorLine);
+    if (fp == lstFp)
+        PrintStr(msg);
+    else
+        fputs(msg, fp);
 }
 
 void FinishPrint(void) {
-    if (controls.print)
-        CloseF(outfd);
-    outfd       = 0;
     pageLineCnt = 1;
-    AsmComplete();
-    Flushout();
+    AsmComplete(stdout);
 }
 
 void FinishAssembly(void) {
-    CloseF(infd);
-    CloseF(macrofd);
-    Delete(asmacRef, &statusIO);
-    if (controls.object) /* ?? why only for MACRO version */
-        CloseF(objfd);
+    fclose(files[0].fp);
 
     if (controls.xref) /* invoke asxref ?? */
         GenAsxref();
 
-    Exit(errCnt != 0);
+    exit(errCnt != 0);
 }

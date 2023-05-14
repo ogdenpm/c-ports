@@ -53,8 +53,8 @@ static byte GetTok(void) {
     SkipWhite_2();
     if (isalpha(curChar)) {  /* letter */
         GetId(O_ID);
-        if (BlankAsmErrCode() && tokenSize[0] < 14)
-            memcpy(tokBuf, lineBuf, tokBufLen = tokenSize[0]);
+        if (BlankAsmErrCode() && token[0].size < 14)
+            memcpy(tokBuf, lineBuf, tokBufLen = token[0].size);
     } else if (isdigit(curChar)) {   /* digit ? */
         GetNum();
         if (BlankAsmErrCode()) {
@@ -66,8 +66,8 @@ static byte GetTok(void) {
         GetStr();
         if (BlankAsmErrCode()) {
             tokBufLen = 64;         /* cap at 64 chars */
-            if (tokenSize[0] < 64)
-                tokBufLen = tokenSize[0];
+            if (token[0].size < 64)
+                tokBufLen = token[0].size;
             tokType = TT_STR;
             if (tokBufLen > 0)
                 memcpy(tokBuf, lineBuf, tokBufLen);
@@ -130,22 +130,15 @@ static void GetFileParam(void) {
 }
 
 
-static void GetMacroFileDrive(void) {
+static void GetMacroFileDrive(void) {   // now ignored
     SkipWhite_2();
-    tokBufIdx = 13;     /* leave room for max file name */
-    ii = 0;
 
-    while (! IsRParen() && ii < 4) {
-        asmacRef[ii++] = curChar;
+    while (! IsRParen() && ii < 4)
         curChar = GetCh();
-    }
 
-    if (IsRParen() || IsWhite())
-        if (FinaliseFileNameOpt(asmacRef))
-            return;
-    curFileNameP = asmacRef;
-    tokBufIdx = 0;
-    FileError();
+    if ((IsRParen() || IsWhite()) && ChkParen(')'))
+        return;
+    FatalError("Unterminated macro drive option -- note no longer used");
 }
 
 
@@ -245,17 +238,14 @@ static void ProcessControl(void) {
             controls.mod85 = true;
             return;
     case 2:            /* PRINT */
-            controlFileType = 2;
             curFileNameP = lstFile;
             GetFileParam();
             return;
     case 3:            /* OBJECT */
-            controlFileType = 3;
             curFileNameP = objFile;
             GetFileParam();
             return;
     case 4:            /* MACROFILE */
-            controlFileType = 3;
             if (ChkParen('(')) /* optional drive for tmp file */
                 GetMacroFileDrive();
             else
@@ -282,7 +272,6 @@ static void ProcessControl(void) {
             break;
     case 7:            /* INCLUDE */
             if (! pendingInclude) {		// multiple includes on control line not supported
-                controlFileType = 1;
                 if (fileIdx == 5)
                     StackError();
                 else

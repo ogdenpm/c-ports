@@ -10,13 +10,14 @@
 
 #pragma once
 
-#pragma pack(push, 1)
+
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
 typedef word *wpointer;
 typedef byte leword[2];     // used to force word matches OMF definition
 
+#pragma pack(push, 1)
 typedef union {
     word w;
     struct {
@@ -108,6 +109,7 @@ typedef struct {
     char name[15];
     word blk, byt;
     byte b19;
+    FILE *fp;
 } file_t;
 
 typedef struct {
@@ -138,7 +140,10 @@ typedef struct {
         word blk;
     };
     byte type;
-    byte flags;
+    union {
+        byte flags;
+        byte nlocals;
+    };
 } tokensym_t;
 
 typedef struct {
@@ -178,22 +183,17 @@ typedef union {
 } controls_t;
 
 typedef union {
-    tokensym_t *stack[9];
-    tokensym_t *curP;
-    pointer bPtr;
-} tokensymStk_t;
-
-typedef union {
     macro_t stack[10];
     macro_t top;
 } macroStk_t;
+#pragma pack(pop)
 
 typedef struct {
-    byte deviceId;
-    byte name[6];
-    byte ext[3];
-    byte deviceType;
-    byte driveType;
-} spath_t;
+    pointer start;
+    tokensym_t *symbol;
+    byte type;
+    byte size;
+    byte attr;
+    word symId;   
+} token_t;
 
-#pragma pack(pop)

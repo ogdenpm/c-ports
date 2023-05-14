@@ -31,7 +31,7 @@ byte macroSpoolNestDepth;
 byte paramCnt;
 byte startNestCnt;
 byte argNestCnt = 0;
-pointer pMacro;
+tokensym_t *pMacro;
 pointer macroInPtr;
 /*
 	mtype has the following values
@@ -100,14 +100,8 @@ byte startDefined = 0;
 word startOffset = 0;
 byte tokenIdx = 0;
 byte lineBuf[128];
-pointer tokStart[9] = {lineBuf};
-#pragma pack(push, 1)
-tokensymStk_t tokenSym;
-#pragma pack(pop)
-byte tokenType[9];
-byte tokenSize[9] = {0};
-byte tokenAttr[9];
-word tokenSymId[9];
+token_t token[9] = { { lineBuf } };
+
 pointer endLineBuf = {lineBuf + 128};
 byte ifDepth = 0;
 bool skipIf[9];
@@ -143,11 +137,9 @@ byte passCnt = 0;
 bool createdUsrSym = false;
 bool usrLookupIsID = false;
 bool needsAbsValue = false;
-word objfd;
-word xreffd;
-word infd;
-word outfd;
-word macrofd;
+FILE *objFp;
+FILE *lstFp;
+FILE *macroFp;
 word statusIO;
 word openStatus;  /* status of last open for Read */
 //static word pad6894 = 0xFFFF;
@@ -170,19 +162,12 @@ bool showAddr;
 bool lineNumberEmitted = false;
 bool b68AE = false;
 char tokStr[7] = {0, 0, 0, 0, 0, 0, 0};
-word sizeInBuf = {IN_BUF_SIZE};
-char inBuf[IN_BUF_SIZE];
-byte outbuf[OUT_BUF_SIZE+1];
+char inBuf[MAXLINE + 3]; 	// MAXLINE chars + \r\n\0
 
-pointer outP = {outbuf};
-pointer endOutBuf;
 //static pointer pad6A05 = {outbuf};
 //static byte pad6A07 = 0;
 char objFile[15] = "               "; /* 15 spaces */
 char lstFile[15] = "               "; /* 15 spaces */
-char asxrefTmp[] = ":F0:ASXREF.TMP ";
-char asxref[] = ":F0:ASXREF ";
-char asmacRef[] = ":F0:ASMAC.TMP ";
 word srcLineCnt = 1;
 //static byte pad6A50[2] = "  ";        /* protects for very big files */
 word lineNo;
@@ -194,8 +179,6 @@ controls_t controls = { .all = {false, false, false, true, true, false, false,
 
 bool ctlListChanged = true;
 byte titleLen = {0};
-//static byte pad6A71;
-//static byte pad6A72[3] = {120, true};
 bool controlSeen[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 byte saveStack[8][3];
 byte saveIdx = 0;
@@ -230,14 +213,10 @@ bool expectOp = true;
 bool b6B36 = false;
 word segLocation[5] = {0, 0, 0, 0, 0};    /* ABS, CODE, DATA, STACK, MEMORY */
 word maxSegSize[3] = {0, 0, 0};        /* seg is only ABS, CODE or DATA */
-char cmdLineBuf[129];
-address actRead;
+char *cmdLineBuf;
 word errCnt;
-//static word padw6BCB;    /* not used */
 pointer w6BCE;
-//static byte pad6BD0[3] = { 0 };
-word azero = 0;
-char *cmdchP = cmdLineBuf;
+char *cmdchP;
 char *controlsP;
 bool skipRuntimeError = false;
 bool nestedMacroSeen;
@@ -245,8 +224,7 @@ byte ii;
 byte jj;
 byte kk;
 //static byte b9B34 = 0;
-char *curFileNameP;	//CHANGE: char ** or change model to return string from GetFileParam
+char *curFileNameP;	//CHANGE
 
 address aVar;
 
-word controlFileType;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */

@@ -49,14 +49,14 @@ void WriteRec(pointer recP)
     for (i = 0; i < recLen - 1; i++)
         crc -= *lenP++;
     *lenP = crc;            /* insert crc byte */
-    Write(objfd, recP, recLen, &statusIO);
-    IoErrChk();
+    if (fwrite(recP, 1, recLen, objFp) != recLen)
+        IoError(objFile, "Write error");
 }
 
 
 static byte GetFixupType(void) {
     byte attr;
-    if (((attr = tokenAttr[spIdx]) & 0x5F) == 0)
+    if (((attr = token[spIdx].attr) & 0x5F) == 0)
         return 3;
     if ((attr & UF_EXTRN) != 0)    /* external */
         return 2;
@@ -83,7 +83,7 @@ void ReinitFixupRecs(void) {
     }
     putWord(rContent.offset, itemOffset + segLocation[rContent.segid = activeSeg]);
     rPublics.segid = curFixupHiLoSegId;
-    rInterseg.segid = tokenAttr[spIdx] & 7;
+    rInterseg.segid = token[spIdx].attr & 7;
     rInterseg.hilo = rExtref.hilo = curFixupHiLoSegId;
 }
 
@@ -94,7 +94,7 @@ static void AddFixupRec(void) {
     leword *dtaP;				// to check doesn't conflict with plm global usage 
 
     dtaP = fixupRecLenPtrs[curFixupType = GetFixupType()];
-    if (getWord(*dtaP) > fixupRecLenChks[curFixupType] || getWord(rContent.len) + tokenSize[spIdx] > 124)
+    if (getWord(*dtaP) > fixupRecLenChks[curFixupType] || getWord(rContent.len) + token[spIdx].size > 124)
         ReinitFixupRecs();
 
     if (firstContent) {
@@ -119,9 +119,9 @@ static void AddFixupRec(void) {
     case 1:
             if (initFixupReq[1]) {
                 initFixupReq[1] = false;
-                rInterseg.segid = tokenAttr[spIdx] & 7;
+                rInterseg.segid = token[spIdx].attr & 7;
                 rInterseg.hilo = curFixupHiLoSegId;
-            } else if (rInterseg.hilo != curFixupHiLoSegId || (tokenAttr[spIdx] & 7) != rInterseg.segid)
+            } else if (rInterseg.hilo != curFixupHiLoSegId || (token[spIdx].attr & 7) != rInterseg.segid)
                 ReinitFixupRecs();
         break;
     case 2:
@@ -137,10 +137,10 @@ static void AddFixupRec(void) {
 
 
 static void RecAddContentBytes(void) {
-    for (byte i = 1; i <= tokenSize[spIdx]; i++)
+    for (byte i = 1; i <= token[spIdx].size; i++)
         rContent.dta[fix6Idx++] = *contentBytePtr++;
 
-    putWord(rContent.len, getWord(rContent.len) + tokenSize[spIdx]);
+    putWord(rContent.len, getWord(rContent.len) + token[spIdx].size);
 }
 
 
@@ -157,16 +157,16 @@ static void InterSegFix(void) {
 }
 
 static void ExternalFix(void) {
-    putWord(rExtref.dta[fix20Idx++], tokenSymId[spIdx]);
+    putWord(rExtref.dta[fix20Idx++], token[spIdx].symId);
     putWord(rExtref.dta[fix20Idx++], fixOffset);
     putWord(rExtref.len, getWord(rExtref.len) + 4);
 }
 
 static void Sub7131(void)
 {
-    curFixupHiLoSegId = (tokenAttr[spIdx] & 0x18) >> 3;
+    curFixupHiLoSegId = (token[spIdx].attr & 0x18) >> 3;
     fixOffset = segLocation[activeSeg] + itemOffset;
-    if (! (inDB || inDW) && (tokenSize[spIdx] == 2 || tokenSize[spIdx] == 3))
+    if (! (inDB || inDW) && (token[spIdx].size == 2 || token[spIdx].size == 3))
         fixOffset++;
     AddFixupRec();
     contentBytePtr = startItem;
@@ -204,11 +204,11 @@ void WriteExtName(void)
 
 void AddSymbol(void) {
 
-    if ((tokenSym.curP->flags & UF_EXTRN) != 0)
+    if ((topSymbol->flags & UF_EXTRN) != 0)
         return;
 
-    *(wpointer)recSymP = tokenSym.curP->offset;
-    UnpackToken(tokenSym.curP->tok, (dtaP = (char *)(recSymP += 2) + 1));
+    *(wpointer)recSymP = topSymbol->offset;
+    UnpackToken(topSymbol->tok, (dtaP = (char *)(recSymP += 2) + 1));
     dtaP[6] = ' ';    /* trailing space to ensure end */
     *recSymP = 0;	  /* length of symbol */
 
@@ -236,16 +236,16 @@ static void WriteSymbols(byte isPublic)	/* isPublic= true -> PUBLICs else LOCALs
     recSymP = rPublics.dta;
     for (segId = 0; segId <= 4; segId++) {
         FlushSymRec(segId, isPublic);    /* also sets up segid for new record */
-        tokenSym.curP = symTab[TID_SYMBOL] - 1;        /* point to type byte of user symbol (-1) */
+        topSymbol = symTab[TID_SYMBOL] - 1;        /* point to type byte of user symbol (-1) */
 
-        while (++tokenSym.curP < endSymTab[TID_SYMBOL]) {	// converted for C pointer arithmetic */
+        while (++topSymbol < endSymTab[TID_SYMBOL]) {	// converted for C pointer arithmetic */
             if (recSymP > &rPublics.crc - (MAXSYMSIZE + 4)) /* make sure there is room offset, len, symbol, 0 */
                 FlushSymRec(segId, isPublic);
 
-            if ((tokenSym.curP->flags & UF_SEGMASK) == segId
-               && tokenSym.curP->type != T_MACRONAME && NonHiddenSymbol()
-               && !TestBit(tokenSym.curP->type, b6D7E) &&		// not O_LABEL, O_REF or O_NAME
-               (! isPublic || (tokenSym.curP->flags & UF_PUBLIC) != 0))
+            if ((topSymbol->flags & UF_SEGMASK) == segId
+               && topSymbol->type != T_MACRONAME && NonHiddenSymbol()
+               && !TestBit(topSymbol->type, b6D7E) &&		// not O_LABEL, O_REF or O_NAME
+               (! isPublic || (topSymbol->flags & UF_PUBLIC) != 0))
                    AddSymbol();
         }
         FlushSymRec(segId, isPublic);
@@ -297,13 +297,13 @@ void Ovl8(void) {
 
     while (spIdx != 0) {
         spIdx     = NxtTokI();
-        endItem   = tokStart[spIdx] + tokenSize[spIdx];
-        startItem = tokStart[spIdx];
+        endItem   = token[spIdx].start + token[spIdx].size;
+        startItem = token[spIdx].start;
         if (IsSkipping() || !isInstr)
             endItem = startItem;
         if (endItem > startItem) {
             Sub7131();
-            itemOffset = itemOffset + tokenSize[spIdx];
+            itemOffset = itemOffset + token[spIdx].size;
         }
         if (!(inDB || inDW))
             spIdx = 0;
@@ -313,9 +313,9 @@ void Ovl8(void) {
 
 void Ovl11(void) {
     if (externId != 0) {
-        Seek(objfd, 0L, SEEK_SET, &statusIO);    /* rewind */
+        fseek(objFp, 0L, SEEK_SET);    /* rewind */
         WriteModhdr();
-        Seek(objfd, 0L, SEEK_END, &statusIO);    /* back to end */
+        fseek(objFp, 0L, SEEK_END);    /* back to end */
     }
     rPublics.type = OMF_PUBLICS;          /* public declarations record */
     putWord(rPublics.len, 1);

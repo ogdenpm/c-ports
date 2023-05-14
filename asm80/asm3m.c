@@ -34,7 +34,7 @@ void ChkSegAlignment(byte seg)
             if (alignTypes[seg] != accum1Lb)        // alignt type mis-match
                 ExpressionError();
         }
-        else if (alignTypes[seg] != 3)    /* no speficier - check byte algined */
+        else if (alignTypes[seg] != 3)    /* no specifier - check byte algined */
             ExpressionError();
     } else {
         segDeclared[seg] = true;
@@ -48,18 +48,8 @@ void ChkSegAlignment(byte seg)
     }
 }
 
-
-void Cond2Acc(byte cond)
-{    /* convert conditional result to accum1 */
-
-    accum1 = cond;
-    if (accum1)
-        accum1 = 0xFFFF;
-}
-
 void UpdateHiLo(byte hilo)
 {
-
     if ((acc1RelocFlags & (UF_EXTRN + UF_SEGMASK)) != 0)
         acc1RelocFlags = (acc1RelocFlags & ~UF_RBOTH) | hilo;
 }
@@ -74,9 +64,9 @@ void HandleOp(void) {
             if (! (topOp == T_LPAREN && curOp == T_RPAREN)) // incorrectly nested ()
                 BalanceError();
 
-            if (tokenType[0] == O_DATA) {
-                tokenSize[0] = 1;
-                tokenAttr[0] = 0;
+            if (token[0].type == O_DATA) {
+                token[0].size = 1;
+                token[0].attr = 0;
                 b6B36 = true;
             }
 
@@ -106,17 +96,23 @@ void HandleOp(void) {
             break;
     case 10:	accum1 = -accum1;            /* unary - */
             break;
-    case 11:	Cond2Acc(accum1 == accum2);        /* EQ */
+    case 11:
+            accum1 = accum1 == accum2 ? 0xffff : 0; /* EQ */
             break;
-    case 12:	Cond2Acc(accum1 < accum2);        /* LT */
+    case 12:
+            accum1 = accum1 < accum2 ? 0xffff : 0; /* LT */
             break;
-    case 13:	Cond2Acc(accum1 <= accum2);    /* LE */
+    case 13:
+            accum1 = accum1 <= accum2 ? 0xffff : 0; /* LE */
             break;
-    case 14:	Cond2Acc(accum1 > accum2);        /* GT */
+    case 14:
+            accum1 = accum1 > accum2 ? 0xffff : 0; /* GT */
             break;
-    case 15:	Cond2Acc(accum1 >= accum2);    /* GE */
+    case 15:
+            accum1 = accum1 >= accum2 ? 0xffff : 0; /* GE */
             break;
-    case 16:	Cond2Acc(accum1 != accum2);    /* NE */
+    case 16:
+            accum1 = accum1 != accum2 ? 0xffff :  0; /* NE */
             break;
     case 17:	accum1 = ~accum1;            /* NOT */
             break;
@@ -150,7 +146,7 @@ void HandleOp(void) {
             UpdateHiLo(UF_RLOW);
             break;
     case 26:	                    /* DB ? */
-            if (tokenType[0] != O_STRING)
+            if (token[0].type != O_STRING)
             {
                 accum1 = GetNumVal();
                 if ((byte)(accum1Hb - 1) < 0xFE)    /* ! 0 or FF */
@@ -162,7 +158,7 @@ void HandleOp(void) {
                 }
             } else {
                 acc1RelocFlags = 0;         // abs bytes
-                tokenType[0] = O_DATA;      // flag as data
+                token[0].type = O_DATA;      // flag as data
             }
 
             if (IsReg(acc1ValType))         // db of register is not valid
@@ -361,7 +357,7 @@ void HandleOp(void) {
     case 64:	Sub78CE();      /* optVal */
             break;
     case 65:	                /* NUL */
-            Cond2Acc(tokenType[0] == K_NUL);
+            accum1 = token[0].type == K_NUL ? 0xffff : 0;
             PopToken();
             acc1RelocFlags = 0;
             break;
@@ -493,8 +489,8 @@ void Parse(void) {
             if (curOpFlags & (4 << ii))  /* --xxxx-- -> collect high/low acc1/acc2 */
                 CollectByte(((byte *)&accum1)[ii]);
 
-        tokenAttr[0] = acc1RelocFlags;
-        tokenSymId[0] = acc1RelocVal;
+        token[0].attr = acc1RelocFlags;
+        token[0].symId = acc1RelocVal;
         if (curOpFlags & 0x40)          /* -x------ -> list */
             if (curOp == T_COMMA) {     // if comma then make the operator (topOp) as
                 yyType = topOp;         // the next item to read and mark as operator
