@@ -14,20 +14,18 @@ bool pendingInclude = false;
 bool includeOnCmdLine = false;
 byte fileIdx = 0;
 FILE *srcfp;
-FILE *rootfp;
 byte lineChCnt = 0; 
 file_t files[6];
 
 
 void CloseSrc(void) /* close current source file. Revert to any parent file */
 {
+    if (fileIdx == 0) /* if it the original file we had no end statement so error */
+        IoError(files[0].name, "EOF - missing 'end'");
     if (fclose(srcfp) == EOF)
         IoError(files[fileIdx].name, "Close Error");
-
-    if (fileIdx == 0)		/* if it the original file we had no end statement so error */
-        IoError(files[0].name, "EOF - missing 'end'");
-    else   /* reconnect to previous file */
-        srcfp = files[--fileIdx].fp;
+    free(files[fileIdx].name);
+    srcfp = files[--fileIdx].fp;
 }
 
 /*

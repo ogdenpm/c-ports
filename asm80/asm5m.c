@@ -54,7 +54,7 @@ static byte Unpack1(word packedWord) {
     return ch;
 }
 
-void UnpackToken(wpointer src, char *dst) {
+void UnpackToken(wpointer src, byte *dst) {
     word packedword;
 
     packedword = src[1];
@@ -401,11 +401,11 @@ byte GetCh(void) {
         do {
             curCH = lookAhead;
             if (expandingMacro) {
-                while ((lookAhead = *macro.top.bufP) == MACROEOB) {
+                while ((lookAhead = *curMacro.bufP) == MACROEOB) {
                     ReadM(curMacroBlk + 1);
-                    macro.top.bufP = macroBuf;
+                    curMacro.bufP = macroBuf;
                 }
-                macro.top.bufP++;
+                curMacro.bufP++;
             } else
                 lookAhead = scanCmdLine ? GetCmdCh() : GetSrcCh();
         } while (curCH == 0 || curCH == 0x7F || curCH == FF);
@@ -424,31 +424,31 @@ byte GetCh(void) {
                 }
             } else if (curCH >= MACROPARAM) {
                 if (!(expandingMacroParameter = !expandingMacroParameter))
-                    macro.top.bufP =
+                    curMacro.bufP =
                         savedMacroBufP; // back to macro as macro parameter expansion has finished
                 else {
-                    savedMacroBufP = macro.top.bufP;        // is parameter or Local
+                    savedMacroBufP = curMacro.bufP;        // is parameter or Local
                     if (curCH == MACROPARAM) {              // parameter
-                        macro.top.bufP = macro.top.pCurArg; // parameter text
+                        curMacro.bufP = curMacro.pCurArg; // parameter text
                         if (savedMtype == M_IRPC) {
-                            irpcChr[1]     = *macro.top.bufP; // copy the char
-                            macro.top.bufP = &irpcChr[1];
-                            if (*macro.top.bufP == '!') { // if it was '!' then include escaped char
+                            irpcChr[1]     = *curMacro.bufP; // copy the char
+                            curMacro.bufP = &irpcChr[1];
+                            if (*curMacro.bufP == '!') { // if it was '!' then include escaped char
                                 irpcChr[0] = '!';
-                                irpcChr[1] = macro.top.pCurArg[1];
-                                macro.top.bufP--; // allow for the two chars
+                                irpcChr[1] = curMacro.pCurArg[1];
+                                curMacro.bufP--; // allow for the two chars
                             }
                         } else {
                             while ((byte)(--lookAhead) != 0xFF) { // skip to required parameter
-                                macro.top.bufP -= (*macro.top.bufP & 0x7F);
+                                curMacro.bufP -= (*curMacro.bufP & 0x7F);
                             }
-                            macro.top.bufP++; // skip over the length of next parameter
+                            curMacro.bufP++; // skip over the length of next parameter
                         }
                     } else { // Local
-                        macro.top.bufP =
+                        curMacro.bufP =
                             localVarName; // generate Local id from instance & current DoLocal base
                         word tmp =
-                            lookAhead + macro.top.localIdBase; // plm reuses aVar instead of tmp
+                            lookAhead + curMacro.localIdBase; // plm reuses aVar instead of tmp
                         // generate DoLocal variable name
                         for (ii = 1; ii <= 4; ii++) {
                             localVarName[6 - ii] = tmp % 10 + '0';

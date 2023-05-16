@@ -129,7 +129,7 @@ enum {
 #define	RTE_STACK	0
 #define	RTE_TABLE	1
 #define RTE_CMDLINE	2
-#define RTE_EOF		3
+#define RTE_EOF		3       // no longer used
 #define	RTE_FILE	4
 
 /* label usage */

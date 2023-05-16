@@ -66,7 +66,7 @@ void FinishLine(void) {
         if (ChkGenObj())
             Ovl8();
         b6B2C = true;
-        segLocation[activeSeg] = effectiveAddr.w = (word)(segLocation[activeSeg] + (w6BCE - lineBuf));
+        segLocation[activeSeg] = effectiveAddr = (word)(segLocation[activeSeg] + (w6BCE - lineBuf));
     }
 
     if (controls.xref && haveUserSymbol && phase == 1)

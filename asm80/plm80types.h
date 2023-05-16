@@ -18,12 +18,7 @@ typedef word *wpointer;
 typedef byte leword[2];     // used to force word matches OMF definition
 
 #pragma pack(push, 1)
-typedef union {
-    word w;
-    struct {
-        byte lb, hb;
-    };
-} word_t;
+
 
 typedef union {
     word w;
@@ -36,77 +31,124 @@ typedef union {
     word *ap;
 } address;
 
-typedef struct {
-    byte type;
-    leword len;
-    byte segid;
-    leword offset;
-    byte dta[121];
-    byte crc;
-} content_t;
 
-typedef struct {
-    byte type;
-    leword len;
-    byte crc;
-} eof_t;
+// the record formats
+// to remove need for pack, the notional
+// structures are replaced with offsets into a
+// byte array. The defines below give the offset into
+// the array. Unless fixed crc location is determined
+// at runtime
 
-typedef struct {
-    byte type;
-    leword len;
-    byte dta[124];
-    byte crc;
-} extnames_t;
+// header:
+#define HDR_TYPE    0
+#define HDR_LEN     1   // word
 
-typedef struct {
-    byte type;
-    leword len;
-    byte hilo;
-    leword dta[30];
-    byte crc;
-} extref_t;
+// content:
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte segid;
+//    leword offset;
+//    byte dta[121];
+//    byte crc;
+//} content_t;
 
-typedef struct {
-    byte type;
-    leword len;
-    byte segid;
-    byte hilo;
-    leword dta[29];
-    byte crc;
-} interseg_t;
+#define CONTENT_SEGID   3
+#define CONTENT_OFFSET  (CONTENT_SEGID + 1)
+#define CONTENT_DATA(n) (CONTENT_OFFSET + 2 + (n))
+#define CONTENT_MAX    124
 
-typedef struct {
-    byte type;
-    leword len;
-    byte modtyp;
-    byte segid;
-    leword offset;
-    byte crc;
-} modend_t;
+// eof: 
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte crc;
+//} eof_t;
 
+// extnames:
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte dta[124];
+//    byte crc;
+//} extnames_t;
+#define EXTNAMES_DATA(n) (3 + (n))
+#define EXTNAMES_MAX    126
+
+// extref:
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte hilo;
+//    leword dta[30];
+//    byte crc;
+//} extref_t;
+#define EXTREF_HILO 3
+#define EXTREF_DATA(n) (EXTREF_HILO + 1 + 2 * (n))
+#define EXTREF_MAX  61
+
+// interseg:
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte segid;
+//    byte hilo;
+//    leword dta[29];
+//    byte crc;
+//} interseg_t;
+#define INTERSEG_SEGID  3
+#define INTERSEG_HILO   (INTERSEG_SEGID + 1)
+#define INTERSEG_DATA(n)   (INTERSEG_HILO + 1 + 2 * (n))
+#define INTERSEG_MAX    60
+
+// modend:
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte modtyp;
+//    byte segid;
+//    leword offset;
+//    byte crc;
+//} modend_t;
+#define MODEND_TYPE     3
+#define MODEND_SEGID    (MODEND_TYPE + 1)
+#define MODEND_OFFSET   (MODEND_SEGID + 1)
+#define MODEND_MAX      4
+
+// modhdr:
 typedef struct {
     byte type;
     leword len;
     byte dta[26];
 } modhdr_t;
+#define MODHDR_DATA(n)  (3 + (n))
+#define MODHDR_MAX      26
+
+// publics:
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte segid;
+//    byte dta[124];
+//    byte crc;
+//} publics_t;
+#define PUBLICS_SEGID   3
+#define PUBLICS_DATA    (PUBLICS_SEGID + 1)
+#define PUBLICS_MAX     125
+
+// reloc:
+//typedef struct {
+//    byte type;
+//    leword len;
+//    byte hilo;
+//    leword dta[62];
+//} reloc_t;
+#define RELOC_HILO      3
+#define RELOC_DATA(n)   (RELOC_HILO + 1 + 2 * (n))
+#define RELOC_MAX       125
 
 typedef struct {
-    byte type;
-    leword len;
-    byte segid;
-    byte dta[124];
-    byte crc;
-} publics_t;
-
-typedef struct {
-    byte type;
-    leword len;
-    byte hilo;
-    leword dta[62];
-} reloc_t;
-
-typedef struct {
-    char name[15];
+    char *name;
     word blk, byt;
     byte b19;
     FILE *fp;
@@ -182,12 +224,7 @@ typedef union {
     };
 } controls_t;
 
-typedef union {
-    macro_t stack[10];
-    macro_t top;
-} macroStk_t;
 #pragma pack(pop)
-
 typedef struct {
     pointer start;
     tokensym_t *symbol;

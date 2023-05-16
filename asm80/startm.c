@@ -11,16 +11,10 @@
 #include "asm80.h"
 #include <ctype.h>
 
-word seekMZero = 0;
 byte b3782[2] = { 0x80, 0x81 };
-char spaces24[] = "                        ";
-char ascCRLF[] = "\n";
-char signonMsg[] = "\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\tMODULE \t PAGE ";
-byte bZERO = 0;
-byte bTRUE = true;
-//static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
+char moduleName[7] = "MODULE";
+    //static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
 
-static char const* aErrStrs[] = { "STACK", "TABLE", "COMMAND", "EOF", "FILE", "MEMORY" };
 
 
 pointer Physmem(void) {
@@ -29,7 +23,7 @@ pointer Physmem(void) {
 
 
 byte GetCmdCh(void) {
-    return toupper(*cmdchP++);
+    return *cmdchP++;
 }    
 
 
@@ -94,12 +88,12 @@ bool IsPhase2Print(void) {
 }
 
 
-void WrStrConsole(char const *bufP) {
-    printf(bufP);
-}
 
 void RuntimeError(byte errCode)
 {
+
+    static char const *aErrStrs[] = { "STACK", "TABLE", "COMMAND", "EOF", "FILE", "MEMORY" };
+
     if (skipRuntimeError)
         return;
 
@@ -112,15 +106,17 @@ void RuntimeError(byte errCode)
         fprintf(lstFp, "\n%s ERROR%s", aErrStrs[errCode], errCode == RTE_FILE ? ", " : "\n");
 
 
-    if (errCode == RTE_FILE || errCode == RTE_EOF) {    /* file or EOF Error() */
+    if (errCode == RTE_FILE) {    /* file? */
         if (tokBufIdx == 0) {
             fputs("BAD SYNTAX\n", stderr);
             if (!scanCmdLine) {
                 Skip2NextLine();
                 fprintf(stderr, "%4u\n", srcLineCnt);
             }
-        } else
-            fputs(curFileNameP, stderr);
+        } else {
+            fputs(tokBuf, stderr);
+            fputc('\n', stderr);
+        }
     }
 
     if (errCode == RTE_STACK) {   /* stackError - suppress cascade errors */
@@ -252,10 +248,10 @@ void InitLine(void) {
         inExpression = expectingOperands = xRefPending = haveUserSymbol = inDB = inDW =
             condAsmSeen = showAddr = usrLookupIsID = excludeCommentInExpansion = b9060 =
                 needsAbsValue                                                  = false;
-    gotLabel                                                                   = bZERO;
-    atStartLine = expectingOpcode = isInstr = expectOp = bTRUE;
+    gotLabel                                                                   = 0;
+    atStartLine = expectingOpcode = isInstr = expectOp = true;
     controls.eject = tokenIdx = argNestCnt = token[0].size = token[0].type = acc1ValType =
-        acc2ValType = acc1RelocFlags = bZERO;
+        acc2ValType = acc1RelocFlags = 0;
     hasVarRef = inQuotes = inComment = false;
 
     asmErrCode                       = ' ';
@@ -267,8 +263,9 @@ void InitLine(void) {
     macroP = macroLine;
 }
 
-void Start(void) {
-    GetAsmFile();
+void Start(char *srcName) {
+    PrepSrcFile(srcName);
+    controlsP = cmdchP; /* controls start after file name */
     phase = 1;
     ResetData();
     InitialControls();
@@ -281,8 +278,8 @@ void Start(void) {
     DoPass();
     phase = 2;
     if (controls.object) {
-        if (getWord(rExtnames.len) > 0)
-            WriteRec((pointer)&rExtnames);    /* in overlay 2 */
+        if (getLen(rExtnames) > 0)
+            WriteRec(rExtnames);    /* in overlay 2 */
 
         if (externId == 0)
             WriteModhdr();        /* in overlay 2 */

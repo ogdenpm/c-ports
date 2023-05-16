@@ -22,8 +22,8 @@ static byte controlTable[] = {
             "\x35" "DEBUG"     "\x3A" "MACRODEBUG"
             "\x34" "XREF"      "\x37" "SYMBOLS"
             "\x36" "PAGING"    "\x33" "TTY"
-            "\x25" "MOD85"     "\x35" "PRINT"
-            "\x36" "OBJECT"    "\x39" "MACROFILE"
+            "\x35" "MOD85"     "\x35" "PRINT"
+            "\x36" "OBJECT"    "\x39" "macrofile"   // hide MACROFILE
             "\x29" "PAGEWIDTH" "\x2A" "PAGELENGTH"
             "\x7"  "INCLUDE"   "\x5"  "TITLE"
             "\x4"  "SAVE"      "\x7"  "RESTORE"
@@ -90,8 +90,7 @@ static bool FinaliseFileNameOpt(char *arg1w)
     if (tokBufIdx == 0)
         return false;
 
-    tokBuf[tokBufIdx] = '\0';
-    tokBufLen = tokBufIdx;
+    tokBuf[tokBufLen = tokBufIdx] = '\0';
     if (IsWhite())
         return ChkParen(')');
     return true;
@@ -100,19 +99,18 @@ static bool FinaliseFileNameOpt(char *arg1w)
 static void GetFileNameOpt(void) {
     SkipWhite_2();
 
-    while (1) {
+    while (curChar != CR) {
         if (IsRParen() || IsWhite()) {
             if (FinaliseFileNameOpt(tokBuf))
                 return;
            break;
         }
-
-        tokBuf[tokBufIdx] = curChar;
-        if (++tokBufIdx > 14)   //CHANGE: 255
-            break;
+        if (tokBufIdx > MAXFILEPARAM)
+           break;
+        tokBuf[tokBufIdx++] = curChar;
         curChar = GetCh();
     }
-    curFileNameP = tokBuf;
+    tokBuf[tokBufIdx] = '\0';
     FileError();
 }
 
@@ -123,26 +121,10 @@ static void GetFileParam(void) {
         FileError();
     else {
         GetFileNameOpt();
-        strcpy(curFileNameP, tokBuf);    //CHANGE: curFileNameP = strdup
         if (! ChkParen(')'))    /* ) */
             FileError();
     }
 }
-
-
-static void GetMacroFileDrive(void) {   // now ignored
-    SkipWhite_2();
-
-    while (! IsRParen() && ii < 4)
-        curChar = GetCh();
-
-    if ((IsRParen() || IsWhite()) && ChkParen(')'))
-        return;
-    FatalError("Unterminated macro drive option -- note no longer used");
-}
-
-
-
 
 static bool GetControlNumArg(void) {
     if (ChkParen('(')) { /* ( */
@@ -169,7 +151,7 @@ static byte LookupControl(void) {
     pointer controlP, nextControlP;
     bool *ctlSeenP;
 
-    cmdLen = tokBufLen;
+    cmdLen = (byte)tokBufLen;
     cmdStartIdx = 0;
     ctlVal = true;
     if (tokBuf[0] == 'N' && tokBuf[1] == 'O') {   /* check for NO prefix */
@@ -238,18 +220,18 @@ static void ProcessControl(void) {
             controls.mod85 = true;
             return;
     case 2:            /* PRINT */
-            curFileNameP = lstFile;
             GetFileParam();
+            if (lstFile)
+                free(lstFile);
+            lstFile = strdup(tokBuf);
             return;
     case 3:            /* OBJECT */
-            curFileNameP = objFile;
             GetFileParam();
+            if (objFile)
+                free(objFile);
+            objFile = strdup(tokBuf);
             return;
     case 4:            /* MACROFILE */
-            if (ChkParen('(')) /* optional drive for tmp file */
-                GetMacroFileDrive();
-            else
-                reget = 1;
             controls.macroFile = true;
             return;
     case 5:            /* PAGEWIDTH */
@@ -277,8 +259,8 @@ static void ProcessControl(void) {
                 else
                 {
                     fileIdx++;
-                    curFileNameP = files[fileIdx].name;
                     GetFileParam();
+                    files[fileIdx].name = strdup(tokBuf);
                     pendingInclude = true;
                     if (scanCmdLine)
                         includeOnCmdLine = true;
@@ -292,7 +274,7 @@ static void ProcessControl(void) {
                 if (tokType == TT_STR && tokBufLen != 0) {
                     if (phase != 1 || (IsPhase1() && primaryValid)) {
                         memcpy(titleStr, tokBuf, tokBufLen);
-                        titleStr[titleLen = tokBufLen] = 0;
+                        titleStr[titleLen = (byte)tokBufLen] = 0;
                         if (ChkParen(')')) {
                             controls.title = true;
                             return;

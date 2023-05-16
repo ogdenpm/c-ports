@@ -14,11 +14,6 @@
 void Put2Hex(void (*func)(char), word arg2w);
 static void PrintChar(char c);
 
-static char aAssemblyComple[] = "\r\nASSEMBLY COMPLETE,   NO ERRORS";
-#define aNoErrors (aAssemblyComple + 20)
-static char spaceLP[] = " (     )";
-#define space5RP (spaceLP + 2)
-// static word pad754E;
 static char lstHeader[]             = "  LOC  OBJ         LINE        SOURCE STATEMENT\n\n";
 static char const *symbolMsgTable[] = { "\nPUBLIC SYMBOLS\n", "\nEXTERNAL SYMBOLS\n",
                                         "\nUSER SYMBOLS\n" };
@@ -40,10 +35,6 @@ static void Out2Hex(byte n) {
     Put2Hex(Outch, n);
 }
 
-static void Print2Hex(byte n) {
-    Put2Hex(PrintChar, n);
-}
-
 static void PrintStr(char const *str) {
     while (*str != 0)
         PrintChar(*str++);
@@ -52,19 +43,6 @@ static void PrintStr(char const *str) {
 static void PrintNStr(byte cnt, char const *str) {
     while (cnt-- > 0)
         PrintChar(*str++);
-}
-
-static char aNumStr[] = "     ";
-
-static void Itoa(word n, char *buf) {
-    memcpy(buf, spaces5, 5);
-    buf += 4;
-
-    while (1) {
-        *buf-- = n % 10 + '0';
-        if ((n /= 10) == 0)
-            return;
-    }
 }
 
 void PrintDecimal(word n) {
@@ -84,15 +62,11 @@ static void NewPageHeader(void) {
     //    byte twoLF[] = "\r\n\n";        /* Not used */
     //    byte threeLF[] = "\r\n\n\n";    /* CR not used */
 
-    PrintStr("\n\n\n");
-    PrintStr(asmHeader);
-    PrintDecimal(pageCnt);
-    PrintChar(LF);
+    Printf("\n\n\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\t%-6s \t PAGE %4u\n", moduleName, pageCnt);
     if (controls.title)
         PrintNStr(titleLen, titleStr);
 
-    PrintChar(LF);
-    PrintChar(LF);
+    PrintStr("\n\n");
     if (!b68AE)
         PrintStr(lstHeader);
     pageCnt++;
@@ -158,7 +132,7 @@ static void PrintChar(char c) {
                 curCol++;
             if (curCol > controls.pageWidth) {
                 PrintChar(LF);
-                PrintStr(spaces24);
+                Printf("%24s", "");
                 curCol++;
             }
             Outch(c);
@@ -197,7 +171,7 @@ void Sub7041_8447(void) {
 
                         if (symGrp != 0 || type != 3)
                             if (symGrp == 2 || (flags & symGrpFlags[symGrp]) != 0) {
-                                UnpackToken(topSymbol->tok, tokStr);
+                                UnpackToken(topSymbol->tok, (byte *)tokStr);
                                 if (kk) {
                                     if (controls.pageWidth - curCol < 17)
                                         PrintChar(LF);
@@ -211,10 +185,7 @@ void Sub7041_8447(void) {
                                     else
                                         PrintChar(segChar[flags & UF_SEGMASK]);
 
-                                    PrintChar(' ');
-                                    Print2Hex(zeroAddr ? 0 : topSymbol->value >> 8);
-                                    Print2Hex(zeroAddr ? 0 : topSymbol->value & 0xff);
-                                    PrintStr(spaces4);
+                                    Printf(" %04X    ", zeroAddr ? 0 : topSymbol->value);
                                 }
                             }
                     }
@@ -231,7 +202,10 @@ void Sub7041_8447(void) {
 void PrintCmdLine(void) {
     Outch(FF);
     DoEject();
-    PrintStr(cmdLineBuf);
+    Printf("%s %s", _argv[0], _argv[1]);
+    for (int i = 2; i < _argc; i++)
+        Printf("%s%s", curCol + strlen(_argv[i]) > controls.pageWidth ? " \\\n    " : " ", _argv[i]);
+    PrintChar('\n');
     NewPageHeader();
 }
 
@@ -240,9 +214,9 @@ void OutStr(char const *s) {
         Outch(*s++);
 }
 
-static void OutNStr(word cnt, pointer s) {
-    while (cnt-- > 0)
-        Outch(*s++);
+void OutSpc(int n) {
+    while (n-- != 0)
+        Outch(' ');
 }
 
 static bool MoreBytes(void) {
@@ -253,18 +227,18 @@ static void PrintCodeBytes(void) {
     byte i;
 
     if (showAddr |= MoreBytes()) { /* print the word */
-        Out2Hex(effectiveAddr.hb);
-        Out2Hex(effectiveAddr.lb);
+        Out2Hex(High(effectiveAddr));
+        Out2Hex(Low(effectiveAddr));
     } else
-        OutStr(spaces4);
+        OutSpc(4);
 
     Outch(' ');
     for (i = 1; i <= 4; i++) {
         if (MoreBytes() && isInstr) {
-            effectiveAddr.w++;
+            effectiveAddr++;
             Out2Hex(*startItem);
         } else
-            OutStr(spaces2);
+            OutSpc(2);
         startItem++;
     }
 
@@ -298,7 +272,7 @@ void PrintLine(void) {
             errorOnLine = true;
         }
         if (isControlLine)
-            OutStr(spaces15);
+            OutSpc(15);
         else
             PrintCodeBytes();
 
@@ -327,7 +301,7 @@ void PrintLine(void) {
                 DoEject();
         } else {
             while (MoreBytes()) {
-                OutStr(spaces2);
+                OutSpc(2);
                 PrintCodeBytes();
                 PrintChar(LF);
             }

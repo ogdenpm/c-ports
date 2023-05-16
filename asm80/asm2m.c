@@ -244,17 +244,16 @@ byte GetPrec(byte topOp) {
 */
 void MkCode(byte control) {
     if ((control & 3)) {   /* lxi, ldax, stax, regarith, mvi, mov, rst */
-        if (accum2Hb != 0    /* reg or rst num <= 7 */
-            || accum2Lb > 7
-            || (control & accum2Lb & 1)    /* only B D H SP if lxi, ldax or stax */
-            || ((control & 3) == 3 && accum2Lb > 2)    /* B or D if ldax or stax */
+        if (accum2 > 7    /* reg or rst num <= 7 */
+            || (control & accum2 & 1)    /* only B D H SP if lxi, ldax or stax */
+            || ((control & 3) == 3 && Low(accum2) > 2)    /* B or D if ldax or stax */
             || (!IsReg(acc2ValType) && topOp != K_RST))    /* reg unless rst */
             OperandError();
         else if (IsReg(acc2ValType) && topOp == K_RST)         /* cannot be reg for rst */
             OperandError();
         if (control & 4)
-            accum2Lb = (accum2Lb << 3) + (accum2Lb >> 5);
-        accum1Lb |= accum2Lb;
+            accum2 = MkWord(High(accum2), Low((accum2 << 3) | ((accum2 >> 5) & 7)));
+        accum1 |= Low(accum2);
     } else if (topOp != K_SINGLE)        /* single byte topOp */
         if (IsReg(acc2ValType))
             OperandError();
@@ -264,7 +263,7 @@ void MkCode(byte control) {
             ValueError();
             acc2RelocFlags = (acc2RelocFlags & ~UF_RBOTH) | UF_RLOW;  // assume low 8 bits
         }
-        if ((byte)(accum2Hb + 1) > 1)    /* Error() if ! FF or 00 */
+        if (accum2 >= 0x100 && accum2 < 0xFF00)    /* Error() if ! FF or 00 */
             ValueError();
     }
     if (topOp == K_IMM8 || topOp == K_IMM16) {   /* Imm8() or imm16 */
@@ -274,7 +273,7 @@ void MkCode(byte control) {
         acc1RelocFlags = 0;                          // else make abs non relocatable
 
     if (topOp != K_SINGLE)             /* single byte topOp */
-        if (accum1Lb == 0x76)         /* mov m,m is actually Halt() */
+        if (Low(accum1) == 0x76)         /* mov m,m is actually Halt() */
             OperandError();
     if ((topOp = (control >> 4) + K_LXI) == K_LXI)
         nextTokType = O_DATA;

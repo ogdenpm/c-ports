@@ -65,7 +65,7 @@ void StackError(void)
     RuntimeError(RTE_STACK);
 }
 
-void FileError(void)
+_Noreturn void FileError(void)
 {
     RuntimeError(RTE_FILE);
 }
@@ -122,10 +122,9 @@ void Nest(byte sw)
             StackError();
             macroDepth = 0;
         } else {
-            macro.stack[macroDepth] = macro.stack[0];
-            //memcpy(&macro.stack[macroDepth], &macro.stack[0], sizeof(macro_t));
-            macro.top.condSP = macroCondSP;
-            macro.top.ifDepth = ifDepth;
+            macro[macroDepth] = curMacro;
+            curMacro.condSP = macroCondSP;
+            curMacro.ifDepth = ifDepth;
             nestMacro = true;
         }
     } else {
@@ -146,17 +145,16 @@ void UnNest(byte sw)
         NestingError();
         if (sw == 2)          /* ! macro unnest */
             return;
-        macroCondSP = macro.top.condSP;
-        ifDepth = macro.top.ifDepth;
+        macroCondSP = curMacro.condSP;
+        ifDepth = curMacro.ifDepth;
     }
 
     macroCondStk[0] = macroCondStk[macroCondSP];    /* restore macro stack */
     macroCondSP--;
     if (sw == 1) {         /* is unnest macro */
-        macro.stack[0] = macro.stack[macroDepth];
-        memcpy(&macro.stack[0], &macro.stack[macroDepth], sizeof(macro_t));
-        ReadM(macro.top.blk);
-        savedMtype = macro.top.mtype;
+       curMacro = macro[macroDepth];
+        ReadM(curMacro.blk);
+        savedMtype = curMacro.mtype;
         if (--macroDepth == 0) { /* end of macro nest */
             expandingMacro = 0;     /* not expanding */
             baseMacroTbl = Physmem() + 0xBF;

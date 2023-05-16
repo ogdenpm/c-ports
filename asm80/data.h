@@ -15,28 +15,16 @@ extern byte opFlags[];
 // defined in asm5m.c
 extern byte labelUse;
 // defined in startm.c
-extern word seekMZero;
 extern byte b3782[2];
 
-extern char spaces24[];
-#define spaces15	(spaces24 + 9) 
-#define spaces6		(spaces24 + 18)
-#define spaces5		(spaces24 + 19)
-#define spaces4		(spaces24 + 20)
-#define spaces2		(spaces24 + 22)
-extern char ascCRLF[];
-extern char signonMsg[];
-#define asmHeader	(signonMsg + 1)
-#define aModulePage	(signonMsg + 42)
-extern byte bZERO;
-extern byte bTRUE;
-//extern char const *aErrStrs[];
-//extern byte aErrStrsLen[];
+extern char moduleName[];
+
 
 // defined in globlm.c
 
 #define	IN_BUF_SIZE	512
 #define	OUT_BUF_SIZE	512
+#define MAXFILEPARAM	260	// must be less than 255 as length is currently a byte
 
 extern char macroLine[129];
 extern char *macroP;
@@ -57,7 +45,8 @@ extern byte startNestCnt;
 extern byte argNestCnt;
 extern tokensym_t *pMacro;
 extern pointer macroInPtr;
-extern macroStk_t macro;
+extern macro_t macro[10];
+#define curMacro macro[0]
 extern word curMacroBlk;
 extern word nxtMacroBlk;
 extern word maxMacroBlk;
@@ -84,16 +73,15 @@ extern byte fixIdxs[4];
 extern byte extNamIdx;
 extern bool initFixupReq[4];
 extern bool firstContent;
-extern eof_t rEof;
-extern extnames_t rExtnames;
+extern byte rEof[];
+extern byte rExtnames[];
 extern byte moduleNameLen;
-extern content_t rContent;
-extern publics_t rPublics;
-#define rReloc	(*(reloc_t *)&rPublics)	//rReloc RELOC_T at[&rPublics];
-extern interseg_t rInterseg;
-extern extref_t rExtref;
-extern modend_t rModend;
-extern word wZERO;
+extern byte rContent[];
+extern byte rPublics[];
+#define rReloc	rPublics	// shared
+extern byte rInterseg[];
+extern byte rExtref[];
+extern byte rModend[];
 extern bool inComment;
 extern bool noOpsYet;
 extern byte nameLen;
@@ -121,13 +109,10 @@ extern byte macroCondSP;
 extern byte macroCondStk[17];
 extern byte opSP;
 extern byte opStack[17];
-extern word_t accum[2];
-#define accum1	accum[0].w
-#define accum2	accum[1].w
-#define accum1Lb accum[0].lb
-#define accum1Hb accum[0].hb
-#define accum2Lb accum[1].lb
-#define accum2Hb accum[1].hb
+extern word accum1, accum2;
+#define Low(n)   ((n) & 0xff)
+#define High(n)  (((n) >> 8) & 0xff)
+#define MkWord(h, l) (((h) << 8) | (l))
 extern byte acc1RelocFlags;
 extern byte acc2RelocFlags;
 extern bool hasVarRef;
@@ -168,15 +153,15 @@ extern byte curCol;
 extern pointer endItem;
 extern pointer startItem;
 extern word pageLineCnt;
-extern address effectiveAddr;
+extern word effectiveAddr;
 extern word pageCnt;
 extern bool showAddr;
 extern bool lineNumberEmitted;
 extern bool b68AE;
 extern char tokStr[7];
 extern char inBuf[];
-extern char objFile[15];
-extern char lstFile[15];
+extern char *objFile;
+extern char *lstFile;
 extern word srcLineCnt;
 extern word lineNo;
 extern byte spIdx;
@@ -188,11 +173,11 @@ extern bool controlSeen[12];
 extern byte saveStack[8][3];
 extern byte saveIdx;
 extern char titleStr[64];
-extern byte tokBufLen;
+extern word tokBufLen;
 extern byte tokType;
 extern byte controlId;
-extern char tokBuf[64];
-extern byte tokBufIdx;
+extern char tokBuf[];
+extern word tokBufIdx;
 extern word tokNumVal;
 extern bool isControlLine;
 extern bool scanCmdLine;
@@ -241,6 +226,10 @@ extern bool pendingInclude;
 extern bool includeOnCmdLine;
 extern byte fileIdx;
 extern FILE *srcfp;
-extern FILE *rootfp;
 extern byte lineChCnt;
 extern file_t files[6];
+
+
+extern int _argc;
+extern char **_argv;
+extern bool useLC;

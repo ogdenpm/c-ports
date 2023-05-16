@@ -43,14 +43,6 @@ byte GetDrive(void) {
     return *cmdchP;
 }
 
-void AddExtents(void) {
-    for (ii = 1; ii <= 3; ii++) {
-        lstFile[kk + ii] = aExtents[ii];
-        objFile[kk + ii] = aExtents[ii+3];
-    }
-    lstFile[kk + 4] = objFile[kk + 4] = '\0';
-}
-
 
 /* inits usage include overlay file initiatisation */
 bool IsWhiteOrCr(byte c)
@@ -58,8 +50,9 @@ bool IsWhiteOrCr(byte c)
     return c == ' ' || c == TAB || c == CR;
 }
 
-void GetAsmFile(void) {
-    /* select key words depending on whether macro version or not */
+void PrepSrcFile(char *srcName) {
+    char *s;
+
     symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
     endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
@@ -67,42 +60,24 @@ void GetAsmFile(void) {
     scanCmdLine = true;        /* scanning command line */
     puts("\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1");
 
-    CmdSkipWhite();
+ 
+    // derive default lst and obj file names
+    // the src path is copied except any extent
+    // if the filename part of src was all upper case then
+    // .LST or .OBJ are used else .lst or .obj
+    s  = strrchr(basename(srcName), '.');
+    size_t flen = s ? s - srcName : strlen(srcName);
+    lstFile  = malloc(flen + 5);
+    objFile  = malloc(flen + 5);
+    strncpy(lstFile, srcName, flen);
+    strcpy(lstFile + flen, useLC ? ".lst" : ".LST");
+    strncpy(objFile, srcName, flen);
+    strcpy(objFile + flen, useLC ? ".obj" : ".OBJ");
 
-    while (! IsWhiteOrCr(*cmdchP)) {    /* skip to end of program name */
-        cmdchP++;
-    }
 
-    CmdSkipWhite();
-    if (*cmdchP == CR)        /* no args !! */
-        RuntimeError(RTE_FILE);
+    files[0].name = srcName;
+    srcfp = files[0].fp = SafeOpen(srcName, "rt"); /* Open() file for reading */
 
-    ii = true;      /* copying name */
-    kk = 0;     /* length of file name */
-    while (! IsWhiteOrCr(*cmdchP) && kk < 14) {    /* copy file name over to the files list */
-        files[0].name[kk] = *cmdchP;
-        if (ii)        /* and the name for the lst && obj files */
-            lstFile[kk] = objFile[kk] = *cmdchP;
-        if (*cmdchP == '.')
-        {
-            AddExtents();    /* add lst and obj file extents */
-            // PMO ii = false moved to after AddExtents as AddExtents leaves ii = 4 which is false in plm
-            ii = false; /* don't copy extent for lst & obj files */
-        }
-        kk++;
-        cmdchP++;
-    }
-    files[0].name[kk] = '\0';
-    srcfp = files[0].fp = SafeOpen(files[0].name, "rt"); /* Open() file for reading */
-    controlsP = cmdchP;        /* controls start after file name */
-    if (ii)            /* no extent in source file */
-    {
-        lstFile[kk] = '.';    /* add the . and the extents */
-        objFile[kk] = '.';
-        AddExtents();
-    }
-
-    files[0].name[kk] = ' ';    /* append trailing space */
 }
 
 
@@ -120,7 +95,7 @@ void ResetData(void) {    /* extended initialisation */
     macroBlkCnt = 0;
     segLocation[SEG_ABS] = segLocation[SEG_CODE] = segLocation[SEG_DATA] =
         maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
-        effectiveAddr.w = localIdCnt = externId = errCnt = 0;
+        effectiveAddr = localIdCnt = externId = errCnt = 0;
     passCnt++;
 
     srcLineCnt = pageCnt = pageLineCnt = 1;
@@ -146,13 +121,13 @@ void ResetData(void) {    /* extended initialisation */
 }
 
 void InitRecTypes(void) {
-    rContent.type = OMF_CONTENT;
-    putWord(rContent.len, 3);
-    rPublics.type = OMF_RELOC;
-    putWord(rPublics.len, 1);
-    rInterseg.type = OMF_INTERSEG;
-    putWord(rInterseg.len, 2);
-    rExtref.type = OMF_EXTREF;
-    putWord(rExtref.len, 1);
+    rContent[HDR_TYPE] = OMF_CONTENT;
+    putWord(&rContent[HDR_LEN], 3);
+    rPublics[HDR_TYPE] = OMF_RELOC;
+    putWord(&rPublics[HDR_LEN], 1);
+    rInterseg[HDR_TYPE] = OMF_INTERSEG;
+    putWord(&rInterseg[HDR_LEN], 2);
+    rExtref[HDR_TYPE] = OMF_EXTREF;
+    putWord(&rExtref[HDR_LEN], 1);
 }
 

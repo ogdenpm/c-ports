@@ -77,7 +77,7 @@ void ReadM(word blk) {
             IoError("Macro file", "Read error");
     }
 
-    macro.top.blk = curMacroBlk = blk;      // set relevant trackers
+    curMacro.blk = curMacroBlk = blk;      // set relevant trackers
     macroBuf[actual]            = MACROEOB; /* flag end of macro buffer */
 }
 
@@ -170,7 +170,7 @@ void Tokenise(void) {
                     UpdateSymbolEntry(segLocation[activeSeg], O_TARGET);
                 }
                 expectingOperands = false;			// should see an opcode first
-                gotLabel = expectingOpcode = bTRUE;
+                gotLabel = expectingOpcode = true;
             }
             else {
                 SyntaxError();				// two labels is an error
@@ -227,7 +227,7 @@ void Tokenise(void) {
 
             if (controls.xref) {
                 memcpy(savName, name, MAXSYMSIZE);
-                memcpy(name, spaces6, MAXSYMSIZE);
+                memset(name, ' ', MAXSYMSIZE);
             }
             /* copy the token to name */
             memcpy(name, tokPtr, token[0].size);
