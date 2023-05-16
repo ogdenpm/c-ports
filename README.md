@@ -18,6 +18,25 @@ There are also a three of script files from my [versionTools](https://github.com
 
 ## Recent major changes
 
+### 16-May-2023
+
+I have done the first part of a major rework of asm80, the key changes are noted below. If you find any problems please let me know.
+
+- The I/O has been significantly reworked to use stdio buffering including adding support for Linux/Unix files. This has allowed most of the internal buffering code used in the original PL/M to be removed. For now some buffering around macros remains, but the underlying I/O has been modified. The changes also considerably simplify the handling of nested include files
+- Related to the above, most of the error messages now use native error messages and write to stderr.
+- The intermediate file required for xref support has been eliminated.
+- The intermediate file currently still used for macro processing, now uses a system allocated temporary file, enabling the support for parallel invocation of asm80.
+- Limits on the command line length have been removed as have limits on the source line length, however for listing purposes very long lines are truncated.
+- Native filenames, including directory paths are now supported up to a limit of 260 characters. The change also supports the  use of a :Fx: prefix (x is 1-9), which is replaced with the value of the associated environment variable :Fx: if it exists, otherwise the empty string is used.
+  Note filenames including the directory path cannot include spaces or the ')' character. By using the :Fx: prefix it is possible to work around this for the directory path. The 260 character limit can also be resolved using the same technique if the OS supports longer paths.
+- Support for ISIS devices e.g. :CO: and :BB: has been removed. Native equivalents can be used or for :BB: by using the NO option prefix.
+- For the auto generated default .lst and .obj files a check is made on whether the file name part is upper case only. If it is then uppercase extensions .LST and .OBJ are used instead.
+- The MACROFILE option is disabled as it is no longer needed. All assembly is done with macros enabled and the use of a system temporary file.
+  Note, although previously undocumented, as the assembler always uses the macro version the key words macro and local, cannot be used as standard labels.
+- Option MOD85 is now set by default. |The NO prefix for MOD85 is now supported to allow 8080 mode to be set.
+- Initial work has been done to remove dependencies on packed structure support and little endian data formats. Further checking is required to check for missed changes.
+- A number of preliminary changes have been made, pending support for names up to 31 characters to match PL/M.
+
 ### 6-May-2023
 
 - Fixed sequence point issue with asm80. The compiler legally swapped lhs and rhs for an & operation, but this had unexpected side effects.
