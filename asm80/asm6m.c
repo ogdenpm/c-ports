@@ -9,6 +9,7 @@
  ****************************************************************************/
 
 #include "asm80.h"
+#include <ctype.h>
 
 void SyntaxError(void)
 {
@@ -68,6 +69,7 @@ void StackError(void)
 _Noreturn void FileError(void)
 {
     RuntimeError(RTE_FILE);
+    exit(1);
 }
 
 void IllegalCharError(void)
@@ -157,7 +159,7 @@ void UnNest(byte sw)
         savedMtype = curMacro.mtype;
         if (--macroDepth == 0) { /* end of macro nest */
             expandingMacro = 0;     /* not expanding */
-            baseMacroTbl = Physmem() + 0xBF;
+            baseMacroTbl = &macroParams[MAXMACROPARAM - 1];
         }
     } else {
         skipIf[0] = skipIf[ifDepth];    /* pop skipIf and inElse status */
@@ -199,10 +201,9 @@ void GetId(byte type)
     PushToken(type);    /* save any previous token and initialise this one */
     reget = 1;        /* force re get of first character */
 
-    while ((type = GetChClass()) == CC_DIG || type == CC_LET) {    /* digit || letter */
-        if (curChar > 0x60)    /* make sure upper case */
-            curChar = curChar & 0xDF;
-        CollectByte(curChar);
+    while ((type = GetChClass()) == CC_DIG || type == CC_LET || type == CC_DOLLAR) {    /* digit || letter */
+        if (type != CC_DOLLAR)
+            CollectByte(toupper(curChar));
     }
     reget = 1;        /* force re get of Exit() char */
 }

@@ -8,8 +8,6 @@
  *                                                                          *
  ****************************************************************************/
 #include "plm80types.h"
-// linker defined
-extern byte *MEMORY;
 // defined in asm2m.c
 extern byte opFlags[];
 // defined in asm5m.c
@@ -24,7 +22,7 @@ extern char moduleName[];
 
 #define	IN_BUF_SIZE	512
 #define	OUT_BUF_SIZE	512
-#define MAXFILEPARAM	260	// must be less than 255 as length is currently a byte
+#define MAXFILEPARAM	260
 
 extern char macroLine[129];
 extern char *macroP;
@@ -125,11 +123,10 @@ extern byte reget;
 extern byte lookAhead;
 extern tokensym_t *symTab[3];
 extern tokensym_t *endSymTab[3];
-extern pointer symHighMark;
 extern pointer baseMacroTbl;
 extern byte gotLabel;
-extern char name[6];
-extern char savName[6];
+extern char name[MAXSYMSIZE + 1];
+extern char savName[MAXSYMSIZE + 1];
 extern bool haveNonLabelSymbol;
 extern bool haveUserSymbol;
 extern bool xRefPending;
@@ -218,7 +215,14 @@ extern char *curFileNameP;
 extern address aVar;
 
 // defined in keym.h
-extern keyword_t extKeywords[151];
+extern tokensym_t extKeywords[151];
+#define MAXSYMBOLS	8192		// way more than original ASM80 could handle
+#define MAXMACROTEXT	512
+#define MAXMACROPARAM	1024
+extern tokensym_t symbols[MAXSYMBOLS];
+extern byte macroText[MAXMACROTEXT];
+extern byte macroParams[MAXMACROPARAM];
+
 
 // defined in rdsrc.c
 
@@ -233,3 +237,5 @@ extern file_t files[6];
 extern int _argc;
 extern char **_argv;
 extern bool useLC;
+extern bool killObjFile;
+extern int maxSymWidth;

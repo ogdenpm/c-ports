@@ -17,11 +17,6 @@ char moduleName[7] = "MODULE";
 
 
 
-pointer Physmem(void) {
-    return (MemCk() - 0x100);	// top of memory
-}
-
-
 byte GetCmdCh(void) {
     return *cmdchP++;
 }    
@@ -123,7 +118,6 @@ void RuntimeError(byte errCode)
         skipRuntimeError = true;
         return;
     }
-    errCnt++;
     exit(1);
 }
 
@@ -138,16 +132,6 @@ FILE *SafeOpen(char const *pathP, char *access)
 }
 
 
-byte Nibble2Ascii(byte n)
-{
-    return "0123456789ABCDEF"[n & 0xf];
-}
-
-void Put2Hex(void (*pfunc)(byte), byte val)
-{
-    pfunc(Nibble2Ascii(val >> 4));
-    pfunc(Nibble2Ascii(val));
-}
 
 bool BlankAsmErrCode(void) {
     return asmErrCode == ' ';
@@ -188,7 +172,7 @@ void SourceError(byte errCh)
 void InsertByteInMacroTbl(byte c)
 {
     *macroInPtr++ = c;
-    if (macroInPtr > baseMacroTbl)
+    if (macroInPtr >= &macroText[MAXMACROTEXT])
         RuntimeError(RTE_TABLE);    /* table Error() */
 }
 
@@ -300,5 +284,6 @@ void Start(char *srcName) {
 
     FinishPrint();
     FinishAssembly();
+    exit((killObjFile = errCnt != 0));
 }
 

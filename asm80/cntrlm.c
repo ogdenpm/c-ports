@@ -23,7 +23,7 @@ static byte controlTable[] = {
             "\x34" "XREF"      "\x37" "SYMBOLS"
             "\x36" "PAGING"    "\x33" "TTY"
             "\x35" "MOD85"     "\x35" "PRINT"
-            "\x36" "OBJECT"    "\x39" "macrofile"   // hide MACROFILE
+            "\x36" "OBJECT"    "\x39" "MACROFILE"
             "\x29" "PAGEWIDTH" "\x2A" "PAGELENGTH"
             "\x7"  "INCLUDE"   "\x5"  "TITLE"
             "\x4"  "SAVE"      "\x7"  "RESTORE"

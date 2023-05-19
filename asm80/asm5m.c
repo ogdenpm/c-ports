@@ -41,53 +41,21 @@ static byte chClass[] = {
     /*78*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD
 };
 
-static byte Unpack1(word packedWord) {
-    byte ch;
-
-    ch = packedWord % 40;
-    if (ch == 0)
-        ch = ' ';
-    else if (ch <= 10)
-        ch += '0' - 1; /* digit */
-    else
-        ch += '?' - 11; /* ? @ and letters */
-    return ch;
-}
-
-void UnpackToken(wpointer src, byte *dst) {
-    word packedword;
-
-    packedword = src[1];
-    dst += 5;
-    *dst-- = Unpack1(packedword);
-    packedword /= 40;
-    *dst-- = Unpack1(packedword);
-    packedword /= 40;
-    *dst--     = Unpack1(packedword);
-    packedword = src[0];
-    *dst--     = Unpack1(packedword);
-    packedword /= 40;
-    *dst-- = Unpack1(packedword);
-    packedword /= 40;
-    *dst-- = Unpack1(packedword);
-}
-
-void InsertSym(void) {
-    pointer p, q;
-
+void InsertSym(int tableId) {
     /* move up the top block of the symbol tables to make room */
-    /* minor rewrite for c pointer arithmetic */
-    symHighMark = p = (q = symHighMark) + sizeof(tokensym_t);
-
-    if (baseMacroTbl < p)
+    int nSymbols = (int)(endSymTab[TID_MACRO] - topSymbol);
+    if (++endSymTab[TID_MACRO] >= &symbols[MAXSYMBOLS])
         RuntimeError(RTE_TABLE); /* table Error() */
-
-    while (q > (pointer)topSymbol) /* byte coqy */
-        *--p = *--q;
+    memmove(topSymbol + 1, topSymbol, nSymbols * sizeof(tokensym_t));
     /* insert the new symbol name */
-    memcpy(topSymbol, tokPtr, 4);
-    endSymTab[TID_MACRO]++;  /* mark new top of macro table - scaled for c pointer arithmetic */
-    topSymbol->type = 0; /* clear the type */
+    if (tableId == TID_SYMBOL) {
+        endSymTab[TID_SYMBOL]++;    // new end of symbols
+        symTab[TID_MACRO]++;     // and macros moves up as well
+    }
+    topSymbol->name = AllocStr((char *)tokPtr, tableId == TID_MACRO);
+    topSymbol->type = 0;    /* clear the type */
+    if (strlen((char *)tokPtr) > maxSymWidth)
+        maxSymWidth = (int)strlen((char *)tokPtr);
 }
 
 static bool OutSideTable(byte tableId) { /* check if topSymbol is outside table bounds */
@@ -101,7 +69,7 @@ static bool OutSideTable(byte tableId) { /* check if topSymbol is outside table 
 void InsertMacroSym(word paramId, byte type) {
     if (OutSideTable(TID_MACRO))
         return;
-    InsertSym();
+    InsertSym(TID_MACRO);
     topSymbol->paramId = paramId; /* fill in the rest of the new entry */
     topSymbol->type    = type;
     topSymbol->flags   = 0;
@@ -153,9 +121,7 @@ void UpdateSymbolEntry(word value, byte type) {
                     absFlag = 0x80;
                 }
             } else {
-                InsertSym();
-                symTab[TID_MACRO]++;     /* adjust the base of the macro table */
-                endSymTab[TID_SYMBOL]++; /* adjust the end of the user symbol table */
+                InsertSym(TID_SYMBOL);
                 flags = 0;
             }
 
@@ -183,8 +149,8 @@ void UpdateSymbolEntry(word value, byte type) {
                     if (topSymbol->type < 128) {
                         topSymbol->type = token[0].type;
                         topSymbol->addr = value;
-                        flags               = acc1RelocFlags;
-                        lineSet             = true;
+                        flags           = acc1RelocFlags;
+                        lineSet         = true;
                     }
                     goto endUpdateSymbol;
                 }
@@ -250,8 +216,8 @@ endUpdateSymbol:
         topSymbol->addr = value;
 
     topSymbol->flags = flags;
-    inPublic             = 0;
-    inExtrn              = 0;
+    inPublic         = 0;
+    inExtrn          = 0;
     if (topSymbol->type == O_REF)
         UndefinedSymbolError();
 
@@ -266,9 +232,9 @@ endUpdateSymbol:
 /*
     two different tables types are used in lookup
     table 0: static keyword lookup the individual entries are coded as
-        packed keyword - byte * 4 - 3 chars per word
+        keyword as a string
         opcode base - byte
-        offset to next entry || 0 if end - byte
+        // padding
         type - byte
         flags - byte
     initial entry is determined by hashing the name
@@ -292,75 +258,64 @@ endUpdateSymbol:
 */
 
 byte Lookup(byte tableId) {
-    tokensym_t *lowOffset, *highOffset, *midOffset;
-    word deltaToNext;
+
     tokensym_t *entryOffset;
-    wpointer packedTokP;
-    byte i, gt;
+
+    byte i;
     //    symEntry based entryOffset KEYWORD_T,
     //    addr based aVar word;
 
-    packedTokP = (wpointer)tokPtr;
+
     /* Keyword() lookup */
     if (tableId == TID_KEYWORD) { /* hash chain look up key word */
-        /* code modified to keep deltaToNext as offset */
-        entryOffset = symTab[TID_KEYWORD]; /* offset to current symbol to compare */
-        /* offset of first to use - hashes packed symbol name. Note C pointers scale */
-        deltaToNext = (((packedTokP[0] + packedTokP[1]) & 0xffff)) % 151;
+        entryOffset = in_word_set((char *)tokPtr,
+                                  strlen((char *)tokPtr)); // HACK name is after packed token
+        if (entryOffset && (controls.macroFile || entryOffset->type < K_MACRO)) {
+            topSymbol     = entryOffset;
+            token[0].type = topSymbol->type;
+            if (token[0].type < K_SINGLE) /* instruction with arg */
+                if (op16[token[0].type])
+                    has16bitOperand = true;
 
-        do {
-            entryOffset += deltaToNext; /* point to the next in chain */
-            /* process if exact match */
-            if (entryOffset->tok[0] == packedTokP[0] && entryOffset->tok[1] == packedTokP[1]) {
-                topSymbol = entryOffset;
-                token[0].type  = topSymbol->type;
-                if (token[0].type < K_SINGLE) /* instruction with arg */
-                    if (op16[token[0].type])
-                        has16bitOperand = true;
+            if (topSymbol->flags == 2 && !controls.mod85) /* RIM/SIM only valid on 8085 */
+                SourceError('O');
 
-                if (topSymbol->flags == 2 && !controls.mod85) /* RIM/SIM only valid on 8085 */
-                    SourceError('O');
-
-                if (token[0].type == K_SP) { /* SP */
-                    if (!(curOp == K_LXI || curOp == K_REG16))
-                        SourceError('X');
-                    token[0].type = K_REGNAME; /* reg */
-                }
-                return token[0].type & 0x7F;
+            if (token[0].type == K_SP) { /* SP */
+                if (!(curOp == K_LXI || curOp == K_REG16))
+                    SourceError('X');
+                token[0].type = K_REGNAME; /* reg */
             }
-            deltaToNext = entryOffset->delta / sizeof(tokensym_t); // scale for C pointer arithmetic
-        } while (deltaToNext);  // loop while more options
-
+            return token[0].type & 0x7F;
+        }
         return O_NAME;
     }
 
     /* MACRO and User() tables are stored sorted 8 bytes per entry */
     /* use binary chop to find entry */
-    lowOffset  = symTab[tableId];
-    highOffset = entryOffset = endSymTab[tableId];
+    tokensym_t *lowOffset = symTab[tableId];
+    tokensym_t *highOffset = endSymTab[tableId];
+    tokensym_t *midOffset;
+    entryOffset           = highOffset;
+
 
     /* binary chop search for id */
 
     while ((midOffset = lowOffset + ((highOffset - lowOffset) >> 1)) != entryOffset) {
         entryOffset = midOffset;
-        if (packedTokP[0] == entryOffset->tok[0]) {
-            if (packedTokP[1] == entryOffset->tok[1]) {
-                topSymbol = entryOffset;
-                token[0].type  = topSymbol->type;
-                if (token[0].type == O_SETEQUNAME)
-                    token[0].type = O_NAME;
+        int cmp       = strcmp(entryOffset->name, (char *)tokPtr);
+        if (cmp == 0) {
+            topSymbol     = entryOffset;
+            token[0].type = topSymbol->type;
+            if (token[0].type == O_SETEQUNAME)
+                token[0].type = O_NAME;
 
-                if ((usrLookupIsID = (kk = (token[0].type & 0x7F)) == O_NAME))
-                    if (needsAbsValue)
-                        topSymbol->type = 0x80 + O_NAME; /* update ABSVALUE flag */
-                return kk;
-            } else
-                gt = entryOffset->tok[1] > packedTokP[1];
-        } else
-            gt = entryOffset->tok[0] > packedTokP[0];
+            if ((usrLookupIsID = (kk = (token[0].type & 0x7F)) == O_NAME))
+                if (needsAbsValue)
+                    topSymbol->type = 0x80 + O_NAME; /* update ABSVALUE flag */
+            return kk;
+        }
 
-        entryOffset = midOffset;
-        if (gt)
+        if (cmp > 0)
             highOffset = entryOffset;
         else
             lowOffset = entryOffset;
@@ -427,11 +382,11 @@ byte GetCh(void) {
                     curMacro.bufP =
                         savedMacroBufP; // back to macro as macro parameter expansion has finished
                 else {
-                    savedMacroBufP = curMacro.bufP;        // is parameter or Local
-                    if (curCH == MACROPARAM) {              // parameter
+                    savedMacroBufP = curMacro.bufP;       // is parameter or Local
+                    if (curCH == MACROPARAM) {            // parameter
                         curMacro.bufP = curMacro.pCurArg; // parameter text
                         if (savedMtype == M_IRPC) {
-                            irpcChr[1]     = *curMacro.bufP; // copy the char
+                            irpcChr[1]    = *curMacro.bufP; // copy the char
                             curMacro.bufP = &irpcChr[1];
                             if (*curMacro.bufP == '!') { // if it was '!' then include escaped char
                                 irpcChr[0] = '!';
@@ -464,7 +419,7 @@ byte GetCh(void) {
 
         if (expandingMacro > 1) /* in pass 2 print expanded macro code if required */
             if (IsPhase2Print() && macroP < macroLine + 127) /* append character if room */
-                    *macroP++ = curCH;
+                *macroP++ = curCH;
 
         if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line CR for
                                none empty line */

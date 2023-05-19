@@ -53,9 +53,10 @@ bool IsWhiteOrCr(byte c)
 void PrepSrcFile(char *srcName) {
     char *s;
 
-    symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
+//    symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
-    endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
+    endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = symTab[TID_MACRO] =
+        endSymTab[TID_MACRO]                                                     = symbols;
    
     scanCmdLine = true;        /* scanning command line */
     puts("\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1");
@@ -67,8 +68,8 @@ void PrepSrcFile(char *srcName) {
     // .LST or .OBJ are used else .lst or .obj
     s  = strrchr(basename(srcName), '.');
     size_t flen = s ? s - srcName : strlen(srcName);
-    lstFile  = malloc(flen + 5);
-    objFile  = malloc(flen + 5);
+    lstFile  = xmalloc(flen + 5);
+    objFile  = xmalloc(flen + 5);
     strncpy(lstFile, srcName, flen);
     strcpy(lstFile + flen, useLC ? ".lst" : ".LST");
     strncpy(objFile, srcName, flen);
@@ -117,7 +118,7 @@ void ResetData(void) {    /* extended initialisation */
         rewind(srcfp);
     }
 
-    baseMacroTbl = Physmem() + 0xBF;
+    baseMacroTbl = &macroText[MAXMACROTEXT - 1];
 }
 
 void InitRecTypes(void) {

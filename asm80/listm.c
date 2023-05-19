@@ -10,9 +10,12 @@
 
 #include "asm80.h"
 #include <stdarg.h>
-/* to force the code generation this needs a non-standard definition of put2Hex */
-void Put2Hex(void (*func)(char), word arg2w);
+
+int maxSymWidth = 6;
+ 
 static void PrintChar(char c);
+
+
 
 static char lstHeader[]             = "  LOC  OBJ         LINE        SOURCE STATEMENT\n\n";
 static char const *symbolMsgTable[] = { "\nPUBLIC SYMBOLS\n", "\nEXTERNAL SYMBOLS\n",
@@ -29,11 +32,6 @@ int Printf(char const *fmt, ...) {
     return cnt;
 }
 
-
-
-static void Out2Hex(byte n) {
-    Put2Hex(Outch, n);
-}
 
 static void PrintStr(char const *str) {
     while (*str != 0)
@@ -62,7 +60,7 @@ static void NewPageHeader(void) {
     //    byte twoLF[] = "\r\n\n";        /* Not used */
     //    byte threeLF[] = "\r\n\n\n";    /* CR not used */
 
-    Printf("\n\n\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\t%-6s \t PAGE %4u\n", moduleName, pageCnt);
+    Printf("\n\n\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1 %-31s PAGE %4u\n", moduleName, pageCnt);
     if (controls.title)
         PrintNStr(titleLen, titleStr);
 
@@ -171,13 +169,11 @@ void Sub7041_8447(void) {
 
                         if (symGrp != 0 || type != 3)
                             if (symGrp == 2 || (flags & symGrpFlags[symGrp]) != 0) {
-                                UnpackToken(topSymbol->tok, (byte *)tokStr);
                                 if (kk) {
-                                    if (controls.pageWidth - curCol < 17)
+                                    if (controls.pageWidth - curCol < 11 + maxSymWidth)
                                         PrintChar(LF);
 
-                                    PrintStr(tokStr);
-                                    PrintChar(' ');
+                                    Printf("%-*s ", maxSymWidth, topSymbol->name);
                                     if (type == T_MACRONAME)
                                         PrintChar('+');
                                     else if ((zeroAddr = (flags & UF_EXTRN) != 0))
@@ -227,8 +223,7 @@ static void PrintCodeBytes(void) {
     byte i;
 
     if (showAddr |= MoreBytes()) { /* print the word */
-        Out2Hex(High(effectiveAddr));
-        Out2Hex(Low(effectiveAddr));
+        Printf("%04X", effectiveAddr);
     } else
         OutSpc(4);
 
@@ -236,7 +231,7 @@ static void PrintCodeBytes(void) {
     for (i = 1; i <= 4; i++) {
         if (MoreBytes() && isInstr) {
             effectiveAddr++;
-            Out2Hex(*startItem);
+            Printf("%02X", *startItem);
         } else
             OutSpc(2);
         startItem++;
@@ -341,5 +336,5 @@ void FinishAssembly(void) {
     if (controls.xref) /* invoke asxref ?? */
         GenAsxref();
 
-    exit(errCnt != 0);
+
 }

@@ -121,11 +121,14 @@ byte lookAhead;
 // static byte pad6861 = 0;
 tokensym_t *symTab[3];
 tokensym_t *endSymTab[3];
-pointer symHighMark;
+tokensym_t symbols[MAXSYMBOLS];
+byte macroText[MAXMACROTEXT];
+byte macroParams[MAXMACROPARAM];
+
 pointer baseMacroTbl;
 byte gotLabel = 0;
-char name[6];
-char savName[6];
+char name[MAXSYMSIZE + 1];  // '\0' added to end
+char savName[MAXSYMSIZE + 1];
 bool haveNonLabelSymbol; // true if we have seen a user symbol and confirmed that there is no :
 bool haveUserSymbol;     // true if we have seen a user symbol and  not yet seen a following :
 bool xRefPending   = false;
@@ -170,7 +173,7 @@ word lineNo;
 byte spIdx;
 word lastErrorLine;
 controls_t controls  = { .all = {
-                            false, false, false, true,  true, false, true, true, true, false,
+                            false, false, false, true,  true, false, true, true, true, true,
                             120,   66,    0,     false, 0,    0,     0,     true, true, true } };
 
 bool ctlListChanged  = true;

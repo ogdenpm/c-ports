@@ -38,7 +38,8 @@ static bool IsEndParam(void) {
 
 
 static void InitParamCollect(void) {
-    symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;	// init macro parameter table
+    symTab[TID_MACRO] = endSymTab[TID_MACRO] = endSymTab[TID_SYMBOL];	// init macro parameter table
+    resetTmpStrings();
     paramCnt = curMacro.localsCnt = 0;	// no params yet
     yyType = O_MACROPARAM;
 }
@@ -107,7 +108,7 @@ void initMacroParam(void) {
 static pointer AddMacroText(pointer lowAddr, pointer highAddr)
 {
     while (lowAddr <= highAddr) {
-        if (baseMacroTbl <= symHighMark)
+        if (baseMacroTbl <= macroParams)
             RuntimeError(RTE_TABLE);    /* table Error() */
         *baseMacroTbl-- = *highAddr--;
     }
@@ -117,7 +118,7 @@ static pointer AddMacroText(pointer lowAddr, pointer highAddr)
 
 static void InitSpoolMode(void) {
     macroSpoolNestDepth = 1;
-    macroInPtr = symHighMark;
+    macroInPtr = macroText;
     mSpoolMode = 1;
     baseMacroBlk = macroBlkCnt;
 }
@@ -259,7 +260,7 @@ void DoMacroBody(void) {
         if (! MPorNoErrCode())	// skip if multiple defined, phase or no error 
         {
             curMacro.mtype = M_BODY;
-            if ((pMacro->type & 0x7F) == T_MACRONAME)
+            if (pMacro && (pMacro->type & 0x7F) == T_MACRONAME)
                 pMacro->type = asmErrCode == 'L' ? (O_NAME + 0x80) : O_NAME;	// location error illegal forward ref
         }
         InitSpoolMode();
@@ -285,8 +286,9 @@ void DoEndm(void) {
                 macroInPtr = startMacroLine;
                 *macroInPtr = ESC;
                 FlushM();		// write to disk
-                WriteM();
-                symHighMark = (pointer)(endSymTab[TID_MACRO] = symTab[TID_MACRO]);	// reset macro parameter symbol table
+                WriteM(macroText);
+                endSymTab[TID_MACRO] = symTab[TID_MACRO];	// reset macro parameter symbol table
+                resetTmpStrings();
                 if (curMacro.mtype == M_MACRO) {
                     pMacro->blk = baseMacroBlk;
                     pMacro->nlocals = curMacro.localsCnt;		// number of locals
@@ -403,11 +405,11 @@ void DoLocal(void) {
                 MultipleDefError();
 
             InsertMacroSym(curMacro.localsCnt, 1);		// save this local with index
-            macroInPtr = symHighMark;
+            macroInPtr = macroText;
         }
         if (curOp == T_CR) {			// local line processed to return to normal spooling
             mSpoolMode = 1;
-            macroInPtr = symHighMark;
+            macroInPtr = macroText;
         }
     } else
         SyntaxError();					// local not ok here
@@ -417,14 +419,14 @@ void DoLocal(void) {
 
 void Sub78CE(void) {
     kk = *curMacro.pCurArg;
-    aVar.lb = (kk == '!' && savedMtype == M_IRPC) ? 2 : 1;	// size arg (2 if escaped char)
-    if (savedMtype == M_MACRO || (curMacro.cnt -= aVar.lb) == 0)	// all done
+    byte chCnt = (kk == '!' && savedMtype == M_IRPC) ? 2 : 1;	// size arg (2 if escaped char)
+    if (savedMtype == M_MACRO || (curMacro.cnt -= chCnt) == 0)	// all done
         UnNest(1);
     else {
         if (savedMtype == M_IRP)
             pNextArg = curMacro.pCurArg - (kk & 0x7F);		// skip foward to start of arg (stored as arg, len)
         else
-            pNextArg = curMacro.pCurArg + aVar.lb;	// skip char or escaped char
+            pNextArg = curMacro.pCurArg + chCnt;	// skip char or escaped char
 
         curMacro.mtype = savedMtype;
         Sub720A();

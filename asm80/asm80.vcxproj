@@ -148,7 +148,7 @@
       </Message>
     </CustomBuildStep>
     <PreBuildEvent>
-      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -w</Command>
       <Message>Get Version</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -188,7 +188,7 @@
       </Message>
     </CustomBuildStep>
     <PreBuildEvent>
-      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -w</Command>
       <Message>Get Version</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -292,11 +292,13 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <ClCompile Include="keym.c" />
     <ClCompile Include="listm.c" />
-    <ClCompile Include="pcktok.c" />
+    <ClCompile Include="nkeym.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rdsrc.c" />
     <ClCompile Include="startm.c" />
+    <ClCompile Include="memory.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="asm80.h" />

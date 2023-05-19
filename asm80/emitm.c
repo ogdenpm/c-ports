@@ -13,8 +13,8 @@
 #include "asm80.h"
 
 static byte fixupInitialLen[] = { 1, 2, 1, 3 };
-static pointer fixupRecPtrs[] = { rPublics, rInterseg, rExtref, rContent };
-static byte fixupRecLenChks[] = { 123, 58, 57, 124 };
+static pointer fixupRecPtrs[] = { rReloc, rInterseg, rExtref, rContent };
+static byte fixupRecLenChks[] = { PUBLICS_MAX - 2, INTERSEG_MAX - 2, EXTREF_MAX - 4, CONTENT_MAX };
 static byte b6D7E[]           = { 10, 0x12, 0x40 }; /* 11 bits 00010010010 index left to right */
 
 static byte rModhdr[MODHDR_MAX + 4]         = { 2 };
@@ -68,7 +68,7 @@ void ReinitFixupRecs(void) {
     pointer recP;
 
     for (i = 0; i <= 3; i++) {
-        ii   = (i - 1) & 3; /* order as content, publics, interseg, externals */
+        ii   = (i - 1) & 3; /* order as content, reloc, interseg, externals */
         recP = fixupRecPtrs[ii];
         if (getLen(recP) > fixupInitialLen[ii])
             WriteRec(recP);
@@ -180,9 +180,8 @@ static void Sub7131(void) {
 }
 
 void WriteExtName(void) {
-    byte i;
 
-    if (getLen(rExtnames) + 9 > 125) { /* check room for name */
+    if (getLen(rExtnames) + nameLen + 3 > PUBLICS_MAX) { /* check room for name */
         WriteRec(rExtnames);           /* flush existing extNam Record() */
         rExtnames[HDR_TYPE] = OMF_EXTNAMES;
         putWord(&rExtnames[HDR_LEN], 0);
@@ -191,10 +190,7 @@ void WriteExtName(void) {
     addLen(rExtnames, nameLen + 2);                /* update length for this ref */
     rExtnames[EXTNAMES_DATA(extNamIdx)] = nameLen; /* Write() len */
     extNamIdx++;
-    for (i = 0; i <= nameLen; i++) /* and name */
-        rExtnames[EXTNAMES_DATA(extNamIdx + i)] = name[i];
-
-    rExtnames[EXTNAMES_DATA(extNamIdx + nameLen)] = 0; /* and terminating 0 */
+    strcpy((char *)&rExtnames[EXTNAMES_DATA(extNamIdx)], name);
     extNamIdx += nameLen + 1;                          /* update where next ref writes */
 }
 
@@ -203,17 +199,10 @@ void AddSymbol(void) {
     if ((topSymbol->flags & UF_EXTRN) != 0)
         return;
 
-    *(wpointer)recSymP = topSymbol->offset;
-    UnpackToken(topSymbol->tok, (dtaP = (recSymP += 2) + 1));
-    dtaP[6]  = ' '; /* trailing space to ensure end */
-    *recSymP = 0;   /* length of symbol */
-
-    while (dtaP[0] != ' ') { /* find *recSymPgth of name */
-        ++*recSymP;
-        dtaP++;
-    }
-    dtaP[0] = 0; /* terminate name with 0 */
-    recSymP = (pointer)(dtaP + 1);
+    putWord(recSymP, topSymbol->offset);
+    recSymP[2] = (byte)strlen(topSymbol->name);
+    strcpy((char *)recSymP + 3, topSymbol->name);
+    recSymP += 4 + recSymP[2];
 }
 
 void FlushSymRec(byte segId, byte isPublic) /* args to because procedure is no longer nested */
@@ -226,6 +215,8 @@ void FlushSymRec(byte segId, byte isPublic) /* args to because procedure is no l
     recSymP                 = rPublics + PUBLICS_DATA;
 }
 
+
+
 static void WriteSymbols(byte isPublic) /* isPublic= true -> PUBLICs else LOCALs */
 {
     byte segId;
@@ -235,9 +226,9 @@ static void WriteSymbols(byte isPublic) /* isPublic= true -> PUBLICs else LOCALs
         FlushSymRec(segId, isPublic);       /* also sets up segid for new record */
         topSymbol = symTab[TID_SYMBOL] - 1; /* point to type byte of user symbol (-1) */
 
-        while (++topSymbol < endSymTab[TID_SYMBOL]) { // converted for C pointer arithmetic */
+        while (++topSymbol < endSymTab[TID_SYMBOL]) {
             if (recSymP > &rPublics[PUBLICS_MAX + 3] -
-                              (MAXSYMSIZE + 4)) /* make sure there is room offset, len, symbol, 0 */
+                              (strlen(topSymbol->name) + 4)) /* make sure there is room offset, len, symbol, 0 */
                 FlushSymRec(segId, isPublic);
 
             if ((topSymbol->flags & UF_SEGMASK) == segId && topSymbol->type != T_MACRONAME &&
@@ -270,7 +261,7 @@ void WriteModhdr(void) {
         *dtaP = alignTypes[i - 1]; /* aln typ */
     }
     /* set record length (trnId/trnVn 4 * (segid, segLocation, align), crc) */
-    putWord(&rModhdr[HDR_LEN], moduleNameLen + (2 + 4 * 4 + 1));
+    putWord(&rModhdr[HDR_LEN], moduleNameLen + (1 + 2 + 4 * 4));
     WriteRec((pointer)&rModhdr);
 }
 

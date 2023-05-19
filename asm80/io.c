@@ -35,6 +35,7 @@
 int _argc;
 char **_argv;
 bool useLC = true;
+bool killObjFile = true;
 
 pointer MEMORY;
 #define AVAILMEM	0x9000
@@ -90,7 +91,7 @@ void wrapUp(void) { // called on exit
         fclose(lstFp);
     if (objFp) {
         fclose(objFp);
-        if (errCnt) // remove object file if errors
+        if (errCnt) // remove object file unless successfully written
             unlink(objFile);
     }
 }
@@ -134,17 +135,9 @@ int main(int argc, char **argv) {
         strcat(s, argv[i]);
     }
     strcat(s, "\r\n");
-
-    MEMORY = (pointer)malloc(AVAILMEM);
     atexit(wrapUp);
     Start(argv[1]);
 }
-
-pointer MemCk(void) {
-    return MEMORY + AVAILMEM - 1;	// address of last isis user memory
-}
-
-
 
 FILE *Fopen(char const *pathP, char *access) {
     char name[_MAX_PATH + 1];
@@ -165,13 +158,11 @@ FILE *Fopen(char const *pathP, char *access) {
 
 _Noreturn void IoError(char const *path, char const *msg) {
     fprintf(stderr, "%s: %s: %s", path, msg, strerror(errno));
-    errCnt++;   // makes sure obj file is removed
     exit(1);
 }
 
 _Noreturn void FatalError(char const *msg) {
     fputs(msg, stderr);
     fputc('\n', stderr);
-    errCnt++;   // makes sure obj file is removed
     exit(1);
 }

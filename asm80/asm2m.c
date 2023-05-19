@@ -301,15 +301,8 @@ bool ShowLine(void) {
 void EmitXref(byte xrefMode, char const *name) {
     // code below is currently needed as name may not be terminated
     // eventually this will be eliminated
-    char cName[7];
-    memcpy(cName, name, 6);
-    cName[6] = 0;
-    char *s  = strchr(cName, ' ');
-    if (s)
-        *s = '\0';
-    
 
     if ((!IsPhase1() || !controls.xref || IsSkipping()) && !xRefPending)
         return;
-    InsertXref(xrefMode == XREF_DEF, cName, srcLineCnt);
+    InsertXref(xrefMode == XREF_DEF, name, srcLineCnt);
 }

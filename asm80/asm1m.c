@@ -42,10 +42,7 @@ void SkipWhite_2(void) {
 
 byte NonHiddenSymbol(void) {
     // name based nameP word;
-
-    word* nameP = topSymbol->tok;
-    /* check name < '??0' or '??9' < name */
-    return (*nameP < 0x4679) || controls.macroDebug || (0x4682 < *nameP);
+    return strcmp(topSymbol->name, "??0000") < 0 || strcmp(topSymbol->name, "??9999") > 0;
 }
 
 
@@ -82,11 +79,11 @@ void ReadM(word blk) {
 }
 
 /* write the macro to disk */
-void WriteM(void)
+void WriteM(pointer buf)
 {
     if (phase == 1) {	// only needs writing on pass 1
         SeekM(maxMacroBlk++);	// seek to end and update marker to account for this block
-        if (fwrite(symHighMark, 1, 128, macroFp) != 128 && ferror(macroFp))
+        if (fwrite(buf, 1, 128, macroFp) != 128 && ferror(macroFp))
                 IoError("Macro file", "Write error");
     }
     macroBlkCnt++;		// update the buffer count for this macro
@@ -94,20 +91,21 @@ void WriteM(void)
 
 
 // flush the macro buffer to disk in full 128 byte blocks
-// residual are moved to start of macro buffer endSymTab[TID_MACRO]
+// residual are moved to start of macro buffer
 void FlushM(void)
 {
     word bytesLeft;
+    pointer buf = macroText;
 
     if (mSpoolMode & 1) { /* spool macros to disk in 128 byte blocks */
-        while ((bytesLeft = (word)(macroInPtr - symHighMark)) >= 128) {
-            WriteM();
-            symHighMark += 128;
+        while ((bytesLeft = (word)(macroInPtr - buf)) >= 128) {
+            WriteM(buf);
+            buf += 128;
         }
         /* move the remaining bytes to start of macro buffer */
         if (bytesLeft != 0)
-            memcpy(endSymTab[TID_MACRO], symHighMark, bytesLeft);
-        macroInPtr = (symHighMark = (pointer)endSymTab[TID_MACRO]) + bytesLeft;
+            memcpy(macroText, buf, bytesLeft);
+        macroInPtr = macroText + bytesLeft;
     }
 }
 
@@ -224,15 +222,15 @@ void Tokenise(void) {
             GetId(O_NAME);    /* assume it's a name */
             if (token[0].size > MAXSYMSIZE)  /* cap length */
                 token[0].size = MAXSYMSIZE;
+            tokPtr[token[0].size] = '\0';
 
             if (controls.xref) {
-                memcpy(savName, name, MAXSYMSIZE);
-                memset(name, ' ', MAXSYMSIZE);
+                strcpy(savName, name);
             }
             /* copy the token to name */
-            memcpy(name, tokPtr, token[0].size);
+            strcpy(name, (char *)tokPtr);
             nameLen = token[0].size;
-            PackToken();        /* make into 4 byte name */
+//            PackToken();        /* make into 4 byte name */
             if (haveUserSymbol) {			// user symbol not followed by a colon
                 haveNonLabelSymbol = true;
                 haveUserSymbol = false;
