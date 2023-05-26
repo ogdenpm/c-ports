@@ -60,3 +60,52 @@ void *xrealloc(void *p, size_t size) {
         FatalError("Out of memory");
     return p;
 }
+
+/* simple macro file replacement
+   for now still uses 128 byte blocks
+*/
+#define MCHUNK  100  // allocate 100 blocks at a time ~12k
+typedef struct _mfile {
+    struct _mfile *next;
+    byte blocks[MCHUNK][128];
+} mfile_t;
+
+
+mfile_t mfile;
+word maxMacroBlk = 0;
+
+static byte *blk2Buf(word blk) {
+    mfile_t *p = &mfile;
+    while (blk >= MCHUNK) {
+        if (!p->next) {
+            p->next = xmalloc(sizeof(mfile_t));
+            p->next->next = NULL;
+        }
+        p       = p->next;
+        blk -= MCHUNK;
+    }
+    return p->blocks[blk];
+}
+
+/* read in macro from virtual disk - located at given block */
+void ReadM(word blk) {
+    if (blk >= maxMacroBlk) // does not exist
+        macroBuf[0] = MACROEOB;
+    else if (blk == curMacroBlk) // already correct
+        return;
+    else { // load the buffer
+        memcpy(macroBuf, blk2Buf(blk), 128);
+        macroBuf[128] = MACROEOB;
+    }
+    curMacro.blk = curMacroBlk = blk;      // set relevant trackers
+
+}
+
+
+/* write the macro to virtual disk */
+void WriteM(pointer buf) {
+    if (phase == 1)          // only needs writing on pass 1
+        memcpy(blk2Buf(maxMacroBlk++), buf, 128); // seek to end and update marker to account for this block
+    macroBlkCnt++; // update the buffer count for this macro
+}
+

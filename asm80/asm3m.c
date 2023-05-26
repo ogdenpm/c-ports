@@ -61,7 +61,7 @@ void HandleOp(void) {
         break;
     case 2:                                            /* ( */
     case 3:                                            /* ) */
-        if (!(topOp == T_LPAREN && curOp == T_RPAREN)) // incorrectly nested ()
+        if (!(topOp == LPAREN && curOp == RPAREN)) // incorrectly nested ()
             BalanceError();
 
         if (token[0].type == O_DATA) {
@@ -71,7 +71,7 @@ void HandleOp(void) {
         }
 
         expectOp = inNestedParen;
-        if (curOp == T_RPAREN)
+        if (curOp == RPAREN)
             b6B2C = true;
         break;
     case 4:
@@ -189,8 +189,8 @@ void HandleOp(void) {
             acc1RelocFlags = 0;
         }
         labelUse = L_SETEQU;
-        UpdateSymbolEntry(accum1, (K_SET + O_SET) - topOp); /* 4 for set, 5 for equ */
-        expectingOperands = false;
+        UpdateSymbolEntry(accum1, (SET + O_SET) - topOp); /* 4 for set, 5 for equ */
+        expectOperand = false;
         break;
     case 31: /* ORG ? */
         showAddr = true;
@@ -224,7 +224,7 @@ void HandleOp(void) {
 
         if (macroCondSP > 0 || (kk & 1))
             NestingError();
-        if (curOp != T_CR)
+        if (curOp != EOL)
             SyntaxError();
         if (expectOp)
             b6B33 = true;
@@ -261,13 +261,13 @@ void HandleOp(void) {
             UnNest(2); /* revert to previous status */
         }
         break;
-        /* in the following topOp = K_LXI and nextTokType = O_DATA
+        /* in the following topOp = LXI and nextTokType = O_DATA
            except where noted on return from MkCode */
     case 36: /* LXI ? */
         if (nameLen == 1)
             if (name[0] == 'M')
                 SyntaxError();
-        MkCode(0x85); /* topOp = K_INRDCR, nextTokType unchanged on return */
+        MkCode(0x85); /* topOp = INRDCR, nextTokType unchanged on return */
         break;
     case 37: /* REG16 ops POP DAD PUSH INX DCX ? */
         if (nameLen == 1)
@@ -285,13 +285,13 @@ void HandleOp(void) {
         MkCode(8); /* IMM8 ops ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
         break;
     case 41:
-        MkCode(0x46); /* MVI ?  topOp = K_IMM8 on return */
+        MkCode(0x46); /* MVI ?  topOp = IMM8 on return */
         break;
     case 42:
         MkCode(6); /* INR DCR ? */
         break;
     case 43:
-        MkCode(0x36); /* MOV   topOp = K_ARITH, nextTokType unchanged on return*/
+        MkCode(0x36); /* MOV   topOp = ARITH, nextTokType unchanged on return*/
         break;
     case 44:
         MkCode(0); /* IMM16 ops CZ CNZ JZ STA JNZ JNC LHLD */
@@ -382,21 +382,21 @@ void HandleOp(void) {
         Sub78CE(); /* optVal */
         break;
     case 65: /* NUL */
-        accum1 = token[0].type == K_NUL ? 0xffff : 0;
+        accum1 = token[0].type == NUL ? 0xffff : 0;
         PopToken();
         acc1RelocFlags = 0;
         break;
     }
 
-    if (topOp != T_CR)
+    if (topOp != EOL)
         noOpsYet = false;
 }
 
 static byte IsExpressionOp(void) // returns true if op is valid in an expression
 {
-    if (yyType > T_RPAREN)
-        if (yyType != T_COMMA)
-            if (yyType < K_DB)
+    if (yyType > RPAREN)
+        if (yyType != COMMA)
+            if (yyType < DB)
                 return true;
     return false;
 }
@@ -420,7 +420,7 @@ void Parse(void) {
         printf("Parse: ");
         ShowYYType();
 #endif
-        if (((!(yyType == T_CR || (K_END <= yyType && yyType <= K_ENDIF))) && skipIf[0]) ||
+        if (((!(yyType == EOL || (END <= yyType && yyType <= ENDIF))) && skipIf[0]) ||
             ((opFlags[yyType] < 128 || inQuotes) &&
              (mSpoolMode & 1))) { // if spooling skip non macro and in quotes
             needsAbsValue = false;
@@ -435,13 +435,13 @@ void Parse(void) {
                         ExpressionError();
 
         if (GetPrec(curOp = yyType) > GetPrec(topOp = opStack[opSP]) ||
-            curOp == T_LPAREN) { /* SHIFT */
+            curOp == LPAREN) { /* SHIFT */
             if (opSP >= 16) {
                 opSP = 0;
                 StackError();
             } else
                 opStack[++opSP] = curOp;
-            if (curOp == T_LPAREN) {
+            if (curOp == LPAREN) {
                 inNestedParen = expectOp;
                 expectOp      = true;
             }
@@ -463,10 +463,10 @@ void Parse(void) {
         DumpTokenStack(false);
 #endif
         inExpression = false;
-        if ((!expectOp) && topOp > T_RPAREN)
+        if ((!expectOp) && topOp > RPAREN)
             SyntaxError();
 
-        if (topOp == T_VALUE) /* topOp used so set to curOp */
+        if (topOp == VALUE) /* topOp used so set to curOp */
             topOp = curOp;
         else
             opSP--; /* pop Op */
@@ -485,7 +485,7 @@ void Parse(void) {
             hasVarRef = IsVar(acc1ValType) || IsVar(acc2ValType);
 
         nextTokType = O_NUMBER;               // assume next token is a number, HandleOp may change
-        if (topOp > T_RPAREN && topOp < K_DB) /* expression topOp */
+        if (topOp > RPAREN && topOp < DB) /* expression topOp */
             ResultType();                     // check and set result type
         else {
             UpdateIsInstr();
@@ -501,7 +501,7 @@ void Parse(void) {
             return;
         }
 
-        if (topOp != K_DS && showAddr)
+        if (topOp != DS && showAddr)
             effectiveAddr = accum1;
 
         if ((curOpFlags & 0x3C)) /* -xxxxx-- -> collect list or bytes */
@@ -520,7 +520,7 @@ void Parse(void) {
         token[0].attr  = acc1RelocFlags;
         token[0].symId = acc1RelocVal;
         if (curOpFlags & 0x40)      /* -x------ -> list */
-            if (curOp == T_COMMA) { // if comma then make the operator (topOp) as
+            if (curOp == COMMA) { // if comma then make the operator (topOp) as
                 yyType   = topOp;   // the next item to read and mark as operator
                 expectOp = true;
             }

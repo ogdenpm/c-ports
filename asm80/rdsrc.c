@@ -31,50 +31,43 @@ void CloseSrc(void) /* close current source file. Revert to any parent file */
 /*
     Until the main code is modified to use '\n' as the end of a line
     the code below squashes '\r' in the input stream and replaces
-    '\n' with '\r\n'. Note a single '\r' is also treated as '\r\n'
+    '\n' with '\r\n'.
     This will allow the assembler to handle Linux/Unix created source
 */
-byte GetSrcCh(void) /* get next source character */
-{
-    int c;
-    static bool retLF = false;
 
-    if (retLF) {
-        retLF = false;
-        return '\n';
+static char *getLine() {
+    int c;
+    
+    int i = 0;
+
+
+    while ((c = getc(srcfp)) != EOF && c != '\n') {
+            if (c != '\r' && i++ < MAXLINE)
+                inBuf[i - 1] = c;
     }
-    // get the next real character
-    while ((c = getc(srcfp)) == EOF) {
+    if (c == EOF) {
         if (ferror(srcfp))
             IoError(files[fileIdx].name, "Read error");
-        if (lineChCnt) {
-            c = '\n';       // terminate the line
-            break;
-        }
-        CloseSrc(); // un-nest file if needed
+        if (i == 0)
+                return NULL;
+        fprintf(stderr, "Warning: unterminated line at end of %s\n", files[fileIdx].name);
     }
-    // as the source is now opened in text mode
-    // for Windows a '\r' is mapped to '\n;
-    // for Linux, it could be start of '\r\n'
-    if (c == '\r') {
-#ifndef _WIN32
-        if ((c = getc(srcfp)) != '\n' && c != EOF)
-            ungetc(c, srcfp);
-#endif
-        c = '\n';
-    }
-    if (c == '\n') {
-        retLF = true;
-        if (lineChCnt > MAXLINE)
-            strcpy(inBuf + MAXLINE - 2, "..\r\n"); // indicate truncated
-        else
-            strcpy(inBuf + lineChCnt, "\r\n");
-        lineChCnt += 2;
-        return '\r';
-    }
-    if (lineChCnt++ < MAXLINE)
-        inBuf[lineChCnt - 1] = c;
-    return c & 0x7f;
+    if (i >= MAXLINE) {
+            fprintf(stderr, "Warning: line truncated\n");
+            strcpy(inBuf + MAXLINE - 3, "...\r\n");
+    } else
+            strcpy(inBuf + i, "\r\n");
+    return inBuf;
+}
+
+
+byte GetSrcCh(void) /* get next source character */
+{
+    if (!inPtr || !*inPtr) {
+        while (!(inPtr = getLine()))
+            CloseSrc(); // unnest file
+    }     
+    return *inPtr++ & 0x7f;
 }
 
 void OpenSrc(void) {

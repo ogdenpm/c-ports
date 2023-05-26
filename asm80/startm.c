@@ -156,7 +156,7 @@ byte GetNibble(pointer bp, byte idx)	// not used
 
 void SourceError(byte errCh)
 {
-    if (! IsSkipping() || topOp == K_ELSE) {   /* ELSE */
+    if (! IsSkipping() || topOp == ELSE) {   /* ELSE */
         if (inExtrn)
             badExtrn = true;
         if (BlankAsmErrCode())
@@ -229,11 +229,11 @@ void InitLine(void) {
         putchar(inBuf[i]);
 #endif
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
-        inExpression = expectingOperands = xRefPending = haveUserSymbol = inDB = inDW =
+        inExpression = expectOperand = xRefPending = haveUserSymbol = inDB = inDW =
             condAsmSeen = showAddr = usrLookupIsID = excludeCommentInExpansion = b9060 =
                 needsAbsValue                                                  = false;
-    gotLabel                                                                   = 0;
-    atStartLine = expectingOpcode = isInstr = expectOp = true;
+    haveLabel                                                                   = 0;
+    atStartLine = expectOpcode = isInstr = expectOp = true;
     controls.eject = tokenIdx = argNestCnt = token[0].size = token[0].type = acc1ValType =
         acc2ValType = acc1RelocFlags = 0;
     hasVarRef = inQuotes = inComment = false;
@@ -244,7 +244,6 @@ void InitLine(void) {
     expandingMacro                   = expandingMacro > 0 ? 0xff : 0;
     tokI                             = 1;
     srcLineCnt++;
-    macroP = macroLine;
 }
 
 void Start(char *srcName) {
@@ -253,8 +252,6 @@ void Start(char *srcName) {
     phase = 1;
     ResetData();
     InitialControls();
-    if (!(macroFp = tmpfile()))
-        IoError("Macro file", "Create error");
 
     if (controls.object)
         objFp = SafeOpen(objFile, "wb+");
@@ -262,7 +259,7 @@ void Start(char *srcName) {
     DoPass();
     phase = 2;
     if (controls.object) {
-        if (getLen(rExtnames) > 0)
+        if (getRecLen(rExtnames) > 0)
             WriteRec(rExtnames);    /* in overlay 2 */
 
         if (externId == 0)

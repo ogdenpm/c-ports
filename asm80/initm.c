@@ -59,7 +59,7 @@ void PrepSrcFile(char *srcName) {
         endSymTab[TID_MACRO]                                                     = symbols;
    
     scanCmdLine = true;        /* scanning command line */
-    puts("\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1");
+    puts("\nINTEL 8080/8085 MACRO ASSEMBLER, V4.1");
 
  
     // derive default lst and obj file names
@@ -100,7 +100,7 @@ void ResetData(void) {    /* extended initialisation */
     passCnt++;
 
     srcLineCnt = pageCnt = pageLineCnt = 1;
-    curOp                              = T_CR;
+    curOp                              = EOL;
 
     b68AE = false;
     curChar = ' ';
@@ -116,6 +116,7 @@ void ResetData(void) {    /* extended initialisation */
         }
         srcfp   = files[0].fp;
         rewind(srcfp);
+        inPtr = NULL;
     }
 
     baseMacroTbl = &macroText[MAXMACROTEXT - 1];
@@ -123,12 +124,12 @@ void ResetData(void) {    /* extended initialisation */
 
 void InitRecTypes(void) {
     rContent[HDR_TYPE] = OMF_CONTENT;
-    putWord(&rContent[HDR_LEN], 3);
+    setWord(&rContent[HDR_LEN], 3);
     rPublics[HDR_TYPE] = OMF_RELOC;
-    putWord(&rPublics[HDR_LEN], 1);
+    setWord(&rPublics[HDR_LEN], 1);
     rInterseg[HDR_TYPE] = OMF_INTERSEG;
-    putWord(&rInterseg[HDR_LEN], 2);
+    setWord(&rInterseg[HDR_LEN], 2);
     rExtref[HDR_TYPE] = OMF_EXTREF;
-    putWord(&rExtref[HDR_LEN], 1);
+    setWord(&rExtref[HDR_LEN], 1);
 }
 

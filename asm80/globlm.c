@@ -10,10 +10,7 @@
 
 #include "asm80.h"
 
-#define IN_BUF_SIZE  512
-#define OUT_BUF_SIZE 512
-
-char macroLine[129];
+char macroLine[MAXLINE + 1];    // allow for '\0' terminator
 char *macroP  = macroLine;
 bool inQuotes = false;
 bool excludeCommentInExpansion;
@@ -46,7 +43,7 @@ macro_t macro[10] = { { .blk = 0xffff } };
 
 word curMacroBlk  = 0xFFFF;
 word nxtMacroBlk  = 0;
-word maxMacroBlk  = 0;
+
 word macroBlkCnt;
 byte macroBuf[129];
 pointer savedMacroBufP;
@@ -69,7 +66,7 @@ byte fixIdxs[4] = { 0, 0, 0, 0 };
 #define fix22Idx fixIdxs[0]
 #define fix24Idx fixIdxs[1]
 #define fix20Idx fixIdxs[2]
-#define fix6Idx  fixIdxs[3]
+#define contentIdx  fixIdxs[3]
 byte extNamIdx                   = 0;
 bool initFixupReq[4]             = { true, true, true, true };
 bool firstContent                = true;
@@ -96,10 +93,10 @@ bool badExtrn     = false;
 byte startDefined = 0;
 word startOffset  = 0;
 byte tokenIdx     = 0;
-byte lineBuf[128];
+byte lineBuf[MAXLINE + 1];      // allow for '\0' terminator
 token_t token[9]   = { { lineBuf } };
 
-pointer endLineBuf = { lineBuf + 128 };
+pointer endTokenBuf = { lineBuf + MAXLINE };
 byte ifDepth       = 0;
 bool skipIf[9];
 bool inElse[9];
@@ -126,7 +123,7 @@ byte macroText[MAXMACROTEXT];
 byte macroParams[MAXMACROPARAM];
 
 pointer baseMacroTbl;
-byte gotLabel = 0;
+byte haveLabel = 0;
 char name[MAXSYMSIZE + 1];  // '\0' added to end
 char savName[MAXSYMSIZE + 1];
 bool haveNonLabelSymbol; // true if we have seen a user symbol and confirmed that there is no :
@@ -138,30 +135,26 @@ bool usrLookupIsID = false;
 bool needsAbsValue = false;
 FILE *objFp;
 FILE *lstFp;
-FILE *macroFp;
 word statusIO;
 word openStatus; /* status of last open for Read */
-// static word pad6894 = 0xFFFF;
 byte asmErrCode     = ' ';
 bool spooledControl = false;
 bool primaryValid   = true;
 byte tokI;
 bool errorOnLine;
 bool atStartLine;
-// static byte pad689D[2];
 byte curCol = 1;
 pointer endItem;
 pointer startItem;
 word pageLineCnt;
 word effectiveAddr;
 word pageCnt;
-// static byte pad68AA;
 bool showAddr;
-// static byte pad68AC;
 bool lineNumberEmitted = false;
 bool b68AE             = false;
 char tokStr[7]         = { 0, 0, 0, 0, 0, 0, 0 };
-char inBuf[MAXLINE + 3]; // MAXLINE chars + \r\n\0
+char inBuf[MAXLINE + 3]; // MAXLINE chars + potential extra '\r\n\0'
+char *inPtr;
 
 // static pointer pad6A05 = {outbuf};
 // static byte pad6A07 = 0;
@@ -177,11 +170,10 @@ controls_t controls  = { .all = {
                             120,   66,    0,     false, 0,    0,     0,     true, true, true } };
 
 bool ctlListChanged  = true;
-byte titleLen        = { 0 };
 bool controlSeen[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 byte saveStack[8][3];
 byte saveIdx = 0;
-char titleStr[64];
+char titleStr[65];
 word tokBufLen;
 byte tokType;
 byte controlId;
@@ -203,8 +195,8 @@ bool b6B2C;
 byte nextTokType;
 bool finished;
 bool inNestedParen;
-bool expectingOperands;
-bool expectingOpcode;
+bool expectOperand;
+bool expectOpcode;
 bool condAsmSeen; /* true when IF, ELSE, ENDIF seen [also macro to check] */
 bool b6B33;
 bool isInstr        = true;

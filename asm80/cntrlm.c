@@ -50,11 +50,13 @@ static byte GetTok(void) {
     if (IsCR())
         return curChar;
 
-    SkipWhite_2();
+    SkipNextWhite();
     if (isalpha(curChar)) {  /* letter */
-        GetId(O_ID);
-        if (BlankAsmErrCode() && token[0].size < 14)
+        GetTokenText(O_ID);
+        if (BlankAsmErrCode() && token[0].size <= 14) {
             memcpy(tokBuf, lineBuf, tokBufLen = token[0].size);
+            tokBuf[tokBufLen] = '\0';
+        }
     } else if (isdigit(curChar)) {   /* digit ? */
         GetNum();
         if (BlankAsmErrCode()) {
@@ -69,8 +71,10 @@ static byte GetTok(void) {
             if (token[0].size < 64)
                 tokBufLen = token[0].size;
             tokType = TT_STR;
-            if (tokBufLen > 0)
+            if (tokBufLen > 0) {
                 memcpy(tokBuf, lineBuf, tokBufLen);
+                tokBuf[tokBufLen] = '\0';
+            }
         }
     } else {
         tokBufLen = 1;
@@ -97,7 +101,7 @@ static bool FinaliseFileNameOpt(char *arg1w)
 }
 
 static void GetFileNameOpt(void) {
-    SkipWhite_2();
+    SkipNextWhite();
 
     while (curChar != CR) {
         if (IsRParen() || IsWhite()) {
@@ -233,14 +237,21 @@ static void ProcessControl(void) {
             return;
     case 4:            /* MACROFILE */
             controls.macroFile = true;
+            if (ChkParen('(')) {
+                while ((curChar = GetCh()) != ')')
+                    if (IsCR())
+                        FatalError("Missing ')' parsing MACROFILE (drive)\n");
+
+            } else
+                reget = 1;
             return;
     case 5:            /* PAGEWIDTH */
             if (GetControlNumArg()) {
                 controls.pageWidth = (byte) tokNumVal;
                 if (controls.pageWidth > 132)
                     controls.pageWidth = 132;
-                if (controls.pageWidth < 72)
-                    controls.pageWidth = 72;
+                if (controls.pageWidth < 80)    // limit increased so long module name
+                    controls.pageWidth = 80;    // fits in the header
                 return;
             }
             break;
@@ -273,8 +284,7 @@ static void ProcessControl(void) {
                 tokVal = GetTok();
                 if (tokType == TT_STR && tokBufLen != 0) {
                     if (phase != 1 || (IsPhase1() && primaryValid)) {
-                        memcpy(titleStr, tokBuf, tokBufLen);
-                        titleStr[titleLen = (byte)tokBufLen] = 0;
+                        strcpy(titleStr, tokBuf);
                         if (ChkParen(')')) {
                             controls.title = true;
                             return;

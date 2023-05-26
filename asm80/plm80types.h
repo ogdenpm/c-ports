@@ -174,7 +174,6 @@ typedef struct {
         word addr;
         word line;
         word value;
-        word offset;
         word paramId;
         word blk;
     };

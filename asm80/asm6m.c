@@ -61,6 +61,7 @@ void PhaseError(void)
     SourceError('P');
 }
 
+
 void StackError(void)
 {
     RuntimeError(RTE_STACK);
@@ -188,7 +189,7 @@ void CollectByte(byte c)
 {
     pointer s;
 
-    if ((s = tokPtr + token[0].size) < endLineBuf) {   /* check for lineBuf overrun */
+    if ((s = tokPtr + token[0].size) < endTokenBuf) {   /* check for lineBuf overrun */
         *s = c;
         token[0].size++;
     }
@@ -196,7 +197,7 @@ void CollectByte(byte c)
         StackError();
 }
 
-void GetId(byte type)
+void GetTokenText(byte type)
 {
     PushToken(type);    /* save any previous token and initialise this one */
     reget = 1;        /* force re get of first character */
@@ -214,7 +215,7 @@ void GetNum(void) {
     byte radix, digit, i;
 //    byte chrs based tokPtr [1];
 
-    GetId(O_NUMBER);
+    GetTokenText(O_NUMBER);
     radix = tokPtr[--token[0].size];
     if (radix == 'H')
         radix = 16;
@@ -240,9 +241,9 @@ void GetNum(void) {
             digit = 0;
         } else {
             if ((digit = tokPtr[i] - '0') > 9)
-                digit = digit - 7;
+                digit -= 7;
             if (digit >= radix)
-                if (! (token[2].type == O_NULVAL)) { /* bug? risk that may be random - tokenIdx may be < 2 */
+                if (tokenIdx < 2 || !(token[2].type == NULVAL)) { /* bug fix tokIdx may be < 2 */
                     IllegalCharError();
                     digit = 0;
                 }
@@ -260,14 +261,12 @@ void GetStr(void) {
     PushToken(O_STRING);
 
     while (GetCh() != CR) {
-        if (curChar == '\'')
-            if (GetCh() != '\'')	// if not '' then all done
-                goto L6268;
-        CollectByte(curChar);	// collect char - '' becomes '
+        if (curChar == '\'' && GetCh() != '\'') { // if not '' then all done
+            reget = 1;
+            return;
+        } else
+            CollectByte(curChar);	// collect char - '' becomes '
     }
-
     BalanceError();				// EOL seen before closing '
-
-L6268:
-    reget = 1;					// push back CR or char after '
+    reget = 1;					// push back CR
 }

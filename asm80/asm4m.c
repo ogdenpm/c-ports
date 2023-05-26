@@ -26,7 +26,7 @@ bool IsSkipping(void) {
 
 void Sub546F(void) {
     spIdx = NxtTokI();
-    if (expectingOperands)
+    if (expectOperand)
         SyntaxError();
     if (HaveTokens())
         if (!(token[spIdx].type == O_DATA || lineNumberEmitted))

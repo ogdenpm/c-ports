@@ -20,11 +20,10 @@ extern char moduleName[];
 
 // defined in globlm.c
 
-#define	IN_BUF_SIZE	512
-#define	OUT_BUF_SIZE	512
+#define	MAXLINE	256
 #define MAXFILEPARAM	260
 
-extern char macroLine[129];
+extern char macroLine[MAXLINE + 1];
 extern char *macroP;
 extern bool inQuotes;
 extern bool excludeCommentInExpansion;
@@ -47,7 +46,7 @@ extern macro_t macro[10];
 #define curMacro macro[0]
 extern word curMacroBlk;
 extern word nxtMacroBlk;
-extern word maxMacroBlk;
+
 extern word macroBlkCnt;
 extern byte macroBuf[129];
 extern pointer savedMacroBufP;
@@ -67,7 +66,7 @@ extern byte fixIdxs[4];
 #define	fix22Idx	fixIdxs[0]
 #define	fix24Idx	fixIdxs[1]
 #define	fix20Idx	fixIdxs[2]
-#define	fix6Idx		fixIdxs[3]
+#define	contentIdx		fixIdxs[3]
 extern byte extNamIdx;
 extern bool initFixupReq[4];
 extern bool firstContent;
@@ -95,11 +94,11 @@ extern bool badExtrn;
 extern byte startDefined;	/* 0 or 1 */
 extern word startOffset;
 extern byte tokenIdx;
-extern byte lineBuf[128];
+extern byte lineBuf[MAXLINE + 1];	// allow for '\0' terminator
 extern token_t token[];
 #define tokPtr	token[0].start
 #define topSymbol token[0].symbol
-extern pointer endLineBuf;
+extern pointer endTokenBuf;
 extern byte ifDepth;
 extern bool skipIf[9];
 extern bool inElse[9];
@@ -124,7 +123,7 @@ extern byte lookAhead;
 extern tokensym_t *symTab[3];
 extern tokensym_t *endSymTab[3];
 extern pointer baseMacroTbl;
-extern byte gotLabel;
+extern byte haveLabel;
 extern char name[MAXSYMSIZE + 1];
 extern char savName[MAXSYMSIZE + 1];
 extern bool haveNonLabelSymbol;
@@ -137,7 +136,6 @@ extern bool needsAbsValue;
 extern FILE *objFp;
 extern FILE *inFp;
 extern FILE *lstFp;
-extern FILE *macroFp;
 extern word statusIO;
 extern word openStatus;  /* status of last open for Read */
 extern byte asmErrCode;
@@ -157,6 +155,7 @@ extern bool lineNumberEmitted;
 extern bool b68AE;
 extern char tokStr[7];
 extern char inBuf[];
+extern char *inPtr;
 extern char *objFile;
 extern char *lstFile;
 extern word srcLineCnt;
@@ -165,11 +164,10 @@ extern byte spIdx;
 extern word lastErrorLine;
 extern controls_t controls;
 extern bool ctlListChanged;
-extern byte titleLen;
 extern bool controlSeen[12];
 extern byte saveStack[8][3];
 extern byte saveIdx;
-extern char titleStr[64];
+extern char titleStr[65];
 extern word tokBufLen;
 extern byte tokType;
 extern byte controlId;
@@ -191,8 +189,8 @@ extern bool b6B2C;
 extern byte nextTokType;
 extern bool finished;
 extern bool inNestedParen;
-extern bool expectingOperands;
-extern bool expectingOpcode;
+extern bool expectOperand;
+extern bool expectOpcode;
 extern bool condAsmSeen;    /* true when IF, ELSE, ENDIF seen [also macro to check] */
 extern bool b6B33;
 extern bool isInstr;

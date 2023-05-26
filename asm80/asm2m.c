@@ -10,11 +10,8 @@
 
 // vim:ts=4:expandtab:shiftwidth=4:
 //
-/* force the non standard code generation of outStrN and put2Hex */
 #include "asm80.h"
 
-//void OutStrN(pointer s, word n);
-//void Put2Hex(word arg1w, word arg2w);
 /*
     0    -> ?
     1    -> start single word expression
@@ -49,26 +46,26 @@ byte opFlags[] = {
      0x80, 0xD
 };
 
-byte noRegOperand[] = { 0x41, 0, 0, 0, 0x19, 0x40, 0, 0x1C, 0, 0 };
+static byte noRegOperand[] = { 0x41, 0, 0, 0, 0x19, 0x40, 0, 0x1C, 0, 0 };
 /* bit vector 66 -> 0 x 24 00011001 01000000 00000000 00011100 00000000 00 */
-byte validRelocExprOp[] = { 0x1A, 5, 0x80, 0, 0xC0 };
+static byte validRelocExprOp[] = { 0x1A, 5, 0x80, 0, 0xC0 };
 /* bit vector 27 -> 00000101 10000000 00000000 110 */
-/* +, -, unary+, K_HIGH, K_LOW*/
-byte opIncompat[] = { 0x57, 0x71, 0xF4, 0x57, 0x76, 0x66, 0x66, 0x67, 0x77, 0x77, 0x77, 0x55 };
+/* +, -, unary+, HIGH, LOW*/
+static byte opIncompat[] = { 0x57, 0x71, 0xF4, 0x57, 0x76, 0x66, 0x66, 0x67, 0x77, 0x77, 0x77, 0x55 };
 /* bit vector 88 -> 01110001 11110100 01010111 01110110
                     01100110 01100110 01100111 01110111
                     01110111 01110111 01010101 */
-byte propagateFlags[] = { 0x57, 6, 2, 0x20, 0, 0, 0, 0, 0, 0, 0, 0x22 };
+static byte propagateFlags[] = { 0x57, 6, 2, 0x20, 0, 0, 0, 0, 0, 0, 0, 0x22 };
 /* bit vector 88 -> 00000110 00000010 00100000 00000000
                 00000000 00000000 00000000 00000000
                 00000000 00000000 00100010 */
-byte typeHasTokSym[] = { 0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20 };
+static byte typeHasTokSym[] = { 0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20 };
 /* bit vector 59 -> 11111111 10000000 00000000 00000000
                     00001111 11111110 00000000 001 */
-                    /* T_BEGIN, T_CR, T_LPAREN, T_RPAREN/O_LABEL, T_STAR, T_PLUS/K_SPECIAL, T_COMMA, */
-                    /* T_MINUS/K_REGNAME, T_UPLUS/K_SP */
-                    /* K_LXI, K_REG16, K_LDSTAX, K_ARITH, K_IMM8, K_MVI, K_INRDCR. K_MOV, K_IMM16, K_SINGLE */
-                    /* K_RST */
+                    /* BEGIN, CR, LPAREN, RPAREN/O_LABEL, STAR, PLUS/K_SPECIAL, COMMA, */
+                    /* MINUS/K_REGNAME, UPLUS/K_SP */
+                    /* LXI, REG16, LDSTAX, ARITH, IMM8, MVI, INRDCR. MOV, IMM16, SINGLE */
+                    /* RST */
 
 /* precedence table */
 /*
@@ -81,8 +78,8 @@ byte typeHasTokSym[] = { 0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20 };
     4 - AND
     3 - OR, XOR,
     2 - ! used
-    1 - COMMA, DB - STKLEN, O_MACROPARAM, K_ENDM, K_EXITM, O_3D, K_REPT, K_LOCAL
-    0 - T_BEGIN,T_CR,T_LPAREN,T_RPAREN,K_MACRO,T_MACRONAME,K_IRP,K_IRPC
+    1 - COMMA, DB - STKLEN, O_MACROPARAM, ENDM, EXITM, O_3D, REPT, LOCAL
+    0 - BEGIN,CR,LPAREN,RPAREN,MACRO,MACRONAME,IRP,IRPC
 */
 byte precedence[] = {
     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
@@ -97,11 +94,7 @@ byte precedence[] = {
 bool TestBit(byte bitIdx, pointer bitVector) {
     // ch based bitVector byte;
 
-    if (*bitVector < bitIdx)
-        return false;
-
-    bitVector = bitVector + (bitIdx >> 3) + 1;
-    return (*bitVector & (1 << (7 - (bitIdx & 7)))) != 0;
+    return bitIdx <= bitVector[0] && bitVector[bitIdx / 8 + 1] & (1 << (7 - (bitIdx % 8)));
 }
 
 bool IsReg(byte type) {
@@ -130,7 +123,7 @@ void ResultType(void) {
             if (((acc1RelocFlags ^ acc2RelocFlags) & (UF_SEGMASK | UF_RBOTH)) != 0)  /* must have same seg and relocation info */
                 ExpressionError();
     if ((ii = (acc1RelocFlags & UF_EXTRN) != 0) | (jj = (acc2RelocFlags & UF_EXTRN) != 0)) { /* either extern ?*/
-        if (topOp == T_PLUS)                            /* + op */
+        if (topOp == PLUS)                            /* + op */
             if (!(ii || aVar.lb)) {                    /* if not (acc1 extern or relocatable) */
                 acc1RelocVal = acc2RelocVal;            /* add relocation information from acc2*/
                 acc1RelocFlags = acc2RelocFlags;
@@ -164,18 +157,18 @@ void SwapAccBytes(void) {
 
 
 void SetExpectOperands(void) {
-    expectingOperands = true;
-    expectingOpcode = false;
+    expectOperand = true;
+    expectOpcode = false;
 }
 
 
 void LogError(byte ch) {
-    if (token[tokenIdx].type != O_NULVAL) {  /* ignore error if processing an optional value */
+    if (token[tokenIdx].type != NULVAL) {  /* ignore error if processing an optional value */
         SourceError(ch);
         return;
     }
     if (token[0].size == 0)                  /* make into a NUL */
-        token[tokenIdx].type = K_NUL;
+        token[tokenIdx].type = NUL;
 }
 
 word GetNumVal(void) { // load numeric value from top of stack
@@ -183,12 +176,12 @@ word GetNumVal(void) { // load numeric value from top of stack
     acc1RelocFlags = 0;         // initialise to absolute zero value
     accum1 = 0;
     acc1ValType = O_NAME;       // with NAME type
-    if (token[0].type == O_NULVAL)
+    if (token[0].type == NULVAL)
         PushToken(O_PARAM);
     if (tokenIdx == 0 || (token[0].type == O_DATA && !b6B36))
         LogError('Q');		// questionable syntax - possible missing opcode
     else {
-        if (token[0].type == O_NAME || token[0].type == T_COMMA)      // can't handle undefined name or missing name
+        if (token[0].type == O_NAME || token[0].type == COMMA)      // can't handle undefined name or missing name
             LogError('U');	// undefined symbol - if here in pass2 then genuine error
         else {
             acc1ValType = token[0].type;                             // update the value type
@@ -239,7 +232,7 @@ byte GetPrec(byte topOp) {
    xxxxxx1x    acc1 = acc1 | acc2
    xxxxx1xx    acc2 = rol(acc2, 3)
    xxxx1xxx    acc2 -> 8 bit value
-   nnnnxxxx    topOp = K_LXI + nnnn
+   nnnnxxxx    topOp = LXI + nnnn
 
 */
 void MkCode(byte control) {
@@ -247,14 +240,14 @@ void MkCode(byte control) {
         if (accum2 > 7    /* reg or rst num <= 7 */
             || (control & accum2 & 1)    /* only B D H SP if lxi, ldax or stax */
             || ((control & 3) == 3 && Low(accum2) > 2)    /* B or D if ldax or stax */
-            || (!IsReg(acc2ValType) && topOp != K_RST))    /* reg unless rst */
+            || (!IsReg(acc2ValType) && topOp != RST))    /* reg unless rst */
             OperandError();
-        else if (IsReg(acc2ValType) && topOp == K_RST)         /* cannot be reg for rst */
+        else if (IsReg(acc2ValType) && topOp == RST)         /* cannot be reg for rst */
             OperandError();
         if (control & 4)
             accum2 = MkWord(High(accum2), Low((accum2 << 3) | ((accum2 >> 5) & 7)));
         accum1 |= Low(accum2);
-    } else if (topOp != K_SINGLE)        /* single byte topOp */
+    } else if (topOp != SINGLE)        /* single byte topOp */
         if (IsReg(acc2ValType))
             OperandError();
 
@@ -266,16 +259,16 @@ void MkCode(byte control) {
         if (accum2 >= 0x100 && accum2 < 0xFF00)    /* Error() if ! FF or 00 */
             ValueError();
     }
-    if (topOp == K_IMM8 || topOp == K_IMM16) {   /* Imm8() or imm16 */
+    if (topOp == IMM8 || topOp == IMM16) {   /* Imm8() or imm16 */
         acc1RelocFlags = acc2RelocFlags;                  // copy over relocation info for 8 or 16 bit imm
         acc1RelocVal = acc2RelocVal;
     } else
         acc1RelocFlags = 0;                          // else make abs non relocatable
 
-    if (topOp != K_SINGLE)             /* single byte topOp */
+    if (topOp != SINGLE)             /* single byte topOp */
         if (Low(accum1) == 0x76)         /* mov m,m is actually Halt() */
             OperandError();
-    if ((topOp = (control >> 4) + K_LXI) == K_LXI)
+    if ((topOp = (control >> 4) + LXI) == LXI)
         nextTokType = O_DATA;
 }
 
@@ -299,8 +292,6 @@ bool ShowLine(void) {
         = 2 -> finalise
 */
 void EmitXref(byte xrefMode, char const *name) {
-    // code below is currently needed as name may not be terminated
-    // eventually this will be eliminated
 
     if ((!IsPhase1() || !controls.xref || IsSkipping()) && !xRefPending)
         return;

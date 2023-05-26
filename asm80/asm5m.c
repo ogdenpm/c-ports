@@ -24,7 +24,7 @@ static byte op16[] = {
 static byte chClass[] = {
     /*  0/8     1/9     2/A     3/B     4/C     5/D     6/E     7/F */
     /*00*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
-    /*08*/ CC_BAD, CC_WS,  CC_BAD,   CC_BAD,  CC_WS,     CC_CR,  CC_BAD, CC_BAD,
+    /*08*/ CC_BAD, CC_WS,  CC_BAD,   CC_BAD,  CC_WS,     CC_EOL,  CC_BAD, CC_BAD,
     /*10*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*18*/ CC_BAD, CC_BAD, CC_BAD,   CC_ESC,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*20*/ CC_WS,  CC_BAD, CC_BAD,   CC_BAD,  CC_DOLLAR, CC_BAD, CC_BAD, CC_QUOTE,
@@ -116,7 +116,7 @@ void UpdateSymbolEntry(word value, byte type) {
         if (token[0].type == O_NAME) {
             if (createdUsrSym) {
                 if (topSymbol->type >= 0x80 ||
-                    (type == T_MACRONAME && topSymbol->line != srcLineCnt)) {
+                    (type == MACRONAME && topSymbol->line != srcLineCnt)) {
                     LocationError();
                     absFlag = 0x80;
                 }
@@ -148,7 +148,7 @@ void UpdateSymbolEntry(word value, byte type) {
                     SetTokenType(type, isSetOrEqu);
                     if (topSymbol->type < 128) {
                         topSymbol->type = token[0].type;
-                        topSymbol->addr = value;
+                        topSymbol->value = value;
                         flags           = acc1RelocFlags;
                         lineSet         = true;
                     }
@@ -188,7 +188,7 @@ void UpdateSymbolEntry(word value, byte type) {
             token[0].type = O_LABEL;
 
     if (!inPublic && TestBit(token[0].type, b5669))
-        flags = acc1RelocFlags | (token[0].type != T_MACRONAME ? flags & UF_PUBLIC : 0);
+        flags = acc1RelocFlags | (token[0].type != MACRONAME ? flags & UF_PUBLIC : 0);
     else {
         if (IsPhase1())
             token[0].type = O_LABEL;
@@ -212,8 +212,8 @@ endUpdateSymbol:
         LocationError();
 
     if ((IsPhase1() && (token[0].type == type || (type == O_EQU && token[0].type == 7))) ||
-        (type == 4 && BlankAsmErrCode()) || lineSet || type == T_MACRONAME)
-        topSymbol->addr = value;
+        (type == 4 && BlankAsmErrCode()) || lineSet || type == MACRONAME)
+        topSymbol->value = value;
 
     topSymbol->flags = flags;
     inPublic         = 0;
@@ -232,7 +232,7 @@ endUpdateSymbol:
 /*
     two different tables types are used in lookup
     table 0: static keyword lookup the individual entries are coded as
-        keyword as a string
+        keyword as char *
         opcode base - byte
         // padding
         type - byte
@@ -241,7 +241,7 @@ endUpdateSymbol:
 
     The other two tables are kept as sorted 8 byte entries to allow binary chop search
     individual entries are encoded as follows
-        packed keyword - byte * 4 - 3 chars per word
+        symbol name as char *
         word value used differently for different types of symbol
         type - byte (add 0x80 if abs value)
         flags - byte
@@ -253,7 +253,9 @@ endUpdateSymbol:
 
     table 1: is the main symbol table which grows dynamically as new entries are inserted
     table 2: is a dynamic macro table 8 bytes per entry it holds the names of the current macro
-   paramaters
+    parameters. Both tables are contiguous. Symbol search in each table is done by binary chop
+    and new symbols are inserted into the appropriate table. Other entries, possibly for both
+    tables are moved upwards.
 
 */
 
@@ -270,10 +272,10 @@ byte Lookup(byte tableId) {
     if (tableId == TID_KEYWORD) { /* hash chain look up key word */
         entryOffset = in_word_set((char *)tokPtr,
                                   strlen((char *)tokPtr)); // HACK name is after packed token
-        if (entryOffset && (controls.macroFile || entryOffset->type < K_MACRO)) {
+        if (entryOffset && (controls.macroFile || entryOffset->type < MACRO)) {
             topSymbol     = entryOffset;
             token[0].type = topSymbol->type;
-            if (token[0].type < K_SINGLE) /* instruction with arg */
+            if (token[0].type < SINGLE) /* instruction with arg */
                 if (op16[token[0].type])
                     has16bitOperand = true;
 
@@ -281,7 +283,7 @@ byte Lookup(byte tableId) {
                 SourceError('O');
 
             if (token[0].type == K_SP) { /* SP */
-                if (!(curOp == K_LXI || curOp == K_REG16))
+                if (!(curOp == LXI || curOp == REG16))
                     SourceError('X');
                 token[0].type = K_REGNAME; /* reg */
             }
@@ -343,9 +345,10 @@ byte Lookup(byte tableId) {
     MACROEOB 0xFE	end of macro buffer causes next block to be read
     MACROPARAM 0x80	indicates a macro parameter to be expanded the parameter number is in lookahead
                     for IRPC the next char is taken which can be escaped, otherwise the macro is
-   expanded >MACROPARAM		indicates local variable. lookahead is the local variable number in the
-   current macro it is added to the base number for locals for the expansion of this macro and
-   converted into ??number as a unique local label
+                    expanded
+   >MACROPARAM		indicates local variable. lookahead is the local variable number in the
+                    current macro it is added to the base number for locals for the expansion
+                    of this macro and converted into ??number as a unique local label
     ESC	0x1B		end of spooled macro, returns ESC to higher order routines to handle
 */
 byte GetCh(void) {
@@ -418,7 +421,7 @@ byte GetCh(void) {
         }
 
         if (expandingMacro > 1) /* in pass 2 print expanded macro code if required */
-            if (IsPhase2Print() && macroP < macroLine + 127) /* append character if room */
+            if (IsPhase2Print() && macroP < macroLine + MAXLINE) /* append character if room */
                 *macroP++ = curCH;
 
         if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line CR for
@@ -441,10 +444,8 @@ byte GetCh(void) {
 
 byte GetChClass(void) {
     curChar = GetCh();
-    if (inMacroBody)
-        return CC_MAC;
 
-    return chClass[curChar];
+    return inMacroBody ? CC_MAC : chClass[curChar];
 }
 
 void ChkLF(void) {

@@ -37,20 +37,14 @@ int startMarker;
 byte row;
 int nameWidth = 6;
 
-static int AllocLineRef(void) {
+static int NewLineRef(void) {
     if (cntLine >= maxLines)
-#ifdef _MSC_VER
-#pragma warning(suppress : 6308)
-#endif
         lines = xrealloc(lines, sizeof(line_t) * (maxLines += LCHUNK));
     return cntLine++;
 }
 
-static int AllocXref(char const *name) {
+static int NewXref(char const *name) {
     if (cntXref >= maxXrefs)
-#ifdef _MSC_VER
-#pragma warning(suppress : 6308)
-#endif
         xrefs = xrealloc(xrefs, sizeof(xref_t) * (maxXrefs += XCHUNK));
     xrefs[cntXref].name = AllocStr(name, false);
     return cntXref++;
@@ -64,13 +58,13 @@ static int FindXref(const char *name, bool *pFound) {
         }
     }
     *pFound = false;
-    return AllocXref(name);
+    return NewXref(name);
 }
 
 void InsertXref(bool isDef, const char *name, word lineNum) {
     bool found;
     int nXref = FindXref(name, &found);
-    int nLine = AllocLineRef();
+    int nLine = NewLineRef();
     if (isDef)
         lineNum |= 0x8000;
 
@@ -95,12 +89,11 @@ static int GetLineIdx(byte from, int n, bool *pMoreLineRefs) {
         return lines[n].next;
     }
 }
-
+#define FIXEDLEN   44 // strlen("SYMBOL CROSS REFERENCE V2.1  PAGE nnn") 
 static void PageHeader(byte pageNum) {
-    if (fprintf(lstFp,
-                "\f\n\n\nISIS-II ASSEMBLER SYMBOL CROSS REFERENCE, V2.1                     PAGE "
-                "%3d\n\n",
-                pageNum) < 0)
+    int pad = (80 - FIXEDLEN - (int)strlen(moduleName));
+    if (fprintf(lstFp, "\f\n\n\nINTEL SYMBOL CROSS REFERENCE V2.1 %*s%s%*s PAGE %3u\n\n", pad / 2, "",
+           moduleName, pad - pad / 2, "", pageNum) < 0)
         IoError(lstFile, "Write error");
     row = 7;
 }

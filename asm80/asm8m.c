@@ -41,7 +41,7 @@ static void InitParamCollect(void) {
     symTab[TID_MACRO] = endSymTab[TID_MACRO] = endSymTab[TID_SYMBOL];	// init macro parameter table
     resetTmpStrings();
     paramCnt = curMacro.localsCnt = 0;	// no params yet
-    yyType = O_MACROPARAM;
+    yyType = MACROARG;
 }
 
 
@@ -67,19 +67,19 @@ static void Sub720A(void) {
 }
 
 
-static bool Sub727F(void) {
+static bool IsUnnestedMacro(void) {
     if (! (mSpoolMode & 1))
         return true;
     macroSpoolNestDepth++;
-    b6B2C = topOp != K_REPT;
-    yyType = O_MACROPARAM;
+    b6B2C = topOp != REPT;
+    yyType = MACROARG;
     return false;
 }
 
 
 void DoIrpX(byte mtype)
 {    /* 1 -> IRP, 2 -> IRPC */
-    if (Sub727F()) {
+    if (IsUnnestedMacro()) {
         InitParamCollect();
         Nest(1);
         curMacro.cnt = 0;
@@ -99,7 +99,7 @@ static void Acc1ToDecimal(void) {
 
 void initMacroParam(void) {
     pNextArg = baseMacroTbl;
-    yyType = O_ITERPARAM;
+    yyType = ITERPARAM;
     inMacroBody = true;
     b9060 = false;
 }
@@ -187,7 +187,7 @@ void GetMacroToken(void) {
     {
         if ((! inAngleBrackets) && token[0].size == 5)
             if (StrUcEqu("MACRO", (char *)tokPtr)) {	// nested macro definition
-                yyType = K_MACRO;
+                yyType = MACRO;
                 PopToken();
                 pNextArg = curMacro.pCurArg;
                 opSP--;
@@ -205,7 +205,7 @@ void GetMacroToken(void) {
         curMacro.mtype = M_MACRO;
     }
 
-    if (!isPercent && !TestBit(curChar, b7183)) {    /* ! CR, COMMA or SEMI */
+    if (!isPercent && !TestBit(curChar, b7183)) { /* ! CR, COMMA or SEMI */
         Skip2EOL();
         SyntaxError();
         reget = 1;
@@ -215,10 +215,10 @@ void GetMacroToken(void) {
 
 
 void DoMacro(void) {
-    if (Sub727F()) {
-        expectingOperands = false;
+    if (IsUnnestedMacro()) {
+        expectOperand = false;
         pMacro = topSymbol;
-        UpdateSymbolEntry(0, T_MACRONAME);
+        UpdateSymbolEntry(0, MACRONAME);
         curMacro.mtype = M_MACRO;
         InitParamCollect();
     }
@@ -238,7 +238,7 @@ void DoMacroBody(void) {
         SkipWhite();					// as dummy is entered above look for , value
         if (IsComma()) {
             reget = 0;
-            curOp = T_VALUE;		   // mark beginning of expression
+            curOp = VALUE;		   // mark beginning of expression
             initMacroParam();
             if (curMacro.mtype == M_IRP) {		/* if IRP then expression begins with < */
                 curChar = GetCh();
@@ -255,12 +255,12 @@ void DoMacroBody(void) {
             InitSpoolMode();			/* spool rest of definition */
         }
     }
-    else if (curOp == T_CR)		// got the parameters
+    else if (curOp == EOL)		// got the parameters
     {
         if (! MPorNoErrCode())	// skip if multiple defined, phase or no error 
         {
             curMacro.mtype = M_BODY;
-            if (pMacro && (pMacro->type & 0x7F) == T_MACRONAME)
+            if (pMacro && (pMacro->type & 0x7F) == MACRONAME)
                 pMacro->type = asmErrCode == 'L' ? (O_NAME + 0x80) : O_NAME;	// location error illegal forward ref
         }
         InitSpoolMode();
@@ -308,7 +308,7 @@ void DoEndm(void) {
 
 void DoExitm(void) {
     if (expandingMacro) {
-        if (curOp == T_CR) {
+        if (curOp == EOL) {
             condAsmSeen = true;
             macroCondSP = curMacro.condSP;
             ifDepth = curMacro.ifDepth;
@@ -349,7 +349,7 @@ void DoIterParam(void) {
     else
         SyntaxError();
 
-    if (curOp == T_CR) {
+    if (curOp == EOL) {
         inMacroBody = false;
         if (argNestCnt > 0)
             BalanceError();
@@ -381,7 +381,7 @@ void DoIterParam(void) {
 
 void DoRept(void) {
     DoIrpX(M_REPT);
-    if ((yyType = curOp) != T_CR)
+    if ((yyType = curOp) != EOL)
         SyntaxError();
 
     if (! (mSpoolMode & 1)) {
@@ -407,7 +407,7 @@ void DoLocal(void) {
             InsertMacroSym(curMacro.localsCnt, 1);		// save this local with index
             macroInPtr = macroText;
         }
-        if (curOp == T_CR) {			// local line processed to return to normal spooling
+        if (curOp == EOL) {			// local line processed to return to normal spooling
             mSpoolMode = 1;
             macroInPtr = macroText;
         }

@@ -22,29 +22,29 @@ static byte *dtaP;
 static pointer recSymP;
 
 // portability helper functions
-word putWord(pointer buf, word val) {
+word setWord(pointer buf, word val) {
     buf[0] = val & 0xff;
     buf[1] = val >> 8;
     return val;
 }
 
 word getWord(pointer buf) {
-    return buf[0] + buf[1] * 256;
+    return buf[0] | (buf[1] << 8);
 }
 
-word getLen(pointer buf) {
-    return buf[HDR_LEN] + buf[HDR_LEN + 1] * 256;
+word getRecLen(pointer buf) {
+    return buf[HDR_LEN] | (buf[HDR_LEN + 1] << 8);
 }
 
-word addLen(pointer buf, word val) {
-    return putWord(&buf[HDR_LEN], getLen(buf) + val);
+word addRecLen(pointer buf, word val) {
+    return setWord(&buf[HDR_LEN], getRecLen(buf) + val);
 }
 
 void WriteRec(pointer recP) {
     word recLen;
     byte i, crc;
 
-    recLen = addLen(recP, 1) + 3; /* include crc byte + type + len word */
+    recLen = addRecLen(recP, 1) + 3; /* include crc byte + type + len word */
     for (crc = i = 0; i < recLen - 1; i++)
         crc -= recP[i];
     recP[recLen - 1] = crc; /* insert crc byte */
@@ -60,7 +60,7 @@ static byte GetFixupType(void) {
         return 2;
     if ((fixupSeg = attr & UF_SEGMASK) == 0) /* absolute */
         return 3;
-    return (fixupSeg != activeSeg);
+    return (fixupSeg != activeSeg); // 0 - intra, 1 - inter
 }
 
 void ReinitFixupRecs(void) {
@@ -70,15 +70,15 @@ void ReinitFixupRecs(void) {
     for (i = 0; i <= 3; i++) {
         ii   = (i - 1) & 3; /* order as content, reloc, interseg, externals */
         recP = fixupRecPtrs[ii];
-        if (getLen(recP) > fixupInitialLen[ii])
+        if (getRecLen(recP) > fixupInitialLen[ii])
             WriteRec(recP);
 
-        putWord(&recP[HDR_LEN], fixupInitialLen[ii]);
+        setWord(&recP[HDR_LEN], fixupInitialLen[ii]);
         fixIdxs[ii] = 0;
         if (curFixupType != ii)
             initFixupReq[ii] = true;
     }
-    putWord(&rContent[CONTENT_OFFSET], itemOffset + segLocation[rContent[CONTENT_SEGID] = activeSeg]);
+    setWord(&rContent[CONTENT_OFFSET], itemOffset + segLocation[rContent[CONTENT_SEGID] = activeSeg]);
     rPublics[PUBLICS_SEGID]   = curFixupHiLoSegId;
     rInterseg[INTERSEG_SEGID] = token[spIdx].attr & 7;
     rInterseg[INTERSEG_HILO] = rExtref[EXTREF_HILO] = curFixupHiLoSegId;
@@ -89,15 +89,15 @@ static void AddFixupRec(void) {
     pointer recP; // to check doesn't conflict with plm global usage
 
     recP = fixupRecPtrs[curFixupType = GetFixupType()];
-    if (getLen(recP) > fixupRecLenChks[curFixupType] || getLen(rContent) + token[spIdx].size > 124)
+    if (getRecLen(recP) > fixupRecLenChks[curFixupType] || getRecLen(rContent) + token[spIdx].size > 124)
         ReinitFixupRecs();
 
     if (firstContent) {
         firstContent = false;
-        putWord(&rContent[CONTENT_OFFSET], segLocation[rContent[CONTENT_SEGID] = activeSeg] + itemOffset);
+        setWord(&rContent[CONTENT_OFFSET], segLocation[rContent[CONTENT_SEGID] = activeSeg] + itemOffset);
     } else {
         // code lifted out of condition to force calculation
-        effectiveOffset = getWord(&rContent[CONTENT_OFFSET]) + fix6Idx;
+        effectiveOffset = getWord(&rContent[CONTENT_OFFSET]) + contentIdx;
         if (rContent[CONTENT_SEGID] != activeSeg ||
             effectiveOffset != segLocation[activeSeg] + itemOffset ||
             effectiveOffset < getWord(&rContent[CONTENT_OFFSET]))
@@ -135,25 +135,25 @@ static void AddFixupRec(void) {
 
 static void RecAddContentBytes(void) {
     for (byte i = 1; i <= token[spIdx].size; i++)
-        rContent[CONTENT_DATA(fix6Idx++)] = *contentBytePtr++;
+        rContent[CONTENT_DATA(contentIdx++)] = *contentBytePtr++;
 
-    addLen(rContent, token[spIdx].size);
+    addRecLen(rContent, token[spIdx].size);
 }
 
 static void IntraSegFix(void) {
-    addLen(rReloc, 2);
-    putWord(&rReloc[RELOC_DATA(fix22Idx++)], fixOffset);
+    addRecLen(rReloc, 2);
+    setWord(&rReloc[RELOC_DATA(fix22Idx++)], fixOffset);
 }
 
 static void InterSegFix(void) {
-    addLen(rInterseg, 2);
-    putWord(&rInterseg[INTERSEG_DATA(fix24Idx++)], fixOffset);
+    addRecLen(rInterseg, 2);
+    setWord(&rInterseg[INTERSEG_DATA(fix24Idx++)], fixOffset);
 }
 
 static void ExternalFix(void) {
-    putWord(&rExtref[EXTREF_DATA(fix20Idx++)], token[spIdx].symId);
-    putWord(&rExtref[EXTREF_DATA(fix20Idx++)], fixOffset);
-    addLen(rExtref, 4);
+    setWord(&rExtref[EXTREF_DATA(fix20Idx++)], token[spIdx].symId);
+    setWord(&rExtref[EXTREF_DATA(fix20Idx++)], fixOffset);
+    addRecLen(rExtref, 4);
 }
 
 static void Sub7131(void) {
@@ -181,13 +181,13 @@ static void Sub7131(void) {
 
 void WriteExtName(void) {
 
-    if (getLen(rExtnames) + nameLen + 3 > PUBLICS_MAX) { /* check room for name */
+    if (getRecLen(rExtnames) + nameLen + 3 > PUBLICS_MAX) { /* check room for name */
         WriteRec(rExtnames);           /* flush existing extNam Record() */
         rExtnames[HDR_TYPE] = OMF_EXTNAMES;
-        putWord(&rExtnames[HDR_LEN], 0);
+        setWord(&rExtnames[HDR_LEN], 0);
         extNamIdx = 0;
     }
-    addLen(rExtnames, nameLen + 2);                /* update length for this ref */
+    addRecLen(rExtnames, nameLen + 2);                /* update length for this ref */
     rExtnames[EXTNAMES_DATA(extNamIdx)] = nameLen; /* Write() len */
     extNamIdx++;
     strcpy((char *)&rExtnames[EXTNAMES_DATA(extNamIdx)], name);
@@ -199,15 +199,15 @@ void AddSymbol(void) {
     if ((topSymbol->flags & UF_EXTRN) != 0)
         return;
 
-    putWord(recSymP, topSymbol->offset);
+    setWord(recSymP, topSymbol->addr);
     recSymP[2] = (byte)strlen(topSymbol->name);
     strcpy((char *)recSymP + 3, topSymbol->name);
     recSymP += 4 + recSymP[2];
 }
 
-void FlushSymRec(byte segId, byte isPublic) /* args to because procedure is no longer nested */
+void FlushSymRec(byte segId, byte isPublic) /* args because procedure is no longer nested */
 {
-    if (putWord(&rPublics[HDR_LEN], (word)(recSymP - &rPublics[PUBLICS_SEGID])) >
+    if (setWord(&rPublics[HDR_LEN], (word)(recSymP - &rPublics[PUBLICS_SEGID])) >
         1) /* something to Write() */
         WriteRec(rPublics);
     rPublics[HDR_TYPE]      = isPublic ? OMF_PUBLICS : OMF_LOCALS; /* PUBLIC or DoLocal */
@@ -231,7 +231,7 @@ static void WriteSymbols(byte isPublic) /* isPublic= true -> PUBLICs else LOCALs
                               (strlen(topSymbol->name) + 4)) /* make sure there is room offset, len, symbol, 0 */
                 FlushSymRec(segId, isPublic);
 
-            if ((topSymbol->flags & UF_SEGMASK) == segId && topSymbol->type != T_MACRONAME &&
+            if ((topSymbol->flags & UF_SEGMASK) == segId && topSymbol->type != MACRONAME &&
                 NonHiddenSymbol() &&
                 !TestBit(topSymbol->type, b6D7E) && // not O_LABEL, O_REF or O_NAME
                 (!isPublic || (topSymbol->flags & UF_PUBLIC) != 0))
@@ -256,19 +256,19 @@ void WriteModhdr(void) {
 
     for (i = 1; i <= 4; i++) {
         *++dtaP = i;                                /* seg id */
-        putWord(++dtaP, segLocation[i]); /* seg size */
+        setWord(++dtaP, segLocation[i]); /* seg size */
         dtaP += 2;
         *dtaP = alignTypes[i - 1]; /* aln typ */
     }
     /* set record length (trnId/trnVn 4 * (segid, segLocation, align), crc) */
-    putWord(&rModhdr[HDR_LEN], moduleNameLen + (1 + 2 + 4 * 4));
+    setWord(&rModhdr[HDR_LEN], moduleNameLen + (1 + 2 + 4 * 4));
     WriteRec((pointer)&rModhdr);
 }
 
 void WriteModend(void) {
     rModend[MODEND_TYPE]  = startDefined;
     rModend[MODEND_SEGID] = startSeg;
-    putWord(rModend + MODEND_OFFSET, startOffset);
+    setWord(rModend + MODEND_OFFSET, startOffset);
     WriteRec(rModend);
     WriteRec(rEof);
 }
@@ -302,7 +302,7 @@ void Ovl11(void) {
         fseek(objFp, 0L, SEEK_END); /* back to end */
     }
     rPublics[HDR_TYPE] = OMF_PUBLICS; /* public declarations record */
-    putWord(&rPublics[HDR_LEN], 1);
+    setWord(&rPublics[HDR_LEN], 1);
     rPublics[PUBLICS_SEGID] = SEG_ABS;
     rPublics[PUBLICS_DATA]  = 0;
     WriteSymbols(true); /* EMIT PUBLICS */

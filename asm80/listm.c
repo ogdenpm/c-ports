@@ -24,7 +24,7 @@ static char const *symbolMsgTable[] = { "\nPUBLIC SYMBOLS\n", "\nEXTERNAL SYMBOL
 int Printf(char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    char buf[256];
+    char buf[512];
     int cnt = vsprintf(buf, fmt, args);
     for (char *s = buf; *s; s++)
         PrintChar(*s);
@@ -38,16 +38,6 @@ static void PrintStr(char const *str) {
         PrintChar(*str++);
 }
 
-static void PrintNStr(byte cnt, char const *str) {
-    while (cnt-- > 0)
-        PrintChar(*str++);
-}
-
-void PrintDecimal(word n) {
-    char tmp[6];
-    sprintf(tmp, "%4u", n);
-    PrintStr(tmp);
-}
 
 void SkipToEOP(void) {
     while (pageLineCnt <= controls.pageLength) {
@@ -56,13 +46,14 @@ void SkipToEOP(void) {
     }
 }
 
+#define FIXEDLEN 48  // strlen("INTEL 8080/8085 MACRO ASSEMBLER V4.1  PAGE nnnn");
 static void NewPageHeader(void) {
-    //    byte twoLF[] = "\r\n\n";        /* Not used */
-    //    byte threeLF[] = "\r\n\n\n";    /* CR not used */
+    int pad = (80 - FIXEDLEN - (int)strlen(moduleName));
+    Printf("\n\n\nINTEL 8080/8085 MACRO ASSEMBLER V4.1 %*s%s%*s PAGE %4u\n", pad / 2, "",
+           moduleName, pad - pad / 2, "",  pageCnt);
 
-    Printf("\n\n\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1 %-31s PAGE %4u\n", moduleName, pageCnt);
     if (controls.title)
-        PrintNStr(titleLen, titleStr);
+        PrintStr(titleStr);
 
     PrintStr("\n\n");
     if (!b68AE)
@@ -130,8 +121,8 @@ static void PrintChar(char c) {
                 curCol++;
             if (curCol > controls.pageWidth) {
                 PrintChar(LF);
-                Printf("%24s", "");
-                curCol++;
+                fprintf(lstFp, "%24s", "");
+                curCol = 25;
             }
             Outch(c);
         }
@@ -142,46 +133,43 @@ static void PrintChar(char c) {
 static byte segChar[] = " CDSME"; /* seg id char */
 
 void Sub7041_8447(void) {
-    byte symGrp;
-    byte type, flags;
-    byte zeroAddr =
-        false; // fix potentially not initialised bug. plm would have held value from previous call
 
     b68AE = true;
     if (!controls.symbols)
         return;
+    bool showSym = IsPhase2Print();
+    controls.debug |= controls.macroDebug;
     /* changes to better reflect what is happening rather than use strange offsets */
     segChar[0] = 'A'; /* show A instead of space for absolute */
-    for (symGrp = 0; symGrp <= 2; symGrp++) {
-        kk             = IsPhase2Print() && controls.symbols;
-        controls.debug = controls.debug || controls.macroDebug;
+    for (byte symGrp = 0; symGrp <= 2; symGrp++) { 
         topSymbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
         PrintChar(LF);
         PrintStr(symbolMsgTable[symGrp]);
 
         while (++topSymbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
-            type  = topSymbol->type;
-            flags = topSymbol->flags;
+            byte type  = topSymbol->type;
+            byte flags = topSymbol->flags;
+            bool isExtSym = (flags & UF_EXTRN);
             if (type != 9)
                 if (type != 6)
                     if (NonHiddenSymbol()) {
-                        byte symGrpFlags[2] = { UF_PUBLIC, UF_EXTRN };
+                        static byte symGrpFlags[2] = { UF_PUBLIC, UF_EXTRN };
 
                         if (symGrp != 0 || type != 3)
                             if (symGrp == 2 || (flags & symGrpFlags[symGrp]) != 0) {
-                                if (kk) {
+                                if (showSym) {
                                     if (controls.pageWidth - curCol < 11 + maxSymWidth)
                                         PrintChar(LF);
 
                                     Printf("%-*s ", maxSymWidth, topSymbol->name);
-                                    if (type == T_MACRONAME)
+                                    if (type == MACRONAME)
                                         PrintChar('+');
-                                    else if ((zeroAddr = (flags & UF_EXTRN) != 0))
+                                    else if (isExtSym)
                                         PrintChar('E');
                                     else
                                         PrintChar(segChar[flags & UF_SEGMASK]);
 
-                                    Printf(" %04X    ", zeroAddr ? 0 : topSymbol->value);
+                                    Printf(" %04X    ", isExtSym ? 0 : topSymbol->value);
                                 }
                             }
                     }
@@ -191,7 +179,7 @@ void Sub7041_8447(void) {
     if (controls.debug)
         b68AE = false;
 
-    if (kk)
+    if (showSym)
         PrintChar(LF);
 }
 
