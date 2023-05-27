@@ -62,7 +62,7 @@ static byte propagateFlags[] = { 0x57, 6, 2, 0x20, 0, 0, 0, 0, 0, 0, 0, 0x22 };
 static byte typeHasTokSym[] = { 0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20 };
 /* bit vector 59 -> 11111111 10000000 00000000 00000000
                     00001111 11111110 00000000 001 */
-                    /* BEGIN, CR, LPAREN, RPAREN/O_LABEL, STAR, PLUS/K_SPECIAL, COMMA, */
+                    /* BEGIN, EOLCH, LPAREN, RPAREN/O_LABEL, STAR, PLUS/K_SPECIAL, COMMA, */
                     /* MINUS/K_REGNAME, UPLUS/K_SP */
                     /* LXI, REG16, LDSTAX, ARITH, IMM8, MVI, INRDCR. MOV, IMM16, SINGLE */
                     /* RST */
@@ -79,7 +79,7 @@ static byte typeHasTokSym[] = { 0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20 };
     3 - OR, XOR,
     2 - ! used
     1 - COMMA, DB - STKLEN, O_MACROPARAM, ENDM, EXITM, O_3D, REPT, LOCAL
-    0 - BEGIN,CR,LPAREN,RPAREN,MACRO,MACRONAME,IRP,IRPC
+    0 - BEGIN,EOLCH,LPAREN,RPAREN,MACRO,MACRONAME,IRP,IRPC
 */
 byte precedence[] = {
     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */

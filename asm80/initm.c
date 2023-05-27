@@ -47,7 +47,7 @@ byte GetDrive(void) {
 /* inits usage include overlay file initiatisation */
 bool IsWhiteOrCr(byte c)
 {
-    return c == ' ' || c == TAB || c == CR;
+    return c == ' ' || c == TAB || c == EOLCH;
 }
 
 void PrepSrcFile(char *srcName) {

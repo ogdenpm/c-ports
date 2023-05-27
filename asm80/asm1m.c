@@ -76,7 +76,6 @@ void SkipWhite(void) {
 
 void Skip2NextLine(void) {
     Skip2EOL();
-    ChkLF();
 }
 
 
@@ -136,7 +135,6 @@ void Tokenise(void) {
             curOp = O_LABEL;
             break;
         case CC_EOL:
-            ChkLF();
             yyType = EOL;
             inQuotes = false;		// auto close string for spooling
             return;
@@ -198,9 +196,9 @@ void Tokenise(void) {
                 kk = token[0].type == 0; // assignment pulled out to allow short circuit tests
                 if (!inQuotes || (kk && (curChar == '&' || startMacroToken[-1] == '&'))) {
                     macroInPtr = startMacroToken;
-                    InsertCharInMacroTbl(kk ? 0x80 : 0x81);
+                    InsertByteInMacroTbl(kk ? 0x80 : 0x81);
                     InsertByteInMacroTbl((byte)GetNumVal());
-                    InsertCharInMacroTbl(curChar);
+                    InsertByteInMacroTbl(curChar);
                     yyType = O_NAME;			// reuse of yyType?
                 }
             }

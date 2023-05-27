@@ -34,7 +34,7 @@ int cntLine;
 #define LCHUNK 2048
 
 int startMarker;
-byte row;
+word row;
 int nameWidth = 6;
 
 static int NewLineRef(void) {
@@ -99,12 +99,12 @@ static void PageHeader(byte pageNum) {
 }
 
 static void OutputXref(void) {
-    byte refsPerLine, refsCnt, pageNum;
+    int refsPerLine, refsCnt, pageNum;
 
     int nLine;
     bool moreLineRefs;
 
-    refsPerLine = (controls.pageWidth - nameWidth) / 7;
+    refsPerLine = (pageWidth - nameWidth) / 7;
     pageNum     = 1;
     PageHeader(1);
 
@@ -122,7 +122,7 @@ static void OutputXref(void) {
             if (putc('\n', lstFp) == EOF)
                 IoError(lstFile, "Write error");
             if (controls.paging)
-                if (++row == controls.pageLength - 2)
+                if (++row == pageLength - 2)
                     PageHeader(++pageNum);
             if (moreLineRefs)
                 label = "";

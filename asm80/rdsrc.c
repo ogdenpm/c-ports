@@ -20,8 +20,10 @@ file_t files[6];
 
 void CloseSrc(void) /* close current source file. Revert to any parent file */
 {
-    if (fileIdx == 0) /* if it the original file we had no end statement so error */
-        IoError(files[0].name, "EOF - missing 'end'");
+    if (fileIdx == 0) { /* if it the original file we had no end statement so error */
+        fprintf(stderr, "%s: EOF - missing 'end'\n", files[0].name);
+        exit(1);
+    }
     if (fclose(srcfp) == EOF)
         IoError(files[fileIdx].name, "Close Error");
     free(files[fileIdx].name);
@@ -29,34 +31,33 @@ void CloseSrc(void) /* close current source file. Revert to any parent file */
 }
 
 /*
-    Until the main code is modified to use '\n' as the end of a line
-    the code below squashes '\r' in the input stream and replaces
-    '\n' with '\r\n'.
+    Strip '\r' from source and handle unterminated last line of file
     This will allow the assembler to handle Linux/Unix created source
 */
+char *inBuf;
+char *inPtr;
+int inBufSize;
 
 static char *getLine() {
     int c;
-    
     int i = 0;
 
-
-    while ((c = getc(srcfp)) != EOF && c != '\n') {
-            if (c != '\r' && i++ < MAXLINE)
-                inBuf[i - 1] = c;
+    while ((c = getc(srcfp)) != '\n' && c != EOF) {
+        if (c && c != '\r') {           // exclude '\r' and embedded  '\0'
+            if (i >= inBufSize - 2)     // allow room for "\n\0"
+                inBuf = xrealloc(inBuf, inBufSize += 256);  // auto grow to allow very long lines
+            inBuf[i++] = c;
+        }
     }
     if (c == EOF) {
         if (ferror(srcfp))
             IoError(files[fileIdx].name, "Read error");
         if (i == 0)
                 return NULL;
-        fprintf(stderr, "Warning: unterminated line at end of %s\n", files[fileIdx].name);
+        Warn("Unterminated line at end of %s", files[fileIdx].name);
     }
-    if (i >= MAXLINE) {
-            fprintf(stderr, "Warning: line truncated\n");
-            strcpy(inBuf + MAXLINE - 3, "...\r\n");
-    } else
-            strcpy(inBuf + i, "\r\n");
+    inBuf[i] = '\n';
+    inBuf[i + 1] = '\0';
     return inBuf;
 }
 

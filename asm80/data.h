@@ -154,7 +154,7 @@ extern bool showAddr;
 extern bool lineNumberEmitted;
 extern bool b68AE;
 extern char tokStr[7];
-extern char inBuf[];
+extern char *inBuf;
 extern char *inPtr;
 extern char *objFile;
 extern char *lstFile;
@@ -163,6 +163,8 @@ extern word lineNo;
 extern byte spIdx;
 extern word lastErrorLine;
 extern controls_t controls;
+extern word pageWidth;		// allows for > 255
+extern word pageLength;		// allows for > 255
 extern bool ctlListChanged;
 extern bool controlSeen[12];
 extern byte saveStack[8][3];

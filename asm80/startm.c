@@ -44,8 +44,8 @@ bool IsRParen(void) {
     return curChar == ')';
 }
 
-bool IsCR(void) {
-    return curChar == CR;
+bool IsEOL(void) {
+    return curChar == EOLCH;
 }
 
 bool IsComma(void) {
@@ -67,8 +67,8 @@ bool IsPhase1(void) {
 }
 
 void Skip2EOL(void) {
-    if (!IsCR())
-        while (GetCh() != CR)
+    if (!IsEOL())
+        while (GetCh() != EOLCH)
             ;
 }
 
@@ -175,15 +175,6 @@ void InsertByteInMacroTbl(byte c)
     if (macroInPtr >= &macroText[MAXMACROTEXT])
         RuntimeError(RTE_TABLE);    /* table Error() */
 }
-
-
-void InsertCharInMacroTbl(byte c)	// as InsertByteInMacroTbl but expands CR to CR LF
-{
-    InsertByteInMacroTbl(c);
-    if (c == CR)
-        InsertByteInMacroTbl(LF);
-}
-
 
 
 void ParseControlLines(void) {

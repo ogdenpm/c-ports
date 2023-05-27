@@ -18,8 +18,8 @@ static void PrintChar(char c);
 
 
 static char lstHeader[]             = "  LOC  OBJ         LINE        SOURCE STATEMENT\n\n";
-static char const *symbolMsgTable[] = { "\nPUBLIC SYMBOLS\n", "\nEXTERNAL SYMBOLS\n",
-                                        "\nUSER SYMBOLS\n" };
+static char const *symbolMsgTable[] = { "PUBLIC SYMBOLS", "EXTERNAL SYMBOLS",
+                                        "USER SYMBOLS" };
 
 int Printf(char const *fmt, ...) {
     va_list args;
@@ -40,16 +40,16 @@ static void PrintStr(char const *str) {
 
 
 void SkipToEOP(void) {
-    while (pageLineCnt <= controls.pageLength) {
+    while (pageLineCnt <= pageLength) {
         Outch(LF);
         pageLineCnt++;
     }
 }
 
-#define FIXEDLEN 48  // strlen("INTEL 8080/8085 MACRO ASSEMBLER V4.1  PAGE nnnn");
+#define FIXEDLEN 28  // strlen("INTEL ASM80 V4.1  PAGE nnnn");
 static void NewPageHeader(void) {
-    int pad = (80 - FIXEDLEN - (int)strlen(moduleName));
-    Printf("\n\n\nINTEL 8080/8085 MACRO ASSEMBLER V4.1 %*s%s%*s PAGE %4u\n", pad / 2, "",
+    int pad = (67 - FIXEDLEN - (int)strlen(moduleName));
+    Printf("\n\n\nINTEL ASM80 V4.1 %*s%s%*s PAGE %4u\n", pad / 2, "",
            moduleName, pad - pad / 2, "",  pageCnt);
 
     if (controls.title)
@@ -87,8 +87,6 @@ void DoEject(void) {
 static void PrintChar(char c) {
     byte cnt;
 
-    if (c == CR)
-        return;
     if (c == FF) {
         NewPage();
         return;
@@ -97,7 +95,7 @@ static void PrintChar(char c) {
 
     if (c == LF) {
         if (controls.paging) {
-            if (++pageLineCnt >= controls.pageLength - 2) {
+            if (++pageLineCnt >= pageLength - 2) {
                 if (controls.tty)
                     Outch(LF);
                 if (controls.eject > 0)
@@ -119,7 +117,7 @@ static void PrintChar(char c) {
         if (curCol < 132) {
             if (c >= ' ')
                 curCol++;
-            if (curCol > controls.pageWidth) {
+            if (curCol > pageWidth) {
                 PrintChar(LF);
                 fprintf(lstFp, "%24s", "");
                 curCol = 25;
@@ -143,8 +141,7 @@ void Sub7041_8447(void) {
     segChar[0] = 'A'; /* show A instead of space for absolute */
     for (byte symGrp = 0; symGrp <= 2; symGrp++) { 
         topSymbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
-        PrintChar(LF);
-        PrintStr(symbolMsgTable[symGrp]);
+        Printf("\n\n%s\n", symbolMsgTable[symGrp]);
 
         while (++topSymbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
             byte type  = topSymbol->type;
@@ -158,7 +155,7 @@ void Sub7041_8447(void) {
                         if (symGrp != 0 || type != 3)
                             if (symGrp == 2 || (flags & symGrpFlags[symGrp]) != 0) {
                                 if (showSym) {
-                                    if (controls.pageWidth - curCol < 11 + maxSymWidth)
+                                    if (pageWidth - curCol < 11 + maxSymWidth)
                                         PrintChar(LF);
 
                                     Printf("%-*s ", maxSymWidth, topSymbol->name);
@@ -188,7 +185,7 @@ void PrintCmdLine(void) {
     DoEject();
     Printf("%s %s", _argv[0], _argv[1]);
     for (int i = 2; i < _argc; i++)
-        Printf("%s%s", curCol + strlen(_argv[i]) > controls.pageWidth ? " \\\n    " : " ", _argv[i]);
+        Printf("%s%s", curCol + strlen(_argv[i]) > pageWidth ? " \\\n    " : " ", _argv[i]);
     PrintChar('\n');
     NewPageHeader();
 }
@@ -272,11 +269,13 @@ void PrintLine(void) {
         else {
             lineNumberEmitted = true;
             curCol            = 19;
+            Printf("%4u%c", lineNo, expandingMacro > 1 ? '+' : ' ');
             if (expandingMacro > 1) {
                 *macroP = 0;
-                Printf("%4u+%s\n", lineNo, macroLine);
+                PrintStr(macroLine);
+                PrintChar('\n');
             } else
-                Printf("%4u %s", lineNo, inBuf);
+                PrintStr(inBuf);    // length may exceed limits of Printf
         }
 
         if (isControlLine) {

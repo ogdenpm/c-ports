@@ -57,7 +57,7 @@ void HandleOp(void) {
     case 0:
         break;
     case 1:
-        FinishLine(); /* CR */
+        FinishLine(); /* EOLCH */
         break;
     case 2:                                            /* ( */
     case 3:                                            /* ) */

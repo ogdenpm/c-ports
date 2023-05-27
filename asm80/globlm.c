@@ -153,8 +153,7 @@ bool showAddr;
 bool lineNumberEmitted = false;
 bool b68AE             = false;
 char tokStr[7]         = { 0, 0, 0, 0, 0, 0, 0 };
-char inBuf[MAXLINE + 3]; // MAXLINE chars + potential extra '\r\n\0'
-char *inPtr;
+
 
 // static pointer pad6A05 = {outbuf};
 // static byte pad6A07 = 0;
@@ -168,6 +167,8 @@ word lastErrorLine;
 controls_t controls  = { .all = {
                             false, false, false, true,  true, false, true, true, true, true,
                             120,   66,    0,     false, 0,    0,     0,     true, true, true } };
+word pageWidth       = 120;
+word pageLength      = 66;
 
 bool ctlListChanged  = true;
 bool controlSeen[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };

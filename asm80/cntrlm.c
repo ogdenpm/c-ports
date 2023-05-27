@@ -47,7 +47,7 @@ static bool ChkParen(byte parenType)
 static byte GetTok(void) {
     tokBufLen = 0;
     tokType = TT_ID;
-    if (IsCR())
+    if (IsEOL())
         return curChar;
 
     SkipNextWhite();
@@ -103,7 +103,7 @@ static bool FinaliseFileNameOpt(char *arg1w)
 static void GetFileNameOpt(void) {
     SkipNextWhite();
 
-    while (curChar != CR) {
+    while (curChar != EOLCH) {
         if (IsRParen() || IsWhite()) {
             if (FinaliseFileNameOpt(tokBuf))
                 return;
@@ -239,27 +239,30 @@ static void ProcessControl(void) {
             controls.macroFile = true;
             if (ChkParen('(')) {
                 while ((curChar = GetCh()) != ')')
-                    if (IsCR())
-                        FatalError("Missing ')' parsing MACROFILE (drive)\n");
+                    if (IsEOL())
+                        FatalError("Missing ')' parsing MACROFILE (drive)");
 
             } else
                 reget = 1;
             return;
     case 5:            /* PAGEWIDTH */
             if (GetControlNumArg()) {
-                controls.pageWidth = (byte) tokNumVal;
-                if (controls.pageWidth > 132)
-                    controls.pageWidth = 132;
-                if (controls.pageWidth < 80)    // limit increased so long module name
-                    controls.pageWidth = 80;    // fits in the header
+                if (tokNumVal == 0)
+                    tokNumVal = 0xffff;
+                else if (tokNumVal < 72)
+                    tokNumVal = 72;
+                pageWidth          = tokNumVal;
+
                 return;
             }
             break;
     case 6:            /* PAGELENGTH */
             if (GetControlNumArg()) {
-                controls.pageLength = (byte) tokNumVal;
-                if (controls.pageLength < 15)
-                    controls.pageLength = 15;
+                if (tokNumVal == 0)
+                    tokNumVal = 0xffff;
+                else if (tokNumVal < 15)
+                    tokNumVal = 15;
+                pageLength          = tokNumVal;
                 return;
             }
             break;
@@ -320,7 +323,7 @@ void ParseControls(void) {
     savedCtlGen = controls.gen;
     controlError = false;
 
-    while (GetTok() != CR && ! controlError) {
+    while (GetTok() != EOLCH && ! controlError) {
         if (tokBuf[0] == ';')        /* skip comments */
             Skip2EOL();
         else if (LookupControl() == 255)    /* Error() ? */
@@ -330,7 +333,7 @@ void ParseControls(void) {
     }
 
     if (controlError) {
-        if (tokBuf[0] != CR) {
+        if (tokBuf[0] != EOLCH) {
             reget = 0;
             Skip2EOL();
         }
@@ -341,7 +344,6 @@ void ParseControls(void) {
             CommandError();
     }
 
-    ChkLF();            /* eat the LF */
     if (controls.list != savedCtlList)
         ctlListChanged = true;
     else if (controls.gen != savedCtlGen && expandingMacro)

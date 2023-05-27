@@ -17,7 +17,7 @@ enum {CC_BAD = 0, CC_WS, CC_SEMI, CC_COLON, CC_EOL, CC_PUN, CC_DOLLAR,
 #define TT_NUM  2
 #define TT_STR  4
 
-#define CR  '\r'
+#define EOLCH  '\n'
 #define ESC 0x1B
 #define FF  '\f'
 #define LF  '\n'
@@ -26,6 +26,7 @@ enum {CC_BAD = 0, CC_WS, CC_SEMI, CC_COLON, CC_EOL, CC_PUN, CC_DOLLAR,
 #define MACROPARAM	0x80
 
 #define	MAXSYMSIZE	31
+#define VERYWIDE    4096    // crazy page width
 
 
 

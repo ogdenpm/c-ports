@@ -67,10 +67,9 @@ void StackError(void)
     RuntimeError(RTE_STACK);
 }
 
-_Noreturn void FileError(void)
+void FileError(void)
 {
     RuntimeError(RTE_FILE);
-    exit(1);
 }
 
 void IllegalCharError(void)
@@ -260,7 +259,7 @@ void GetNum(void) {
 void GetStr(void) {
     PushToken(O_STRING);
 
-    while (GetCh() != CR) {
+    while (GetCh() != EOLCH) {
         if (curChar == '\'' && GetCh() != '\'') { // if not '' then all done
             reget = 1;
             return;
@@ -268,5 +267,5 @@ void GetStr(void) {
             CollectByte(curChar);	// collect char - '' becomes '
     }
     BalanceError();				// EOL seen before closing '
-    reget = 1;					// push back CR
+    reget = 1;					// push back EOLCH
 }

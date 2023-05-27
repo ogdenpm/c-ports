@@ -24,7 +24,7 @@ static byte op16[] = {
 static byte chClass[] = {
     /*  0/8     1/9     2/A     3/B     4/C     5/D     6/E     7/F */
     /*00*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
-    /*08*/ CC_BAD, CC_WS,  CC_BAD,   CC_BAD,  CC_WS,     CC_EOL,  CC_BAD, CC_BAD,
+    /*08*/ CC_BAD, CC_WS,  CC_EOL,   CC_BAD,  CC_WS,     CC_BAD,  CC_BAD, CC_BAD,
     /*10*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*18*/ CC_BAD, CC_BAD, CC_BAD,   CC_ESC,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*20*/ CC_WS,  CC_BAD, CC_BAD,   CC_BAD,  CC_DOLLAR, CC_BAD, CC_BAD, CC_QUOTE,
@@ -358,7 +358,9 @@ byte GetCh(void) {
         prevCH = curCH;
         do {
             curCH = lookAhead;
-            if (expandingMacro) {
+            if (curCH == EOLCH)
+                lookAhead = 0;
+            else if (expandingMacro) {
                 while ((lookAhead = *curMacro.bufP) == MACROEOB) {
                     ReadM(curMacroBlk + 1);
                     curMacro.bufP = macroBuf;
@@ -424,10 +426,10 @@ byte GetCh(void) {
             if (IsPhase2Print() && macroP < macroLine + MAXLINE) /* append character if room */
                 *macroP++ = curCH;
 
-        if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line CR for
+        if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line EOLCH for
                                none empty line */
-            if ((startMacroLine != macroInPtr && curCH == CR) || !excludeCommentInExpansion)
-                InsertCharInMacroTbl(curCH);
+            if ((startMacroLine != macroInPtr && curCH == EOLCH) || !excludeCommentInExpansion)
+                InsertByteInMacroTbl(curCH);
 
         if (!(prevCH == '!' || inComment)) { /* if not escaped or in comment */
             if (curCH == '>')                /* handle < > nesting */
@@ -448,12 +450,3 @@ byte GetChClass(void) {
     return inMacroBody ? CC_MAC : chClass[curChar];
 }
 
-void ChkLF(void) {
-    if (lookAhead == LF)
-        lookAhead = 0;
-    else {
-        mSpoolMode &= 0xFE; // prevent the error from being supressed by spooling
-        IllegalCharError(); // record the error
-        mSpoolMode = mSpoolMode > 0 ? 0xff : 0; // 0xff if capturing
-    }
-}

@@ -10,16 +10,16 @@
 
 #include "asm80.h"
 
-static byte b7183[] = {0x3F, 0, 4, 0, 0, 0, 8, 0, 0x10};
-    /* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
-    /*                 CR, COMMA, SEMI */                                  
+static byte b7183[] = {0x3F, 0, 0x20, 0, 0, 0, 8, 0, 0x10};
+    /* bit vector 64 - 00000000 00100000 00000000 00000000 00000000 00001000 00000000 00010000 */
+    /*                 EOLCH, COMMA, SEMI */                                  
 
 static word baseMacroBlk;
 byte savedTokenIdx;
 
 
 static bool IsEndParam(void) {
-    if (IsCR()) {		// new line forces end
+    if (IsEOL()) {		// new line forces end
         inAngleBrackets = false;
         return true;
     }
@@ -164,7 +164,7 @@ void GetMacroToken(void) {
                 curMacro.cnt++;
             /* optimisation may swap evaluation order so force */
             bool test = curChar == '!';
-            if (test & (GetCh() != CR)) {
+            if (test & (GetCh() != EOLCH)) {
                 CollectByte(curChar);
                 curChar = GetCh();
             }
@@ -205,7 +205,7 @@ void GetMacroToken(void) {
         curMacro.mtype = M_MACRO;
     }
 
-    if (!isPercent && !TestBit(curChar, b7183)) { /* ! CR, COMMA or SEMI */
+    if (!isPercent && !TestBit(curChar, b7183)) { /* ! EOLCH, COMMA or SEMI */
         Skip2EOL();
         SyntaxError();
         reget = 1;
