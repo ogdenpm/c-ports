@@ -213,12 +213,12 @@ char *lexItems[] = {
 };
 
 
-static int getWord(FILE *fp)
+static int getFileWord(FILE *fp)
 {
     int cl = getc(fp);
     int ch = getc(fp);
     if (cl == EOF || ch == EOF) {
-        fprintf(stderr, "premature EOF in getWord\n");
+        fprintf(stderr, "premature EOF in getFileWord\n");
         return EOF;
     }
     return ch * 256 + cl;
@@ -232,7 +232,7 @@ void DumpLexStream() // to be used after Start1
     int w1, w2, w3;
     sym_t *sym;
     char inc[18];
-    int ignore;     // gcc complains if result of fread is ignored
+    size_t ignore;     // gcc complains if result of fread is ignored
 
     if ((fp = Fopen(tx1File.fNam, "rb")) == NULL) {
         fprintf(stderr, "can't open lex stream\n");
@@ -250,24 +250,24 @@ void DumpLexStream() // to be used after Start1
             fprintf(fpout, "%s", lexItems[c]);
             switch (c) {
             case L_LINEINFO:
-                w1 = getWord(fp);
-                w2 = getWord(fp);
-                w3 = getWord(fp);
+                w1 = getFileWord(fp);
+                w2 = getFileWord(fp);
+                w3 = getFileWord(fp);
                 fprintf(fpout, " line %d, stmt %d, blk %d", w1, w2, w3);
                 break;
             case L_SYNTAXERROR:
-                fprintf(fpout, " %d", getWord(fp));
+                fprintf(fpout, " %d", getFileWord(fp));
                 break;
             case L_TOKENERROR:
-                w1 = getWord(fp);
-                sym = SymbolP(getWord(fp));
+                w1 = getFileWord(fp);
+                sym = SymbolP(getFileWord(fp));
                 if (sym == NULL)
                     fprintf(fpout, " %d -NULL-", w1);
                 else
                     fprintf(fpout, "%d %.*s", w1, sym->name.len, sym->name.str);
                 break;
             case L_STRING:
-                w1 = getWord(fp);
+                w1 = getFileWord(fp);
                 fprintf(fpout, " %d '", w1);
                 while (w1-- > 0 && (c = getc(fp)) != EOF)
                     putc(c, fpout);
@@ -275,26 +275,26 @@ void DumpLexStream() // to be used after Start1
                 break;
             case L_NUMBER: case L_STMTCNT: case L_LABELDEF: case L_LOCALLABEL: case L_JMP: case L_JMPFALSE:
             case L_SCOPE: case L_CASELABEL:
-                w1 = getWord(fp);
+                w1 = getFileWord(fp);
                 if (c != L_SCOPE)
                     fprintf(fpout, " %d", w1);
                 if (c == L_SCOPE || (c == L_NUMBER && w1 > 9))
                     fprintf(fpout, " [%04X]", w1);
                 break;
             case L_IDENTIFIER:
-                sym = SymbolP(getWord(fp));
+                sym = SymbolP(getFileWord(fp));
                 if (sym == NULL)
                     fprintf(fpout, " -NULL-");
                 else
                     fprintf(fpout, " %.*s", sym->name.len, sym->name.str);
                 break;
             case L_AT: case L_INITIAL: case L_DATA:
-                //w1 = getWord(fp);
+                //w1 = getFileWord(fp);
                 //fprintf(fpout, " info [%04X]", w1);
                 //break;
             case L_PROCEDURE:
             case L_XREFUSE: case L_XREFDEF: case L_EXTERNAL:
-                w1 = getWord(fp);
+                w1 = getFileWord(fp);
                 if (w1 == 0)
                     fprintf(fpout, " -NULL-");
                 else {
