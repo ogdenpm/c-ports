@@ -103,9 +103,13 @@ void ReadM(word blk) {
 
 
 /* write the macro to virtual disk */
-void WriteM(pointer buf) {
-    if (phase == 1)          // only needs writing on pass 1
-        memcpy(blk2Buf(maxMacroBlk++), buf, 128); // seek to end and update marker to account for this block
-    macroBlkCnt++; // update the buffer count for this macro
+void WriteM(pointer buf, int cnt) {
+    macroBlkCnt += cnt;
+    if (phase == 1) // only needs writing on pass 1
+        while (cnt-- > 0) {
+            // seek to end and update marker to account for this block
+            memcpy(blk2Buf(maxMacroBlk++), buf, 128); 
+            buf += 128;
+        }
 }
 

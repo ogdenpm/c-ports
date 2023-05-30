@@ -34,32 +34,35 @@ static byte chClass[] = {
     /*40*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*48*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*50*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
-    /*58*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
+    /*58*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_LET,
     /*60*/ CC_BAD, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*68*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*70*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*78*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD
 };
 
+static int macroLineSize;   // current size of buffer allocated to macro expansion
+#define MCHUNK  256         // grows by this many bytes as needed
+
 void InsertSym(int tableId) {
     /* move up the top block of the symbol tables to make room */
-    int nSymbols = (int)(endSymTab[TID_MACRO] - topSymbol);
+    int nSymbols = (int)(endSymTab[TID_MACRO] - token.symbol);
     if (++endSymTab[TID_MACRO] >= &symbols[MAXSYMBOLS])
         RuntimeError(RTE_TABLE); /* table Error() */
-    memmove(topSymbol + 1, topSymbol, nSymbols * sizeof(tokensym_t));
+    memmove(token.symbol + 1, token.symbol, nSymbols * sizeof(tokensym_t));
     /* insert the new symbol name */
     if (tableId == TID_SYMBOL) {
         endSymTab[TID_SYMBOL]++;    // new end of symbols
         symTab[TID_MACRO]++;     // and macros moves up as well
     }
-    topSymbol->name = AllocStr((char *)tokPtr, tableId == TID_MACRO);
-    topSymbol->type = 0;    /* clear the type */
-    if (strlen((char *)tokPtr) > maxSymWidth)
-        maxSymWidth = (int)strlen((char *)tokPtr);
+    token.symbol->name = AllocStr((char *)tokenStart, tableId == TID_MACRO);
+    token.symbol->type = 0;    /* clear the type */
+    if ((int)strlen((char *)tokenStart) > maxSymWidth)
+        maxSymWidth = (int)strlen((char *)tokenStart);
 }
 
-static bool OutSideTable(byte tableId) { /* check if topSymbol is outside table bounds */
-    if (endSymTab[tableId] >= topSymbol && topSymbol >= symTab[tableId])
+static bool OutSideTable(byte tableId) { /* check if token.symbol is outside table bounds */
+    if (endSymTab[tableId] >= token.symbol && token.symbol >= symTab[tableId])
         return false;
 
     SyntaxError();
@@ -70,9 +73,9 @@ void InsertMacroSym(word paramId, byte type) {
     if (OutSideTable(TID_MACRO))
         return;
     InsertSym(TID_MACRO);
-    topSymbol->paramId = paramId; /* fill in the rest of the new entry */
-    topSymbol->type    = type;
-    topSymbol->flags   = 0;
+    token.symbol->paramId = paramId; /* fill in the rest of the new entry */
+    token.symbol->type    = type;
+    token.symbol->flags   = 0;
     PopToken();
     PopToken();
     //	DumpSymbols(TID_MACRO);
@@ -81,9 +84,9 @@ void InsertMacroSym(word paramId, byte type) {
 byte labelUse;
 
 void SetTokenType(byte type, bool isSetOrEqu) {
-    token[0].type = type;
+    token.type = type;
     if ((acc1ValType == K_REGNAME || acc1ValType == K_SP) && isSetOrEqu)
-        token[0].type = 12 - type; /* set-> TT_SET, equ-> TT_EQU */
+        token.type = 12 - type; /* set-> TT_SET, equ-> TT_EQU */
 }
 
 void UpdateSymbolEntry(word value, byte type) {
@@ -100,125 +103,102 @@ void UpdateSymbolEntry(word value, byte type) {
              0x8x-> needs absolute value
     */
 
-    origType   = token[0].type;
+    origType   = token.type;
     isSetOrEqu = type == O_EQU || type == O_SET;
     absFlag    = 0;
 
     lineSet    = false;
     if (OutSideTable(TID_SYMBOL)) /* ignore if outside normal symbol table */
         return;
-    flags = topSymbol->flags;
+    flags = token.symbol->flags;
 
     if (tokenIdx > 1)
         SyntaxError();
 
-    if (IsPhase1())
-        if (token[0].type == O_NAME) {
-            if (createdUsrSym) {
-                if (topSymbol->type >= 0x80 ||
-                    (type == MACRONAME && topSymbol->line != srcLineCnt)) {
-                    LocationError();
-                    absFlag = 0x80;
-                }
-            } else {
-                InsertSym(TID_SYMBOL);
-                flags = 0;
+    if (IsPhase1() && token.type == O_NAME) {
+        if (createdUsrSym) {
+            if (token.symbol->type >= 0x80 ||
+                (type == MACRONAME && token.symbol->line != srcLineCnt)) {
+                LocationError();
+                absFlag = 0x80;
             }
-
-            flags = (activeSeg == SEG_ABS ? 0 : UF_RBOTH) | (inPublic ? UF_PUBLIC : 0) |
-                    (inExtrn ? (UF_EXTRN + UF_RBOTH) : 0);
-            if (labelUse == L_SETEQU) /* set or equ */
-                flags = acc1RelocFlags;
-
-            if (labelUse == L_TARGET) /* label: */
-                flags |= activeSeg;
-
-            if (hasVarRef && isSetOrEqu)
-                token[0].type = O_SETEQUNAME;
-            else
-                SetTokenType(type, isSetOrEqu);
-
-            goto endUpdateSymbol;
+        } else {
+            InsertSym(TID_SYMBOL);
+            flags = 0;
         }
 
-    if (passCnt == 2)
-        if (token[0].type == O_NAME)
-            if (acc1ValType != O_NAME)
-                if (isSetOrEqu) {
-                    SetTokenType(type, isSetOrEqu);
-                    if (topSymbol->type < 128) {
-                        topSymbol->type = token[0].type;
-                        topSymbol->value = value;
-                        flags           = acc1RelocFlags;
-                        lineSet         = true;
-                    }
-                    goto endUpdateSymbol;
-                }
+        flags = (activeSeg == SEG_ABS ? 0 : UF_RBOTH) | (inPublic ? UF_PUBLIC : 0) |
+                (inExtrn ? (UF_EXTRN + UF_RBOTH) : 0);
+        if (labelUse == L_SETEQU) /* set or equ */
+            flags = acc1RelocFlags;
 
-    if (IsPhase1())
-        if (token[0].type == O_REF)
-            if (TestBit(type, b5666)) {
-                if (inExtrn)
-                    token[0].type = O_LABEL;
-                else {
-                    token[0].type = type;
-                    flags &= ~(UF_RBOTH | UF_SEGMASK); /* mask off seg, and relocate info*/
-                    if (labelUse == L_SETEQU)          /* set or equ */
-                        flags = acc1RelocFlags | UF_PUBLIC;
+        if (labelUse == L_TARGET) /* label: */
+            flags |= activeSeg;
 
-                    if (labelUse == L_TARGET) /* label: then add seg and relocation info */
-                        if (activeSeg != 0)
-                            flags |= activeSeg | (UF_PUBLIC + UF_RBOTH);
-                }
-                goto endUpdateSymbol;
-            }
+        if (hasVarRef && isSetOrEqu)
+            token.type = O_SETEQUNAME;
+        else
+            SetTokenType(type, isSetOrEqu);
 
-    if (IsPhase1())
-        if (type == O_REF)
-            if (TestBit(token[0].type, b5666)) {
-                if ((flags & (UF_PUBLIC | UF_EXTRN)) != 0)
-                    token[0].type = O_LABEL;
-                else
-                    flags |= UF_PUBLIC;
-                goto endUpdateSymbol;
-            }
-
-    if (IsPhase1())
-        if ((token[0].type != type && token[0].type != TT_SET) || type == O_EQU)
-            token[0].type = O_LABEL;
-
-    if (!inPublic && TestBit(token[0].type, b5669))
-        flags = acc1RelocFlags | (token[0].type != MACRONAME ? flags & UF_PUBLIC : 0);
-    else {
+    } else if (passCnt == 2 && token.type == O_NAME && acc1ValType != O_NAME && isSetOrEqu) {
+        SetTokenType(type, isSetOrEqu);
+        if (token.symbol->type < 128) {
+            token.symbol->type  = token.type;
+            token.symbol->value = value;
+            flags               = acc1RelocFlags;
+            lineSet             = true;
+        }
+    } else if (IsPhase1() && token.type == O_REF && TestBit(type, b5666)) {
+        if (inExtrn)
+            token.type = O_LABEL;
+        else {
+            token.type = type;
+            flags &= ~(UF_RBOTH | UF_SEGMASK); /* mask off seg, and relocate info*/
+            if (labelUse == L_SETEQU)          /* set or equ */
+                flags = acc1RelocFlags | UF_PUBLIC;
+            else if (labelUse == L_TARGET && activeSeg != SEG_ABS) /* label: then add seg and relocation info */
+                flags |= activeSeg | (UF_PUBLIC + UF_RBOTH);
+        }
+    } else if (IsPhase1() && type == O_REF && TestBit(token.type, b5666)) {
+        if ((flags & (UF_PUBLIC | UF_EXTRN)) != 0)
+            token.type = O_LABEL;
+        else
+            flags |= UF_PUBLIC;
+    } else {
         if (IsPhase1())
-            token[0].type = O_LABEL;
+            if ((token.type != type && token.type != TT_SET) || type == O_EQU)
+                token.type = O_LABEL;
 
-        if (!(inPublic || inExtrn))
-            if (topSymbol->addr != value)
+        if (!inPublic && TestBit(token.type, b5669))
+            flags = acc1RelocFlags | (token.type != MACRONAME ? flags & UF_PUBLIC : 0);
+        else {
+            if (IsPhase1())
+                token.type = O_LABEL;
+
+            if (!(inPublic || inExtrn) && token.symbol->addr != value)
                 PhaseError();
+        }
     }
+    absFlag |= (token.symbol->type & 0x80);
 
-endUpdateSymbol:
-    absFlag |= (topSymbol->type & 0x80);
+    if (IsPhase1() && (type == O_NAME || type == O_REF || origType != token.type))
+        token.symbol->type = token.type | absFlag;
 
-    if (IsPhase1() && (type == O_NAME || type == O_REF || origType != token[0].type))
-        topSymbol->type = token[0].type | absFlag;
-
-    kk = topSymbol->type;
-    if (token[0].type == O_LABEL || kk == O_LABEL)
+    byte symType = token.symbol->type;
+    if (token.type == O_LABEL || symType == O_LABEL)
         MultipleDefError();
 
-    if (kk >= 0x80)
+    if (symType >= 0x80)
         LocationError();
 
-    if ((IsPhase1() && (token[0].type == type || (type == O_EQU && token[0].type == 7))) ||
+    if ((IsPhase1() && (token.type == type || (type == O_EQU && token.type == 7))) ||
         (type == 4 && BlankAsmErrCode()) || lineSet || type == MACRONAME)
-        topSymbol->value = value;
+        token.symbol->value = value;
 
-    topSymbol->flags = flags;
-    inPublic         = 0;
-    inExtrn          = 0;
-    if (topSymbol->type == O_REF)
+    token.symbol->flags = flags;
+    inPublic         = false;
+    inExtrn          = false;
+    if (token.symbol->type == O_REF)
         UndefinedSymbolError();
 
     hasVarRef = false;
@@ -264,30 +244,28 @@ byte Lookup(byte tableId) {
     tokensym_t *entryOffset;
 
     byte i;
-    //    symEntry based entryOffset KEYWORD_T,
-    //    addr based aVar word;
+    //    symEntry based entryOffset KEYWORD_T
 
 
     /* Keyword() lookup */
     if (tableId == TID_KEYWORD) { /* hash chain look up key word */
-        entryOffset = in_word_set((char *)tokPtr,
-                                  strlen((char *)tokPtr)); // HACK name is after packed token
+        entryOffset = in_word_set((char *)tokenStart);
         if (entryOffset && (controls.macroFile || entryOffset->type < MACRO)) {
-            topSymbol     = entryOffset;
-            token[0].type = topSymbol->type;
-            if (token[0].type < SINGLE) /* instruction with arg */
-                if (op16[token[0].type])
+            token.symbol = entryOffset;
+            token.type   = token.symbol->type;
+            if (token.type < SINGLE) /* instruction with arg */
+                if (op16[token.type])
                     has16bitOperand = true;
 
-            if (topSymbol->flags == 2 && !controls.mod85) /* RIM/SIM only valid on 8085 */
+            if (token.symbol->flags == 2 && !controls.mod85) /* RIM/SIM only valid on 8085 */
                 SourceError('O');
 
-            if (token[0].type == K_SP) { /* SP */
+            if (token.type == K_SP) { /* SP */
                 if (!(curOp == LXI || curOp == REG16))
                     SourceError('X');
-                token[0].type = K_REGNAME; /* reg */
+                token.type = K_REGNAME; /* reg */
             }
-            return token[0].type & 0x7F;
+            return token.type & 0x7F;
         }
         return O_NAME;
     }
@@ -304,17 +282,17 @@ byte Lookup(byte tableId) {
 
     while ((midOffset = lowOffset + ((highOffset - lowOffset) >> 1)) != entryOffset) {
         entryOffset = midOffset;
-        int cmp       = strcmp(entryOffset->name, (char *)tokPtr);
+        int cmp       = strcmp(entryOffset->name, (char *)tokenStart);
         if (cmp == 0) {
-            topSymbol     = entryOffset;
-            token[0].type = topSymbol->type;
-            if (token[0].type == O_SETEQUNAME)
-                token[0].type = O_NAME;
+            token.symbol     = entryOffset;
+            token.type = token.symbol->type;
+            if (token.type == O_SETEQUNAME)
+                token.type = O_NAME;
 
-            if ((usrLookupIsID = (kk = (token[0].type & 0x7F)) == O_NAME))
+            if ((usrLookupIsID = (token.type & 0x7F) == O_NAME))
                 if (needsAbsValue)
-                    topSymbol->type = 0x80 + O_NAME; /* update ABSVALUE flag */
-            return kk;
+                    token.symbol->type = 0x80 + O_NAME; /* update ABSVALUE flag */
+            return token.type & 0x7F;
         }
 
         if (cmp > 0)
@@ -323,15 +301,15 @@ byte Lookup(byte tableId) {
             lowOffset = entryOffset;
     }
 
-    topSymbol = highOffset;
+    token.symbol = highOffset;
     if (tableId == TID_SYMBOL && !IsSkipping()) {
         createdUsrSym = false;
         labelUse      = L_REF;
         UpdateSymbolEntry(srcLineCnt, needsAbsValue ? 0x80 | O_NAME : O_NAME);
         /* update symbol stack to adjust pointers for entries above insert point */
         for (i = 1; i <= tokenIdx; i++) {
-            if (token[i].symbol >= topSymbol)
-                token[i].symbol++;
+            if (tokenStk[i].symbol >= token.symbol)
+                tokenStk[i].symbol++;
         }
 
         createdUsrSym = true;
@@ -353,6 +331,12 @@ byte Lookup(byte tableId) {
 */
 byte GetCh(void) {
     static byte curCH, prevCH;
+    static byte irpcChr[3] = { 0, 0, 0x81 }; // where irpc char is built (0x81 is end marker)
+    static char localVarName[7]    = {
+        '?', '?', 0, 0, 0, 0, 0x80
+    }; // where DoLocal vars are constructed (0x80 is end marker)
+    static pointer savedMacroBufP;
+
 
     while (!reget) {
         prevCH = curCH;
@@ -389,31 +373,23 @@ byte GetCh(void) {
                 else {
                     savedMacroBufP = curMacro.bufP;       // is parameter or Local
                     if (curCH == MACROPARAM) {            // parameter
-                        curMacro.bufP = curMacro.pCurArg; // parameter text
+
                         if (savedMtype == M_IRPC) {
-                            irpcChr[1]    = *curMacro.bufP; // copy the char
-                            curMacro.bufP = &irpcChr[1];
-                            if (*curMacro.bufP == '!') { // if it was '!' then include escaped char
-                                irpcChr[0] = '!';
-                                irpcChr[1] = curMacro.pCurArg[1];
-                                curMacro.bufP--; // allow for the two chars
-                            }
+                            curMacro.bufP = irpcChr;
+                            irpcChr[0]    = curMacro.pCurArg[0];
+                            irpcChr[1] = irpcChr[0] == '!' ? curMacro.pCurArg[1] : 0x81;
                         } else {
-                            while ((byte)(--lookAhead) != 0xFF) { // skip to required parameter
-                                curMacro.bufP -= (*curMacro.bufP & 0x7F);
+                            curMacro.bufP = curMacro.pCurArg;     // parameter text
+                            while ((byte)(--lookAhead) != 0) { // skip to required parameter
+                                curMacro.bufP += (*curMacro.bufP & 0x7F);
                             }
-                            curMacro.bufP++; // skip over the length of next parameter
+                            curMacro.bufP++; // skip over the length
                         }
                     } else { // Local
-                        curMacro.bufP =
-                            localVarName; // generate Local id from instance & current DoLocal base
-                        word tmp =
-                            lookAhead + curMacro.localIdBase; // plm reuses aVar instead of tmp
+                        curMacro.bufP = (pointer)localVarName; // generate Local id from instance & current DoLocal base
                         // generate DoLocal variable name
-                        for (ii = 1; ii <= 4; ii++) {
-                            localVarName[6 - ii] = tmp % 10 + '0';
-                            tmp /= 10;
-                        }
+                        sprintf(localVarName, "??%04d", (lookAhead + curMacro.localIdBase) % 10000);
+                        localVarName[6] = 0x80;
                     }
                 }
 
@@ -423,12 +399,15 @@ byte GetCh(void) {
         }
 
         if (expandingMacro > 1) /* in pass 2 print expanded macro code if required */
-            if (IsPhase2Print() && macroP < macroLine + MAXLINE) /* append character if room */
-                *macroP++ = curCH;
+            if (IsPhase2Print()) {
+                if (macroPIdx >= macroLineSize - 1) // allow for '\0'
+                    macroLine = xrealloc(macroLine, macroLineSize += MCHUNK);
+                macroLine[macroPIdx++] = curCH;
+            }
 
         if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line EOLCH for
                                none empty line */
-            if ((startMacroLine != macroInPtr && curCH == EOLCH) || !excludeCommentInExpansion)
+            if ((startMacroLineIdx != macroInIdx && curCH == EOLCH) || !excludeCommentInExpansion)
                 InsertByteInMacroTbl(curCH);
 
         if (!(prevCH == '!' || inComment)) { /* if not escaped or in comment */

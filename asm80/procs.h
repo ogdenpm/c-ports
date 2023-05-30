@@ -25,7 +25,7 @@ void FileError(void);
 void FinishAssembly(void);
 void FinishLine(void);
 void FinishPrint(void);
-void FlushM(void);
+void FlushM(bool fin);
 void GenAsxref(void);
 void PrepSrcFile(char *srcName);
 byte GetCh(void);
@@ -119,7 +119,7 @@ void UnpackToken(wpointer src, byte *dst);
 void UpdateSymbolEntry(word val, byte type);
 void ValueError(void);
 void WriteExtName(void);
-void WriteM(pointer buf);
+void WriteM(pointer buf, int cnt);
 void WriteModend(void);
 void WriteModhdr(void);
 void WriteRec(pointer recP);
@@ -146,7 +146,7 @@ void InsertXref(bool isDef, const char *name, word lineNum);
 _Noreturn void FatalError(char const *fmt, ...);
 char *basename(char *path);
 
-tokensym_t *in_word_set(register const char *str, register size_t len);
+tokensym_t *in_word_set(register const char *str);
 
 char const *AllocStr(char const *s, bool isTemp);
 void resetTmpStrings();

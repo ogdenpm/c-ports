@@ -11,11 +11,11 @@
 #include "asm80.h"
 #include <ctype.h>
 
-byte b3782[2] = { 0x80, 0x81 };
-char moduleName[7] = "MODULE";
+byte b3782[2] = { 0x81, 0x80 };
+char moduleName[MAXSYMSIZE + 1] = "MODULE";
     //static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
 
-
+int macroTextSize;
 
 byte GetCmdCh(void) {
     return *cmdchP++;
@@ -171,9 +171,9 @@ void SourceError(byte errCh)
 
 void InsertByteInMacroTbl(byte c)
 {
-    *macroInPtr++ = c;
-    if (macroInPtr >= &macroText[MAXMACROTEXT])
-        RuntimeError(RTE_TABLE);    /* table Error() */
+    if (macroInIdx >= macroTextSize)
+        macroText = xrealloc(macroText, macroTextSize += 256);
+    macroText[macroInIdx++] = c;
 }
 
 
@@ -225,13 +225,13 @@ void InitLine(void) {
                 needsAbsValue                                                  = false;
     haveLabel                                                                   = 0;
     atStartLine = expectOpcode = isInstr = expectOp = true;
-    controls.eject = tokenIdx = argNestCnt = token[0].size = token[0].type = acc1ValType =
+    controls.eject = tokenIdx = argNestCnt = token.size = token.type = acc1ValType =
         acc2ValType = acc1RelocFlags = 0;
     hasVarRef = inQuotes = inComment = false;
 
     asmErrCode                       = ' ';
-    macroP                           = macroLine;
-    startMacroLine                   = macroInPtr;
+    macroPIdx                        = 0;
+    startMacroLineIdx                = macroInIdx;
     expandingMacro                   = expandingMacro > 0 ? 0xff : 0;
     tokI                             = 1;
     srcLineCnt++;

@@ -214,7 +214,7 @@ typedef union {
 
 #pragma pack(pop)
 typedef struct {
-    pointer start;
+    int start;
     tokensym_t *symbol;
     byte type;
     byte size;

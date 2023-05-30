@@ -41,7 +41,7 @@ void SkipNextWhite(void) {
 
 
 byte NonHiddenSymbol(void) {
-    const char *s = topSymbol->name;
+    const char *s = token.symbol->name;
     return s[0] != '?' || s[1] != '?' || !isdigit(s[2]) || !isdigit(s[3]) || !isdigit(s[4]) ||
            !isdigit(s[5]) || s[6];
 }
@@ -49,21 +49,18 @@ byte NonHiddenSymbol(void) {
 
 // flush the macro buffer to disk in full 128 byte blocks
 // residual are moved to start of macro buffer
-void FlushM(void)
-{
-    word bytesLeft;
-    pointer buf = macroText;
+void FlushM(bool fin) {
 
-    if (mSpoolMode & 1) { /* spool macros to disk in 128 byte blocks */
-        while ((bytesLeft = (word)(macroInPtr - buf)) >= 128) {
-            WriteM(buf);
-            buf += 128;
+    if ((mSpoolMode & 1)) { /* spool macros to disk in 128 byte blocks */
+        if (macroInIdx >= 128) {
+            WriteM(macroText, macroInIdx / 128);
+            if (macroInIdx & 0x7f)
+                memcpy(macroText, macroText + (macroInIdx & ~0x7f), macroInIdx & 0x7f);
+            macroInIdx &= 0x7f;
         }
-        /* move the remaining bytes to start of macro buffer */
-        if (bytesLeft != 0)
-            memcpy(macroText, buf, bytesLeft);
-        macroInPtr = macroText + bytesLeft;
     }
+    if (fin)
+        WriteM(macroText, 1);
 }
 
 
@@ -108,7 +105,7 @@ void Tokenise(void) {
                 inComment = true;
                 if (GetChClass() == CC_SEMI && (mSpoolMode & 1)) {
                     excludeCommentInExpansion = true;
-                    macroInPtr -= 2;		// remove the ;;
+                    macroInIdx -= 2;		// remove the ;;
                 }
                 Skip2NextLine();			// process the rest of the line
                 yyType = EOL;
@@ -149,7 +146,7 @@ void Tokenise(void) {
             CollectByte(segLocation[activeSeg] & 0xff); /* its value is the current seg's size*/
             CollectByte(segLocation[activeSeg] >> 8);
             if (activeSeg != SEG_ABS)   // if not abs set seg and relocatable flags
-                token[0].attr |= activeSeg | UF_RBOTH;
+                token.attr |= activeSeg | UF_RBOTH;
             gotValue();
             break;
         case CC_QUOTE:
@@ -173,18 +170,18 @@ void Tokenise(void) {
             gotValue();
             break;
         case CC_LET:
-            startMacroToken = macroInPtr - 1;
+            startMacroTokenIdx = macroInIdx - 1;
             GetTokenText(O_NAME);    /* assume it's a name */
-            if (token[0].size > MAXSYMSIZE)  /* cap length */
-                token[0].size = MAXSYMSIZE;
-            tokPtr[token[0].size] = '\0';
+            if (token.size > MAXSYMSIZE)  /* cap length */
+                token.size = MAXSYMSIZE;
+            tokenStart[token.size] = '\0';
 
             if (controls.xref) {
                 strcpy(savName, name);
             }
             /* copy the token to name */
-            strcpy(name, (char *)tokPtr);
-            nameLen = token[0].size;
+            strcpy(name, (char *)tokenStart);
+            nameLen = token.size;
 
             if (haveUserSymbol) {			// user symbol not followed by a colon
                 haveNonLabelSymbol = true;
@@ -193,10 +190,10 @@ void Tokenise(void) {
 
 
             if (Lookup(TID_MACRO) != O_NAME && (mSpoolMode & 1)) {
-                kk = token[0].type == 0; // assignment pulled out to allow short circuit tests
-                if (!inQuotes || (kk && (curChar == '&' || startMacroToken[-1] == '&'))) {
-                    macroInPtr = startMacroToken;
-                    InsertByteInMacroTbl(kk ? 0x80 : 0x81);
+                bool isType0 = !token.type; // assignment pulled out to allow short circuit tests
+                if (!inQuotes || (isType0 && (curChar == '&' || macroText[startMacroTokenIdx -1] == '&'))) {
+                    macroInIdx = startMacroTokenIdx;
+                    InsertByteInMacroTbl(isType0 ? 0x80 : 0x81);
                     InsertByteInMacroTbl((byte)GetNumVal());
                     InsertByteInMacroTbl(curChar);
                     yyType = O_NAME;			// reuse of yyType?
@@ -204,13 +201,13 @@ void Tokenise(void) {
             }
             else if (yyType != MACROARG && mSpoolMode != 2) {		// skip if capturing macro parameter or local names
                 if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
-                    token[0].type = Lookup(TID_SYMBOL);    /* look up in symbol space */
+                    token.type = Lookup(TID_SYMBOL);    /* look up in symbol space */
                     haveUserSymbol = true;        /* note we have a user symbol */
                 }
 
-                yyType = token[0].type;
-                needsAbsValue = absValueReq[token[0].type]; /* DS, ORG, IF, MACRONAME, IRP, IRPC DoRept */
-                if (!tokReq[token[0].type]) /* i.e. not instruction, reg or MACRONAME or punctuation */
+                yyType = token.type;
+                needsAbsValue = absValueReq[token.type]; /* DS, ORG, IF, MACRONAME, IRP, IRPC DoRept */
+                if (!tokReq[token.type]) /* i.e. not instruction, reg or MACRONAME or punctuation */
                     PopToken();
 
                 // for name seen to lhs of op emit xref, for SET/EQU/MACRO PARAM then this is defining

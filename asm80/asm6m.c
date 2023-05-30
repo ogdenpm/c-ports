@@ -10,6 +10,8 @@
 
 #include "asm80.h"
 #include <ctype.h>
+static int lineBufSize; // current size of lineBuf, auto expanded
+#define LCHUNK  256     // growth step for lineBuf
 
 void SyntaxError(void)
 {
@@ -107,7 +109,7 @@ void PopToken(void) {
 #ifdef TRACE
     DumpTokenStack(true);
 #endif
-    token[0]          = token[tokenIdx];
+    token          = tokenStk[tokenIdx];
     if (tokenIdx)
         tokenIdx--;
 }
@@ -159,7 +161,7 @@ void UnNest(byte sw)
         savedMtype = curMacro.mtype;
         if (--macroDepth == 0) { /* end of macro nest */
             expandingMacro = 0;     /* not expanding */
-            baseMacroTbl = &macroParams[MAXMACROPARAM - 1];
+            topMacroArg = macroArgs;
         }
     } else {
         skipIf[0] = skipIf[ifDepth];    /* pop skipIf and inElse status */
@@ -169,15 +171,15 @@ void UnNest(byte sw)
 }
 
 void PushToken(byte type) {
-    if (tokenIdx >= 8)
+    if (tokenIdx >= MAXTOKENS - 1)
         StackError();
     else {
-        token[++tokenIdx] = token[0];
-        token[0].start += token[0].size; /* advance for next token */
-        token[0].type = type;
-        token[0].attr = token[0].size = 0;
-        token[0].symbol               = NULL;
-        token[0].symId                = 0;
+        tokenStk[++tokenIdx] = token;
+        token.start += token.size; /* advance for next token */
+        token.type = type;
+        token.attr = token.size = 0;
+        token.symbol               = NULL;
+        token.symId                = 0;
     }
 #ifdef TRACE
     DumpTokenStack(false);
@@ -186,14 +188,11 @@ void PushToken(byte type) {
 
 void CollectByte(byte c)
 {
-    pointer s;
-
-    if ((s = tokPtr + token[0].size) < endTokenBuf) {   /* check for lineBuf overrun */
-        *s = c;
-        token[0].size++;
-    }
-    else
-        StackError();
+    int n;
+    n = token.start + token.size++;
+    if (n >= lineBufSize - 1)   // allow room for a possible '\0'
+        lineBuf = xrealloc(lineBuf, lineBufSize += LCHUNK);
+    lineBuf[n] = c;
 }
 
 void GetTokenText(byte type)
@@ -212,10 +211,10 @@ void GetTokenText(byte type)
 void GetNum(void) {
     word num;
     byte radix, digit, i;
-//    byte chrs based tokPtr [1];
+//    byte chrs based tokenStart [1];
 
     GetTokenText(O_NUMBER);
-    radix = tokPtr[--token[0].size];
+    radix = tokenStart[--token.size];
     if (radix == 'H')
         radix = 16;
 
@@ -231,18 +230,18 @@ void GetNum(void) {
     if (radix > 16)
         radix = 10;
     else
-        token[0].size--;
+        token.size--;
 
     num = 0;
-    for (i = 0; i <= token[0].size; i++) {
-        if (tokPtr[i] == '?' || tokPtr[i] == '@') {
+    for (i = 0; i <= token.size; i++) {
+        if (!isalnum(tokenStart[i])) {
             IllegalCharError();
             digit = 0;
         } else {
-            if ((digit = tokPtr[i] - '0') > 9)
+            if ((digit = tokenStart[i] - '0') > 9)
                 digit -= 7;
             if (digit >= radix)
-                if (tokenIdx < 2 || !(token[2].type == NULVAL)) { /* bug fix tokIdx may be < 2 */
+                if (tokenIdx < 2 || !(tokenStk[2].type == NULVAL)) { /* bug fix tokIdx may be < 2 */
                     IllegalCharError();
                     digit = 0;
                 }
@@ -251,7 +250,7 @@ void GetNum(void) {
         num = num * radix + digit;
     }
     /* replace with packed number */
-    token[0].size = 0;
+    token.size = 0;
     CollectByte((num) & 0xff);
     CollectByte((num) >> 8);
 }

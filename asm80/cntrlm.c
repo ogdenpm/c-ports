@@ -53,8 +53,8 @@ static byte GetTok(void) {
     SkipNextWhite();
     if (isalpha(curChar)) {  /* letter */
         GetTokenText(O_ID);
-        if (BlankAsmErrCode() && token[0].size <= 14) {
-            memcpy(tokBuf, lineBuf, tokBufLen = token[0].size);
+        if (BlankAsmErrCode() && token.size <= 14) {
+            memcpy(tokBuf, lineBuf, tokBufLen = token.size);
             tokBuf[tokBufLen] = '\0';
         }
     } else if (isdigit(curChar)) {   /* digit ? */
@@ -68,8 +68,8 @@ static byte GetTok(void) {
         GetStr();
         if (BlankAsmErrCode()) {
             tokBufLen = 64;         /* cap at 64 chars */
-            if (token[0].size < 64)
-                tokBufLen = token[0].size;
+            if (token.size < 64)
+                tokBufLen = token.size;
             tokType = TT_STR;
             if (tokBufLen > 0) {
                 memcpy(tokBuf, lineBuf, tokBufLen);
@@ -109,7 +109,7 @@ static void GetFileNameOpt(void) {
                 return;
            break;
         }
-        if (tokBufIdx > MAXFILEPARAM)
+        if (tokBufIdx > MAXFILENAME)
            break;
         tokBuf[tokBufIdx++] = curChar;
         curChar = GetCh();

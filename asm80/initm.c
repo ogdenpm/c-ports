@@ -11,7 +11,6 @@
 #include "asm80.h"
 
 byte aExtents[] = " lstobj";
-static byte aDebug[] = "DEBUG";
 
 
 /* skip white space in command line */
@@ -19,28 +18,6 @@ void CmdSkipWhite(void) {
     while (*cmdchP && (*cmdchP == ' ' || *cmdchP == TAB)) {
         cmdchP++;
     }
-}
-
-/*
-    return drive ('0'-'9') of current program.
-    skips TRACE if present
-    returns '0' if no drive specified
-*/
-byte GetDrive(void) {
-    if (*cmdchP == ':') {
-        cmdchP += 2;
-        return *cmdchP;
-    } else
-        for (ii = 0; ii <= 4; ii++) {        /* case insensitive compare to TRACE */
-        if (*cmdchP != aDebug[ii] && aDebug[ii] + 0x20 != *cmdchP)
-                return '0';    /* must be a file name so drive 0 */
-            cmdchP++;
-        }
-    CmdSkipWhite();
-    if (*cmdchP != ':')
-        return '0';
-    cmdchP += 2;
-    return *cmdchP;
 }
 
 
@@ -104,8 +81,8 @@ void ResetData(void) {    /* extended initialisation */
 
     b68AE = false;
     curChar = ' ';
-    for (ii = 0; ii <= 11; ii++)          /* reset all the control seen flags */
-        controlSeen[ii] = false;
+    // reset all of the controlSeen flags
+    memset(controlSeen, false, sizeof(controlSeen));;
 
     curMacroBlk = 0xFFFF;
     if (! IsPhase1()) {   /* close any Open() include file */
@@ -119,17 +96,7 @@ void ResetData(void) {    /* extended initialisation */
         inPtr = NULL;
     }
 
-    baseMacroTbl = &macroText[MAXMACROTEXT - 1];
+    topMacroArg = macroArgs;
 }
 
-void InitRecTypes(void) {
-    rContent[HDR_TYPE] = OMF_CONTENT;
-    setWord(&rContent[HDR_LEN], 3);
-    rPublics[HDR_TYPE] = OMF_RELOC;
-    setWord(&rPublics[HDR_LEN], 1);
-    rInterseg[HDR_TYPE] = OMF_INTERSEG;
-    setWord(&rInterseg[HDR_LEN], 2);
-    rExtref[HDR_TYPE] = OMF_EXTREF;
-    setWord(&rExtref[HDR_LEN], 1);
-}
 

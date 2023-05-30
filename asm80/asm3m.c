@@ -64,9 +64,9 @@ void HandleOp(void) {
         if (!(topOp == LPAREN && curOp == RPAREN)) // incorrectly nested ()
             BalanceError();
 
-        if (token[0].type == O_DATA) {
-            token[0].size = 1;
-            token[0].attr = 0;
+        if (token.type == O_DATA) {
+            token.size = 1;
+            token.attr = 0;
             b6B36         = true;
         }
 
@@ -153,7 +153,7 @@ void HandleOp(void) {
         UpdateHiLo(UF_RLOW);
         break;
     case 26: /* DB ? */
-        if (token[0].type != O_STRING) {
+        if (token.type != O_STRING) {
             accum1 = GetNumVal();
             if (accum1 >= 0x100 && accum1 < 0xff00) /* high byte ! 0 or FF */
                 ValueError();
@@ -165,7 +165,7 @@ void HandleOp(void) {
             }
         } else {
             acc1RelocFlags = 0;      // abs bytes
-            token[0].type  = O_DATA; // flag as data
+            token.type  = O_DATA; // flag as data
         }
 
         if (IsReg(acc1ValType)) // db of register is not valid
@@ -219,10 +219,10 @@ void HandleOp(void) {
 
             showAddr = true;
         }
-        kk         = mSpoolMode;
+        byte origSpoolMode         = mSpoolMode;
         mSpoolMode = 0;
 
-        if (macroCondSP > 0 || (kk & 1))
+        if (macroCondSP > 0 || (origSpoolMode & 1))
             NestingError();
         if (curOp != EOL)
             SyntaxError();
@@ -382,7 +382,7 @@ void HandleOp(void) {
         Sub78CE(); /* optVal */
         break;
     case 65: /* NUL */
-        accum1 = token[0].type == NUL ? 0xffff : 0;
+        accum1 = token.type == NUL ? 0xffff : 0;
         PopToken();
         acc1RelocFlags = 0;
         break;
@@ -517,8 +517,8 @@ void Parse(void) {
         if (curOpFlags & 32)
             CollectByte(High(accum2));
 
-        token[0].attr  = acc1RelocFlags;
-        token[0].symId = acc1RelocVal;
+        token.attr  = acc1RelocFlags;
+        token.symId = acc1RelocVal;
         if (curOpFlags & 0x40)      /* -x------ -> list */
             if (curOp == COMMA) { // if comma then make the operator (topOp) as
                 yyType   = topOp;   // the next item to read and mark as operator

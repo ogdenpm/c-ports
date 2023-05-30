@@ -116,37 +116,34 @@ void ResultType(void) {
         OperandError();
 
     acc1ValType = O_NUMBER;
-    aVar.lb = (acc1RelocFlags & UF_RBOTH) ? 0xff : 0;		// needs to be 0xff or 0 for correct constuction of kk below
-    aVar.hb = (acc2RelocFlags & UF_RBOTH) ? 0xff : 0;
-    if ((acc1RelocFlags & UF_SEGMASK) != SEG_ABS)
-        if ((acc2RelocFlags & UF_SEGMASK) != SEG_ABS)
-            if (((acc1RelocFlags ^ acc2RelocFlags) & (UF_SEGMASK | UF_RBOTH)) != 0)  /* must have same seg and relocation info */
-                ExpressionError();
-    if ((ii = (acc1RelocFlags & UF_EXTRN) != 0) | (jj = (acc2RelocFlags & UF_EXTRN) != 0)) { /* either extern ?*/
-        if (topOp == PLUS)                            /* + op */
-            if (!(ii || aVar.lb)) {                    /* if not (acc1 extern or relocatable) */
-                acc1RelocVal = acc2RelocVal;            /* add relocation information from acc2*/
-                acc1RelocFlags = acc2RelocFlags;
-                return;
-            }
-        if (jj || aVar.hb || !TestBit(topOp, validRelocExprOp)) {	// unrolleded jump to inside if statement
+
+    if ((acc1RelocFlags & UF_SEGMASK) && (acc2RelocFlags & UF_SEGMASK))
+        if ((acc1RelocFlags ^ acc2RelocFlags) & (UF_SEGMASK | UF_RBOTH))  /* must have same seg and relocation info */
+            ExpressionError();
+
+    bool isReloc1  = acc1RelocFlags & UF_RBOTH;
+    bool isReloc2  = acc2RelocFlags & UF_RBOTH;
+    bool isExtern1 = acc1RelocFlags & UF_EXTRN;
+    bool isExtern2 = acc2RelocFlags & UF_EXTRN;
+    if (isExtern1 || isExtern2) { /* either extern ?*/
+        if (topOp == PLUS && !(isExtern1 || isReloc1)) { // ok for abs + extern/reloc
+            acc1RelocVal = acc2RelocVal;            /* add relocation information from acc2*/
+            acc1RelocFlags = acc2RelocFlags;
+        } else if (isExtern2 || isReloc2 || !TestBit(topOp, validRelocExprOp)) {
             ExpressionError();
             acc1RelocFlags = 0;
         }
         return;
     }
-    kk = ((topOp - 4) << 2) | (aVar.lb & 2) | (aVar.hb & 1);
-    if (TestBit(kk, opIncompat)) {              // check operation is compatible with operands
+    byte bitIdx = ((topOp - 4) << 2) | (isReloc1 ? 2 : 0) | (isReloc2 ? 1: 0);
+    if (TestBit(bitIdx, opIncompat)) {              // check operation is compatible with operands
         ExpressionError();
         acc1RelocFlags = 0;
-        return;
-    }
-    if (TestBit(kk, propagateFlags)) {
-        if (!aVar.lb)                          // only copy flags if not relocatable already
+    } else if (TestBit(bitIdx, propagateFlags)) {
+        if (!isReloc1)                          // only copy flags if not relocatable already
             acc1RelocFlags = acc2RelocFlags;
-        return;
-    }
-    acc1RelocFlags = 0;     // is absolute value
+    } else
+        acc1RelocFlags = 0;     // is absolute value
 }
 
 
@@ -163,12 +160,12 @@ void SetExpectOperands(void) {
 
 
 void LogError(byte ch) {
-    if (token[tokenIdx].type != NULVAL) {  /* ignore error if processing an optional value */
+    if (tokenStk[tokenIdx].type != NULVAL) {  /* ignore error if processing an optional value */
         SourceError(ch);
         return;
     }
-    if (token[0].size == 0)                  /* make into a NUL */
-        token[tokenIdx].type = NUL;
+    if (token.size == 0)                  /* make into a NUL */
+        tokenStk[tokenIdx].type = NUL;
 }
 
 word GetNumVal(void) { // load numeric value from top of stack
@@ -176,42 +173,42 @@ word GetNumVal(void) { // load numeric value from top of stack
     acc1RelocFlags = 0;         // initialise to absolute zero value
     accum1 = 0;
     acc1ValType = O_NAME;       // with NAME type
-    if (token[0].type == NULVAL)
+    if (token.type == NULVAL)
         PushToken(O_PARAM);
-    if (tokenIdx == 0 || (token[0].type == O_DATA && !b6B36))
+    if (tokenIdx == 0 || (token.type == O_DATA && !b6B36))
         LogError('Q');		// questionable syntax - possible missing opcode
     else {
-        if (token[0].type == O_NAME || token[0].type == COMMA)      // can't handle undefined name or missing name
+        if (token.type == O_NAME || token.type == COMMA)      // can't handle undefined name or missing name
             LogError('U');	// undefined symbol - if here in pass2 then genuine error
         else {
-            acc1ValType = token[0].type;                             // update the value type
+            acc1ValType = token.type;                             // update the value type
             if (TestBit(acc1ValType, typeHasTokSym)) {
-                acc1RelocFlags = topSymbol->flags & ~UF_PUBLIC; /* remove public attribute */
-                *(wpointer)tokPtr = acc1RelocVal   = topSymbol->value;
-                token[0].size = 2;        /* word value */
-            } else if (token[0].size == 0)
+                acc1RelocFlags = token.symbol->flags & ~UF_PUBLIC; /* remove public attribute */
+                *(wpointer)tokenStart = acc1RelocVal   = token.symbol->value;
+                token.size = 2;        /* word value */
+            } else if (token.size == 0)
                 LogError('V');		// value illegal
             else {
-                if (token[0].size > 2)
+                if (token.size > 2)
                     LogError('V');
-                acc1RelocFlags = token[0].attr & ~UF_PUBLIC;    /* remove public attribute */
-                acc1RelocVal = token[0].symId;        /* use the symbol Id() */
+                acc1RelocFlags = token.attr & ~UF_PUBLIC;    /* remove public attribute */
+                acc1RelocVal = token.symId;        /* use the symbol Id() */
             }
 
             /* modified to avoid assumption of little endian */
-            if (token[0].size > 1) { /* and high byte if ! a register */
-                accum1 = *(wpointer)tokPtr;
-                if (token[0].type == K_REGNAME)
+            if (token.size > 1) { /* and high byte if ! a register */
+                accum1 = *(wpointer)tokenStart;
+                if (token.type == K_REGNAME)
                     accum1 &= 0xff;
-            } else if (token[0].size > 0) /* get low byte */
-                accum1 = *tokPtr;
+            } else if (token.size > 0) /* get low byte */
+                accum1 = *tokenStart;
         }
 
         // For 16 bit string operand swap bytes
-        if (has16bitOperand && token[0].size == 2 && token[0].type == O_STRING)
+        if (has16bitOperand && token.size == 2 && token.type == O_STRING)
             SwapAccBytes();
 
-        if ((acc1RelocFlags & UF_EXTRN) && token[0].type < 9)
+        if ((acc1RelocFlags & UF_EXTRN) && token.type < 9)
             accum1 = 0;
 
         PopToken();

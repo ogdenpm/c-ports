@@ -48,7 +48,7 @@ static unsigned int hash(register const char *str, register size_t len) {
     return hval;
 }
 
-tokensym_t *in_word_set(register const char *str, register size_t len) {
+tokensym_t *in_word_set(register const char *str) {
     // this table could be reduced by replacing with a mapping table that had
     // indexes into the wordlist. The wordlist table would then only be 134 entries
     static tokensym_t wordlist[] = { { "" },
@@ -256,7 +256,7 @@ tokensym_t *in_word_set(register const char *str, register size_t len) {
                                      { "" },
                                      { "" },
                                      { "LXI", { .base = 1 }, LXI, { 0 } } };
-
+    size_t len                   = strlen(str);
     if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH) {
         register unsigned int key = hash(str, len);
 

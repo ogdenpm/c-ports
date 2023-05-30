@@ -65,17 +65,14 @@ void DumpTokenStackItem(int i, bool pop)
     else
         printf("%1d", pop ? i - 1 : i);
 
-    if (token[i].size == 4) {
-        printf(" %6.6s", token[i].start);
-    }
-    else if (token[i].size == 1)
-        printf(" %6d", *token[i].start);
-    else if (token[i].size == 2)
-        printf(" %6d", *(wpointer)token[i].start);
+    if (tokenStk[i].size == 1)
+        printf(" %6d", lineBuf[tokenStk[i].start]);
+    else if (tokenStk[i].size == 2)
+        printf(" %6d", *(wpointer)(lineBuf + tokenStk[i].start));
     else
-        printf(" %6.*s", token[i].size, token[i].start);
-    printf("  %02X   %02X  %3d  %3d", token[i].type, token[i].attr, token[i].size, token[i].symId);
-    s = token[i].symbol;
+        printf(" %.*s", tokenStk[i].size, (lineBuf + tokenStk[i].start));
+    printf("  %02X   %02X  %3d  %3d", tokenStk[i].type, tokenStk[i].attr, tokenStk[i].size, tokenStk[i].symId);
+    s = tokenStk[i].symbol;
     if (s /*&& (symTab[TID_SYMBOL] <= s && s <= endSymTab[TID_SYMBOL] || symTab[TID_MACRO] <= s && s <= endSymTab[TID_MACRO]) */) {
         printf("   %6.6s %04X   %02X   %02X\n", s->name, s->addr, s->type, s->flags);
     }

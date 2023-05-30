@@ -11,8 +11,9 @@
 #include "asm80.h"
 #include <stdarg.h>
 
-int maxSymWidth = 6;
- 
+int maxSymWidth = 6;        // for formatting symbol tables
+static word lastErrorLine;
+
 static void PrintChar(char c);
 
 
@@ -140,12 +141,12 @@ void Sub7041_8447(void) {
     /* changes to better reflect what is happening rather than use strange offsets */
     segChar[0] = 'A'; /* show A instead of space for absolute */
     for (byte symGrp = 0; symGrp <= 2; symGrp++) { 
-        topSymbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
+        token.symbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
         Printf("\n\n%s\n", symbolMsgTable[symGrp]);
 
-        while (++topSymbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
-            byte type  = topSymbol->type;
-            byte flags = topSymbol->flags;
+        while (++token.symbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
+            byte type  = token.symbol->type;
+            byte flags = token.symbol->flags;
             bool isExtSym = (flags & UF_EXTRN);
             if (type != 9)
                 if (type != 6)
@@ -158,7 +159,7 @@ void Sub7041_8447(void) {
                                     if (pageWidth - curCol < 11 + maxSymWidth)
                                         PrintChar(LF);
 
-                                    Printf("%-*s ", maxSymWidth, topSymbol->name);
+                                    Printf("%-*s ", maxSymWidth, token.symbol->name);
                                     if (type == MACRONAME)
                                         PrintChar('+');
                                     else if (isExtSym)
@@ -166,7 +167,7 @@ void Sub7041_8447(void) {
                                     else
                                         PrintChar(segChar[flags & UF_SEGMASK]);
 
-                                    Printf(" %04X    ", isExtSym ? 0 : topSymbol->value);
+                                    Printf(" %04X    ", isExtSym ? 0 : token.symbol->value);
                                 }
                             }
                     }
@@ -216,19 +217,20 @@ static void PrintCodeBytes(void) {
     for (i = 1; i <= 4; i++) {
         if (MoreBytes() && isInstr) {
             effectiveAddr++;
-            Printf("%02X", *startItem);
+            Printf("%02X", lineBuf[startItem]);
         } else
             OutSpc(2);
         startItem++;
     }
 
     Outch(' ');
-    if ((kk = token[spIdx].attr) & UF_EXTRN) /* UF_EXTRN */
+    byte attr = tokenStk[spIdx].attr;
+    if (attr & UF_EXTRN) /* UF_EXTRN */
         Outch('E');
     else if (!showAddr)
         Outch(' ');
     else
-        Outch(segChar[kk & 7]);
+        Outch(segChar[attr & 7]);
 }
 
 static void PrintErrorLineChain(void) {
@@ -240,7 +242,7 @@ static void PrintErrorLineChain(void) {
 
 void PrintLine(void) {
     while (1) {
-        endItem = (startItem = token[spIdx].start) + token[spIdx].size;
+        endItem = (startItem = tokenStk[spIdx].start) + tokenStk[spIdx].size;
         if (IsSkipping())
             endItem = startItem;
 
@@ -257,10 +259,9 @@ void PrintLine(void) {
             PrintCodeBytes();
 
         if (fileIdx > 0) {
-            byte nestLevel[] = "  1234";
-            /* plm uses byte arith so pendingInclude = true(255) treated as -1 */
-            Outch(nestLevel[ii = pendingInclude ? fileIdx - 1 : fileIdx]);
-            Outch(ii > 0 ? '=' : ' ');
+            byte nestLvl   = pendingInclude ? fileIdx - 1 : fileIdx;
+            Outch("  1234"[nestLvl]);
+            Outch(nestLvl > 0 ? '=' : ' ');
         } else
             OutStr("  ");
 
@@ -271,9 +272,8 @@ void PrintLine(void) {
             curCol            = 19;
             Printf("%4u%c", lineNo, expandingMacro > 1 ? '+' : ' ');
             if (expandingMacro > 1) {
-                *macroP = 0;
+                macroLine[macroPIdx] = 0;
                 PrintStr(macroLine);
-                PrintChar('\n');
             } else
                 PrintStr(inBuf);    // length may exceed limits of Printf
         }

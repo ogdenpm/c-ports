@@ -76,7 +76,7 @@ void InsertXref(bool isDef, const char *name, word lineNum) {
         lines[nLine].next = nLine;
 
     xrefs[nXref].head = nLine;
-    if (strlen(name) > nameWidth)
+    if ((int)strlen(name) > nameWidth)
         nameWidth = (word)strlen(name);
 }
 
@@ -89,10 +89,10 @@ static int GetLineIdx(byte from, int n, bool *pMoreLineRefs) {
         return lines[n].next;
     }
 }
-#define FIXEDLEN   44 // strlen("SYMBOL CROSS REFERENCE V2.1  PAGE nnn") 
+#define FIXEDLEN   38 // strlen("SYMBOL CROSS REFERENCE V2.1  PAGE nnn") 
 static void PageHeader(byte pageNum) {
-    int pad = (80 - FIXEDLEN - (int)strlen(moduleName));
-    if (fprintf(lstFp, "\f\n\n\nINTEL SYMBOL CROSS REFERENCE V2.1 %*s%s%*s PAGE %3u\n\n", pad / 2, "",
+    int pad = (72 - FIXEDLEN - (int)strlen(moduleName));
+    if (fprintf(lstFp, "\f\n\n\nSYMBOL CROSS REFERENCE V2.1 %*s%s%*s PAGE %3u\n\n", pad / 2, "",
            moduleName, pad - pad / 2, "", pageNum) < 0)
         IoError(lstFile, "Write error");
     row = 7;
