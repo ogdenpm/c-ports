@@ -236,7 +236,7 @@ void OpenFile(wpointer connP, char const *pathP, word access, word echo, wpointe
 
 void CloseFile(word conn, wpointer statusP)
 {
-	Close(conn, statusP);   /* close on ISIS */
+    Close(conn, statusP);   /* close on ISIS */
 
     /* clear down the connection on the file list */
     fileP = (file_t *)&fileHead;
@@ -588,7 +588,7 @@ void GetToken()
         }
         /* get another line */
         Write(0, "**", 2, &status);
-		GetLine();
+        GetLine();
     }
     lookAheadLen = (byte)GetTokenLen(lookAheadP);
 }
