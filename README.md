@@ -31,7 +31,8 @@ There are also a three of script files from my [versionTools](https://github.com
 - The optional MACROFILE drive can be entered but it is not checked and is ignored.
 - Some redundant functions and variables have been removed. Additionally some previously defined global variables have been made static, or function level variables.
 - I have increased the size of the token stack to 20, this will allow longer db/dw lines
-- The checking of whether a viable is local has been improved. Now only labels of the form ??nnnn, where nnnn is a auto generated four digit decimal number, are considered local.
+- The checking of whether a variable is local has been improved. Now only labels of the form ??nnnn, where nnnn is an auto generated four digit decimal number, are considered local.
+- PageLength and PageWidth can now be set up to a value of 65535, with 0 an alias for 65535. Existing lower limits still apply.
 
 #### Other changes
 
