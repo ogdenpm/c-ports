@@ -20,8 +20,10 @@ file_t files[6];
 
 void CloseSrc(void) /* close current source file. Revert to any parent file */
 {
-    if (fileIdx == 0) /* if it the original file we had no end statement so error */
-        IoError(files[0].name, "EOF - missing 'end'");
+    if (fileIdx == 0) { /* if it the original file we had no end statement so error */
+        fprintf(stderr, "%s: EOF - missing 'end'\n", files[0].name);
+        exit(1);
+    }
     if (fclose(srcfp) == EOF)
         IoError(files[fileIdx].name, "Close Error");
     free(files[fileIdx].name);
@@ -29,52 +31,44 @@ void CloseSrc(void) /* close current source file. Revert to any parent file */
 }
 
 /*
-    Until the main code is modified to use '\n' as the end of a line
-    the code below squashes '\r' in the input stream and replaces
-    '\n' with '\r\n'. Note a single '\r' is also treated as '\r\n'
+    Strip '\r' from source and handle unterminated last line of file
     This will allow the assembler to handle Linux/Unix created source
 */
-byte GetSrcCh(void) /* get next source character */
-{
-    int c;
-    static bool retLF = false;
+char *inBuf;
+char *inPtr;
+int inBufSize;
 
-    if (retLF) {
-        retLF = false;
-        return '\n';
+static char *getLine() {
+    int c;
+    int i = 0;
+
+    while ((c = getc(srcfp)) != '\n' && c != EOF) {
+        if (c && c != '\r') {           // exclude '\r' and embedded  '\0'
+            if (i >= inBufSize - 2)     // allow room for "\n\0"
+                inBuf = xrealloc(inBuf, inBufSize += 256);  // auto grow to allow very long lines
+            inBuf[i++] = c;
+        }
     }
-    // get the next real character
-    while ((c = getc(srcfp)) == EOF) {
+    if (c == EOF) {
         if (ferror(srcfp))
             IoError(files[fileIdx].name, "Read error");
-        if (lineChCnt) {
-            c = '\n';       // terminate the line
-            break;
-        }
-        CloseSrc(); // un-nest file if needed
+        if (i == 0)
+                return NULL;
+        Warn("Unterminated line at end of %s", files[fileIdx].name);
     }
-    // as the source is now opened in text mode
-    // for Windows a '\r' is mapped to '\n;
-    // for Linux, it could be start of '\r\n'
-    if (c == '\r') {
-#ifndef _WIN32
-        if ((c = getc(srcfp)) != '\n' && c != EOF)
-            ungetc(c, srcfp);
-#endif
-        c = '\n';
-    }
-    if (c == '\n') {
-        retLF = true;
-        if (lineChCnt > MAXLINE)
-            strcpy(inBuf + MAXLINE - 2, "..\r\n"); // indicate truncated
-        else
-            strcpy(inBuf + lineChCnt, "\r\n");
-        lineChCnt += 2;
-        return '\r';
-    }
-    if (lineChCnt++ < MAXLINE)
-        inBuf[lineChCnt - 1] = c;
-    return c & 0x7f;
+    inBuf[i] = '\n';
+    inBuf[i + 1] = '\0';
+    return inBuf;
+}
+
+
+byte GetSrcCh(void) /* get next source character */
+{
+    if (!inPtr || !*inPtr) {
+        while (!(inPtr = getLine()))
+            CloseSrc(); // unnest file
+    }     
+    return *inPtr++ & 0x7f;
 }
 
 void OpenSrc(void) {

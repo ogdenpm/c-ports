@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <showVersion.h>
 
 
@@ -35,9 +36,7 @@
 int _argc;
 char **_argv;
 bool useLC = true;
-
-pointer MEMORY;
-#define AVAILMEM	0x9000
+bool killObjFile = true;
 
 char *deviceMap[10];
 #ifdef _WIN32
@@ -67,10 +66,8 @@ static char *MapFile(char *osName, const char *isisPath) {
         dev[2] = isisPath[2];
         if (!deviceMap[i] && !(deviceMap[i] = getenv(dev)))
             deviceMap[i] = "";
-        if (strlen(deviceMap[i]) + strlen(isisPath + 4) + 1 > _MAX_PATH) {
-            fputs(isisPath, stderr);
-            FatalError("\nMapped path name too long");
-        }
+        if (strlen(deviceMap[i]) + strlen(isisPath + 4) + 1 > _MAX_PATH)
+            FatalError("Mapped path name too long:\n %s", isisPath);
         
         strcpy(osName, deviceMap[i]);
         s = strchr(osName, '\0');
@@ -78,8 +75,7 @@ static char *MapFile(char *osName, const char *isisPath) {
             strcpy(s, "/");
         strcat(s, isisPath + 4);
     } else if (strlen(isisPath) > _MAX_PATH) {
-        fputs(isisPath, stderr);
-        FatalError("\nPath name too long");
+        FatalError("Path name too long:\n %s", isisPath);
     } else
         strcpy(osName, isisPath);
     return osName;
@@ -90,7 +86,7 @@ void wrapUp(void) { // called on exit
         fclose(lstFp);
     if (objFp) {
         fclose(objFp);
-        if (errCnt) // remove object file if errors
+        if (errCnt) // remove object file unless successfully written
             unlink(objFile);
     }
 }
@@ -133,18 +129,10 @@ int main(int argc, char **argv) {
         strcat(s, " ");
         strcat(s, argv[i]);
     }
-    strcat(s, "\r\n");
-
-    MEMORY = (pointer)malloc(AVAILMEM);
+    strcat(s, "\n");
     atexit(wrapUp);
     Start(argv[1]);
 }
-
-pointer MemCk(void) {
-    return MEMORY + AVAILMEM - 1;	// address of last isis user memory
-}
-
-
 
 FILE *Fopen(char const *pathP, char *access) {
     char name[_MAX_PATH + 1];
@@ -165,13 +153,24 @@ FILE *Fopen(char const *pathP, char *access) {
 
 _Noreturn void IoError(char const *path, char const *msg) {
     fprintf(stderr, "%s: %s: %s", path, msg, strerror(errno));
-    errCnt++;   // makes sure obj file is removed
     exit(1);
 }
 
-_Noreturn void FatalError(char const *msg) {
-    fputs(msg, stderr);
+_Noreturn void FatalError(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fputs("Fatal Error: ", stderr);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
     fputc('\n', stderr);
-    errCnt++;   // makes sure obj file is removed
     exit(1);
+}
+
+void Warn(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fputs("Warning: ", stderr);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    fputc('\n', stderr);
 }

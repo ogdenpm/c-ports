@@ -23,7 +23,7 @@ static byte controlTable[] = {
             "\x34" "XREF"      "\x37" "SYMBOLS"
             "\x36" "PAGING"    "\x33" "TTY"
             "\x35" "MOD85"     "\x35" "PRINT"
-            "\x36" "OBJECT"    "\x39" "macrofile"   // hide MACROFILE
+            "\x36" "OBJECT"    "\x39" "MACROFILE"
             "\x29" "PAGEWIDTH" "\x2A" "PAGELENGTH"
             "\x7"  "INCLUDE"   "\x5"  "TITLE"
             "\x4"  "SAVE"      "\x7"  "RESTORE"
@@ -47,14 +47,16 @@ static bool ChkParen(byte parenType)
 static byte GetTok(void) {
     tokBufLen = 0;
     tokType = TT_ID;
-    if (IsCR())
+    if (IsEOL())
         return curChar;
 
-    SkipWhite_2();
+    SkipNextWhite();
     if (isalpha(curChar)) {  /* letter */
-        GetId(O_ID);
-        if (BlankAsmErrCode() && token[0].size < 14)
-            memcpy(tokBuf, lineBuf, tokBufLen = token[0].size);
+        GetTokenText(O_ID);
+        if (BlankAsmErrCode() && token.size <= 14) {
+            memcpy(tokBuf, lineBuf, tokBufLen = token.size);
+            tokBuf[tokBufLen] = '\0';
+        }
     } else if (isdigit(curChar)) {   /* digit ? */
         GetNum();
         if (BlankAsmErrCode()) {
@@ -66,11 +68,13 @@ static byte GetTok(void) {
         GetStr();
         if (BlankAsmErrCode()) {
             tokBufLen = 64;         /* cap at 64 chars */
-            if (token[0].size < 64)
-                tokBufLen = token[0].size;
+            if (token.size < 64)
+                tokBufLen = token.size;
             tokType = TT_STR;
-            if (tokBufLen > 0)
+            if (tokBufLen > 0) {
                 memcpy(tokBuf, lineBuf, tokBufLen);
+                tokBuf[tokBufLen] = '\0';
+            }
         }
     } else {
         tokBufLen = 1;
@@ -97,15 +101,15 @@ static bool FinaliseFileNameOpt(char *arg1w)
 }
 
 static void GetFileNameOpt(void) {
-    SkipWhite_2();
+    SkipNextWhite();
 
-    while (curChar != CR) {
+    while (curChar != EOLCH) {
         if (IsRParen() || IsWhite()) {
             if (FinaliseFileNameOpt(tokBuf))
                 return;
            break;
         }
-        if (tokBufIdx > MAXFILEPARAM)
+        if (tokBufIdx > MAXFILENAME)
            break;
         tokBuf[tokBufIdx++] = curChar;
         curChar = GetCh();
@@ -233,22 +237,32 @@ static void ProcessControl(void) {
             return;
     case 4:            /* MACROFILE */
             controls.macroFile = true;
+            if (ChkParen('(')) {
+                while ((curChar = GetCh()) != ')')
+                    if (IsEOL())
+                        FatalError("Missing ')' parsing MACROFILE (drive)");
+
+            } else
+                reget = 1;
             return;
     case 5:            /* PAGEWIDTH */
             if (GetControlNumArg()) {
-                controls.pageWidth = (byte) tokNumVal;
-                if (controls.pageWidth > 132)
-                    controls.pageWidth = 132;
-                if (controls.pageWidth < 72)
-                    controls.pageWidth = 72;
+                if (tokNumVal == 0)
+                    tokNumVal = 0xffff;
+                else if (tokNumVal < 72)
+                    tokNumVal = 72;
+                pageWidth          = tokNumVal;
+
                 return;
             }
             break;
     case 6:            /* PAGELENGTH */
             if (GetControlNumArg()) {
-                controls.pageLength = (byte) tokNumVal;
-                if (controls.pageLength < 15)
-                    controls.pageLength = 15;
+                if (tokNumVal == 0)
+                    tokNumVal = 0xffff;
+                else if (tokNumVal < 15)
+                    tokNumVal = 15;
+                pageLength          = tokNumVal;
                 return;
             }
             break;
@@ -273,8 +287,7 @@ static void ProcessControl(void) {
                 tokVal = GetTok();
                 if (tokType == TT_STR && tokBufLen != 0) {
                     if (phase != 1 || (IsPhase1() && primaryValid)) {
-                        memcpy(titleStr, tokBuf, tokBufLen);
-                        titleStr[titleLen = (byte)tokBufLen] = 0;
+                        strcpy(titleStr, tokBuf);
                         if (ChkParen(')')) {
                             controls.title = true;
                             return;
@@ -310,7 +323,7 @@ void ParseControls(void) {
     savedCtlGen = controls.gen;
     controlError = false;
 
-    while (GetTok() != CR && ! controlError) {
+    while (GetTok() != EOLCH && ! controlError) {
         if (tokBuf[0] == ';')        /* skip comments */
             Skip2EOL();
         else if (LookupControl() == 255)    /* Error() ? */
@@ -320,7 +333,7 @@ void ParseControls(void) {
     }
 
     if (controlError) {
-        if (tokBuf[0] != CR) {
+        if (tokBuf[0] != EOLCH) {
             reget = 0;
             Skip2EOL();
         }
@@ -331,7 +344,6 @@ void ParseControls(void) {
             CommandError();
     }
 
-    ChkLF();            /* eat the LF */
     if (controls.list != savedCtlList)
         ctlListChanged = true;
     else if (controls.gen != savedCtlGen && expandingMacro)

@@ -11,7 +11,6 @@
 #include "asm80.h"
 
 byte aExtents[] = " lstobj";
-static byte aDebug[] = "DEBUG";
 
 
 /* skip white space in command line */
@@ -21,44 +20,23 @@ void CmdSkipWhite(void) {
     }
 }
 
-/*
-    return drive ('0'-'9') of current program.
-    skips TRACE if present
-    returns '0' if no drive specified
-*/
-byte GetDrive(void) {
-    if (*cmdchP == ':') {
-        cmdchP += 2;
-        return *cmdchP;
-    } else
-        for (ii = 0; ii <= 4; ii++) {        /* case insensitive compare to TRACE */
-        if (*cmdchP != aDebug[ii] && aDebug[ii] + 0x20 != *cmdchP)
-                return '0';    /* must be a file name so drive 0 */
-            cmdchP++;
-        }
-    CmdSkipWhite();
-    if (*cmdchP != ':')
-        return '0';
-    cmdchP += 2;
-    return *cmdchP;
-}
-
 
 /* inits usage include overlay file initiatisation */
 bool IsWhiteOrCr(byte c)
 {
-    return c == ' ' || c == TAB || c == CR;
+    return c == ' ' || c == TAB || c == EOLCH;
 }
 
 void PrepSrcFile(char *srcName) {
     char *s;
 
-    symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
+//    symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
-    endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
+    endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = symTab[TID_MACRO] =
+        endSymTab[TID_MACRO]                                                     = symbols;
    
     scanCmdLine = true;        /* scanning command line */
-    puts("\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1");
+    puts("\nINTEL 8080/8085 MACRO ASSEMBLER, V4.1");
 
  
     // derive default lst and obj file names
@@ -67,8 +45,8 @@ void PrepSrcFile(char *srcName) {
     // .LST or .OBJ are used else .lst or .obj
     s  = strrchr(basename(srcName), '.');
     size_t flen = s ? s - srcName : strlen(srcName);
-    lstFile  = malloc(flen + 5);
-    objFile  = malloc(flen + 5);
+    lstFile  = xmalloc(flen + 5);
+    objFile  = xmalloc(flen + 5);
     strncpy(lstFile, srcName, flen);
     strcpy(lstFile + flen, useLC ? ".lst" : ".LST");
     strncpy(objFile, srcName, flen);
@@ -99,12 +77,12 @@ void ResetData(void) {    /* extended initialisation */
     passCnt++;
 
     srcLineCnt = pageCnt = pageLineCnt = 1;
-    curOp                              = T_CR;
+    curOp                              = EOL;
 
     b68AE = false;
     curChar = ' ';
-    for (ii = 0; ii <= 11; ii++)          /* reset all the control seen flags */
-        controlSeen[ii] = false;
+    // reset all of the controlSeen flags
+    memset(controlSeen, false, sizeof(controlSeen));;
 
     curMacroBlk = 0xFFFF;
     if (! IsPhase1()) {   /* close any Open() include file */
@@ -115,19 +93,10 @@ void ResetData(void) {    /* extended initialisation */
         }
         srcfp   = files[0].fp;
         rewind(srcfp);
+        inPtr = NULL;
     }
 
-    baseMacroTbl = Physmem() + 0xBF;
+    topMacroArg = macroArgs;
 }
 
-void InitRecTypes(void) {
-    rContent[HDR_TYPE] = OMF_CONTENT;
-    putWord(&rContent[HDR_LEN], 3);
-    rPublics[HDR_TYPE] = OMF_RELOC;
-    putWord(&rPublics[HDR_LEN], 1);
-    rInterseg[HDR_TYPE] = OMF_INTERSEG;
-    putWord(&rInterseg[HDR_LEN], 2);
-    rExtref[HDR_TYPE] = OMF_EXTREF;
-    putWord(&rExtref[HDR_LEN], 1);
-}
 

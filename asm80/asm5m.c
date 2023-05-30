@@ -24,7 +24,7 @@ static byte op16[] = {
 static byte chClass[] = {
     /*  0/8     1/9     2/A     3/B     4/C     5/D     6/E     7/F */
     /*00*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
-    /*08*/ CC_BAD, CC_WS,  CC_BAD,   CC_BAD,  CC_WS,     CC_CR,  CC_BAD, CC_BAD,
+    /*08*/ CC_BAD, CC_WS,  CC_EOL,   CC_BAD,  CC_WS,     CC_BAD,  CC_BAD, CC_BAD,
     /*10*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*18*/ CC_BAD, CC_BAD, CC_BAD,   CC_ESC,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*20*/ CC_WS,  CC_BAD, CC_BAD,   CC_BAD,  CC_DOLLAR, CC_BAD, CC_BAD, CC_QUOTE,
@@ -34,64 +34,35 @@ static byte chClass[] = {
     /*40*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*48*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*50*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
-    /*58*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
+    /*58*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_LET,
     /*60*/ CC_BAD, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*68*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*70*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*78*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD
 };
 
-static byte Unpack1(word packedWord) {
-    byte ch;
+static int macroLineSize;   // current size of buffer allocated to macro expansion
+#define MCHUNK  256         // grows by this many bytes as needed
 
-    ch = packedWord % 40;
-    if (ch == 0)
-        ch = ' ';
-    else if (ch <= 10)
-        ch += '0' - 1; /* digit */
-    else
-        ch += '?' - 11; /* ? @ and letters */
-    return ch;
-}
-
-void UnpackToken(wpointer src, byte *dst) {
-    word packedword;
-
-    packedword = src[1];
-    dst += 5;
-    *dst-- = Unpack1(packedword);
-    packedword /= 40;
-    *dst-- = Unpack1(packedword);
-    packedword /= 40;
-    *dst--     = Unpack1(packedword);
-    packedword = src[0];
-    *dst--     = Unpack1(packedword);
-    packedword /= 40;
-    *dst-- = Unpack1(packedword);
-    packedword /= 40;
-    *dst-- = Unpack1(packedword);
-}
-
-void InsertSym(void) {
-    pointer p, q;
-
+void InsertSym(int tableId) {
     /* move up the top block of the symbol tables to make room */
-    /* minor rewrite for c pointer arithmetic */
-    symHighMark = p = (q = symHighMark) + sizeof(tokensym_t);
-
-    if (baseMacroTbl < p)
+    int nSymbols = (int)(endSymTab[TID_MACRO] - token.symbol);
+    if (++endSymTab[TID_MACRO] >= &symbols[MAXSYMBOLS])
         RuntimeError(RTE_TABLE); /* table Error() */
-
-    while (q > (pointer)topSymbol) /* byte coqy */
-        *--p = *--q;
+    memmove(token.symbol + 1, token.symbol, nSymbols * sizeof(tokensym_t));
     /* insert the new symbol name */
-    memcpy(topSymbol, tokPtr, 4);
-    endSymTab[TID_MACRO]++;  /* mark new top of macro table - scaled for c pointer arithmetic */
-    topSymbol->type = 0; /* clear the type */
+    if (tableId == TID_SYMBOL) {
+        endSymTab[TID_SYMBOL]++;    // new end of symbols
+        symTab[TID_MACRO]++;     // and macros moves up as well
+    }
+    token.symbol->name = AllocStr((char *)tokenStart, tableId == TID_MACRO);
+    token.symbol->type = 0;    /* clear the type */
+    if ((int)strlen((char *)tokenStart) > maxSymWidth)
+        maxSymWidth = (int)strlen((char *)tokenStart);
 }
 
-static bool OutSideTable(byte tableId) { /* check if topSymbol is outside table bounds */
-    if (endSymTab[tableId] >= topSymbol && topSymbol >= symTab[tableId])
+static bool OutSideTable(byte tableId) { /* check if token.symbol is outside table bounds */
+    if (endSymTab[tableId] >= token.symbol && token.symbol >= symTab[tableId])
         return false;
 
     SyntaxError();
@@ -101,10 +72,10 @@ static bool OutSideTable(byte tableId) { /* check if topSymbol is outside table 
 void InsertMacroSym(word paramId, byte type) {
     if (OutSideTable(TID_MACRO))
         return;
-    InsertSym();
-    topSymbol->paramId = paramId; /* fill in the rest of the new entry */
-    topSymbol->type    = type;
-    topSymbol->flags   = 0;
+    InsertSym(TID_MACRO);
+    token.symbol->paramId = paramId; /* fill in the rest of the new entry */
+    token.symbol->type    = type;
+    token.symbol->flags   = 0;
     PopToken();
     PopToken();
     //	DumpSymbols(TID_MACRO);
@@ -113,9 +84,9 @@ void InsertMacroSym(word paramId, byte type) {
 byte labelUse;
 
 void SetTokenType(byte type, bool isSetOrEqu) {
-    token[0].type = type;
+    token.type = type;
     if ((acc1ValType == K_REGNAME || acc1ValType == K_SP) && isSetOrEqu)
-        token[0].type = 12 - type; /* set-> TT_SET, equ-> TT_EQU */
+        token.type = 12 - type; /* set-> TT_SET, equ-> TT_EQU */
 }
 
 void UpdateSymbolEntry(word value, byte type) {
@@ -132,127 +103,102 @@ void UpdateSymbolEntry(word value, byte type) {
              0x8x-> needs absolute value
     */
 
-    origType   = token[0].type;
+    origType   = token.type;
     isSetOrEqu = type == O_EQU || type == O_SET;
     absFlag    = 0;
 
     lineSet    = false;
     if (OutSideTable(TID_SYMBOL)) /* ignore if outside normal symbol table */
         return;
-    flags = topSymbol->flags;
+    flags = token.symbol->flags;
 
     if (tokenIdx > 1)
         SyntaxError();
 
-    if (IsPhase1())
-        if (token[0].type == O_NAME) {
-            if (createdUsrSym) {
-                if (topSymbol->type >= 0x80 ||
-                    (type == T_MACRONAME && topSymbol->line != srcLineCnt)) {
-                    LocationError();
-                    absFlag = 0x80;
-                }
-            } else {
-                InsertSym();
-                symTab[TID_MACRO]++;     /* adjust the base of the macro table */
-                endSymTab[TID_SYMBOL]++; /* adjust the end of the user symbol table */
-                flags = 0;
+    if (IsPhase1() && token.type == O_NAME) {
+        if (createdUsrSym) {
+            if (token.symbol->type >= 0x80 ||
+                (type == MACRONAME && token.symbol->line != srcLineCnt)) {
+                LocationError();
+                absFlag = 0x80;
             }
-
-            flags = (activeSeg == SEG_ABS ? 0 : UF_RBOTH) | (inPublic ? UF_PUBLIC : 0) |
-                    (inExtrn ? (UF_EXTRN + UF_RBOTH) : 0);
-            if (labelUse == L_SETEQU) /* set or equ */
-                flags = acc1RelocFlags;
-
-            if (labelUse == L_TARGET) /* label: */
-                flags |= activeSeg;
-
-            if (hasVarRef && isSetOrEqu)
-                token[0].type = O_SETEQUNAME;
-            else
-                SetTokenType(type, isSetOrEqu);
-
-            goto endUpdateSymbol;
+        } else {
+            InsertSym(TID_SYMBOL);
+            flags = 0;
         }
 
-    if (passCnt == 2)
-        if (token[0].type == O_NAME)
-            if (acc1ValType != O_NAME)
-                if (isSetOrEqu) {
-                    SetTokenType(type, isSetOrEqu);
-                    if (topSymbol->type < 128) {
-                        topSymbol->type = token[0].type;
-                        topSymbol->addr = value;
-                        flags               = acc1RelocFlags;
-                        lineSet             = true;
-                    }
-                    goto endUpdateSymbol;
-                }
+        flags = (activeSeg == SEG_ABS ? 0 : UF_RBOTH) | (inPublic ? UF_PUBLIC : 0) |
+                (inExtrn ? (UF_EXTRN + UF_RBOTH) : 0);
+        if (labelUse == L_SETEQU) /* set or equ */
+            flags = acc1RelocFlags;
 
-    if (IsPhase1())
-        if (token[0].type == O_REF)
-            if (TestBit(type, b5666)) {
-                if (inExtrn)
-                    token[0].type = O_LABEL;
-                else {
-                    token[0].type = type;
-                    flags &= ~(UF_RBOTH | UF_SEGMASK); /* mask off seg, and relocate info*/
-                    if (labelUse == L_SETEQU)          /* set or equ */
-                        flags = acc1RelocFlags | UF_PUBLIC;
+        if (labelUse == L_TARGET) /* label: */
+            flags |= activeSeg;
 
-                    if (labelUse == L_TARGET) /* label: then add seg and relocation info */
-                        if (activeSeg != 0)
-                            flags |= activeSeg | (UF_PUBLIC + UF_RBOTH);
-                }
-                goto endUpdateSymbol;
-            }
+        if (hasVarRef && isSetOrEqu)
+            token.type = O_SETEQUNAME;
+        else
+            SetTokenType(type, isSetOrEqu);
 
-    if (IsPhase1())
-        if (type == O_REF)
-            if (TestBit(token[0].type, b5666)) {
-                if ((flags & (UF_PUBLIC | UF_EXTRN)) != 0)
-                    token[0].type = O_LABEL;
-                else
-                    flags |= UF_PUBLIC;
-                goto endUpdateSymbol;
-            }
-
-    if (IsPhase1())
-        if ((token[0].type != type && token[0].type != TT_SET) || type == O_EQU)
-            token[0].type = O_LABEL;
-
-    if (!inPublic && TestBit(token[0].type, b5669))
-        flags = acc1RelocFlags | (token[0].type != T_MACRONAME ? flags & UF_PUBLIC : 0);
-    else {
+    } else if (passCnt == 2 && token.type == O_NAME && acc1ValType != O_NAME && isSetOrEqu) {
+        SetTokenType(type, isSetOrEqu);
+        if (token.symbol->type < 128) {
+            token.symbol->type  = token.type;
+            token.symbol->value = value;
+            flags               = acc1RelocFlags;
+            lineSet             = true;
+        }
+    } else if (IsPhase1() && token.type == O_REF && TestBit(type, b5666)) {
+        if (inExtrn)
+            token.type = O_LABEL;
+        else {
+            token.type = type;
+            flags &= ~(UF_RBOTH | UF_SEGMASK); /* mask off seg, and relocate info*/
+            if (labelUse == L_SETEQU)          /* set or equ */
+                flags = acc1RelocFlags | UF_PUBLIC;
+            else if (labelUse == L_TARGET && activeSeg != SEG_ABS) /* label: then add seg and relocation info */
+                flags |= activeSeg | (UF_PUBLIC + UF_RBOTH);
+        }
+    } else if (IsPhase1() && type == O_REF && TestBit(token.type, b5666)) {
+        if ((flags & (UF_PUBLIC | UF_EXTRN)) != 0)
+            token.type = O_LABEL;
+        else
+            flags |= UF_PUBLIC;
+    } else {
         if (IsPhase1())
-            token[0].type = O_LABEL;
+            if ((token.type != type && token.type != TT_SET) || type == O_EQU)
+                token.type = O_LABEL;
 
-        if (!(inPublic || inExtrn))
-            if (topSymbol->addr != value)
+        if (!inPublic && TestBit(token.type, b5669))
+            flags = acc1RelocFlags | (token.type != MACRONAME ? flags & UF_PUBLIC : 0);
+        else {
+            if (IsPhase1())
+                token.type = O_LABEL;
+
+            if (!(inPublic || inExtrn) && token.symbol->addr != value)
                 PhaseError();
+        }
     }
+    absFlag |= (token.symbol->type & 0x80);
 
-endUpdateSymbol:
-    absFlag |= (topSymbol->type & 0x80);
+    if (IsPhase1() && (type == O_NAME || type == O_REF || origType != token.type))
+        token.symbol->type = token.type | absFlag;
 
-    if (IsPhase1() && (type == O_NAME || type == O_REF || origType != token[0].type))
-        topSymbol->type = token[0].type | absFlag;
-
-    kk = topSymbol->type;
-    if (token[0].type == O_LABEL || kk == O_LABEL)
+    byte symType = token.symbol->type;
+    if (token.type == O_LABEL || symType == O_LABEL)
         MultipleDefError();
 
-    if (kk >= 0x80)
+    if (symType >= 0x80)
         LocationError();
 
-    if ((IsPhase1() && (token[0].type == type || (type == O_EQU && token[0].type == 7))) ||
-        (type == 4 && BlankAsmErrCode()) || lineSet || type == T_MACRONAME)
-        topSymbol->addr = value;
+    if ((IsPhase1() && (token.type == type || (type == O_EQU && token.type == 7))) ||
+        (type == 4 && BlankAsmErrCode()) || lineSet || type == MACRONAME)
+        token.symbol->value = value;
 
-    topSymbol->flags = flags;
-    inPublic             = 0;
-    inExtrn              = 0;
-    if (topSymbol->type == O_REF)
+    token.symbol->flags = flags;
+    inPublic         = false;
+    inExtrn          = false;
+    if (token.symbol->type == O_REF)
         UndefinedSymbolError();
 
     hasVarRef = false;
@@ -266,16 +212,16 @@ endUpdateSymbol:
 /*
     two different tables types are used in lookup
     table 0: static keyword lookup the individual entries are coded as
-        packed keyword - byte * 4 - 3 chars per word
+        keyword as char *
         opcode base - byte
-        offset to next entry || 0 if end - byte
+        // padding
         type - byte
         flags - byte
     initial entry is determined by hashing the name
 
     The other two tables are kept as sorted 8 byte entries to allow binary chop search
     individual entries are encoded as follows
-        packed keyword - byte * 4 - 3 chars per word
+        symbol name as char *
         word value used differently for different types of symbol
         type - byte (add 0x80 if abs value)
         flags - byte
@@ -287,94 +233,83 @@ endUpdateSymbol:
 
     table 1: is the main symbol table which grows dynamically as new entries are inserted
     table 2: is a dynamic macro table 8 bytes per entry it holds the names of the current macro
-   paramaters
+    parameters. Both tables are contiguous. Symbol search in each table is done by binary chop
+    and new symbols are inserted into the appropriate table. Other entries, possibly for both
+    tables are moved upwards.
 
 */
 
 byte Lookup(byte tableId) {
-    tokensym_t *lowOffset, *highOffset, *midOffset;
-    word deltaToNext;
-    tokensym_t *entryOffset;
-    wpointer packedTokP;
-    byte i, gt;
-    //    symEntry based entryOffset KEYWORD_T,
-    //    addr based aVar word;
 
-    packedTokP = (wpointer)tokPtr;
+    tokensym_t *entryOffset;
+
+    byte i;
+    //    symEntry based entryOffset KEYWORD_T
+
+
     /* Keyword() lookup */
     if (tableId == TID_KEYWORD) { /* hash chain look up key word */
-        /* code modified to keep deltaToNext as offset */
-        entryOffset = symTab[TID_KEYWORD]; /* offset to current symbol to compare */
-        /* offset of first to use - hashes packed symbol name. Note C pointers scale */
-        deltaToNext = (((packedTokP[0] + packedTokP[1]) & 0xffff)) % 151;
+        entryOffset = in_word_set((char *)tokenStart);
+        if (entryOffset && (controls.macroFile || entryOffset->type < MACRO)) {
+            token.symbol = entryOffset;
+            token.type   = token.symbol->type;
+            if (token.type < SINGLE) /* instruction with arg */
+                if (op16[token.type])
+                    has16bitOperand = true;
 
-        do {
-            entryOffset += deltaToNext; /* point to the next in chain */
-            /* process if exact match */
-            if (entryOffset->tok[0] == packedTokP[0] && entryOffset->tok[1] == packedTokP[1]) {
-                topSymbol = entryOffset;
-                token[0].type  = topSymbol->type;
-                if (token[0].type < K_SINGLE) /* instruction with arg */
-                    if (op16[token[0].type])
-                        has16bitOperand = true;
+            if (token.symbol->flags == 2 && !controls.mod85) /* RIM/SIM only valid on 8085 */
+                SourceError('O');
 
-                if (topSymbol->flags == 2 && !controls.mod85) /* RIM/SIM only valid on 8085 */
-                    SourceError('O');
-
-                if (token[0].type == K_SP) { /* SP */
-                    if (!(curOp == K_LXI || curOp == K_REG16))
-                        SourceError('X');
-                    token[0].type = K_REGNAME; /* reg */
-                }
-                return token[0].type & 0x7F;
+            if (token.type == K_SP) { /* SP */
+                if (!(curOp == LXI || curOp == REG16))
+                    SourceError('X');
+                token.type = K_REGNAME; /* reg */
             }
-            deltaToNext = entryOffset->delta / sizeof(tokensym_t); // scale for C pointer arithmetic
-        } while (deltaToNext);  // loop while more options
-
+            return token.type & 0x7F;
+        }
         return O_NAME;
     }
 
     /* MACRO and User() tables are stored sorted 8 bytes per entry */
     /* use binary chop to find entry */
-    lowOffset  = symTab[tableId];
-    highOffset = entryOffset = endSymTab[tableId];
+    tokensym_t *lowOffset = symTab[tableId];
+    tokensym_t *highOffset = endSymTab[tableId];
+    tokensym_t *midOffset;
+    entryOffset           = highOffset;
+
 
     /* binary chop search for id */
 
     while ((midOffset = lowOffset + ((highOffset - lowOffset) >> 1)) != entryOffset) {
         entryOffset = midOffset;
-        if (packedTokP[0] == entryOffset->tok[0]) {
-            if (packedTokP[1] == entryOffset->tok[1]) {
-                topSymbol = entryOffset;
-                token[0].type  = topSymbol->type;
-                if (token[0].type == O_SETEQUNAME)
-                    token[0].type = O_NAME;
+        int cmp       = strcmp(entryOffset->name, (char *)tokenStart);
+        if (cmp == 0) {
+            token.symbol     = entryOffset;
+            token.type = token.symbol->type;
+            if (token.type == O_SETEQUNAME)
+                token.type = O_NAME;
 
-                if ((usrLookupIsID = (kk = (token[0].type & 0x7F)) == O_NAME))
-                    if (needsAbsValue)
-                        topSymbol->type = 0x80 + O_NAME; /* update ABSVALUE flag */
-                return kk;
-            } else
-                gt = entryOffset->tok[1] > packedTokP[1];
-        } else
-            gt = entryOffset->tok[0] > packedTokP[0];
+            if ((usrLookupIsID = (token.type & 0x7F) == O_NAME))
+                if (needsAbsValue)
+                    token.symbol->type = 0x80 + O_NAME; /* update ABSVALUE flag */
+            return token.type & 0x7F;
+        }
 
-        entryOffset = midOffset;
-        if (gt)
+        if (cmp > 0)
             highOffset = entryOffset;
         else
             lowOffset = entryOffset;
     }
 
-    topSymbol = highOffset;
+    token.symbol = highOffset;
     if (tableId == TID_SYMBOL && !IsSkipping()) {
         createdUsrSym = false;
         labelUse      = L_REF;
         UpdateSymbolEntry(srcLineCnt, needsAbsValue ? 0x80 | O_NAME : O_NAME);
         /* update symbol stack to adjust pointers for entries above insert point */
         for (i = 1; i <= tokenIdx; i++) {
-            if (token[i].symbol >= topSymbol)
-                token[i].symbol++;
+            if (tokenStk[i].symbol >= token.symbol)
+                tokenStk[i].symbol++;
         }
 
         createdUsrSym = true;
@@ -388,19 +323,28 @@ byte Lookup(byte tableId) {
     MACROEOB 0xFE	end of macro buffer causes next block to be read
     MACROPARAM 0x80	indicates a macro parameter to be expanded the parameter number is in lookahead
                     for IRPC the next char is taken which can be escaped, otherwise the macro is
-   expanded >MACROPARAM		indicates local variable. lookahead is the local variable number in the
-   current macro it is added to the base number for locals for the expansion of this macro and
-   converted into ??number as a unique local label
+                    expanded
+   >MACROPARAM		indicates local variable. lookahead is the local variable number in the
+                    current macro it is added to the base number for locals for the expansion
+                    of this macro and converted into ??number as a unique local label
     ESC	0x1B		end of spooled macro, returns ESC to higher order routines to handle
 */
 byte GetCh(void) {
     static byte curCH, prevCH;
+    static byte irpcChr[3] = { 0, 0, 0x81 }; // where irpc char is built (0x81 is end marker)
+    static char localVarName[7]    = {
+        '?', '?', 0, 0, 0, 0, 0x80
+    }; // where DoLocal vars are constructed (0x80 is end marker)
+    static pointer savedMacroBufP;
+
 
     while (!reget) {
         prevCH = curCH;
         do {
             curCH = lookAhead;
-            if (expandingMacro) {
+            if (curCH == EOLCH)
+                lookAhead = 0;
+            else if (expandingMacro) {
                 while ((lookAhead = *curMacro.bufP) == MACROEOB) {
                     ReadM(curMacroBlk + 1);
                     curMacro.bufP = macroBuf;
@@ -427,33 +371,25 @@ byte GetCh(void) {
                     curMacro.bufP =
                         savedMacroBufP; // back to macro as macro parameter expansion has finished
                 else {
-                    savedMacroBufP = curMacro.bufP;        // is parameter or Local
-                    if (curCH == MACROPARAM) {              // parameter
-                        curMacro.bufP = curMacro.pCurArg; // parameter text
+                    savedMacroBufP = curMacro.bufP;       // is parameter or Local
+                    if (curCH == MACROPARAM) {            // parameter
+
                         if (savedMtype == M_IRPC) {
-                            irpcChr[1]     = *curMacro.bufP; // copy the char
-                            curMacro.bufP = &irpcChr[1];
-                            if (*curMacro.bufP == '!') { // if it was '!' then include escaped char
-                                irpcChr[0] = '!';
-                                irpcChr[1] = curMacro.pCurArg[1];
-                                curMacro.bufP--; // allow for the two chars
-                            }
+                            curMacro.bufP = irpcChr;
+                            irpcChr[0]    = curMacro.pCurArg[0];
+                            irpcChr[1] = irpcChr[0] == '!' ? curMacro.pCurArg[1] : 0x81;
                         } else {
-                            while ((byte)(--lookAhead) != 0xFF) { // skip to required parameter
-                                curMacro.bufP -= (*curMacro.bufP & 0x7F);
+                            curMacro.bufP = curMacro.pCurArg;     // parameter text
+                            while ((byte)(--lookAhead) != 0) { // skip to required parameter
+                                curMacro.bufP += (*curMacro.bufP & 0x7F);
                             }
-                            curMacro.bufP++; // skip over the length of next parameter
+                            curMacro.bufP++; // skip over the length
                         }
                     } else { // Local
-                        curMacro.bufP =
-                            localVarName; // generate Local id from instance & current DoLocal base
-                        word tmp =
-                            lookAhead + curMacro.localIdBase; // plm reuses aVar instead of tmp
+                        curMacro.bufP = (pointer)localVarName; // generate Local id from instance & current DoLocal base
                         // generate DoLocal variable name
-                        for (ii = 1; ii <= 4; ii++) {
-                            localVarName[6 - ii] = tmp % 10 + '0';
-                            tmp /= 10;
-                        }
+                        sprintf(localVarName, "??%04d", (lookAhead + curMacro.localIdBase) % 10000);
+                        localVarName[6] = 0x80;
                     }
                 }
 
@@ -463,13 +399,16 @@ byte GetCh(void) {
         }
 
         if (expandingMacro > 1) /* in pass 2 print expanded macro code if required */
-            if (IsPhase2Print() && macroP < macroLine + 127) /* append character if room */
-                    *macroP++ = curCH;
+            if (IsPhase2Print()) {
+                if (macroPIdx >= macroLineSize - 1) // allow for '\0'
+                    macroLine = xrealloc(macroLine, macroLineSize += MCHUNK);
+                macroLine[macroPIdx++] = curCH;
+            }
 
-        if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line CR for
+        if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line EOLCH for
                                none empty line */
-            if ((startMacroLine != macroInPtr && curCH == CR) || !excludeCommentInExpansion)
-                InsertCharInMacroTbl(curCH);
+            if ((startMacroLineIdx != macroInIdx && curCH == EOLCH) || !excludeCommentInExpansion)
+                InsertByteInMacroTbl(curCH);
 
         if (!(prevCH == '!' || inComment)) { /* if not escaped or in comment */
             if (curCH == '>')                /* handle < > nesting */
@@ -486,18 +425,7 @@ byte GetCh(void) {
 
 byte GetChClass(void) {
     curChar = GetCh();
-    if (inMacroBody)
-        return CC_MAC;
 
-    return chClass[curChar];
+    return inMacroBody ? CC_MAC : chClass[curChar];
 }
 
-void ChkLF(void) {
-    if (lookAhead == LF)
-        lookAhead = 0;
-    else {
-        mSpoolMode &= 0xFE; // prevent the error from being supressed by spooling
-        IllegalCharError(); // record the error
-        mSpoolMode = mSpoolMode > 0 ? 0xff : 0; // 0xff if capturing
-    }
-}

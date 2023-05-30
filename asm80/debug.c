@@ -29,7 +29,6 @@ void ShowYYType(void) {
 }
 void DumpSymbols(byte tableId)
 {
-    char token[7];
 
     tokensym_t *s, *e;
     s = symTab[tableId];
@@ -39,9 +38,7 @@ void DumpSymbols(byte tableId)
     else {
         printf("symtab[%d]\n", tableId);
         while (s < e) {
-            UnpackToken(s->tok, (byte *)token);
-            token[6] = 0;
-            printf("tok = \"%s\", line/val = %04X, type = %02X, flags = %02X\n", token, s->addr, s->type, s->flags);
+            printf("tok = \"%s\", line/val = %04X, type = %02X, flags = %02X\n", s->name, s->addr, s->type, s->flags);
 
             s++;
         }
@@ -61,7 +58,6 @@ void DumpOpStack(void) {
 
 void DumpTokenStackItem(int i, bool pop)
 {
-    char tok[7];
     tokensym_t *s;
 
     if (i == 0 && pop)
@@ -69,21 +65,16 @@ void DumpTokenStackItem(int i, bool pop)
     else
         printf("%1d", pop ? i - 1 : i);
 
-    if (token[i].size == 4) {
-        UnpackToken((wpointer)token[i].start, (byte *)tok);
-        printf(" %6.6s", tok);
-    }
-    else if (token[i].size == 1)
-        printf(" %6d", *token[i].start);
-    else if (token[i].size == 2)
-        printf(" %6d", *(wpointer)token[i].start);
+    if (tokenStk[i].size == 1)
+        printf(" %6d", lineBuf[tokenStk[i].start]);
+    else if (tokenStk[i].size == 2)
+        printf(" %6d", *(wpointer)(lineBuf + tokenStk[i].start));
     else
-        printf(" %6.*s", token[i].size, token[i].start);
-    printf("  %02X   %02X  %3d  %3d", token[i].type, token[i].attr, token[i].size, token[i].symId);
-    s = token[i].symbol;
+        printf(" %.*s", tokenStk[i].size, (lineBuf + tokenStk[i].start));
+    printf("  %02X   %02X  %3d  %3d", tokenStk[i].type, tokenStk[i].attr, tokenStk[i].size, tokenStk[i].symId);
+    s = tokenStk[i].symbol;
     if (s /*&& (symTab[TID_SYMBOL] <= s && s <= endSymTab[TID_SYMBOL] || symTab[TID_MACRO] <= s && s <= endSymTab[TID_MACRO]) */) {
-        UnpackToken(s->tok, (byte *)tok);
-        printf("   %6.6s %04X   %02X   %02X\n", tok, s->addr, s->type, s->flags);
+        printf("   %6.6s %04X   %02X   %02X\n", s->name, s->addr, s->type, s->flags);
     }
     else
         printf("\n");

@@ -26,18 +26,18 @@ bool IsSkipping(void) {
 
 void Sub546F(void) {
     spIdx = NxtTokI();
-    if (expectingOperands)
+    if (expectOperand)
         SyntaxError();
     if (HaveTokens())
-        if (!(token[spIdx].type == O_DATA || lineNumberEmitted))
+        if (!(tokenStk[spIdx].type == O_DATA || lineNumberEmitted))
             SyntaxError();
     if (inDB || inDW) {
-            if (tokenIdx == 1 && ! BlankAsmErrCode() && token[0].size != 1)
-            token[0].size = 2;
+            if (tokenIdx == 1 && ! BlankAsmErrCode() && token.size != 1)
+            token.size = 2;
     }
     else if (! BlankAsmErrCode() && HaveTokens())
-        if (token[spIdx].size > 3)
-            token[spIdx].size = 3;
+        if (tokenStk[spIdx].size > 3)
+            tokenStk[spIdx].size = 3;
 }
 
 
@@ -57,22 +57,21 @@ void FinishLine(void) {
 
     if (!isControlLine)
     {
-        ii = 2;
-        if (tokenIdx < 2 || inDB || inDW)
-            ii = 0;
+        int i = tokenIdx < 2 || inDB || inDW ? 0 : 2;
 
-        w6BCE = IsSkipping() || ! isInstr ? lineBuf : token[ii].start + token[ii].size;
+
+        int w6BCE = IsSkipping() || !isInstr ? 0 : tokenStk[i].start + tokenStk[i].size;
 
         if (ChkGenObj())
             Ovl8();
         b6B2C = true;
-        segLocation[activeSeg] = effectiveAddr = (word)(segLocation[activeSeg] + (w6BCE - lineBuf));
+        segLocation[activeSeg] = effectiveAddr = (word)(segLocation[activeSeg] + w6BCE);
     }
 
     if (controls.xref && haveUserSymbol && phase == 1)
         EmitXref(XREF_REF, name);
 
-    FlushM();
+    FlushM(false);
 
     while (tokenIdx > 0) {
         PopToken();

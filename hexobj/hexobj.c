@@ -28,11 +28,7 @@
 #include <ctype.h>
 #include <showVersion.h>
 
-#ifdef _MSC_VER
-#ifndef strncasecmp
-#define strncasecmp strnicmp
-#endif
-#endif
+#define strncasecmp _strnicmp
 // intel OMF record types
 #define MODHDR  2
 #define MODEND  4

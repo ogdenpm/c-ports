@@ -10,7 +10,7 @@
 
  // vim:ts=4:expandtab:shiftwidth=4:
 #include "asm80.h"
-
+#include <ctype.h>
 byte tokReq[] = {
     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
        0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
@@ -19,7 +19,7 @@ byte tokReq[] = {
        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
        0, 0 };
 
-byte definingLHS[] = { 0x36, 0, 0, 0, 6, 0, 0, 2 };
+static byte definingLHS[] = { 0x36, 0, 0, 0, 6, 0, 0, 2 };
 /* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
 /* 29, 30, 55 */
 bool absValueReq[] = {
@@ -31,84 +31,36 @@ bool absValueReq[] = {
        false, false };
 /* true for DS, ORG, IF, 3A?, IRP, IRPC DoRept */
 
-byte b3F88[] = { 0x41, 0x90, 0, 0, 0, 0, 0, 0, 0, 0x40 };
+static byte b3F88[] = { 0x41, 0x90, 0, 0, 0, 0, 0, 0, 0, 0x40 };
 /* bit vector 66 -> 10010000 0 x 56 01 */
 
-void SkipWhite_2(void) {
+void SkipNextWhite(void) {
     while (GetCh() == ' ' || IsTab())
         ;
 }
 
 
 byte NonHiddenSymbol(void) {
-    // name based nameP word;
-
-    word* nameP = topSymbol->tok;
-    /* check name < '??0' or '??9' < name */
-    return (*nameP < 0x4679) || controls.macroDebug || (0x4682 < *nameP);
-}
-
-
-/* seek to specified macro block (128 byte) in macro spool file */
-void SeekM(word blk)
-{
-    if (blk != nxtMacroBlk) {		// if already there then nothing to do
-        long where = blk * 128;
-        if (fseek(macroFp, where, SEEK_SET)) // see to the required block
-            IoError("macro file", "Seek error");
-        
-    }
-    nxtMacroBlk = blk + 1;					// update next block info
-}
-
-
-
-/* read in macro from disk - located at given block */
-void ReadM(word blk) {
-    word actual;
-
-    if (blk >= maxMacroBlk) // does not exist
-        actual = 0;
-    else if (blk == curMacroBlk) // already correct
-        return;
-    else { // load the buffer
-        SeekM(blk);
-        if ((actual = (word)fread(macroBuf, 1, 128, macroFp)) == 0 && ferror(macroFp))
-            IoError("Macro file", "Read error");
-    }
-
-    curMacro.blk = curMacroBlk = blk;      // set relevant trackers
-    macroBuf[actual]            = MACROEOB; /* flag end of macro buffer */
-}
-
-/* write the macro to disk */
-void WriteM(void)
-{
-    if (phase == 1) {	// only needs writing on pass 1
-        SeekM(maxMacroBlk++);	// seek to end and update marker to account for this block
-        if (fwrite(symHighMark, 1, 128, macroFp) != 128 && ferror(macroFp))
-                IoError("Macro file", "Write error");
-    }
-    macroBlkCnt++;		// update the buffer count for this macro
+    const char *s = token.symbol->name;
+    return s[0] != '?' || s[1] != '?' || !isdigit(s[2]) || !isdigit(s[3]) || !isdigit(s[4]) ||
+           !isdigit(s[5]) || s[6];
 }
 
 
 // flush the macro buffer to disk in full 128 byte blocks
-// residual are moved to start of macro buffer endSymTab[TID_MACRO]
-void FlushM(void)
-{
-    word bytesLeft;
+// residual are moved to start of macro buffer
+void FlushM(bool fin) {
 
-    if (mSpoolMode & 1) { /* spool macros to disk in 128 byte blocks */
-        while ((bytesLeft = (word)(macroInPtr - symHighMark)) >= 128) {
-            WriteM();
-            symHighMark += 128;
+    if ((mSpoolMode & 1)) { /* spool macros to disk in 128 byte blocks */
+        if (macroInIdx >= 128) {
+            WriteM(macroText, macroInIdx / 128);
+            if (macroInIdx & 0x7f)
+                memcpy(macroText, macroText + (macroInIdx & ~0x7f), macroInIdx & 0x7f);
+            macroInIdx &= 0x7f;
         }
-        /* move the remaining bytes to start of macro buffer */
-        if (bytesLeft != 0)
-            memcpy(endSymTab[TID_MACRO], symHighMark, bytesLeft);
-        macroInPtr = (symHighMark = (pointer)endSymTab[TID_MACRO]) + bytesLeft;
     }
+    if (fin)
+        WriteM(macroText, 1);
 }
 
 
@@ -121,15 +73,14 @@ void SkipWhite(void) {
 
 void Skip2NextLine(void) {
     Skip2EOL();
-    ChkLF();
 }
 
 
 void gotValue(void) {
-    if (curOp == T_VALUE)		// if previous was value then two consecutive values so error
+    if (curOp == VALUE)		// if previous was value then two consecutive values so error
         ExpressionError();
     inExpression = 0;
-    curOp = T_VALUE;			// record we just saw a value
+    curOp = VALUE;			// record we just saw a value
 }
 
 void Tokenise(void) {
@@ -143,7 +94,7 @@ void Tokenise(void) {
         case CC_ESC:	// moved to allow fall through to error case rather than use goto
             if (expandingMacro) {
                 skipIf[0] = false;
-                yyType = O_NULVAL;
+                yyType = NULVAL;
                 return;
             }
         case CC_BAD:
@@ -154,23 +105,23 @@ void Tokenise(void) {
                 inComment = true;
                 if (GetChClass() == CC_SEMI && (mSpoolMode & 1)) {
                     excludeCommentInExpansion = true;
-                    macroInPtr -= 2;		// remove the ;;
+                    macroInIdx -= 2;		// remove the ;;
                 }
                 Skip2NextLine();			// process the rest of the line
-                yyType = T_CR;
+                yyType = EOL;
                 return;
             }
             break;
         case CC_COLON:
-            if (!gotLabel) {				// ok if only label on line
+            if (!haveLabel) {				// ok if only label on line
                 if (skipIf[0] || (mSpoolMode & 1))	// skipping or spooling so junk tokens
                     PopToken();
                 else {
                     labelUse = L_TARGET;			// note label usage and update symbol table with location
                     UpdateSymbolEntry(segLocation[activeSeg], O_TARGET);
                 }
-                expectingOperands = false;			// should see an opcode first
-                gotLabel = expectingOpcode = true;
+                expectOperand = false;			// should see an opcode first
+                haveLabel = expectOpcode = true;
             }
             else {
                 SyntaxError();				// two labels is an error
@@ -180,27 +131,26 @@ void Tokenise(void) {
             haveUserSymbol = false;			// not a user symbol but a label
             curOp = O_LABEL;
             break;
-        case CC_CR:
-            ChkLF();
-            yyType = T_CR;
+        case CC_EOL:
+            yyType = EOL;
             inQuotes = false;		// auto close string for spooling
             return;
         case CC_PUN:
             if (curChar == '+' || curChar == '-')
-                if (!TestBit(curOp, b3F88)) /* not T_BEGIN, T_RPAREN or K_NUL */
-                    curChar += (T_UPLUS - T_PLUS);    /* make unary versions */
-            yyType = curChar - '(' + T_LPAREN;
+                if (!TestBit(curOp, b3F88)) /* not BEGIN, RPAREN or NUL */
+                    curChar += (UPLUS - PLUS);    /* make unary versions */
+            yyType = curChar - '(' + LPAREN;
             return;
         case CC_DOLLAR:
             PushToken(O_NUMBER);        // $ is treated as a number
             CollectByte(segLocation[activeSeg] & 0xff); /* its value is the current seg's size*/
             CollectByte(segLocation[activeSeg] >> 8);
             if (activeSeg != SEG_ABS)   // if not abs set seg and relocatable flags
-                token[0].attr |= activeSeg | UF_RBOTH;
+                token.attr |= activeSeg | UF_RBOTH;
             gotValue();
             break;
         case CC_QUOTE:
-            if (yyType == O_MACROPARAM) {		// quote not allowed in macro parameter (unless escaped)
+            if (yyType == MACROARG) {		// quote not allowed in macro parameter (unless escaped)
                 IllegalCharError();
                 return;
             }
@@ -208,31 +158,31 @@ void Tokenise(void) {
                 inQuotes = !inQuotes;
             else {
                 GetStr();						// normal processing so collect string
-                if (expectingOpcode)			// can't be an opcode
+                if (expectOpcode)			// can't be an opcode
                     SetExpectOperands();
                 gotValue();
             }
             break;
         case CC_DIG:
             GetNum();
-            if (expectingOpcode)				// can't be an opcode
+            if (expectOpcode)				// can't be an opcode
                 SetExpectOperands();
             gotValue();
             break;
         case CC_LET:
-            startMacroToken = macroInPtr - 1;
-            GetId(O_NAME);    /* assume it's a name */
-            if (token[0].size > MAXSYMSIZE)  /* cap length */
-                token[0].size = MAXSYMSIZE;
+            startMacroTokenIdx = macroInIdx - 1;
+            GetTokenText(O_NAME);    /* assume it's a name */
+            if (token.size > MAXSYMSIZE)  /* cap length */
+                token.size = MAXSYMSIZE;
+            tokenStart[token.size] = '\0';
 
             if (controls.xref) {
-                memcpy(savName, name, MAXSYMSIZE);
-                memset(name, ' ', MAXSYMSIZE);
+                strcpy(savName, name);
             }
             /* copy the token to name */
-            memcpy(name, tokPtr, token[0].size);
-            nameLen = token[0].size;
-            PackToken();        /* make into 4 byte name */
+            strcpy(name, (char *)tokenStart);
+            nameLen = token.size;
+
             if (haveUserSymbol) {			// user symbol not followed by a colon
                 haveNonLabelSymbol = true;
                 haveUserSymbol = false;
@@ -240,24 +190,24 @@ void Tokenise(void) {
 
 
             if (Lookup(TID_MACRO) != O_NAME && (mSpoolMode & 1)) {
-                kk = token[0].type == 0; // assignment pulled out to allow short circuit tests
-                if (!inQuotes || (kk && (curChar == '&' || startMacroToken[-1] == '&'))) {
-                    macroInPtr = startMacroToken;
-                    InsertCharInMacroTbl(kk ? 0x80 : 0x81);
+                bool isType0 = !token.type; // assignment pulled out to allow short circuit tests
+                if (!inQuotes || (isType0 && (curChar == '&' || macroText[startMacroTokenIdx -1] == '&'))) {
+                    macroInIdx = startMacroTokenIdx;
+                    InsertByteInMacroTbl(isType0 ? 0x80 : 0x81);
                     InsertByteInMacroTbl((byte)GetNumVal());
-                    InsertCharInMacroTbl(curChar);
+                    InsertByteInMacroTbl(curChar);
                     yyType = O_NAME;			// reuse of yyType?
                 }
             }
-            else if (yyType != O_MACROPARAM && mSpoolMode != 2) {		// skip if capturing macro parameter or local names
+            else if (yyType != MACROARG && mSpoolMode != 2) {		// skip if capturing macro parameter or local names
                 if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
-                    token[0].type = Lookup(TID_SYMBOL);    /* look up in symbol space */
+                    token.type = Lookup(TID_SYMBOL);    /* look up in symbol space */
                     haveUserSymbol = true;        /* note we have a user symbol */
                 }
 
-                yyType = token[0].type;
-                needsAbsValue = absValueReq[token[0].type]; /* DS, ORG, IF, K_MACRONAME, IRP, IRPC DoRept */
-                if (!tokReq[token[0].type]) /* i.e. not instruction, reg or K_MACRONAME or punctuation */
+                yyType = token.type;
+                needsAbsValue = absValueReq[token.type]; /* DS, ORG, IF, MACRONAME, IRP, IRPC DoRept */
+                if (!tokReq[token.type]) /* i.e. not instruction, reg or MACRONAME or punctuation */
                     PopToken();
 
                 // for name seen to lhs of op emit xref, for SET/EQU/MACRO PARAM then this is defining
@@ -268,7 +218,7 @@ void Tokenise(void) {
                 }
             }
             if (mSpoolMode == 1) {					// start of macro spooling
-                if (yyType == K_LOCAL) {			// move to capture locals
+                if (yyType == LOCAL) {			// move to capture locals
                     mSpoolMode = 2;
                     if (spooledControl)				// error if there are any controls before local in macro
                         SyntaxError();
@@ -279,15 +229,15 @@ void Tokenise(void) {
                 }
             }
 
-            if (yyType == K_NUL)
-                PushToken(O_NULVAL);
+            if (yyType == NUL)
+                PushToken(NULVAL);
             if (yyType < 10 /* | yyType == 9 | 80h*/) { /* !! only first term contributes */
                 gotValue();
-                if (expectingOpcode)
+                if (expectOpcode)
                     SetExpectOperands();
             }
             else {
-                expectingOpcode = false;
+                expectOpcode = false;
                 return;
             }
             break;

@@ -11,16 +11,11 @@
 #include "asm80.h"
 #include <ctype.h>
 
-byte b3782[2] = { 0x80, 0x81 };
-char moduleName[7] = "MODULE";
+byte b3782[2] = { 0x81, 0x80 };
+char moduleName[MAXSYMSIZE + 1] = "MODULE";
     //static byte copyright[] = "(C) 1976,1977,1979,1980 INTEL CORP";
 
-
-
-pointer Physmem(void) {
-    return (MemCk() - 0x100);	// top of memory
-}
-
+int macroTextSize;
 
 byte GetCmdCh(void) {
     return *cmdchP++;
@@ -49,8 +44,8 @@ bool IsRParen(void) {
     return curChar == ')';
 }
 
-bool IsCR(void) {
-    return curChar == CR;
+bool IsEOL(void) {
+    return curChar == EOLCH;
 }
 
 bool IsComma(void) {
@@ -72,8 +67,8 @@ bool IsPhase1(void) {
 }
 
 void Skip2EOL(void) {
-    if (!IsCR())
-        while (GetCh() != CR)
+    if (!IsEOL())
+        while (GetCh() != EOLCH)
             ;
 }
 
@@ -123,7 +118,6 @@ void RuntimeError(byte errCode)
         skipRuntimeError = true;
         return;
     }
-    errCnt++;
     exit(1);
 }
 
@@ -138,16 +132,6 @@ FILE *SafeOpen(char const *pathP, char *access)
 }
 
 
-byte Nibble2Ascii(byte n)
-{
-    return "0123456789ABCDEF"[n & 0xf];
-}
-
-void Put2Hex(void (*pfunc)(byte), byte val)
-{
-    pfunc(Nibble2Ascii(val >> 4));
-    pfunc(Nibble2Ascii(val));
-}
 
 bool BlankAsmErrCode(void) {
     return asmErrCode == ' ';
@@ -172,7 +156,7 @@ byte GetNibble(pointer bp, byte idx)	// not used
 
 void SourceError(byte errCh)
 {
-    if (! IsSkipping() || topOp == K_ELSE) {   /* ELSE */
+    if (! IsSkipping() || topOp == ELSE) {   /* ELSE */
         if (inExtrn)
             badExtrn = true;
         if (BlankAsmErrCode())
@@ -187,19 +171,10 @@ void SourceError(byte errCh)
 
 void InsertByteInMacroTbl(byte c)
 {
-    *macroInPtr++ = c;
-    if (macroInPtr > baseMacroTbl)
-        RuntimeError(RTE_TABLE);    /* table Error() */
+    if (macroInIdx >= macroTextSize)
+        macroText = xrealloc(macroText, macroTextSize += 256);
+    macroText[macroInIdx++] = c;
 }
-
-
-void InsertCharInMacroTbl(byte c)	// as InsertByteInMacroTbl but expands CR to CR LF
-{
-    InsertByteInMacroTbl(c);
-    if (c == CR)
-        InsertByteInMacroTbl(LF);
-}
-
 
 
 void ParseControlLines(void) {
@@ -245,22 +220,21 @@ void InitLine(void) {
         putchar(inBuf[i]);
 #endif
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
-        inExpression = expectingOperands = xRefPending = haveUserSymbol = inDB = inDW =
+        inExpression = expectOperand = xRefPending = haveUserSymbol = inDB = inDW =
             condAsmSeen = showAddr = usrLookupIsID = excludeCommentInExpansion = b9060 =
                 needsAbsValue                                                  = false;
-    gotLabel                                                                   = 0;
-    atStartLine = expectingOpcode = isInstr = expectOp = true;
-    controls.eject = tokenIdx = argNestCnt = token[0].size = token[0].type = acc1ValType =
+    haveLabel                                                                   = 0;
+    atStartLine = expectOpcode = isInstr = expectOp = true;
+    controls.eject = tokenIdx = argNestCnt = token.size = token.type = acc1ValType =
         acc2ValType = acc1RelocFlags = 0;
     hasVarRef = inQuotes = inComment = false;
 
     asmErrCode                       = ' ';
-    macroP                           = macroLine;
-    startMacroLine                   = macroInPtr;
+    macroPIdx                        = 0;
+    startMacroLineIdx                = macroInIdx;
     expandingMacro                   = expandingMacro > 0 ? 0xff : 0;
     tokI                             = 1;
     srcLineCnt++;
-    macroP = macroLine;
 }
 
 void Start(char *srcName) {
@@ -269,8 +243,6 @@ void Start(char *srcName) {
     phase = 1;
     ResetData();
     InitialControls();
-    if (!(macroFp = tmpfile()))
-        IoError("Macro file", "Create error");
 
     if (controls.object)
         objFp = SafeOpen(objFile, "wb+");
@@ -278,7 +250,7 @@ void Start(char *srcName) {
     DoPass();
     phase = 2;
     if (controls.object) {
-        if (getLen(rExtnames) > 0)
+        if (getRecLen(rExtnames) > 0)
             WriteRec(rExtnames);    /* in overlay 2 */
 
         if (externId == 0)
@@ -300,5 +272,6 @@ void Start(char *srcName) {
 
     FinishPrint();
     FinishAssembly();
+    exit((killObjFile = errCnt != 0));
 }
 

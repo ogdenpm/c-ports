@@ -119,10 +119,10 @@ typedef union {
 typedef struct {
     byte type;
     leword len;
-    byte dta[26];
+    byte dta[48];   // name(1 + 31) + 4 * (1 + 2 + 1)
 } modhdr_t;
 #define MODHDR_DATA(n)  (3 + (n))
-#define MODHDR_MAX      26
+#define MODHDR_MAX      48
 
 // publics:
 //typedef struct {
@@ -168,16 +168,12 @@ typedef struct {
 } macro_t;
 
 typedef struct {
-    word tok[2];
+    char const *name;
     union {
-        struct {
-            byte base;
-            byte delta;
-        };
+        byte base;  // for new lookup, keeps data aligned
         word addr;
         word line;
         word value;
-        word offset;
         word paramId;
         word blk;
     };
@@ -187,14 +183,6 @@ typedef struct {
         byte nlocals;
     };
 } tokensym_t;
-
-typedef struct {
-    word tok[2];
-    byte base;
-    byte delta;
-    byte type;
-    byte flags;
-} keyword_t;
 
 
 typedef union {
@@ -226,7 +214,7 @@ typedef union {
 
 #pragma pack(pop)
 typedef struct {
-    pointer start;
+    int start;
     tokensym_t *symbol;
     byte type;
     byte size;

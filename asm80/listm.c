@@ -10,18 +10,22 @@
 
 #include "asm80.h"
 #include <stdarg.h>
-/* to force the code generation this needs a non-standard definition of put2Hex */
-void Put2Hex(void (*func)(char), word arg2w);
+
+int maxSymWidth = 6;        // for formatting symbol tables
+static word lastErrorLine;
+
 static void PrintChar(char c);
 
+
+
 static char lstHeader[]             = "  LOC  OBJ         LINE        SOURCE STATEMENT\n\n";
-static char const *symbolMsgTable[] = { "\nPUBLIC SYMBOLS\n", "\nEXTERNAL SYMBOLS\n",
-                                        "\nUSER SYMBOLS\n" };
+static char const *symbolMsgTable[] = { "PUBLIC SYMBOLS", "EXTERNAL SYMBOLS",
+                                        "USER SYMBOLS" };
 
 int Printf(char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    char buf[256];
+    char buf[512];
     int cnt = vsprintf(buf, fmt, args);
     for (char *s = buf; *s; s++)
         PrintChar(*s);
@@ -30,41 +34,27 @@ int Printf(char const *fmt, ...) {
 }
 
 
-
-static void Out2Hex(byte n) {
-    Put2Hex(Outch, n);
-}
-
 static void PrintStr(char const *str) {
     while (*str != 0)
         PrintChar(*str++);
 }
 
-static void PrintNStr(byte cnt, char const *str) {
-    while (cnt-- > 0)
-        PrintChar(*str++);
-}
-
-void PrintDecimal(word n) {
-    char tmp[6];
-    sprintf(tmp, "%4u", n);
-    PrintStr(tmp);
-}
 
 void SkipToEOP(void) {
-    while (pageLineCnt <= controls.pageLength) {
+    while (pageLineCnt <= pageLength) {
         Outch(LF);
         pageLineCnt++;
     }
 }
 
+#define FIXEDLEN 28  // strlen("INTEL ASM80 V4.1  PAGE nnnn");
 static void NewPageHeader(void) {
-    //    byte twoLF[] = "\r\n\n";        /* Not used */
-    //    byte threeLF[] = "\r\n\n\n";    /* CR not used */
+    int pad = (67 - FIXEDLEN - (int)strlen(moduleName));
+    Printf("\n\n\nINTEL ASM80 V4.1 %*s%s%*s PAGE %4u\n", pad / 2, "",
+           moduleName, pad - pad / 2, "",  pageCnt);
 
-    Printf("\n\n\nISIS-II 8080/8085 MACRO ASSEMBLER, V4.1\t\t%-6s \t PAGE %4u\n", moduleName, pageCnt);
     if (controls.title)
-        PrintNStr(titleLen, titleStr);
+        PrintStr(titleStr);
 
     PrintStr("\n\n");
     if (!b68AE)
@@ -98,8 +88,6 @@ void DoEject(void) {
 static void PrintChar(char c) {
     byte cnt;
 
-    if (c == CR)
-        return;
     if (c == FF) {
         NewPage();
         return;
@@ -108,7 +96,7 @@ static void PrintChar(char c) {
 
     if (c == LF) {
         if (controls.paging) {
-            if (++pageLineCnt >= controls.pageLength - 2) {
+            if (++pageLineCnt >= pageLength - 2) {
                 if (controls.tty)
                     Outch(LF);
                 if (controls.eject > 0)
@@ -130,10 +118,10 @@ static void PrintChar(char c) {
         if (curCol < 132) {
             if (c >= ' ')
                 curCol++;
-            if (curCol > controls.pageWidth) {
+            if (curCol > pageWidth) {
                 PrintChar(LF);
-                Printf("%24s", "");
-                curCol++;
+                fprintf(lstFp, "%24s", "");
+                curCol = 25;
             }
             Outch(c);
         }
@@ -144,48 +132,42 @@ static void PrintChar(char c) {
 static byte segChar[] = " CDSME"; /* seg id char */
 
 void Sub7041_8447(void) {
-    byte symGrp;
-    byte type, flags;
-    byte zeroAddr =
-        false; // fix potentially not initialised bug. plm would have held value from previous call
 
     b68AE = true;
     if (!controls.symbols)
         return;
+    bool showSym = IsPhase2Print();
+    controls.debug |= controls.macroDebug;
     /* changes to better reflect what is happening rather than use strange offsets */
     segChar[0] = 'A'; /* show A instead of space for absolute */
-    for (symGrp = 0; symGrp <= 2; symGrp++) {
-        kk             = IsPhase2Print() && controls.symbols;
-        controls.debug = controls.debug || controls.macroDebug;
-        topSymbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
-        PrintChar(LF);
-        PrintStr(symbolMsgTable[symGrp]);
+    for (byte symGrp = 0; symGrp <= 2; symGrp++) { 
+        token.symbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
+        Printf("\n\n%s\n", symbolMsgTable[symGrp]);
 
-        while (++topSymbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
-            type  = topSymbol->type;
-            flags = topSymbol->flags;
+        while (++token.symbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
+            byte type  = token.symbol->type;
+            byte flags = token.symbol->flags;
+            bool isExtSym = (flags & UF_EXTRN);
             if (type != 9)
                 if (type != 6)
                     if (NonHiddenSymbol()) {
-                        byte symGrpFlags[2] = { UF_PUBLIC, UF_EXTRN };
+                        static byte symGrpFlags[2] = { UF_PUBLIC, UF_EXTRN };
 
                         if (symGrp != 0 || type != 3)
                             if (symGrp == 2 || (flags & symGrpFlags[symGrp]) != 0) {
-                                UnpackToken(topSymbol->tok, (byte *)tokStr);
-                                if (kk) {
-                                    if (controls.pageWidth - curCol < 17)
+                                if (showSym) {
+                                    if (pageWidth - curCol < 11 + maxSymWidth)
                                         PrintChar(LF);
 
-                                    PrintStr(tokStr);
-                                    PrintChar(' ');
-                                    if (type == T_MACRONAME)
+                                    Printf("%-*s ", maxSymWidth, token.symbol->name);
+                                    if (type == MACRONAME)
                                         PrintChar('+');
-                                    else if ((zeroAddr = (flags & UF_EXTRN) != 0))
+                                    else if (isExtSym)
                                         PrintChar('E');
                                     else
                                         PrintChar(segChar[flags & UF_SEGMASK]);
 
-                                    Printf(" %04X    ", zeroAddr ? 0 : topSymbol->value);
+                                    Printf(" %04X    ", isExtSym ? 0 : token.symbol->value);
                                 }
                             }
                     }
@@ -195,7 +177,7 @@ void Sub7041_8447(void) {
     if (controls.debug)
         b68AE = false;
 
-    if (kk)
+    if (showSym)
         PrintChar(LF);
 }
 
@@ -204,7 +186,7 @@ void PrintCmdLine(void) {
     DoEject();
     Printf("%s %s", _argv[0], _argv[1]);
     for (int i = 2; i < _argc; i++)
-        Printf("%s%s", curCol + strlen(_argv[i]) > controls.pageWidth ? " \\\n    " : " ", _argv[i]);
+        Printf("%s%s", curCol + strlen(_argv[i]) > pageWidth ? " \\\n    " : " ", _argv[i]);
     PrintChar('\n');
     NewPageHeader();
 }
@@ -227,8 +209,7 @@ static void PrintCodeBytes(void) {
     byte i;
 
     if (showAddr |= MoreBytes()) { /* print the word */
-        Out2Hex(High(effectiveAddr));
-        Out2Hex(Low(effectiveAddr));
+        Printf("%04X", effectiveAddr);
     } else
         OutSpc(4);
 
@@ -236,19 +217,20 @@ static void PrintCodeBytes(void) {
     for (i = 1; i <= 4; i++) {
         if (MoreBytes() && isInstr) {
             effectiveAddr++;
-            Out2Hex(*startItem);
+            Printf("%02X", lineBuf[startItem]);
         } else
             OutSpc(2);
         startItem++;
     }
 
     Outch(' ');
-    if ((kk = token[spIdx].attr) & UF_EXTRN) /* UF_EXTRN */
+    byte attr = tokenStk[spIdx].attr;
+    if (attr & UF_EXTRN) /* UF_EXTRN */
         Outch('E');
     else if (!showAddr)
         Outch(' ');
     else
-        Outch(segChar[kk & 7]);
+        Outch(segChar[attr & 7]);
 }
 
 static void PrintErrorLineChain(void) {
@@ -260,7 +242,7 @@ static void PrintErrorLineChain(void) {
 
 void PrintLine(void) {
     while (1) {
-        endItem = (startItem = token[spIdx].start) + token[spIdx].size;
+        endItem = (startItem = tokenStk[spIdx].start) + tokenStk[spIdx].size;
         if (IsSkipping())
             endItem = startItem;
 
@@ -277,10 +259,9 @@ void PrintLine(void) {
             PrintCodeBytes();
 
         if (fileIdx > 0) {
-            byte nestLevel[] = "  1234";
-            /* plm uses byte arith so pendingInclude = true(255) treated as -1 */
-            Outch(nestLevel[ii = pendingInclude ? fileIdx - 1 : fileIdx]);
-            Outch(ii > 0 ? '=' : ' ');
+            byte nestLvl   = pendingInclude ? fileIdx - 1 : fileIdx;
+            Outch("  1234"[nestLvl]);
+            Outch(nestLvl > 0 ? '=' : ' ');
         } else
             OutStr("  ");
 
@@ -289,11 +270,12 @@ void PrintLine(void) {
         else {
             lineNumberEmitted = true;
             curCol            = 19;
+            Printf("%4u%c", lineNo, expandingMacro > 1 ? '+' : ' ');
             if (expandingMacro > 1) {
-                *macroP = 0;
-                Printf("%4u+%s\n", lineNo, macroLine);
+                macroLine[macroPIdx] = 0;
+                PrintStr(macroLine);
             } else
-                Printf("%4u %s", lineNo, inBuf);
+                PrintStr(inBuf);    // length may exceed limits of Printf
         }
 
         if (isControlLine) {
@@ -341,5 +323,5 @@ void FinishAssembly(void) {
     if (controls.xref) /* invoke asxref ?? */
         GenAsxref();
 
-    exit(errCnt != 0);
+
 }

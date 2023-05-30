@@ -54,13 +54,7 @@
     <ClCompile Include="io.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="keym.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="listm.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="pcktok.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="rdsrc.c">
@@ -70,6 +64,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="asxref.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nkeym.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="memory.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
