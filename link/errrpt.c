@@ -16,9 +16,9 @@ void FileError(word errCode, char const *file, bool errExit)
 	if (errCode != 0 )
 	{
 		file = Deblank(file);
-		Write(0," ", 1, &status);
-		Write(0, file , (word)(ScanBlank(file) - file), &status);
-		Write(0, ",", 1, &status);
+		Write(CO_DEV," ", 1, &status);
+		Write(CO_DEV, file , (word)(ScanBlank(file) - file), &status);
+		Write(CO_DEV, ",", 1, &status);
 		ReportError(errCode);
 		if (errExit )
 			Exit(1);

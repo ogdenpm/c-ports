@@ -12,11 +12,5 @@
 
 bool Strequ(char const *s, char const *t, byte cnt)
 {
-	int i;
-
-	for (i = 0; i < cnt; i++) {
-		if (*s++ != *t++ )
-			return false;
-	}
-	return true;
+	return strncmp(s, t, cnt) == 0;
 } /* Strequ() */

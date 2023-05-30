@@ -23,7 +23,7 @@ word actRead;
 psFileName_t inFileName;
 psFileName_t toFileName;
 psFileName_t printFileName;
-byte filePath[16];
+psFileName_t filePath;
 psFileName_t linkTmpFile;
 bool mapWanted;
 psModName_t outModuleName;
@@ -76,7 +76,7 @@ extern byte overlayVersion[4];
 
 void ConOutStr(char const * pstr, word count)
 {
-    Write(0, pstr, count, &statusIO);
+    Write(CO_DEV, pstr, count, &statusIO);
 } /* ConOutStr() */
 
 _Noreturn void FatalErr(byte errCode)
@@ -115,7 +115,7 @@ _Noreturn void BadRecordSeq()
 
 void pstrcpy(pstr_t const *psrc, pstr_t *pdst)
 {
-    memmove(pdst, psrc, psrc->len + 1);
+    memcpy(pdst, psrc, psrc->len + 1);
 } /* pstrcpy() */
 
 byte HashF(pstr_t *pstr)

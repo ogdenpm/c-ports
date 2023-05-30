@@ -20,8 +20,8 @@ typedef word *wpointer;
 #define Low(n)	((n) & 0xff)
 #define Shr(v, n)	((word)(v) >> (n))
 #define Shl(v, n)	((word)(v) << (n))
-#define RorB(v, n)	((byte)(((v) * 0x101) >> (n)))
-#define RolB(v, n)	((byte)(Ror(v, (8 - n)))
+#define RorB(v, n)  ((byte)(((v) | ((v) << 8)) >> (n)))
+#define RolB(v, n)	((byte)(Ror((v), (8 - (n))))
 #define Move(s, d, c)	memcpy(d, s, c)
 
 #pragma pack(push, 1)
@@ -390,6 +390,12 @@ typedef struct {
 #define F_SCOPEMASK     0xf0
 #define F_EXTERN        0x40
 #define F_PUBLIC        0x80
+
+// standard device fileno
+#define CO_DEV          0
+#define CI_DEV          1
+#define BB_DEV          2 // always provide BB it is harmless and simplifies things
+
 // link.plm
 extern word actRead;
 extern byte alignType[6];
@@ -406,7 +412,7 @@ extern word modEndOffset;
 extern byte modEndSegId;
 extern pointer eoutP;
 extern pointer erecP;
-extern byte filePath[16];
+extern psFileName_t filePath;
 extern symbol_t *hashTab[128];
 extern symbol_t *headSegOrderLink;
 extern symbol_t *headUnresolved;

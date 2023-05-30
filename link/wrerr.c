@@ -66,11 +66,11 @@ void ReportError(word errCode)
 		while (i < sizeof(errStrTable)) {
 			if (Low(errCode) == errStrTable[i])
 			{
-				Write(0, " ", 1, &status);
+				Write(CO_DEV, " ", 1, &status);
 				while (errStrTable[i = i + 1] != 0) {
-					Write(0, &errStrTable[i], 1, &status);
+					Write(CO_DEV, &errStrTable[i], 1, &status);
 				}
-				Write(0, "\r\n", 2, &status);
+				Write(CO_DEV, "\r\n", 2, &status);
 				return;
 			}
 			else {
