@@ -111,14 +111,13 @@ bool usrLookupIsID = false;
 bool needsAbsValue = false;
 FILE *objFp;
 FILE *lstFp;
-word statusIO;
 byte asmErrCode     = ' ';
 bool spooledControl = false;
 bool primaryValid   = true;
 byte tokI;
 bool errorOnLine;
 bool atStartLine;
-byte curCol = 1;
+
 int endItem;
 int startItem;
 word pageLineCnt;
@@ -126,7 +125,7 @@ word effectiveAddr;
 word pageCnt;
 bool showAddr;
 bool lineNumberEmitted = false;
-bool b68AE             = false;
+byte subHeadIdx             = 0;
 
 char *objFile;
 char *lstFile;

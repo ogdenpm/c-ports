@@ -79,7 +79,7 @@ void ResetData(void) {    /* extended initialisation */
     srcLineCnt = pageCnt = pageLineCnt = 1;
     curOp                              = EOL;
 
-    b68AE = false;
+    subHeadIdx = 0;
     curChar = ' ';
     // reset all of the controlSeen flags
     memset(controlSeen, false, sizeof(controlSeen));;

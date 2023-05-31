@@ -13,14 +13,16 @@
 
 int maxSymWidth = 6;        // for formatting symbol tables
 static word lastErrorLine;
+static word curCol = 1;
 
-static void PrintChar(char c);
+#if !defined(_MSC_VER) && !defined min
+#define min(a,b)    ((a) < (b) ? (a) : (b))
+#endif
 
-
-
-static char lstHeader[]             = "  LOC  OBJ         LINE        SOURCE STATEMENT\n\n";
-static char const *symbolMsgTable[] = { "PUBLIC SYMBOLS", "EXTERNAL SYMBOLS",
-                                        "USER SYMBOLS" };
+static char* subHeadings[] = { "  LOC  OBJ         LINE        SOURCE STATEMENT",
+                               "SYMBOL CROSS REFERENCE",
+						       "PUBLIC SYMBOLS", "EXTERNAL SYMBOLS",            // these will add (cont) as required
+	                           "USER SYMBOLS", "SYMBOL CROSS REFERENCE" };
 
 int Printf(char const *fmt, ...) {
     va_list args;
@@ -47,22 +49,29 @@ void SkipToEOP(void) {
     }
 }
 
-#define FIXEDLEN 28  // strlen("INTEL ASM80 V4.1  PAGE nnnn");
+#define FIXEDLEN 27     // strlen("INTEL ASM80 V4.1  PAGE nnnn");
+#define DATEWIDTH 19    // " [yyyy-mm-dd hh:mm]"
+#define HEADERWIDTH 80
 static void NewPageHeader(void) {
-    int pad = (67 - FIXEDLEN - (int)strlen(moduleName));
-    Printf("\n\n\nINTEL ASM80 V4.1 %*s%s%*s PAGE %4u\n", pad / 2, "",
-           moduleName, pad - pad / 2, "",  pageCnt);
+    char* date;
+    int pad = min(HEADERWIDTH, pageWidth) - FIXEDLEN - (int)strlen(moduleName);
+    if (pad >= DATEWIDTH) {
+        pad -= DATEWIDTH;
+        date = dateStr;
+    }
+    else
+        date = "";
+    Printf("\n\n\nINTEL ASM80 V4.1 %*s%s%*s%s PAGE %4u\n", pad / 2, "",
+           moduleName, pad - pad / 2, "",  date, pageCnt);
 
     if (controls.title)
         PrintStr(titleStr);
 
-    PrintStr("\n\n");
-    if (!b68AE)
-        PrintStr(lstHeader);
+    Printf("\n\n%s%s\n\n", subHeadings[subHeadIdx], subHeadIdx > 1 ? " (cont)" : "");
     pageCnt++;
 }
 
-void NewPage(void) {
+static void NewPage(void) {
     if (curCol) {
         Outch(LF);
         curCol = 0;
@@ -85,7 +94,7 @@ void DoEject(void) {
         }
 }
 
-static void PrintChar(char c) {
+void PrintChar(char c) {
     byte cnt;
 
     if (c == FF) {
@@ -131,18 +140,19 @@ static void PrintChar(char c) {
 
 static byte segChar[] = " CDSME"; /* seg id char */
 
-void Sub7041_8447(void) {
+void PrintSymbols(void) {
 
-    b68AE = true;
+    subHeadIdx = true;
     if (!controls.symbols)
         return;
     bool showSym = IsPhase2Print();
     controls.debug |= controls.macroDebug;
     /* changes to better reflect what is happening rather than use strange offsets */
     segChar[0] = 'A'; /* show A instead of space for absolute */
-    for (byte symGrp = 0; symGrp <= 2; symGrp++) { 
+    for (byte symGrp = 0; symGrp < 3; symGrp++) {
+        subHeadIdx = symGrp + 2;
         token.symbol  = symTab[TID_SYMBOL] - 1; /* word user sym[-1].type */
-        Printf("\n\n%s\n", symbolMsgTable[symGrp]);
+        Printf("\n\n%s\n", subHeadings[subHeadIdx]);
 
         while (++token.symbol < endSymTab[TID_SYMBOL]) { // converted for c pointer arithmetic
             byte type  = token.symbol->type;
@@ -175,7 +185,7 @@ void Sub7041_8447(void) {
     }
 
     if (controls.debug)
-        b68AE = false;
+        subHeadIdx = 0;
 
     if (showSym)
         PrintChar(LF);

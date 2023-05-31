@@ -82,7 +82,7 @@ void FinishLine(void) {
     {
         finished = true;
         if (IsPhase2Print() && controls.symbols)
-            Sub7041_8447();
+            PrintSymbols();
 
         if (ChkGenObj())
             ReinitFixupRecs();

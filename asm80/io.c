@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <showVersion.h>
+#include <time.h>
 
 
 #ifdef _WIN32
@@ -37,6 +38,7 @@ int _argc;
 char **_argv;
 bool useLC = true;
 bool killObjFile = true;
+char dateStr[22] = {0};  // [yyyy-mm-dd hh:mm]
 
 char *deviceMap[10];
 #ifdef _WIN32
@@ -131,6 +133,12 @@ int main(int argc, char **argv) {
     }
     strcat(s, "\n");
     atexit(wrapUp);
+
+    
+    time_t now;
+    time(&now);
+    strftime(dateStr, sizeof(dateStr), " [%F %R]", localtime(&now));
+
     Start(argv[1]);
 }
 
