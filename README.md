@@ -18,6 +18,14 @@ There are also a three of script files from my [versionTools](https://github.com
 
 ## Recent major changes
 
+### 31-May-2023
+
+- Modified the listing files to include the date and time of the assembly in the header, if there is room, which will usually be the case. The default header width is now 80 unless the page width is smaller. The date is shown in the format [yyyy-mm-dd hh:mm].
+
+- The Symbol Cross Reference now uses the common new page functionality so page numbers don't restart from 1
+- Symbol and Cross Reference information that cross page boundaries how add a sub heading to indicate that the information is continued.
+- Fixed a bug in the column and row variables which were still left as byte, i.e. up to 255, even though the page width and length could be larger
+
 ### 30-May-2023
 
 #### ASM80
