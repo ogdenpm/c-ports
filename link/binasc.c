@@ -14,17 +14,13 @@ static byte hexdigits[] = "0123456789ABCDEF";
 
 void BinAsc(word number, byte base, byte pad, char *bufP, byte ndigits)
 {
-	byte i;
 
-	for (i = 1; i <= ndigits; i++) {
+	for (int i = 1; i <= ndigits; i++) {
 		bufP[ndigits - i] = hexdigits[number % base];
-		number = number / base;
+		number /= base;
 	}
 
-	i = 0;
-	while (bufP[i] == '0' && i < ndigits - 1) {
+    for (int i = 0; bufP[i] == '0' && i < ndigits - 1; i++)
 		bufP[i] = pad;
-		i = i + 1;
-	}
 } /* BinAsc */
 

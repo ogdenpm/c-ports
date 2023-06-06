@@ -142,7 +142,7 @@
       </Message>
     </CustomBuildStep>
     <PreBuildEvent>
-      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -w</Command>
       <Message>Get Version</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -176,7 +176,7 @@
       </Message>
     </CustomBuildStep>
     <PreBuildEvent>
-      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -w</Command>
       <Message>Get Version</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -264,7 +264,6 @@
     <ClCompile Include="binasc.c" />
     <ClCompile Include="errrpt.c" />
     <ClCompile Include="io.c" />
-    <ClCompile Include="lineuc.c" />
     <ClCompile Include="link.c" />
     <ClCompile Include="link1a.c" />
     <ClCompile Include="link3.c" />

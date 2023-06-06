@@ -9,19 +9,15 @@
  ****************************************************************************/
 
 #include "link.h"
-void FileError(word errCode, char const *file, bool errExit)
-{
-	word status;
+#include <stdio.h>
 
-	if (errCode != 0 )
-	{
-		file = Deblank(file);
-		Write(CO_DEV," ", 1, &status);
-		Write(CO_DEV, file , (word)(ScanBlank(file) - file), &status);
-		Write(CO_DEV, ",", 1, &status);
-		ReportError(errCode);
-		if (errExit )
-			Exit(1);
-	}
+void FileError(word errCode, char const *file, bool errExit) {
+    if (errCode != 0) {
+        file = Deblank(file);
+        fprintf(stderr, " %.*s,", (int)(ScanBlank(file) - file), file);
+
+        ReportError(errCode);
+        if (errExit)
+            Exit(1);
+    }
 } /* FileError() */
-

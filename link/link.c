@@ -12,7 +12,7 @@
  * vim:ts=4:shiftwidth=4:expandtab:
  */
 #include "link.h"
-
+#include <stdio.h>
 word inFile;
 word tofilefd;
 word printFileNo;
@@ -20,11 +20,9 @@ word pad_4565;
 word tmpfilefd;
 word statusIO;
 word actRead;
-psFileName_t inFileName;
-psFileName_t toFileName;
-psFileName_t printFileName;
-psFileName_t filePath;
-psFileName_t linkTmpFile;
+char *inFileName;
+char *toFileName;
+char *printFileName;
 bool mapWanted;
 psModName_t outModuleName;
 byte modEndModTyp;
@@ -59,9 +57,7 @@ symbol_t *symbolP;
 word unresolved;
 word maxExternCnt;
 symbol_t *headUnresolved;
-char CRLF[2] = "\r\n";
-char recErrMsg[] =  " RECORD TYPE XXH, RECORD NUMBER *****\r\n";
-                    //         13-^               32-^ 
+
 word inBlk;
 word inByt;
 pointer inbP;
@@ -81,20 +77,19 @@ void ConOutStr(char const * pstr, word count)
 
 _Noreturn void FatalErr(byte errCode)
 {
-    ConOutStr(" ", 1);
-    ConOutStr(inFileName.str, inFileName.len);
+    fprintf(stderr, " %s", inFileName);
+
     if (curModule)
-    {
-        ConOutStr("(", 1);
-        ConOutStr(curModule->name.str, curModule->name.len);
-        ConOutStr(")", 1);
-    }
-    ConOutStr(",", 1);
+        fprintf(stderr, "(%.*s)", curModule->name.len, curModule->name.str);
+    fputc(',', stderr);
+
     ReportError(errCode);
-    BinAsc(inRecordP->rectyp, 16, '0', &recErrMsg[13], 2);
-    if (recNum > 0 )
-        BinAsc(recNum, 10, ' ', &recErrMsg[32], 5);
-    ConOutStr(recErrMsg, sizeof(recErrMsg) - 1);
+    fprintf(stderr, " RECORD TYPE %02XH, RECORD NUMBER ", inRecordP->rectyp);
+    if (recNum > 0)
+        fprintf(stderr, "%5d\n", recNum);
+    else
+        fputs("*****\n", stderr);
+
     Exit(1);
 } /* FatalErr() */
 
@@ -135,13 +130,11 @@ bool Lookup(pstr_t *pstr, symbol_t **pitemRef, byte mask)
 
     i = pstr->len + 1;     /* Size() of string including length() byte */
     *pitemRef = (p = (symbol_t *)&hashTab[HashF(pstr)]);
-    p = p->hashLink;
-    while (p > 0) {     /* chase down the list to look for the name */
+    for (p = p->hashLink; p; p = p->hashLink) {
         *pitemRef = p;
         if ((p->flags & mask) != AUNKNOWN ) /* ignore undef entries */
             if (Strequ((char *)pstr, (char *)&p->name, i) )
-                return TRUE;
-        p = p->hashLink;  /* next */
+                return true;
     }
     return false;
 } /* Lookup() */
@@ -149,13 +142,12 @@ bool Lookup(pstr_t *pstr, symbol_t **pitemRef, byte mask)
 void WriteBytes(void const *bufP, word count)
 {    
     Write(printFileNo, bufP, count, &statusIO);
-    FileError(statusIO, printFileName.str, TRUE);
-    FileError(ERR210, toFileName.str, TRUE); /* Insufficient() memory */
+    FileError(statusIO, printFileName, TRUE);
 } /* WriteBytes() */
 
 void WriteCRLF()
 {
-    WriteBytes(CRLF, 2);
+    WriteBytes("\n", 1);
 } /* WriteCRLF() */
 
 void WriteAndEcho(void const *buffP, word count)
@@ -169,7 +161,7 @@ void WriteAndEcho(void const *buffP, word count)
 void WAEFnAndMod(char *buffP, word count)
 {
     WriteAndEcho(buffP, count);
-    WriteAndEcho(inFileName.str, inFileName.len);
+    WriteAndEcho(inFileName, strlen(inFileName));
     WriteAndEcho("(", 1);
     WriteAndEcho(curModule->name.str, curModule->name.len);
     WriteAndEcho(")\r\n", 3);
@@ -179,10 +171,6 @@ void Start()
 {
     ParseCmdLine();
     Phase1();
-//    Load(&filePath[1], 0, 0, &actRead, &statusIO);  /* Load() the overlay */
-//    FileError(statusIO, &filePath[1], TRUE);
-//    if (! Strequ(VERSION, overlayVersion, 4) )    /* make sure it is valid */
-//        FileError(ERR219, &filePath[1], TRUE);  /* phase Error() */
     Phase2();
     Close(printFileNo, &statusIO);
     Exit(0);

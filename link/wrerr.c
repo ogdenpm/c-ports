@@ -9,78 +9,63 @@
  ****************************************************************************/
 
 #include "link.h"
+#include <stdio.h>
 
-static byte errStrTable[] =
-		"\x2" "ILLEGAL AFTN ARGUMENT\0"
-		"\x3" "TOO MANY OPEN FILES\0"
-		"\x4" "INCORRECTLY SPECIFIED FILE\0"
-		"\x5" "UNRECOGNIZED DEVICE NAME\0"
-		"\x9" "DISK DIRECTORY FULL\0"
-		"\xC" "FILE IS ALREADY OPEN\0"
-		"\xD" "NO SUCH FILE\0"
-		"\xE" "WRITE PROTECTED\0"
-		"\x11" "NOT A DISK FILE\0"
-		"\x13" "ATTEMPTED SEEK ON NON-DISK FILE\0"
-		"\x14" "ATTEMPTED BACK SEEK TOO FAR\0"
-		"\x15" "CAN'T RESCAN\0"
-		"\x16" "ILLEGAL ACCESS MODE TO OPEN\0"
-		"\x17" "MISSING FILENAME\0"
-		"\x1B" "ILLEGAL SEEK COMMAND\0"
-		"\x1C" "MISSING EXTENSION\0"
-		"\x1F" "CAN'T SEEK ON WRITE ONLY FILE\0"
-		"\x20" "CAN'T DELETE OPEN FILE\0"
-		"\x22" "ILLEGAL LOAD COMMAND\0"
-		"\x23" "SEEK PAST EOF\0"
-		"\xCB" "INVALID SYNTAX\0"
-		"\xCC" "PREMATURE EOF\0"
-		"\xD0" "CHECKSUM ERROR\0"
-		"\xD2" "INSUFFICIENT MEMORY\0"
-		"\xD3" "RECORD TOO LONG\0"
-		"\xD4" "ILLEGAL RELO RECORD\0"
-		"\xD5" "FIXUP BOUNDS ERROR\0"
-		"\xDA" "ILLEGAL RECORD FORMAT\0"
-		"\xDB" "PHASE ERROR\0"
-		"\xDC" "NO EOF\0"
-		"\xDD"	"SEGMENT TOO LARGE\0"
-		"\xE0" "BAD RECORD SEQUENCE\0"
-		"\xE1" "INVALID NAME\0"
-		"\xE2" "NAME TOO LONG\0"
-		"\xE3" "LEFT PARENTHESIS EXPECTED\0"
-		"\xE4" "RIGHT PARENTHESIS EXPECTED\0"
-		"\xE5" "UNRECOGNIZED CONTROL\0"
-		"\xE9" "'TO' EXPECTED\0"
-		"\xEA" "DUPLICATE FILE NAME\0"
-		"\xEB" "NOT A LIBRARY\0"
-		"\xEC" "TOO MANY COMMON SEGMENTS\0"
-		"\xEE" "ILLEGAL STACK CONTENT RECORD\0"
-		"\xEF" "NO MODULE HEADER RECORD";
+static struct {
+    byte errCode;
+    char *errStr;
+} errStrTable[] = { { 0x2, "ILLEGAL AFTN ARGUMENT" },
+                    { 0x3, "TOO MANY OPEN FILES" },
+                    { 0x4, "INCORRECTLY SPECIFIED FILE" },
+                    { 0x5, "UNRECOGNIZED DEVICE NAME" },
+                    { 0x9, "DISK DIRECTORY FULL" },
+                    { 0xC, "FILE IS ALREADY OPEN" },
+                    { 0xD, "NO SUCH FILE" },
+                    { 0xE, "WRITE PROTECTED" },
+                    { 0x11, "NOT A DISK FILE" },
+                    { 0x13, "ATTEMPTED SEEK ON NON-DISK FILE" },
+                    { 0x14, "ATTEMPTED BACK SEEK TOO FAR" },
+                    { 0x15, "CAN'T RESCAN" },
+                    { 0x16, "ILLEGAL ACCESS MODE TO OPEN" },
+                    { 0x17, "MISSING FILENAME" },
+                    { 0x1B, "ILLEGAL SEEK COMMAND" },
+                    { 0x1C, "MISSING EXTENSION" },
+                    { 0x1F, "CAN'T SEEK ON WRITE ONLY FILE" },
+                    { 0x20, "CAN'T DELETE OPEN FILE" },
+                    { 0x22, "ILLEGAL LOAD COMMAND" },
+                    { 0x23, "SEEK PAST EOF" },
+                    { 0xCB, "INVALID SYNTAX" },
+                    { 0xCC, "PREMATURE EOF" },
+                    { 0xD0, "CHECKSUM ERROR" },
+                    { 0xD2, "INSUFFICIENT MEMORY" },
+                    { 0xD3, "RECORD TOO LONG" },
+                    { 0xD4, "ILLEGAL RELO RECORD" },
+                    { 0xD5, "FIXUP BOUNDS ERROR" },
+                    { 0xDA, "ILLEGAL RECORD FORMAT" },
+                    { 0xDB, "PHASE ERROR" },
+                    { 0xDC, "NO EOF" },
+                    { 0xDD, "SEGMENT TOO LARGE" },
+                    { 0xE0, "BAD RECORD SEQUENCE" },
+                    { 0xE1, "INVALID NAME" },
+                    { 0xE2, "NAME TOO LONG" },
+                    { 0xE3, "LEFT PARENTHESIS EXPECTED" },
+                    { 0xE4, "RIGHT PARENTHESIS EXPECTED" },
+                    { 0xE5, "UNRECOGNIZED CONTROL" },
+                    { 0xE9, "'TO' EXPECTED" },
+                    { 0xEA, "DUPLICATE FILE NAME" },
+                    { 0xEB, "NOT A LIBRARY" },
+                    { 0xEC, "TOO MANY COMMON SEGMENTS" },
+                    { 0xEE, "ILLEGAL STACK CONTENT RECORD" },
+                    { 0xEF, "NO MODULE HEADER RECORD" }};
 
-void ReportError(word errCode)
-{
-	word i;
-	word status;
-
-	if (Low(errCode) != 0)
-	{
-		i = 0;
-		while (i < sizeof(errStrTable)) {
-			if (Low(errCode) == errStrTable[i])
-			{
-				Write(CO_DEV, " ", 1, &status);
-				while (errStrTable[i = i + 1] != 0) {
-					Write(CO_DEV, &errStrTable[i], 1, &status);
-				}
-				Write(CO_DEV, "\r\n", 2, &status);
-				return;
-			}
-			else {
-				while (errStrTable[i = i + 1] != 0)
-					;
-				i = i + 1;
-			}
-		}
-		Error(errCode);	/* pass to ISIS */
-	}
+void ReportError(word errCode) {
+    if (Low(errCode) != 0) {
+        for (int i = 0; i < sizeof(errStrTable) / sizeof(errStrTable[0]); i++) {
+            if (errStrTable[i].errCode == Low(errCode)) {
+                fprintf(stderr, " %s\n", errStrTable[i].errStr);
+                return;
+            }
+        }
+        Error(errCode); /* pass to ISIS */
+    }
 } /* ReportError() */
-
-

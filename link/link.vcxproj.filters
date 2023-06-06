@@ -33,9 +33,6 @@
     <ClCompile Include="errrpt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lineuc.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="mkfnam.c">
       <Filter>Source Files</Filter>
     </ClCompile>
