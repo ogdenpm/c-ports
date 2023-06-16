@@ -105,7 +105,7 @@ void RuntimeError(byte errCode)
         if (tokBufIdx == 0) {
             fputs("BAD SYNTAX\n", stderr);
             if (!scanCmdLine) {
-                Skip2NextLine();
+                Skip2EOL();
                 fprintf(stderr, "%4u\n", srcLineCnt);
             }
         } else {
@@ -180,7 +180,7 @@ void InsertByteInMacroTbl(byte c)
 void ParseControlLines(void) {
     while (GetCh() == '$') {
         if (IsSkipping()) {
-            Skip2NextLine();
+            Skip2EOL();
             isControlLine = true;
             if (mSpoolMode == 1)
                 spooledControl = true;
@@ -212,29 +212,25 @@ void InitialControls(void) {
 
 
 void InitLine(void) {
-    lineChCnt  = 0;
-    if (pendingInclude)
-        OpenSrc();
-#ifdef SHOWLINE
-    for (int i  = 0; i < lineChCnt; i++)
-        putchar(inBuf[i]);
-#endif
-    lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
-        inExpression = expectOperand = xRefPending = haveUserSymbol = inDB = inDW =
-            condAsmSeen = showAddr = usrLookupIsID = excludeCommentInExpansion = b9060 =
-                needsAbsValue                                                  = false;
-    haveLabel                                                                   = 0;
-    atStartLine = expectOpcode = isInstr = expectOp = true;
-    controls.eject = tokenIdx = argNestCnt = token.size = token.type = acc1ValType =
-        acc2ValType = acc1RelocFlags = 0;
-    hasVarRef = inQuotes = inComment = false;
+	if (pendingInclude)
+		OpenSrc();
 
-    asmErrCode                       = ' ';
-    macroPIdx                        = 0;
-    startMacroLineIdx                = macroInIdx;
-    expandingMacro                   = expandingMacro > 0 ? 0xff : 0;
-    tokI                             = 1;
-    srcLineCnt++;
+	lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
+		inExpression = expectOperand = xRefPending = haveUserSymbol = inDB = inDW =
+		condAsmSeen = showAddr = usrLookupIsID = excludeCommentInExpansion = b9060 =
+		needsAbsValue = false;
+	haveLabel = 0;
+	atStartLine = expectOpcode = isInstr = expectOp = true;
+	controls.eject = tokenIdx = argNestCnt = token.size = token.type = acc1ValType =
+		acc2ValType = acc1RelocFlags = 0;
+	hasVarRef = inQuotes = inComment = false;
+
+	asmErrCode = ' ';
+	macroPIdx = 0;
+	startMacroLineIdx = macroInIdx;
+	expandingMacro = expandingMacro > 0 ? 0xff : 0;
+	tokI = 1;
+	srcLineCnt++;
 }
 
 void Start(char *srcName) {
@@ -251,10 +247,10 @@ void Start(char *srcName) {
     phase = 2;
     if (controls.object) {
         if (getRecLen(rExtnames) > 0)
-            WriteRec(rExtnames);    /* in overlay 2 */
+            WriteRec(rExtnames);
 
         if (externId == 0)
-            WriteModhdr();        /* in overlay 2 */
+            WriteModhdr();
         InitRecTypes();
     }
     if (controls.print)

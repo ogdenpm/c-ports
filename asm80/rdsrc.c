@@ -14,7 +14,6 @@ bool pendingInclude = false;
 bool includeOnCmdLine = false;
 byte fileIdx = 0;
 FILE *srcfp;
-byte lineChCnt = 0; 
 file_t files[6];
 
 
@@ -43,7 +42,7 @@ static char *getLine() {
     int i = 0;
 
     while ((c = getc(srcfp)) != '\n' && c != EOF) {
-        if (c && c != '\r') {           // exclude '\r' and embedded  '\0'
+        if (c >= ' ' || c == '\t' || c == '\f') {    // only allow tab or FF as a control char, others are stripped
             if (i >= inBufSize - 2)     // allow room for "\n\0"
                 inBuf = xrealloc(inBuf, inBufSize += 256);  // auto grow to allow very long lines
             inBuf[i++] = c;

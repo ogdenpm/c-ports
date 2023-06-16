@@ -147,18 +147,18 @@ void GetMacroToken(void) {
 
         PushToken(O_PARAM);
 
-        while (! IsEndParam()) {
+        while (!IsEndParam()) {
             if (curChar == '\'') {
                 if ((curChar = GetCh()) == '\'') {
-                    curChar = GetCh();
-                    SkipWhite();
+                    SkipNextWhite();
                     if (IsEndParam())
                         break;
                     else {
                         CollectByte('\'');
                         CollectByte('\'');
                     }
-                } else {
+                }
+                else {
                     CollectByte('\'');
                     continue;
                 }
@@ -166,22 +166,21 @@ void GetMacroToken(void) {
             CollectByte(curChar);
             if (curMacro.mtype == M_IRPC)
                 curMacro.cnt++;
-            /* optimisation may swap evaluation order so force */
-            bool test = curChar == '!';
-            if (test & (GetCh() != EOLCH)) {
-                CollectByte(curChar);
-                curChar = GetCh();
-            }
+
+            if (curChar == '!')
+                if (GetCh() != EOLCH)
+                    CollectByte(curChar);
+                else
+                    reget = 1;
+            GetCh();
         }
 
         if (inAngleBrackets)
             curChar = GetCh();
 
         SkipWhite();
-        if (IsGT()) {
-            curChar = GetCh();
-            SkipWhite();
-        }
+        if (IsGT())
+            SkipNextWhite();
 
         reget = 1;
     }

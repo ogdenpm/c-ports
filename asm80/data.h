@@ -200,7 +200,6 @@ extern bool pendingInclude;
 extern bool includeOnCmdLine;
 extern byte fileIdx;
 extern FILE *srcfp;
-extern byte lineChCnt;
 extern file_t files[6];
 
 

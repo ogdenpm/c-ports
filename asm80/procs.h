@@ -87,7 +87,7 @@ FILE *SafeOpen(char const *pathP, char *access);
 void SetExpectOperands(void);
 bool ShowLine(void);
 void Skip2EOL(void);
-void Skip2NextLine(void);
+void Skip2EOL(void);
 void SkipWhite(void);
 void SkipNextWhite(void);
 void SourceError(byte errCh);
