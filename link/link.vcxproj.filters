@@ -27,18 +27,6 @@
     <ClCompile Include="link3a.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="binasc.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="errrpt.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="mkfnam.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="pstafn.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="pstfn.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -46,9 +34,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="strequ.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="wrerr.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="linkov.c">
@@ -60,9 +45,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="link.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="error.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="_appinfo.h">

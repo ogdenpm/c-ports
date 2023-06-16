@@ -12,79 +12,48 @@
  * vim:ts=4:shiftwidth=4:expandtab:
  */
 #include "link.h"
+#include <stdarg.h>
 #include <stdio.h>
-word inFile;
-word tofilefd;
-word printFileNo;
-word pad_4565;
-word tmpfilefd;
-word statusIO;
-word actRead;
-char *inFileName;
-char *toFileName;
-char *printFileName;
+FILE *objFp;
+FILE *outFp;
+FILE *lstFp;
+char *objName;
+char *outName;
+char *lstName;
 bool mapWanted;
-psModName_t outModuleName;
-byte modEndModTyp;
-byte outTranId;
-byte outTranVn;
-byte modEndSegId;
-word modEndOffset;
+psModName_t moduleName;
+byte moduleType;
+byte tranId;
+byte tranVn;
+byte entrySeg;
+word entryOffset;
 word segLen[6];
 byte alignType[6];
 byte segmap[256];
-pointer membot;
-pointer topHeap;
-record_t *inRecordP;
-pointer erecP;
+pointer inEnd;
 pointer inP;
 word recNum;
 word recLen;
-word npbuf;
-pointer sbufP;
-pointer bufP;
-pointer ebufP;
-pointer soutP;
 pointer outP;
-pointer eoutP;
-library_t *objFileHead;
-library_t *curObjFile;
-module_t *curModule;
+objFile_t *objFileList;
+objFile_t *objFile;
+module_t *module;
 symbol_t *hashTab[128];
-symbol_t *headSegOrderLink;
-symbol_t *comdefInfoP;
-symbol_t *symbolP;
+symbol_t *headCommSym;
 word unresolved;
 word maxExternCnt;
-symbol_t *headUnresolved;
-
-word inBlk;
-word inByt;
-pointer inbP;
-byte inCRC;
+symbol_t *unresolvedList;
+int warned     = 0;
 
 byte COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP'";
-char VERSION[] = "V3.0";
-byte DUMMYREC[] = {0,0,0};
 
-/* EXTERNALS */
-extern byte overlayVersion[4];
+_Noreturn void RecError(char const *errMsg) {
+    fprintf(stderr, " %s", objName);
 
-void ConOutStr(char const * pstr, word count)
-{
-    Write(CO_DEV, pstr, count, &statusIO);
-} /* ConOutStr() */
+    if (module)
+        fprintf(stderr, "(%s)", p2cstr(&module->name));
 
-_Noreturn void FatalErr(byte errCode)
-{
-    fprintf(stderr, " %s", inFileName);
-
-    if (curModule)
-        fprintf(stderr, "(%.*s)", curModule->name.len, curModule->name.str);
-    fputc(',', stderr);
-
-    ReportError(errCode);
-    fprintf(stderr, " RECORD TYPE %02XH, RECORD NUMBER ", inRecordP->rectyp);
+    fprintf(stderr, ", %s\n Record Type %02XH, Record Number ", errMsg, inType);
     if (recNum > 0)
         fprintf(stderr, "%5d\n", recNum);
     else
@@ -93,28 +62,23 @@ _Noreturn void FatalErr(byte errCode)
     Exit(1);
 } /* FatalErr() */
 
-_Noreturn void IllFmt()
-{
-    FatalErr(ERR218);   /* Illegal() record format */
-} /* IllFmt() */
+_Noreturn void IllFmt() {
+    RecError("Illegal record format");
+}
 
-_Noreturn void IllegalRelo()
-{
-    FatalErr(ERR212);   /* Illegal() relo record */
-} /* IllegalRelo() */
+_Noreturn void IllegalRelo() {
+    RecError("Invalid record");
+}
 
-_Noreturn void BadRecordSeq()
-{
-    FatalErr(ERR224);   /* Bad() record sequence */
-} /* BadRecordSeq() */
+_Noreturn void BadRecordSeq() {
+    RecError("Bad record sequence");
+}
 
-void pstrcpy(pstr_t const *psrc, pstr_t *pdst)
-{
+void pstrcpy(pstr_t const *psrc, pstr_t *pdst) {
     memcpy(pdst, psrc, psrc->len + 1);
 } /* pstrcpy() */
 
-byte HashF(pstr_t *pstr)
-{
+byte HashF(pstr_t *pstr) {
     byte i, j;
 
     j = pstr->len;
@@ -123,57 +87,90 @@ byte HashF(pstr_t *pstr)
     return j & 0x7F;
 } /* HashF() */
 
-bool Lookup(pstr_t *pstr, symbol_t **pitemRef, byte mask)
-{
-    symbol_t *p;
-    byte i;
+bool Lookup(pstr_t *pstr, symbol_t **symRef, byte mask) {
+    symbol_t *p = (symbol_t *)&hashTab[HashF(pstr)];
 
-    i = pstr->len + 1;     /* Size() of string including length() byte */
-    *pitemRef = (p = (symbol_t *)&hashTab[HashF(pstr)]);
-    for (p = p->hashLink; p; p = p->hashLink) {
-        *pitemRef = p;
-        if ((p->flags & mask) != AUNKNOWN ) /* ignore undef entries */
-            if (Strequ((char *)pstr, (char *)&p->name, i) )
-                return true;
+    *symRef     = p;
+    for (p = p->hashChain; p; p = p->hashChain) {
+        *symRef = p;
+        if ((p->flags & mask) != AUNKNOWN && PStrequ(pstr, &p->name))
+            return true;
     }
     return false;
 } /* Lookup() */
 
-void WriteBytes(void const *bufP, word count)
-{    
-    Write(printFileNo, bufP, count, &statusIO);
-    FileError(statusIO, printFileName, TRUE);
-} /* WriteBytes() */
+void Printf(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    if (vfprintf(lstFp, fmt, args) < 0)
+        IoError(lstName, "Write error");
+    va_end(args);
+}
 
-void WriteCRLF()
-{
-    WriteBytes("\n", 1);
-} /* WriteCRLF() */
+void PrintAndEcho(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    if (vfprintf(lstFp, fmt, args) < 0)
+        IoError(lstName, "Write error");
+    /* 
+    * ISIS II does not have a STDERR device
+    * Here if the listing file is not a device
+    * echo to stderr
+    * in the case where stdout and stderr are left as the console
+    * this will do the right thing.
+    */
+    if (echoToStderr)
+        vfprintf( stderr, fmt, args);
+    va_end(args);
+    warned = 1;
+}
 
-void WriteAndEcho(void const *buffP, word count)
-{
-    
-    WriteBytes(buffP, count);
-    if (printFileNo > 0 )
-        ConOutStr(buffP, count);
-} /* WriteAndEcho() */
+void ModuleWarning(char const *msg) {
+    PrintAndEcho("%s%s(%s)\n", msg, objFile->name, &module->name);
+}
 
-void WAEFnAndMod(char *buffP, word count)
-{
-    WriteAndEcho(buffP, count);
-    WriteAndEcho(inFileName, strlen(inFileName));
-    WriteAndEcho("(", 1);
-    WriteAndEcho(curModule->name.str, curModule->name.len);
-    WriteAndEcho(")\r\n", 3);
-} /* WAEFnAndMod */
-
-void Start()
-{
+void Start() {
     ParseCmdLine();
     Phase1();
     Phase2();
-    Close(printFileNo, &statusIO);
-    Exit(0);
+    Exit(warnOK ? 0 : warned);
 
 } /* Start */
 
+_Noreturn void Exit(int result) {
+    if (result) {
+        if (outFp)
+            fclose(outFp);
+        unlink(outName);
+    }
+    if (lstFp)
+        fclose(lstFp);
+    exit(result);
+}
+
+_Noreturn void usage() {
+    printf("Usage: %s inputList (TO | -o) targetFile [link option]*\n"
+           "or:    %s (-v | -V | -h)\n",
+           invokeName, invokeName);
+    printf("Where:\n"
+           "-h               Show this help\n"
+           "-v / -V          Show simple / extended version information\n"
+           "Link options are:\n"
+           "-m               Include link map information in listing\n"
+           "-n moduleName    Set targetFile module name. '_' is now supported\n"
+           "-p listfile      Set listing file rather than use stdout\n"
+           "-w               Warnings for unresolved, duplicate and COMMON length conflicts treated as errors\n"
+           "MAP              Intel equivalent of -m option\n"
+           "NAME(moduleName) Intel equivalent of -n option\n"
+           "PRINT(listfile)  Intel equivalent of -p option\n"
+           "WERROR           Intel style equivalent of -w option\n"
+           "See Intel linker documentation for inputList specification\n"
+           "Notes:\n"
+           "* File names are of the format [:Fx:]path, where x is a digit and path\n"
+           "  can contain directory components but not spaces, commas, ampersand or parenthesis.\n"
+           "  The :Fx: maps to a directory prefix from the same named environment variable\n"
+           "  It can be used to work around directory character limitations\n"
+           "* Response file input for linking is supported by using \"%s <file\"\n"
+           "* targetFile is deleted on error, which helps with make builds\n", invokeName);
+    exit(0);
+}

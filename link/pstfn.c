@@ -12,10 +12,7 @@
 
 char const *Delimit(char const *pch)
 {
-
-	while (*pch == ':' || *pch == '.' || (*pch >= '0' && *pch <= '9') || (*pch >= 'A' && *pch <= 'Z')) {
-		pch++;
-	}
-	return pch;
+    char *p = strpbrk(pch, " ,()&\n");
+    return p ? p : strchr(pch, '\0');
 } /* Delimit() */
 

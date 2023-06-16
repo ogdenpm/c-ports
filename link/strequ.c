@@ -10,7 +10,6 @@
 
 #include "link.h"
 
-bool Strequ(char const *s, char const *t, byte cnt)
-{
-	return strncmp(s, t, cnt) == 0;
-} /* Strequ() */
+bool PStrequ(pstr_t *s, pstr_t *t) {
+    return s->len == t->len && strncmp(s->str, t->str, s->len) == 0;
+}
