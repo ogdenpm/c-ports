@@ -18,6 +18,33 @@ There are also a three of script files from my [versionTools](https://github.com
 
 ## Recent major changes
 
+### 16-Jun-2023
+
+Recent changes have been around link 3.0, major changes are
+
+- Command line can now be any length, all control characters entered other than new line ('\n') are converted to a space. For invoke and errors long commands lines are formatted to a sensible width.
+  As per the Intel code and ampersand '&' indicates additional command line text comes from stdin, which may be from a redirected file. For some OS, the '&' will need to be escaped on the command line, so as a convenience  invoking link with no arguments starts input from stdin without the need for the command line '&'. This allow support for a simple response file by using link <file.
+- Some support for windows/linux style options has been added. Use link -h for a summary.
+  Note the -v, -V and -h options are only supported directly from the command line.
+- A additional option -w (or WERROR) has been added to cause unresolved,  multiply defined and COMMON length conflict warnings to be treated as errors. This is to help with make usage and would typically be used on the final link stage. Earlier partial links e.g. for overlays, should not use the option.
+  Related to this is that the target file is deleted on error. Without this make can get  confused as it sees a generated file, even though it is invalid.
+  Note other possible warnings are given if 'MAP', if requested. These include overlaps, gaps and code that exceeds page limits. The listing file should be consulted to review these.
+- As with asm80, native filenames (including directory prefixes) can be used and optionally prefixed by :Fx: where x is a digit. There are filename limitations, specifically
+  - filenames cannot contain a space, parenthesis, comma or ampersand. As with the asm80 port, path names may contain these characters providing the path is mapped to a :Fx: drive using environment variables.
+  - filenames are not checked for legality, so may report the error when trying to open or create a file.
+  - For windows the check for the output file name matching an input file name is done case insensitive. ***Warning the compare is only done on the entered name, not any mapped name, so aliases (e.g. absolute vs. relative paths) and links to the same file will not be detected.***
+  - publics is not allowed as a file name as it conflicts with the publics(...) option.  Note publics with an extension is allowed.
+  - The checking that a filename is a disk file has been removed. It was previously only done on the :xx: device name. Failures to open or seek a file will be detected later.
+    Whilst it would be possible to re-add file checking, using stat, it would need to handle the create file case where null devices and non-existent files are allowed, possibly checking that the parent directory exists. For now the benefit of adding this is seen as minimal.
+- Module names can now contain the underbar '_' character.
+- The use of an externals temporary file has been eliminated
+- I/O now uses stdio functions rather than raw read/write.
+- The library scan functions now cache the dictionary and offsets information, avoiding repeated reloads
+- Input record processing has been simplified, as loading even long records is reasonable given modern memory limit.
+- Memory management now uses malloc/realloc, except for the fixups, which are managed in a dynamically grown array.
+- System error messages have been converted to use  standard messages and application messages have been made more explicit, allowing for tailored messages rather than generic error codes.
+- The code should now work on on big endian processors.
+
 ### 31-May-2023
 
 - Modified the listing files to include the date and time of the assembly in the header, if there is room, which will usually be the case. The default header width is now 80 unless the page width is smaller. The date is shown in the format [yyyy-mm-dd hh:mm].
