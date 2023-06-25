@@ -32,7 +32,7 @@ void BinAsc(word number, byte base, byte pad, char *bufP, byte ndigits)
 char *PastAFN(char *pch)
 {
 	while (1) {
-		pch = PastFileName(pch);
+		pch = Delimit(pch);
 		if (*pch == '*' || *pch == '?' )
 			pch = pch + 1;
 		else

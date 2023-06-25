@@ -10,18 +10,18 @@
 
 #include "loc.h"
 
-void ErrChkReport(word errCode, char *file, bool errExit)
-{
-	word status;
-	
-	if (errCode != 0 )
-	{
-		file = SkipSpc((char *)file);	// safe to remove const
-		Write(0, " ", 1, &status);
-		Write(0, file, (word)(PastAFN(file) - file), &status);	/* Write() file name */
-		Write(0, ",", 1, &status);
-		Errmsg(errCode);
-		if (errExit )
-			Exit(1);
-	}
-} /* ErrChkReport */
+
+_Noreturn void RecError(char const *errMsg) {
+    fprintf(stderr, " %s", inName);
+
+    if (moduleName)
+        fprintf(stderr, "(%s)", moduleName->str);
+
+    fprintf(stderr, ", %s\n Record Type %02XH, Record Number ", errMsg, inType);
+    if (recNum > 0)
+        fprintf(stderr, "%5d\n", recNum);
+    else
+        fputs("*****\n", stderr);
+
+    Exit(1);
+} /* FatalErr() */

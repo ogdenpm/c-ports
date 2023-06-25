@@ -10,141 +10,84 @@
 
 #include "loc.h"
 
-char aMemoryMapOfMod[] = "\r\nMEMORY MAP OF MODULE ";
-char aStartStopLengt[] = "\r\n\nSTART   STOP LENGTH REL NAME\r\n\n";
-char aModuleStartAdd[] = "MODULE START address XXXXH";
-char aModuleIsNotAMa[] = "MODULE IS NOT A MAIN MODULE";
-char aStartControlIg[] = ", START CONTROL IGNORED";
-char aRestartControl[] = ", RESTART CONTROL IGNORED";
-char aAddresses[] = "XXXXH  XXXXH  XXXXH  X  ";
-char aMemOverlap[] = "  [MEMORY OVERLAP FROM XXXXH THROUGH XXXXH]";
-char a0LengthSegment[] = "  [0 LENGTH SEGMENT WRAPPED AROUND TO 0000H]";
-char segNames[] = "ABSOLUTE" "CODE    " "DATA    " "STACK   " "MEMORY  ";
-char alignNames[] = "AIPB";
 
-pointer GetCommonName(byte segid)
-{
-	static byte nullName[1] = { 0 };
+char const *segNames[256]    = { "ABSOLUTE", "CODE", "DATA", "STACK", "MEMORY", "Reserved" };
 
-	if (segid == SBLANK )
-		return nullName;	/* blank name */
-	ObjSeek(0,0);	/* Seek() start of file */
-	GetRecord();		/* junk the modhdr record */
-	while (1) {
-		GetRecord();	/* scan comdef records */
-        if (inRecordP[RECORD_rectyp] != R_COMDEF)
-			BadRecordSeq();
-		while (inP < erecP) {	/* look for the seg */
-			if (segid == inP[COMNAM_segId])
-				return inP + COMNAM_name;	/* return pointer to name */
-			inP += COMNAM_sizeof + PSLen(inP + COMNAM_name);	/* skip to next seg/name */
-		}
-	}
-} /* GetCommonName */
+void PrintMemoryMap() {
 
-void PrintMemoryMap()
-{
-	word minStart, q;
-	byte i, wrapped, addCRLF;
+    if (seen.map) { /* print map header info if asked for */
+        PrintListingHeader("MEMORY MAP OF MODULE");
+        if (isMain)
+            Printf("MODULE START ADDRESS %04XH", startAddr);
+        else {
+            Printf("MODULE IS NOT A MAIN MODULE");
+            if (seen.start)
+                Printf(", START CONTROL IGNORED");
+            if (seen.restart0)
+                Printf(", RESTART CONTROL IGNORED");
+        }
+        fputs("\n\nSTART   STOP LENGTH REL NAME\n\n", lstFp);
+    }
 
-	if (seen.map)		/* print map header info if asked for */
-	{
-		PrintListingHeader(aMemoryMapOfMod, sizeof(aMemoryMapOfMod) - 1); /* '\r\nMEMORY MAP OF MODULE ' */
-		if (isMain )
-		{
-			BinAsc(startAddr, 16, '0', &aModuleStartAdd[21], 4);  /* insert start address in string */
-			PrintString(aModuleStartAdd, sizeof(aModuleStartAdd)-1); /* 'MODULE START address XXXXH' */
-		}
-		else
-		{
-			PrintString(aModuleIsNotAMa, sizeof(aModuleIsNotAMa)-1); /* 'MODULE IS NOT A MAIN MODULE' */
-			if (seen.start)
-				PrintString(aStartControlIg, sizeof(aStartControlIg)-1); /* ', START CONTROL IGNORED' */
-			if (seen.restart0)
-				PrintString(aRestartControl, sizeof(aRestartControl)-1); /* ', RESTART CONTROL IGNORED' */
-		}
-		PrintString(aStartStopLengt, 34);	/* '\r\nSTART   STOP length REL NAME\r\n\n' */
-	}
+    segBases[SSTACK] -= segSizes[SSTACK]; //  remove stack seg bias
+    byte seg;
+    for (int i = 1; i <= 254; i++) {
+        // original had test with unused flag 20H, replaced here
+        // with FSEGSEEN as it seems appropriate
+        if (segSizes[seg = segOrder[i]] || (segFlags[seg] & FSEGSEEN))
+            AddSegFrag(segFlags[seg],seg, segBases[seg], segSizes[seg]);
+    }
 
-	segBases[SSTACK] = segBases[SSTACK] - segSizes[SSTACK];
-	for (q = 1; q <= 254; q++) {
-		if (segSizes[i = segOrder[q]] > SABS  || (segFlags[i] & 0x20) != 0 )
-			AddSegFrag(segFlags[i], i, segBases[i], segSizes[i]);
-	}
+    uint32_t minStart = 0;
 
-	minStart = wrapped = 0;
-	/* emit information on all of the blocks */
-	curSegFragP = (segFrag_t *)topHeap;
-	while ((pointer)curSegFragP != topDataFrags) {
-		curSegFragP--;			/* point to start of block info C pointer arith */
-		BinAsc(curSegFragP->start, 16, '0', aAddresses, 4);	/* start address */
-		aAddresses[7] = '*';		/* assume no length so show **** for stop address */
-		aAddresses[8] = '*';
-		aAddresses[9] = '*';
-		aAddresses[10] = '*';
-		if (curSegFragP->len > 0 )		/* we have length so fill stop address */
-			BinAsc(curSegFragP->start + curSegFragP->len - 1, 16, '0', &aAddresses[7], 4);
-		BinAsc(curSegFragP->len, 16, ' ', &aAddresses[14], 4);	/* length */
-		/* copy the start and stop into the memory overlap message */
-		memmove(&aMemOverlap[23], aAddresses, 4);
-		memmove(&aMemOverlap[37], &aAddresses[7], 4);
-		if (curSegFragP->start + curSegFragP->len > minStart )	/* none | ~ total overlap */
-		{
-			aMemOverlap[37] = '*';		/* clear out the through address */
-			aMemOverlap[38] = '*';
-			aMemOverlap[39] = '*';
-			aMemOverlap[40] = '*';
-			/* if (we are overlap put in the end of the last block */
-			if (curSegFragP->len > 0 && (minStart > 0  || wrapped != 0) )
-				BinAsc(minStart - 1, 16, '0', &aMemOverlap[37], 4);
-		}
-		addCRLF = 0;
-		if (seen.map)	/* if MAP is being produced */
-		{
-			aAddresses[21] = alignNames[curSegFragP->flags & AMASK];	/* add the align type */
-			PrintString(aAddresses, sizeof(aAddresses)-1);	/* and print the address info */
-			if (curSegFragP->seg >= SNAMED )				/* seg is named common */
-			{
-				PrintString("/", 1);			/* print the / */
-				inP = GetCommonName(curSegFragP->seg);		/* look up the common name in the input file */
-                PrintString(PSStr(inP), PSLen(inP)); /* print it and the closing /, name is in pstr format */
-				PrintString("/", 1);
-			}
-			else							/* standard so used the canned names */
-				PrintString(&segNames[curSegFragP->seg << 3], 8);	/* shl 3 is *8 */
-		}
-		if (curSegFragP->start < minStart || wrapped != 0 )			/* emit any overlap notification */
-		{
-			addCRLF = true;
-			/* '  (MEMORY OVERLAP FROM XXXXH THROUGH XXXXH)'  values filled in above */
-			ConAndPrint(aMemOverlap, sizeof(aMemOverlap)-1);
-		}
-		if ((curSegFragP->flags & FWRAP0) != 0 )				/* && if wrapped to 0 */
-		{
-			addCRLF = true;
-			/* '  (0 length SEGMENT WRAPPED AROUND TO 0000H)' */
-			ConAndPrint(a0LengthSegment, sizeof(a0LengthSegment)-1);
-		}
-		if (addCRLF )							/* finish of any started line */
-			ConAndPrint(crlf, 2);
-		else if (seen.map)
-			PrintCrLf();
-		if (curSegFragP->start + curSegFragP->len == 0 && curSegFragP->len > 0 )		/* we wrapped to 0 */
-		{
-			minStart = 0;
-			wrapped = FWRAP0;
-		}
-		else if (wrapped == 0 )
-			if (curSegFragP->start + curSegFragP->len > minStart )		/* update the minStart */
-				minStart = curSegFragP->start + curSegFragP->len;
-	}
+    /* emit information on all of the blocks */
+    for (int i = 0; i < segFragCnt; i++) {
+        word start = segFrags[i].start;
+        word len   = segFrags[i].len;
+        byte flags = segFrags[i].flags;
+        byte seg   = segFrags[i].seg;
+
+        bool addCRLF = false;
+        if (seen.map) { /* if MAP is being produced */
+            Printf( "%04XH  ", start);
+            if (len > 0)
+                Printf( "%04XH", start + len - 1);
+            else
+                fputs("****H", lstFp);
+            Printf( "  %4XH  %c  ", len, "AIPB"[flags & AMASK]);
+            if (seg >= SNAMED) /* seg is COMMON */
+                Printf( "/%s/", segNames[seg]);
+            else /* standard so used the canned names */
+                Printf( "%-8s", segNames[seg]);
+        }
+        if (start < minStart) { /* emit any overlap notification */
+            warnings |= warningMask & 2;
+            addCRLF = true;
+            if (len) {      // overlap has size
+                uint32_t endLoc = start + len - 1;
+                if (endLoc >= minStart)
+                    endLoc = minStart - 1;
+                PrintfAndLog( "  (MEMORY OVERLAP FROM %04XH THROUGH %04XH)", start, endLoc);
+            } else
+                PrintfAndLog( "  (MEMORY OVERLAP FROM %04XH THROUGH ****H)", start);
+        }
+        if (flags & FWRAP0) {
+            addCRLF = true;
+            PrintfAndLog("  (0 length SEGMENT WRAPPED AROUND TO 0000H)");
+        }
+        if (addCRLF) {
+            PrintfAndLog("\n");
+        } else if (seen.map)
+            Printf("\n");
+        if (len && start + len >= 0x10000) { /* we wrapped to 0 */
+            minStart = 0x10000;
+        } else if (minStart < 0x10000 && (uint32_t)(start + len) > minStart) /* update the minStart */
+                minStart = start + len;
+    }
 } /* PrintMemoryMap */
 
-
-char *SkipSpc(char *pch)
-{
-	while (*pch == ' ')
-		pch++;
-	return pch;
+char *SkipSpc(char *pch) {
+    while (*pch == ' ')
+        pch++;
+    return pch;
 } /* SkipSpc */
-

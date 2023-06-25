@@ -13,17 +13,27 @@
  */
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 #include "error.h"
+#include <stdint.h>
+#ifdef _MSC_VER
+#include <io.h>
+#else
+#include <unistd.h>
+#define stricmp strcasecmp
+#endif
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
 typedef word *wpointer;
+#define VERSION "V3.0"
+
 
 // ISIS uses MemCk to return the top of memory
 // this is used to calculate a size for MEMORY seg
 // as MemCk returns the top of memory for other uses
 // defined a MEMCK value to use in calculation
-#define MEMCK	0xff00
+#define MEMCK	0xf7ff
 
 // accessor macros for HIGH and LOW
 // word cast is to avoid 64bit warnings
@@ -98,17 +108,17 @@ typedef struct {
 } segFrag_t;
 
 typedef union {
-    byte all[9];
+    bool all[9];
     struct {
-        byte start;
-        byte stackSize;
-        byte restart0;
-        byte map;
-        byte publics;
-        byte symbols;
-        byte lines;
-        byte purge;
-        byte name;
+        bool start;
+        bool stackSize;
+        bool restart0;
+        bool map;
+        bool publics;
+        bool symbols;
+        bool lines;
+        bool purge;
+        bool name;
     };
 } seen_t;
 
@@ -184,21 +194,18 @@ typedef struct {
 
 #pragma pack(pop)
 
-
-
-/* Seek modes */
-#define SEEKTELL 0
-#define SEEKBCK 1
-#define SEEKABS 2
-#define SEEKFWD 3
-#define SEEKEND 4
+#define CTHEAD  0
+#define CTPUB   1
+#define CTSYM   2
+#define CTLIN   3
+#define CTMOD   4
 
 #define ERR2    2 /* ILLEGAL AFTN ARGUMENT */
 #define ERR3    3 /* TOO MANY OPEN FILES */
 #define ERR4    4 /* INCORRECTLY SPECIFIED FILE */
 #define ERR5    5 /* UNRECOGNIZED DEVICE NAME */
 #define ERR9    9 /* DISK DIRECTORY FULL */
-#define ERR12   12 /* FILE IS ALREADY OPEN */
+#define ERR12   12 /* FILE IS already OPEN */
 #define ERR13   13 /* NO SUCH FILE */
 #define ERR14   14 /* WRITE PROTECTED */
 #define ERR17   17 /* NOT A DISK FILE */
@@ -302,6 +309,11 @@ typedef struct {
 #define TRUE    0xff
 #define FALSE   0
 
+#define REC_TYPE    0
+#define REC_LEN     1 // word
+#define REC_DATA    3 // various
+
+
 /* controls seen tags */
 //#define seen.start   seen(0)
 //#define seen.stackSize   seen(1)
@@ -313,181 +325,90 @@ typedef struct {
 //#define seen.purge   seen(7)
 //#define seen.name  seen(8)
 
-extern pointer MEMORY;
 
-extern word actRead;
-extern char aRecordType[];
-extern pointer baseMemImage;
-extern pointer botHeap;
-extern byte columns;
+extern word columns;
 extern char crlf[];
-extern dataFrag_t *curDataFragP;
-extern segFrag_t *curSegFragP;
-extern pointer eiBufP;
-extern pointer eoutP;
-extern pointer epbufP;
-extern pointer erecP;
-extern byte havePagingFile;
-extern pointer iBufP;
-extern word inBlk;
-extern pointer inbP;
-extern word inByt;
-extern byte inCRC;
-extern psFileName_t inFileName;
-extern dataFrag_t inFragment;
+extern pointer inEnd;
+extern char *inName;
+extern dataFrag_t inBlock;
 extern pointer inP;
-extern pointer inRecordP;
-extern byte isMain;
-extern byte modhdrX1;
-extern byte modhdrX2;
-extern psModName_t moduleName;
-extern dataFrag_t *nextDataFragP;
-extern segFrag_t *nextSegFragP;
-extern word npbuf;
-extern byte nxtPageNo;
-extern psFileName_t outFileName;
+extern pointer inRec;
+extern bool isMain;
+extern byte tranId;
+extern byte tranVn;
+extern pstr_t const *moduleName;
+extern char *outName;
 extern pointer outP;
-extern word outputfd;
-extern bool outRealFile;
-extern pointer outRecordP;
-extern byte pageCacheSize;
-extern byte pageIndexTmpFil;
-extern page1_t *pageTab1P;
-extern page2_t *pageTab2P;
-extern pointer pbufP;
-extern word printfd;
-extern psFileName_t printFileName;
-extern word readfd;
+extern FILE *outFp;
+extern byte outRec[];
+
+extern FILE *lstFp;
+extern char *lstName;
+extern FILE *inFp;
 extern word recLen;
 extern word recNum;
-extern byte roundRobinIndex;
 extern seen_t seen;
 extern word segBases[256];
 extern byte segFlags[256];
 extern byte segOrder[255];
 extern word segSizes[256];
-extern pointer sibufP;
-extern pointer spbufP;
 extern word startAddr;
-extern word statusIO;
-extern word tmpfd;
-extern psFileName_t tmpFileName;
-extern pointer topDataFrags;
-extern pointer topHeap;
-extern bool usePrintBuf;
-extern char version[];
-extern char alin[];
-extern char aMod[];
-extern char aPub[];
-extern char aReadFromFile[];
-extern char aReferenceToUns[];
-extern char aSym[];
-extern char aSymbol[];
-extern char aSymbolTableOfM[];
-extern char aUnsatisfiedExt[];
-extern char aValueType[];
-extern char aWrittenToFile[];
-extern byte curcol;
-extern address curColumn;
-extern char const *curListField;
-extern byte loHiBoth;
-extern pointer lsoutP;
-extern byte nameLen;
-extern byte outSegType;
-extern char spc32[];
 extern word unsatisfiedCnt;
-extern word workingSegBase;
-extern char x5[];
-extern char a0LengthSegment[];
-extern char aAddresses[];
-extern char alignNames[];
-extern char aMemoryMapOfMod[];
-extern char aMemOverlap[];
-extern char aModuleIsNotAMa[];
-extern char aModuleStartAdd[];
-extern char aRestartControl[];
-extern char aStartControlIg[];
-extern char aStartStopLengt[];
-extern char segNames[];
-extern char aCommandTailErr[];
-extern char aInvokedBy[];
-extern char cin[];
+extern word targetBase;
+extern char const *segNames[];
 extern char *cmdP;
-extern byte controls[];
-extern char cout[];
-extern char mdebug[];
-extern char mstar2[];
-extern char mto[];
-extern char mtoand[];
-extern char *scmdP;
-extern char signonMsg[];
-extern spath_t spathInfo;
-extern char tmpFileInfo[];
-extern char aInpageSegment2[];
-extern byte nxtSegOrder;
-extern byte pad7935[];
-extern byte segId;
+
+extern char *commandLine; // users command line
+extern char *tokenLine;   // copy of the line, modified to create C string tokens
+extern byte inType;
+extern bool echoToStderr;
+extern dataFrag_t *dataFrags;
+extern int dataFragCnt;
+extern segFrag_t *segFrags;
+extern int segFragCnt;
+extern int warningMask;
+extern int warnings;
+extern char *invokeName;
 
 void AddDataFrag(word saddr, word eaddr);
-pointer AddrInCache(word addr);
+pointer AddrInMem(word addr);
 void AddSegFrag(byte flags, byte seg, word start, word len);
-//static void Alloc(word cnt);
-pointer AllocNewPage(byte page);
-void AnotherPage(byte page);
 void BadRecordSeq();
 void BinAsc(word number, byte base, byte pad, char *bufp, byte ndigits);
-void ChkRead(word cnt);
-void Close(word conn, wpointer statusP);
-void CmdErr(word err);
-void ConAndPrint(char const *buf, word cnt);
-void ConStrOut(char const *buf, word cnt);
-void Delete(char const *pathP, wpointer statusP);
+
+_Noreturn void FatalCmdLineErr(char const *errMsg);
 void EmitModDat(dataFrag_t *curDataFragP);
 void EndRecord();
-void ErrChkReport(word errCode, char *file, bool errExit);
-void Errmsg(word errCode);
-void ErrNotADisk();
-void Error(word ErrorNum);
-void Exit(int retCode);
-void ExpectChar(byte ch, byte err);
+_Noreturn void Exit(int retCode);
+void ExpectChar(byte ch, char const *msg);
 void ExpectLP();
 void ExpectRP();
 void ExpectSlash();
-void FatalErr(byte errCode);
-void FixupBoundsChk(word addr);
-void FlushOut();
-void FlushPrintBuf();
 void ForceSOL();
-pointer GetCommonName(byte segid);
-byte GetCommonSegId();
-void GetFile();
-void GetPstrName(pstr_t *pstr);
+byte GetCommonSegId(char *token);
+pstr_t const *GetModuleName();
 void GetRecord();
 void IllegalRecord();
 void IllegalReloc();
-void InitRecOut(byte rectyp);
-void InitSegOrder();
-void InsSegIdOrder(byte seg);
+void InitRecord(byte rectyp);
+void ResetSegOrder();
+void AddSegOrder(byte seg);
+void FixSegOrder();
 void LoadModdat(byte segId);
 void LocateFile();
-void MakeFullName(spath_t *pinfo, char *pstr);
-pointer MemCk();
-void ObjSeek(word blk, word byt);
-void Open(wpointer connP, char const *pathP, word access, word echo, wpointer statusP);
-void PageOut(byte page, pointer bufp);
+void Rewind();
 word ParseLPNumRP();
-word ParseNumber(char **ppstr);
+word ParseSimpleNumber();
+int ParseNumber(char const *token);
 char *PastAFN(char *pch);
-char *PastFileName(char *pch);
-void PrintColumn(char const *field, pstr_t const *pstr);
-void PrintCrLf();
-void PrintListingHeader(char const *buf, word len);
+char *Delimit(char *pch);
+void PrintColumn(byte ctype,...);
+void PrintListingHeader(char const *heading);
 void PrintMemoryMap();
-void PrintString(char const *bufp, word cnt);
 void ProcAncest();
 void ProcArgsInit();
 void ProcComdef();
-void ProcDefs(byte list, char *template);
+void ProcDefs(byte list, byte ctype);
 void ProcessControls();
 void ProcExtnam();
 void ProcHdrAndComDef();
@@ -501,23 +422,41 @@ void pstrcpy(pstr_t const *psrc, pstr_t *pdst);
 #define PSLen(pstr)         ((pstr_t *)(pstr))->len
 #define PSStr(pstr)         ((pstr_t *)(pstr))->str
 
-void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP);
-void ReadCmdLine();
-void Rescan(word conn, wpointer statusP);
-void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer statusP);
-void SeekOutFile(word mode, wpointer pblk, wpointer pbyt);
-void SeekPagingFile(byte para);
-byte SetWorkingSeg(byte seg);
+
+
+byte SetTargetSeg(byte seg);
 void SkipNonArgChars(char *pch);
 char *SkipSpc(char *pch);
-void Spath(char const *pathP, spath_t *infoP, wpointer statusP);
 void Start();
-bool Strequ(char const *pstr1, char const *pstr2, byte len);
-void StrUpr(char *pch);
-byte ToUpper(byte ch);
-void Write(word conn, void const *buffP, word count, wpointer statusP);
-void WriteBytes(pointer bufP, word cnt);
 
 
 word getWord(pointer buf);
 word putWord(pointer buf, word val);
+
+void *xmalloc(size_t size);
+void *xrealloc(void *p, size_t size);
+_Noreturn void IoError(char const *path, char const *msg);
+_Noreturn void FatalError(char const *fmt, ...);
+_Noreturn void usage();
+void printCmdLine(FILE *fp);
+void printDriveMap(FILE *fp);
+char *basename(char *path);
+FILE *Fopen(char const *pathP, char *access);
+uint32_t ReadLocation();
+uint16_t ReadWord();
+uint8_t ReadByte();
+pstr_t *ReadName();
+char *GetToken();
+pstr_t const *pstrdup(pstr_t const *pstr);
+pstr_t const *toPstr(char const *s);
+void AssignAddress();
+void CopyRecord();
+char *xstrdup(char const *str);
+void Printf(char const *fmt, ...);
+void PrintfAndLog(char const *fmt, ...);
+void Prints(char const *s);
+_Noreturn void RecError(char const *errMsg);
+_Noreturn void usage();
+void WriteByte(uint8_t val);
+void WriteWord(uint16_t val);
+void WriteName(pstr_t const *name);

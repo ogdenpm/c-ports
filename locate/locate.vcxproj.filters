@@ -35,9 +35,6 @@
     <ClCompile Include="loc1.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="loc2a.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="loc2b.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -62,13 +59,10 @@
     <ClCompile Include="loc7.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="loc8.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="loc8a.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="loc9.c">
+    <ClCompile Include="memory.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

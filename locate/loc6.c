@@ -9,253 +9,201 @@
  ****************************************************************************/
 
 #include "loc.h"
+#include <ctype.h>
 
-
-spath_t spathInfo;
-char signonMsg[] = "\fISIS-II OBJECT LOCATER ";
-char aInvokedBy[] = " INVOKED BY:\r\n";
-char aCommandTailErr[] = "COMMAND TAIL ERROR NEAR #:";
-char tmpFileInfo[] = "\0LOCATETMP";
-char *scmdP;
 char *cmdP;
 
-byte controls[] = 
-		"\x0\x0\xfd"		/* 0xfd = 253 = -3 */
-		"\x1\x1\x4" "CODE"
-		"\x1\x2\x4" "DATA"
-		"\x1\x3\x5" "STACK"
-		"\x1\x4\x6" "MEMORY"
-		"\x2\x0\x5" "START"
-		"\x3\x1\x9" "STACKSIZE"
-		"\x4\x2\x8" "RESTART0"
-		"\x4\x3\x3" "MAP"
-		"\x4\x4\x7" "PUBLICS"
-		"\x4\x5\x7" "SYMBOLS"
-		"\x4\x6\x5" "LINES"
-		"\x4\x7\x5" "PURGE"
-		"\x5\x8\x4" "NAME"
-		"\x6\x0\x5" "PRINT"
-		"\x7\x0\x5" "ORDER"
-		"\x8\x0\x7" "COLUMNS";
+int warningMask;
+int warnings;
+static bool orderDef[256];
+static byte nxtSegOrder;
+static struct {
+    byte type;
+    byte aux;
+    char *name;
+} controls[] = {
+    { 1, 1, "CODE" },     { 1, 2, "DATA" },       { 1, 3, "STACK" },     { 1, 4, "MEMORY" },
+    { 2, 0, "START" },    { 2, 16, "-s" },        { 3, 1, "STACKSIZE" }, { 3, 17, "-ss" },
+    { 4, 2, "RESTART0" }, { 4, 2, "-r" },         { 4, 3, "MAP" },       { 4, 3, "-lm" },
+    { 4, 4, "PUBLICS" },  { 4, 4, "-lp" },        { 4, 5, "SYMBOLS" },   { 4, 5, "-ls" },
+    { 4, 6, "LINES" },    { 4, 6, "-ll" },        { 4, 7, "PURGE" },     { 4, 7, "-pu" },
+    { 5, 8, "NAME" },     { 5, 24, "-n" },        { 6, 0, "PRINT" },     { 6, 16, "-p" },
+    { 7, 0, "ORDER" },    { 8, 0, "COLUMNS" },    { 8, 16, "-c" },       { 10, 1, "NOEXTERN" },
+    { 10, 1, "-ne" },     { 10, 2, "NOOVERLAP" }, { 10, 2, "-no" }
+};
 
-char cin[] = ":CI: ";
-char cout[] = "\x5" ":CO: ";
-char mdebug[] = "DEBUG ";
-char mstar2[] = "**";
-char mto[] = "TO ";
-char mtoand[] = "TO&";
+_Noreturn void FatalCmdLineErr(char const *errMsg) {
+    if (*cmdP != '\n') /* don't skip past the EOL */
+        cmdP++;
+    strcpy((char *)cmdP, "#\n"); // mark problem (remove 'const' from cmdP)
+    fprintf(stderr, "Command line error near #: %s\n", errMsg);
+    printCmdLine(stderr);
+    Exit(1);
+} /* FatalCmdLineErr() */
 
-
-void CmdErr(word err)
-{
-	if (PastFileName(cmdP) == cmdP)
-	{
-		if (*cmdP != '\r')
-			cmdP = cmdP + 1;
-	}
-	else
-		cmdP = (char *)PastFileName(cmdP);	// safe to remove const
-
-	*cmdP = '#';	/* put a marker in */
-	ConStrOut(aCommandTailErr, 26);
-	Errmsg(err);
-	ConStrOut(scmdP, (word)(cmdP - scmdP) + 1);
-	ConStrOut(crlf, 2);
-	Exit(1);
-} /* CmdErr */
-
-
-void SkipNonArgChars(char *pch)
-{
-	cmdP = SkipSpc(pch);
-	/* skip any continuation bits and leading space */
-	while (*cmdP == '&') {
-		cmdP = SkipSpc(cmdP + 5);
-	}
+void SkipNonArgChars(char *pch) {
+    cmdP = SkipSpc(pch);
+    /* skip any continuation bits and leading space */
+    while (*cmdP == '&') {
+        cmdP = SkipSpc(cmdP + 5);
+    }
 } /* SkipNonArgChars */
 
-
-void ExpectChar(byte ch, byte err)
-{
-	SkipNonArgChars(cmdP);
-	if (ch == *cmdP)
-		SkipNonArgChars(cmdP + 1);
-	else
-		CmdErr(err);
+void ExpectChar(byte ch, char const *msg) {
+    SkipNonArgChars(cmdP);
+    if (ch == *cmdP)
+        SkipNonArgChars(cmdP + 1);
+    else
+        FatalCmdLineErr(msg);
 } /* ExpectChar */
 
-
-void ExpectLP()
-{
-	ExpectChar('(', ERR227);	/* left parenthesis expected */
+void ExpectLP() {
+    ExpectChar('(', "left parenthesis expected"); /* left parenthesis expected */
 } /* ExpectLP */
 
-
-void ExpectRP()
-{
-	ExpectChar(')', ERR228);	/* right parenthesis expected */
+void ExpectRP() {
+    ExpectChar(')', "right parenthesis expected"); /* right parenthesis expected */
 } /* ExpectRP */
 
-
-void ExpectSlash()
-{
-	ExpectChar('/', ERR203);	/* invalid syntax */
+void ExpectSlash() {
+    ExpectChar('/', "invalid syntax, expected '/'"); /* invalid syntax */
 } /* ExpectSlash */
 
+/* modified to fixup segOrder post cmdline to avoid multiple inserts */
+void ResetSegOrder() {
+    memset(orderDef, false, sizeof(orderDef));
+    nxtSegOrder = 0;
+}
 
-void GetFile()
-{
-	Spath(cmdP, &spathInfo, &statusIO);	/* try to parse file */
-	if (statusIO > 0)
-		CmdErr(statusIO);
-	SkipNonArgChars(PastFileName(cmdP));
-} /* GetFile */
+void AddSegOrder(byte seg) {
+    if (!orderDef[seg]) {
+        segOrder[++nxtSegOrder] = seg;
+        orderDef[seg]           = true;
+    } else
+        FatalCmdLineErr("segment already specified"); /* invalid syntax */
+}
 
+static void append(byte seg) { // expect compiler to inline
+    if (!orderDef[seg])
+        segOrder[++nxtSegOrder] = seg;
+}
 
-void InitSegOrder()
-{
-	byte i;
-	segOrder[0] = SABS;
-	segOrder[1] = SCODE;
-	segOrder[2] = SSTACK;
-	/* next come the common segs in order */
-	for (i = 3; i <= 252; i++) {
-		segOrder[i] = i + 3;
-	}
-	/* DATA is after these and MEMORY is last */
-	segOrder[253] = SDATA;
-	segOrder[254] = SMEMORY;
-} /* InitSegOrder */
+// add the unspecified segments as per default order
+void FixSegOrder() {
+    segOrder[0] = SABS;
+    append(SCODE);
+    append(SSTACK);
+    // the common segs in order
+    for (int i = SNAMED; i <= SBLANK; i++)
+        append(i);
+    // finally DATA and MEMORY
+    append(SDATA);
+    append(SMEMORY);
+}
 
+pstr_t const *GetModuleName() {
+    pstr_t const *name = toPstr(GetToken());
+    if (name->len > 31)
+        FatalCmdLineErr("Module name too long");
+    if (isdigit(name->str[0]))
+        FatalCmdLineErr("Module name cannot start with a digit");
+    for (char *s = (char *)name->str; *s; s++) // remove const to allow upper casing
+        if (isalnum(*s) || *s == '?' || *s == '@' || *s == '_')
+            *s = toupper(*s);
+        else
+            FatalCmdLineErr("Illegal character in module name");
+    return name;
+}
 
-void ErrNotADisk()
-{
-	MakeFullName(&spathInfo, inFileName.str);
-	ErrChkReport(ERR17, inFileName.str, true);	/* not a disk file */
-} /* ErrNotADisk */
+void ProcessControls() {
+    byte type, aux, seg;
+    char *token = GetToken();
+    if (*token == '/') // handle common
+        type = 9;
+    else {
+        type = 0;
+        for (int i = 0; i < sizeof(controls) / sizeof(controls[0]); i++)
+            if (stricmp(token, controls[i].name) == 0) {
+                type = controls[i].type;
+                aux  = controls[i].aux;
+                break;
+            }
+    }
 
-
-void GetPstrName(pstr_t *pstr)
-{
-
-	if (*cmdP < '?' || 'Z' < *cmdP)
-		CmdErr(ERR225);	/* invalid Name() */
-	pstr->len = 0;			/* set length */
-	while (('0' <= *cmdP && *cmdP <= '9') || ('?' <= *cmdP && *cmdP <= 'Z')) {
-		pstr->len++;
-		if (pstr->len > 31)
-			CmdErr(ERR226);	/* name too long */
-		pstr->str[pstr->len - 1] = *cmdP++;
-	}
-} /* GetppstrName */
-
-
-void ProcessControls()
-{
-	char *p, *q;
-	word_t cindex;
-	byte cid, caux, clen, cSegId;
-
-	/* find the command length */
-	clen = (byte)(PastFileName(cmdP) - cmdP);
-	cindex.lb = 3;
-	cid = 0;
-	if (*cmdP == '/')	/* common seg address */
-	{
-		clen = 1;	/* treat specially */
-		cid = 9;
-	}
-	else if (clen > 0)	/* look up the control */
-		while (cindex.lb < sizeof(controls) - 1) {
-            if (controls[cindex.lb + 2] == clen &&
-                Strequ(cmdP, (char *)&controls[cindex.lb + 3], clen))
-			{
-				cid = controls[cindex.lb];	
-				caux = controls[cindex.lb+1];
-				cindex.lb = sizeof(controls) - 1;
-			}
-			else
-				cindex.lb = cindex.lb +(controls[cindex.lb + 2] + 3);
-		}
-	if (cid == 0)		/* check we have a valid command */
-		CmdErr(ERR229);	/* unrecognised control */
-	SkipNonArgChars(cmdP + clen);
-	switch (cid - 1) {
-	    case 0:		/* CODE, DATA, STACK, MEMORY */
-			segFlags[caux] = FHASADDR;	/* note that the address is specified */
-			segBases[caux] = ParseLPNumRP();	/* and its value */
-	    	break;
-	    case 1:		/* START */
-	    	seen.start = true;		/* got a start address */
-			startAddr = ParseLPNumRP();	/* and its value */
-	    	break;
-	    case 2:		/* STACKSIZE */
-	        seen.stackSize = true;		/* got a stack size */
-			segSizes[SSTACK] = ParseLPNumRP();/* and its value */
-	    	break;
-	    case 3:
-			seen.all[caux] = true; 		/* simple command seen - RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE */
-			break;
-		case 4:		/* NAME */
-	    	seen.name = true;		/* got a module name */
-			ExpectLP();
-            GetPstrName((pstr_t *)&moduleName); /* getand its value */
-			ExpectRP();
-	    	break;
-	    case 5:		/* PRINT */		/* get the print file */
-			ExpectLP();
-			GetFile();
-			MakeFullName(&spathInfo, printFileName.str);
-			printFileName.len = (byte)(PastFileName(printFileName.str) - printFileName.str);
-			ExpectRP();
-	    	break;
-	    case 6:		/* ORDER */		/* process the order list */
-	    	InitSegOrder();
-			nxtSegOrder = 0;
-			ExpectLP();
-			while (*cmdP != ')') {
-				cindex.lb = 3;			/* skip seg 0 */
-				while (controls[cindex.lb] == 1) {	/* CODE DATA STACK MEMORY */
-                if (Strequ(cmdP, (char *)&controls[cindex.lb + 3], controls[cindex.lb + 2]))
-					{
-						InsSegIdOrder(controls[cindex.lb + 1]);
-						cmdP = cmdP + controls[cindex.lb + 2];
-						cindex.lb = 0;
-					}
-					/* note if (cindex.lb == 0) this keeps where we are & will terminate loop */
-					cindex.lb = cindex.lb + controls[cindex.lb + 2] + 3;
-				}
-				if (cindex.lb != 0)	/* check we haven't alReady processed */
-				{			/* if (! scan for /common/ names */
-					ExpectSlash();
-					cSegId = GetCommonSegId();
-					ExpectSlash();
-					InsSegIdOrder(cSegId);
-				}
-				SkipNonArgChars(cmdP);
-				/* look for list of names */
-				if (*cmdP == ',')
-					ExpectChar(',', ERR203); /* invalid syntax */
-			}
-			ExpectRP();
-	    	break;
-	    case 7:		/* COLUMNS */		/* get the number of columns */
-	    		p = cmdP;	/* mark where we are */
-			ExpectLP();	/* look for the ( */
-			q = cmdP;	/* mark start of number */
-			cmdP = p;	/* reset to start of (n) */
-			columns = (byte)ParseLPNumRP();
-			if (columns < 1 || columns > 3)	/* must be 1-3 */
-			{
-				cmdP = q;	/* for Error() reporting */
-				CmdErr(ERR203);	/* invalid syntax */
-			}
-	    	break;
-	    case 8:		/* / -> common */	/* find the common name or blank */
-	    	cSegId = GetCommonSegId();	/* look up seg */
-			ExpectSlash();		/* end with a slash */
-			segFlags[cSegId] = FHASADDR;	/* note we have an address */
-			segBases[cSegId] = ParseLPNumRP(); /* and its value */
-	    	break;
-	}
+    switch (type) {
+    case 0:
+        FatalCmdLineErr("Unrecognised control");
+        break;
+    case 1:                             /* CODE, DATA, STACK, MEMORY */
+        segFlags[aux] |= FHASADDR;      /* note that the address is specified */
+        segBases[aux] = ParseLPNumRP(); /* and its value */
+        break;
+    case 2:                          /* START */
+        seen.start = true;           /* got a start address */
+        startAddr  = aux & 0x10 ? ParseSimpleNumber() : ParseLPNumRP(); /* and its value */
+        break;
+    case 3:                                /* STACKSIZE */
+        seen.stackSize   = true;           /* got a stack size */
+        segSizes[SSTACK] = aux & 0x10 ? ParseSimpleNumber() : ParseLPNumRP(); /* and its value */
+        break;
+    case 4:                   // RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE
+        seen.all[aux] = true; /* simple command seen */
+        break;
+    case 5:               /* NAME */
+        seen.name = true; /* got a module name */
+        if (aux & 0x10)
+            moduleName = GetModuleName();
+        else {
+            ExpectLP();
+            moduleName = GetModuleName(); /* get its value */
+            ExpectRP();
+        }
+        break;
+    case 6: /* PRINT */ /* get the print file */
+        if (aux & 0x10)
+            lstName = GetToken();
+        else {
+            ExpectLP();
+            lstName = GetToken();
+            ExpectRP();
+        }
+        break;
+    case 7: /* ORDER */  /* process the order list */
+        ResetSegOrder(); // ORDER resets. Remove this to make additive
+        ExpectLP();
+        SkipNonArgChars(cmdP);
+        while (*(token = GetToken())) {
+            if (*token == '/') {
+                seg = GetCommonSegId(token);
+                AddSegOrder(seg);
+            } else {
+                int i;
+                for (i = 0; i < 4 && stricmp(token, controls[i].name) != 0; i++)
+                    ;
+                if (i < 4)
+                    AddSegOrder(controls[i].aux);
+                else
+                    FatalCmdLineErr("Unknown segment");
+            }
+            SkipNonArgChars(cmdP);
+            if (*cmdP != ',') // list?
+                break;
+            cmdP++;
+        }
+        ExpectRP();
+        break;
+    case 8: /* COLUMNS */ /* get the number of columns */
+        columns = aux & 0x10 ? ParseSimpleNumber() : ParseLPNumRP();
+        if (columns < 1 || columns > 3)
+            FatalCmdLineErr("Expected number in range 1-3");
+        break;
+    case 9:                             // common name
+        seg = GetCommonSegId(token);    /* look up seg */
+        segFlags[seg] |= FHASADDR;      /* note we have an address */
+        segBases[seg] = ParseLPNumRP(); /* and its value */
+        break;
+    case 10:
+        warningMask |= aux;
+        break;
+    }
 } /* ProcessControls */

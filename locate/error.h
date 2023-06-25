@@ -25,7 +25,7 @@
 #define ERROR_DIRFULL      0x09	/* Cannot create file: Directory full */
 #define ERROR_RENACROSS	   0x0A /* Cannot rename across devices */
 #define ERROR_EXISTS       0x0B /* Cannot rename: other file already exists. */
-#define ERROR_ALREADYOPEN  0x0C	/* File already open */
+#define ERROR_alreadyOPEN  0x0C	/* File already open */
 #define ERROR_FILENOTFOUND 0x0D	/* File not found */
 #define ERROR_PERMISSIONS  0x0E /* File is write protected */
 #define ERROR_OVERWRITING  0x0F /* Attempt to overwrite ISIS-II */

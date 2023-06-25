@@ -9,66 +9,37 @@
  ****************************************************************************/
 
 #include "loc.h"
+#include <ctype.h>
 
-static char hexch[] = "0123456789ABCDEF";
+// modified to return -1 on error
+int ParseNumber(char const *token) {
+    char const *pch;
+    byte radix, digit;
+    int num;
 
-word ParseNumber(char **ppstr)
-{
-    char *pch, *pafter, *pendNum;
-    byte i, radix, digit = 99; /* avoids gcc warning */
-    word num, lastnum;
-
-    pch = *ppstr;
-    while (*pch == ' ') {	/* skip spaces */
-        pch++;
-    }
-    *ppstr = pch;		/* update the source *ppstr */
-
-    while (('0' <= *pch && *pch <= '9') || ('A' <= *pch && *pch <= 'F')) {
-        pch++;
-    }
-    pafter = (pendNum = pch) + 1;
-    if (*pch == 'H')
+    for (pch = token; isxdigit(*pch); pch++)
+        ;
+    char suffix = toupper(*pch);
+    if (suffix == 'H')
         radix = 16;
-    else if (*pch == 'O' || *pch == 'Q')
+    else if (suffix == 'O' || suffix == 'Q')
         radix = 8;
-    else
-    {	/* *pcheck for D or B or numeric */
-        pendNum = pch = (pafter = pch) - 1;
-        if (*pch == 'B')
-            radix = 2;
-        else
-        {
-            radix = 10;
-            if (*pch != 'D')	/* if a digit then include in number */
-                pendNum = pendNum + 1;
-        }
-    }
-    pch = *ppstr;	/* reset to start */
-    num = lastnum = 0;
-    while (pch < pendNum) {
-        for (i = 0; i <= 15; i++) {
-            if (*pch == hexch[i])
-                digit = i;
-        }
+    else if (*pch != '\0')
+        return -1;
+    else if (toupper(pch[-1]) == 'B' || toupper(pch[-1]) == 'D') {
+        if (--pch == token)
+            return -1;
+        radix = toupper(pch[-1]) == 'B' ? 2 : 10;
+    } else
+        radix = 10;
+
+    for (num = 0; token < pch; token++) {
+        digit = isdigit(*token) ? *token - '0' : toupper(*token) - 'A' + 10;
         if (digit >= radix)
-            return 0;	/* illegal number */
-        if ((num = lastnum * radix + digit) < lastnum)
-            return 0;	/* overflow */
-        lastnum = num;
-        pch++;
+            return -1;
+        num = num * radix + digit;
+        if (num > 0xffff)
+            return -1;
     }
-    *ppstr = pafter;
     return num;
 } /* ParseNumber */;
-
-
-bool Strequ(char const *pstr1, char const *pstr2, byte len)
-{
-    byte i;
-    for (i = 0; i < len; i++) {
-        if (pstr1[i] != pstr2[i])
-            return false;
-    }
-    return true;
-} /* Strequ */

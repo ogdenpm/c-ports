@@ -10,15 +10,7 @@
 
 #include "loc.h"
 
-char *PastFileName(char *pch)
-{
-
-	while (*pch == ':' || *pch == '.'
-	   || ('0' <= *pch && *pch <= '9')
-	   || ('A' <= *pch && *pch <= 'Z')) {
-		pch = pch + 1;
-	}
-	return pch;
-} /* PastFileName */
-
-
+char *Delimit(char *pch) {
+    char *p = strpbrk(pch, " ,()&\n");
+    return p ? p : strchr(pch, '\0');
+}
