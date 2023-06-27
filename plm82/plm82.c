@@ -418,18 +418,18 @@
 #define abs(a) ((a) >= 0 ? (a) : -(a))
 #endif
 
-#define symAttrib(i)     symbol[symbol[i] - 1]
-#define symAddr(i)       symbol[symbol[i]]
-#define symBackref(i)    symbol[symbol[i] - 2]
-#define symIProcDepth(i) symbol[symbol[i] - 4]
+#define symAttrib(i)                 symbol[symbol[i] - 1]
+#define symAddr(i)                   symbol[symbol[i]]
+#define symRef(i)                symbol[symbol[i] - 2]
+#define symF3(i)                     symbol[symbol[i] - 3]
+#define symIProcDepth(i)             symbol[symbol[i] - 4]
 // VARB e..e ssss 0001   e..e - number of elements, ssss size of element
-#define INFO_TYPE(a)     ((a)&0xf)
-#define INFO_PREC(a)     (((a) >> 4) & 0xf)
-#define INFO_ESIZE(a)    (((a) >> 4) & 0xf)
-#define INFO_ECNT(a)     ((a) / 256)
-
-#define MAXSYM           6000
-#define MAXMEM           16000
+#define INFO_TYPE(a)                 ((a)&0xf)
+#define INFO_PREC(a)                 (((a) >> 4) & 0xf)
+#define INFO_ECNT(a)                 ((a) / 256)
+#define PACK_ATTRIB(cnt, prec, type) ((cnt)*256 + (prec)*16 + type)
+#define MAXSYM                       6000
+#define MAXMEM                       16000
 FILE *files[20];
 
 /* global variables*/
@@ -1157,7 +1157,7 @@ int main(int argc, char **argv) {
                     int attrib = symAttrib(n);
                     if (attrib >= 0 && INFO_TYPE(attrib) == VARB) {
                         j = LOWWORD(abs(symAddr(n)));
-                        if (j <= jp && j >= i && (k = INFO_ESIZE(attrib))) { // check candidate at j
+                        if (j <= jp && j >= i && (k = INFO_PREC(attrib))) { // check candidate at j
                             jp = j;
                             jn = n;
                             if (k > 2)
@@ -1853,16 +1853,16 @@ void loadsy() {
                 int attrib = symAttrib(i);
 
                 if (attrib >= 0 && INFO_TYPE(attrib) == VARB) {
-                    int esize = INFO_ESIZE(attrib);
-                    int ecnt  = INFO_ECNT(attrib);
+                    int prec = INFO_PREC(attrib);
+                    int ecnt = INFO_ECNT(attrib);
 
-                    if (esize > 2) /* probably an inline data variable */
-                        esize = -1;
+                    if (prec > 2) /* probably an inline data variable */
+                        prec = -1;
                     else {
-                        if (esize == 2) // align words to even boundary
+                        if (prec == 2) // align words to even boundary
                             lmem &= ~1;
 
-                        if ((lmem -= esize * ecnt) < 0) {
+                        if ((lmem -= prec * ecnt) < 0) {
                             errors("Data storage too big", 1);
                             lmem = 0xff00;
                         }
@@ -2156,8 +2156,8 @@ int chain(const int sy, const int loc) {
     if (symAddr(sy) < 0)
         return -symAddr(sy) & 0xffff; // absolute address already assigned
 
-    int _chain     = symBackref(sy);
-    symBackref(sy) = loc;
+    int _chain     = symRef(sy);
+    symRef(sy) = loc;
     return _chain;
 }
 
@@ -2394,8 +2394,8 @@ void litadd(const int s) {
                             return;
                         }
                         it = -it;
-                        emit(LXI, RH, symBackref(it)); /* place reference into chain */
-                        symBackref(it) = codloc - 2;
+                        emit(LXI, RH, symRef(it)); /* place reference into chain */
+                        symRef(it) = codloc - 2;
                     }
                 } else if (l <= 255)
                     emit(LD, ir, -l);
@@ -3024,7 +3024,7 @@ void reloc() {
                         target = ip;
                     } else { /* backstuff LXI references to this variable */
                         target = symAddr(i);
-                        for (int link = symBackref(i); link;) {
+                        for (int link = symRef(i); link;) {
                             int next = getword(link);
                             putword(link, target);
                             link = next;
@@ -3056,8 +3056,8 @@ void reloc() {
             l = INFO_TYPE(abs(symAttrib(i)));
             if (l == LABEL || l == PROC) {
                 int n       = k & 3;
-                int addr    = k / 4;    // does right thing if k -1 .. -3
-                int backref = symBackref(i);
+                int addr    = k / 4; // does right thing if k -1 .. -3
+                int backref = symRef(i);
                 while (addr) { // V4
                     int next = getword(addr);
                     putword(addr, backref);
@@ -3069,7 +3069,7 @@ void reloc() {
         if (preamb > 0) {
             for (int i = 1; i <= 8; i++)
                 if (intpro[i])
-                    intpro[i] = symBackref(intpro[i]) * 256 + 0xc3;
+                    intpro[i] = symRef(intpro[i]) * 256 + 0xc3;
             if (intpro[1] == 0 && offset == 0 && C_STACKHANDLING != 1) // V4
                 intpro[1] = (offset + preamb) * 256 + 0xc3;
 
@@ -3239,14 +3239,10 @@ void inldat() {
                     if (kp == OPR && k == DAT) {
                         /* backstuff jump address */
                         /* now fix symbol table entries */
-                        l--;
-                        k         = symbol[abs(ic)];
-                        symbol[k] = -iq;
-                        j         = symbol[--k];
-
+                        symAddr(abs(ic)) = -iq;
+                        j                = INFO_ECNT(symAttrib(abs(ic)));
                         /* check symbol length against count */
-                        j /= 256;
-                        symbol[k] = l * 256 + 16 + VARB;
+                        symAttrib(abs(ic)) = PACK_ATTRIB(--l, 1, VARB);
                         if (ic < 0) { /* this is an address reference to a constant, so.. */
                             st[++sp] = ic;
                             rasn[sp] = 0;
@@ -3666,16 +3662,14 @@ void readcd() {
                 if (rasn[sp - 1] > 255)
                     cvcond(sp - 1);
             }
-            i = symbol[val];
-            j = symbol[i - 1];
-            if (j >= 0) {
+            if (symAttrib(val) >= 0) {
                 setadr(val);
                 continue;
             } else {
                 /* load address of based variable.  change to */
                 /* load value of the base, using the variable's precision */
-                ibase = right(shr(-j, 4), 4);
-                val   = symbol[i - 2];
+                ibase = INFO_PREC(-symAttrib(val));
+                val   = symRef(val);
             }
             break;
         case VLU:
@@ -3691,11 +3685,11 @@ void readcd() {
             /* save registers if this is a PROC OR a LABEL which was */
             /* referenced IN a go-to statement OR was compiler-generated. */
             ip = symbol[val];
-            i  = abs(symbol[ip - 1]);
+            i  = abs(symAttrib(val));
 
             /* save this DEF symbol number AND the literal values of the */
             /* h AND l registers for possible TRA chain straightening. */
-            if (right(i, 4) == LABEL) {
+            if (INFO_TYPE(i) == LABEL) {
                 defsym = val;
                 defrh  = regv[RH];
                 defrl  = regv[RL];
@@ -3706,32 +3700,25 @@ void readcd() {
             /* TRC l, TRA/PRO/RET, DEF l */
 
             /* to an equivalent conditional TRA/PRO/RET... */
-            if (i / 256 == 1)
+            if (INFO_ECNT(i) == 1)
                 if (tstloc == codloc)
                     if (conloc == xfrloc - 3) {
-                        j = -symbol[ip];
+                        int addr = -symAddr(val);
                         // V4
-                        k = shr(j, 2);
-
-                        if (k == conloc + 1) {
-
+                        if ((-symAddr(val))/4 == conloc + 1) {
                             /* adjust backstuffing chain for JMP OR call */
-                            if (xfrsym > 0) {
-                                k = symbol[xfrsym];
-
+                            if (xfrsym > 0)
                                 /* decrement backstuff location by 3 */
-                                symbol[k] = symbol[k] + 12;
-                            }
+                                symAddr(xfrsym) += 3 << 2;
 
                             /* arrive here with the configuration TRC...DEF */
                             // V4
-                            symbol[ip] = -right(j, 2);
-                            k          = abs(symbol[ip - 1]) & 0xff;
-                            if (symbol[ip - 1] < 0)
-                                k = -k;
-                            symbol[ip - 1] = k;
-                            get(conloc);
-                            j = ((get(conloc) ^ 8) & ~7) + (get(xfrloc) & 6);
+                            symAddr(val) = -(addr % 4);
+                            if (symAttrib(val) < 0)
+                                symAttrib(val) = -(abs(symAttrib(val)) & 0xff);
+                            else
+                                symAttrib(val) &= 0xff;
+                            int j = ((get(conloc) ^ 8) & ~7) + (get(xfrloc) & 6);
                             for (;;) {
                                 put(conloc, j);
                                 conloc++;
@@ -3751,8 +3738,8 @@ void readcd() {
                             }
                         }
                     }
-            j = right(i, 4);
-            if (j == LABEL) {
+            int type = INFO_TYPE(i);
+            if (type == LABEL) {
 
                 /* LABEL found.  check for reference to LABEL */
                 i = i / 256;
@@ -3762,7 +3749,7 @@ void readcd() {
                 /* check for single reference, no conflict with h AND l */
                 if (i == 1) {
                     // V4
-                    i = symbol[ip - 3];
+                    i = symF3(val);
                     /* check for previous reference  forward */
                     // V4
                     if (i != 0 && i != -1) {
@@ -3794,7 +3781,7 @@ void readcd() {
                         goto L370;
                     }
                 }
-            } else if (j == PROC) {
+            } else if (type == PROC) {
 
                 /* set up procedure stack for procedure entry */
                 if (++prsp > prsmax)
@@ -3838,16 +3825,16 @@ void readcd() {
         L370:
             k = codloc;
         L380:
-            i = -symbol[ip];
+            i = -symAddr(val);
             j = i % 4;
             i = i / 4;
             if (j != 1)
                 error(131, 1);
             // V4
-            symbol[ip]     = -(shl(i, 2) + 3);
-            symbol[ip - 2] = k;
+            symAddr(val)      = -(shl(i, 2) + 3);
+            symRef(val) = k;
             /* now check for procedure entry point */
-            i = symbol[ip - 1];
+            i = symAttrib(val);
             if (right(i, 4) == PROC) {
                 i = shr(i, 8);
 
@@ -3865,16 +3852,11 @@ void readcd() {
                         }
 
                         /* (RD,RE) = 69    (RB,RC) = 35 */
-                        if (j == 1)
-                            l = 35;
-                        if (j == 2)
-                            l = 69;
-                        rasn[sp] = l;
+                        rasn[sp] = j == 1 ? 35 : 69;
                         st[sp]   = 0;
                         litv[sp] = -1;
                         prec[sp] = 2;
-                        sp       = sp + 1;
-                        if (sp > maxsp) {
+                        if (++sp > maxsp) {
                             error(113, 5);
                             sp = 1;
                         }
@@ -3903,9 +3885,8 @@ void readcd() {
             continue;
         }
         i = symbol[val];
-        j = symbol[i - 1];
+        j = symAttrib(val);
         if (sp > 1)
-
             /* allow only a LABEL variable to be stacked */
             if (abs(j) % 16 != LABEL) {
                 /* check for active condition code which must be changed to boolean */
@@ -3960,7 +3941,6 @@ void readcd() {
             }
         }
         if (j < 0)
-
             /* value reference to based variable. first insure that this */
             /* is NOT a length attribute reference, (i.e., the variable is */
             /* NOT an actual parameter for a call on length OR last) by */
@@ -3973,9 +3953,8 @@ void readcd() {
                 /* load value of base variable.  change to load */
                 /* value of base, followed by a LOD op. */
                 ibase = right(shr(-j, 4), 4) + 16;
-                val   = symbol[i - 2];
-                i     = symbol[val];
-                j     = symbol[i - 1];
+                val   = symRef(val);
+                j     = symAttrib(val);
             }
         alter = true;
 
@@ -4071,12 +4050,10 @@ bool doBuiltin(int val) {
                 if (i == 1)
                     regs[RA] = REGLOW(rasn[sp]);
             }
-            k  = REGHIGH(rasn[sp]);
             m  = REGLOW(rasn[sp]);
-            jp = regs[RA];
-            if (i != 1 || jp != m) {
-                if (jp) {
-                    emit(LD, jp, RA);
+            if (i != 1 || regs[RA] != m) {
+                if (regs[RA]) {
+                    emit(LD, regs[RA], RA);
                     regs[RA] = 0;
                 }
                 if (i) {
@@ -4087,9 +4064,8 @@ bool doBuiltin(int val) {
             i = codloc;
             unary(val);
             if (kp != 1) {
-                k = regs[RA];
-                if (k != 0)
-                    emit(LD, k, RA);
+                if (regs[RA])
+                    emit(LD, regs[RA], RA);
                 regs[RA] = 0;
             }
             emit(DC, j, 0);
@@ -4395,9 +4371,7 @@ bool operat(int val) {
         i = st[sp];
         if (i > intbas) { /* pass the last two (at most) parameters IN the registers */
             i = right(st[sp], 16);
-            i = symbol[i];
-            i = shr(symbol[i - 1], 8);
-            i = imin(i, 2);
+            i = min(INFO_ECNT(symAttrib(i)), 2);
             if (i < 1) {
                 lock[RH] = lock[RL] = true;
                 saver();
@@ -4793,7 +4767,7 @@ bool operat(int val) {
         symbol[syinfo--] = -codloc;
 
         /* set entry to len=0/prec=2/type=VARB/ */
-        symbol[syinfo] = 32 + VARB;
+        symbol[syinfo] = PACK_ATTRIB(0, 2, VARB);
         casjmp         = syinfo;
 
         /* casjmp will be used to update the length field */
@@ -4960,10 +4934,7 @@ bool operat(int val) {
 
     i = st[sp];
     if (i > 0) {
-        i = symbol[i];
-        j = symbol[i - 1];
-        j = right(j, 4);
-
+        j = INFO_TYPE(symAttrib(i));
         /* may be a simple variable */
         if (iop != 1 || j != VARB) {
             if ((iop != 3 || j != PROC) && j != LABEL) {
@@ -4971,72 +4942,72 @@ bool operat(int val) {
                 sp--;
                 return true;
             } else {
-                j = -symbol[i];
-                m = symbol[i - 2];
+                j = -symAddr(i);
+                m = symRef(i);
 
                 if (iop == 1) {
-                    it = (abs(symbol[i - 1]) >> 4) & 0xf;
+
+                    it = INFO_PREC(abs(symAttrib(i)));
+
                     /* it is type of LABEL... */
                     /* 3 is user-defined outer block, 4 is user defined */
                     /* NOT outer block, 5 is compiler defined */
-                    if (it == 5)
+                    if (it == 5 && defsym > 0 && INFO_PREC(symAttrib(defsym)) == 5) {
                         /* this TRA is one of a chain of compiler generated */
                         /* TRA's - straighten the chain if no code has been */
                         /* generated since the previous DEF. */
-                        if (defsym > 0) {
-                            k = symbol[defsym];
-                            if (right(shr(symbol[k - 1], 4), 4) == 5) {
-                                l  = -symbol[k];
-                                jp = symbol[k - 2];
-                                if (jp == codloc) {
-                                    /* adjust the reference counts AND optimization */
-                                    /* information for both DEF's. */
-                                    ia = abs(symbol[k - 1]) >> 8;
-                                    ib = ia == 1 ? symbol[k - 3] : 0;
 
-                                    if (defrh == -255)
-                                        ia--;
-                                    symbol[k - 1] = 84;
+                        l  = -symAddr(defsym);
+                        jp = symRef(defsym);
+                        if (jp == codloc) {
+                            /* adjust the reference counts AND optimization */
+                            /* information for both DEF's. */
+                            ia = INFO_ECNT(abs(symAttrib(defsym)));
+                            ib = ia == 1 ? symF3(defsym) : 0;
 
-                                    /* i.e., ZERO references to compiler generated LABEL */
-                                    if (shr(abs(symbol[i - 1]), 8) == 1)
-                                        symbol[i - 3] = ib;
+                            if (defrh == -255)
+                                ia--;
+                            symAttrib(defsym) = 84;
 
-                                    symbol[i - 1] += ia * 256;
-                                    for (;;) {
-                                        /* corrected reference count for object of the DEF */
-                                        /* merge the backstuffing chains */
+                            /* i.e., ZERO references to compiler generated LABEL */
+                            if (INFO_ECNT(abs(symAttrib(i))) == 1)
+                                symF3(i) = ib;
 
-                                        if ((ia = l >> 2) == 0) {
-                                            /* equate the defs */
-                                            for (ia = 1; ia <= sytop; ia++)
-                                                if (symbol[ia] == k)
-                                                    symbol[ia] = i;
+                            symAttrib(i) += ia * 256;
+                            for (;;) {
+                                /* corrected reference count for object of the DEF */
+                                /* merge the backstuffing chains */
 
-                                            /* omit the TRA if no path to it */
-                                            regv[RH] = defrh;
-                                            regv[RL] = defrl;
-                                            break;
-                                        } else {
-                                            ib = getword(ia);
-                                            // V4
-                                            l         = (ib << 2) + (l & 3);
-                                            symbol[k] = -l;
-                                            // V4
-                                            putword(ia, j >> 2);
-                                            // V4
-                                            j         = ((ia << 2) + (j & 3));
-                                            symbol[i] = -j;
-                                        }
-                                    }
-                                }
-                                if (regv[RH] == (-255)) {
-                                    _delete(1);
-                                    return true;
+                                if ((ia = l >> 2) == 0) {
+                                    /* equate the defs */
+                                    for (ia = 1; ia <= sytop; ia++)
+                                        if (symbol[ia] == symbol[defsym])
+                                            symbol[ia] = symbol[i];
+
+                                    /* omit the TRA if no path to it */
+                                    regv[RH] = defrh;
+                                    regv[RL] = defrl;
+                                    break;
+                                } else {
+                                    ib = getword(ia);
+                                    // V4
+                                    l               = (ib << 2) + (l & 3);
+                                    symAddr(defsym) = -l;
+                                    // V4
+                                    putword(ia, j >> 2);
+                                    // V4
+                                    j          = ((ia << 2) + (j & 3));
+                                    symAddr(i) = -j;
                                 }
                             }
                         }
+                        if (regv[RH] == (-255)) {
+                            _delete(1);
+                            return true;
+                        }
+                    }
                 }
+
                 if (it == 3 && iop == 1) { // BUG FIX user labels all have 4
 
                     /* we have a TRA to the outer block... */
@@ -5049,9 +5020,8 @@ bool operat(int val) {
                         emit(LXI, RSP, j % 65536);
                     }
                 }
-                j = -symbol[i];
-                // V4
-                m = shr(j, 2);
+                j = -symAddr(i);
+                m = j / 4;
 
                 /* connect entry into chain */
                 k = codloc + 1;
@@ -5060,12 +5030,10 @@ bool operat(int val) {
 
                 /* iop = 4 if we arrived here from case table JMP */
                 // V4
-                symbol[i] = -(shl(k, 2) + right(j, 2));
+                symAddr(i) = -(shl(k, 2) + right(j, 2));
 
                 /* check for single reference */
-                j = symbol[i - 1];
-                k = abs(j) / 256;
-                if (k == 1) {
+                if (INFO_ECNT(abs(symAttrib(i))) == 1) {
                     // V4
                     //        note in a do case block, an implicit goto is
                     //        generated at the end of each selective statement
@@ -5077,7 +5045,7 @@ bool operat(int val) {
                     //        make sure if saved h/l is already marked no good
                     //        /   1b   /   1b   /   9b   /   8b   /
                     //        /h valid /l valid /h value /l value /
-                    int lsym = symbol[i - 3];
+                    int lsym = symF3(i);
                     if (lsym != -1) {
                         int ktotal = 0;
                         if (0 <= regv[RH] && regv[RH] < 512)
@@ -5086,7 +5054,7 @@ bool operat(int val) {
                         if (0 <= regv[RL] && regv[RL] < 256)
                             if (lsym == 0 || ((lsym & 0x20000) && lsym % 256 == regv[RL]))
                                 ktotal += 0x20000 + regv[RL];
-                        symbol[i - 3] = ktotal ? ktotal : -1;
+                        symF3(i) = ktotal ? ktotal : -1;
                     }
                 }
 
@@ -5125,7 +5093,7 @@ bool operat(int val) {
 
                     /* adjust the maxdepth, if necessary */
                     // V4
-                    j = symbol[i - 4] + 1;
+                    j = symIProcDepth(i) + 1;
                     /* j is number of double-byte stack elements reqd */
                     stack(j);
 
@@ -5134,7 +5102,7 @@ bool operat(int val) {
 
                     /* now fix the h AND l values upon return */
                     // V4
-                    j = symbol[i - 3];
+                    j = symF3(i);
                     k = shr(j, 19);
 
                     /* may be unchanged from call */
@@ -5157,8 +5125,7 @@ bool operat(int val) {
 
                     /* may have to construct a returned */
                     /* value at the stack top */
-                    j = symbol[i - 1];
-                    j = j / 16 % 16;
+                    j = INFO_PREC(symAttrib(i));
                     if (j > 0) {
 
                         /* set stack top to precision of procedure */
@@ -5212,13 +5179,13 @@ bool operat(int val) {
     19+     tbd if 3 then merge values of h and l
 */
 void updateHL(int jp) {
-    xfrloc = codloc - 1;
-    xfrsym = 0;
-    tstloc = codloc;
-    int i  = prstk[jp] % 65536;
-    int k  = regv[RH];
-    int l  = regv[RL];
-    int j  = symbol[i]; // masking not needed as implicit in code below
+    xfrloc   = codloc - 1;
+    xfrsym   = 0;
+    tstloc   = codloc;
+    int i    = prstk[jp] % 65536;
+    int dsym = regv[RH];
+    int l    = regv[RL];
+    int j    = symbol[i]; // masking not needed as implicit in code below
     int lp, kp;
 
     alter = 1; // hoisted here to simplify return
@@ -5226,16 +5193,16 @@ void updateHL(int jp) {
         /* otherwise merge values of h AND l */
         lp = (j & 0x20000) ? j & 0xff : -1;
         kp = (j & 0x40000) ? (j >> 8) & 0x1ff : -1;
-    } else if (k == -254 && l == -254)
+    } else if (dsym == -254 && l == -254)
         return;
     else { /* h AND l have been altered IN the procedure */
-        kp = k;
+        kp = dsym;
         lp = l;
     }
 
     /* compare k with kp AND l with lp */
     j = (l >= 0 && lp == l) ? 0x20000 + l : 0;
-    j += (k >= 0 && kp == k) ? 0x40000 + (k * 256) : 0;
+    j += (dsym >= 0 && kp == dsym) ? 0x40000 + (dsym * 256) : 0;
     symbol[i] = j;
     regv[RH] = regv[RL] = -255;
 }
@@ -5314,8 +5281,8 @@ void builtin(int bf, int result) {
     ustack();
 
     /* AND then retrieve results */
-    for (int k = 1; k <= 7; k++)
-        lock[k] = false;
+    for (int dsym = 1; dsym <= 7; dsym++)
+        lock[dsym] = false;
 
     /* cannot predict where registers h AND l will END up */
     regv[RH] = regv[RL] = -1;
