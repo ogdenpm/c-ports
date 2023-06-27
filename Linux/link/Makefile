@@ -1,6 +1,8 @@
 TARGET = link
-OBJS =	io.o link1a.o link3a.o link3.o link.o linkov.o pstfn.o skpspc.o strequ.o
+OBJS =	lst.o os.o link3a.o link3.o link.o linkov.o omf.o
 
 include ../common.mk
+link3a.o link3.o link.o linkov.o : link.h  os.h omf.h lst.h
+lst.o os.o omf.o : lst.h os.h
+os.o omf.o: omf.h
 
-$(OBJS): link.h 
