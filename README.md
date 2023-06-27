@@ -18,18 +18,37 @@ There are also a three of script files from my [versionTools](https://github.com
 
 ## Recent major changes
 
+### 27-Jun-2023
+
+Locate  3.0 has been updated, the major changes are
+
+- Like link, locate now supports long command lines and simple response files. In addition several Windows/POSIX style options are now supported. The-h, option shows a summary of the options. The ORDER and segment address options remain as per Intel.
+- File name handling and restrictions are as per link.
+- Large chunks of code were removed as there is no longer a need to page partial located files to disk.
+- Checking for COMMON names has been simplified by caching the information.
+- Code common to Link and Locate has been refactored so that if bugs are discovered in the common code, both tools can benefit.
+- Memory management uses malloc/realloc/strdup/free, with appropriate wrappers.
+- For both Link and Locate, IoError now includes any file mapping.
+- As with Link, the output file is deleted on error, to help with make builds.
+- The code should now work on big endian processors.
+- Two new options have been included NOEXTERN and NOOVERLAP. These cause unresolved externals and overlapping segments to be treated as errors, rather than just warnings. These are mainly to support make style builds
+
+Note both link and locate have been successfully tested against the code in my intel80tools repository. Handling of COMMON hasn't yet been extensively tested, nor has the forced overlap of Segments.
+
+PLM82 has had extensive changes to simplify and to facilitate the move to use structures rather than integer arrays for the symbol & information tables. Part of this was driven by a problem with the optimising compiler with very large functions. This may be a result of "undefined behaviour".
+
 ### 16-Jun-2023
 
 Recent changes have been around link 3.0, major changes are
 
 - Command line can now be any length, all control characters entered other than new line ('\n') are converted to a space. For invoke and errors long commands lines are formatted to a sensible width.
-  As per the Intel code and ampersand '&' indicates additional command line text comes from stdin, which may be from a redirected file. For some OS, the '&' will need to be escaped on the command line, so as a convenience  invoking link with no arguments starts input from stdin without the need for the command line '&'. This allow support for a simple response file by using link <file.
-- Some support for windows/linux style options has been added. Use link -h for a summary.
+  As per the Intel code an ampersand '&' indicates additional command line text comes from stdin, which may be from a redirected file. For some OS, the '&' will need to be escaped on the command line, so as a convenience  invoking link with no arguments starts input from stdin without the need for the command line '&'. This allow support for a simple response file by using **link <file**.
+- Some support for Windows/POSIX style options has been added. Use link -h for a summary.
   Note the -v, -V and -h options are only supported directly from the command line.
-- A additional option -w (or WERROR) has been added to cause unresolved,  multiply defined and COMMON length conflict warnings to be treated as errors. This is to help with make usage and would typically be used on the final link stage. Earlier partial links e.g. for overlays, should not use the option.
+- An additional option -w (or WERROR) has been added to cause unresolved,  multiply defined and COMMON length conflict warnings to be treated as errors. This is to help with make usage and would typically be used on the final link stage. Earlier partial links e.g., for overlays, should not use the option.
   Related to this is that the target file is deleted on error. Without this make can get  confused as it sees a generated file, even though it is invalid.
   Note other possible warnings are given if 'MAP', if requested. These include overlaps, gaps and code that exceeds page limits. The listing file should be consulted to review these.
-- As with asm80, native filenames (including directory prefixes) can be used and optionally prefixed by :Fx: where x is a digit. There are filename limitations, specifically
+- As with asm80, native filenames (including directory prefixes) can be used and optionally prefixed by :Fx: where x is a digit. There are filename limitations, specifically:
   - filenames cannot contain a space, parenthesis, comma or ampersand. As with the asm80 port, path names may contain these characters providing the path is mapped to a :Fx: drive using environment variables.
   - filenames are not checked for legality, so may report the error when trying to open or create a file.
   - For windows the check for the output file name matching an input file name is done case insensitive. ***Warning the compare is only done on the entered name, not any mapped name, so aliases (e.g. absolute vs. relative paths) and links to the same file will not be detected.***
@@ -43,7 +62,7 @@ Recent changes have been around link 3.0, major changes are
 - Input record processing has been simplified, as loading even long records is reasonable given modern memory limit.
 - Memory management now uses malloc/realloc, except for the fixups, which are managed in a dynamically grown array.
 - System error messages have been converted to use  standard messages and application messages have been made more explicit, allowing for tailored messages rather than generic error codes.
-- The code should now work on on big endian processors.
+- The code should now work on big endian processors.
 
 ### 31-May-2023
 
