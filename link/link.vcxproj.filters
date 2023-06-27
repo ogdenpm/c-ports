@@ -18,28 +18,22 @@
     <ClCompile Include="link3.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="link1a.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="link.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="link3a.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pstfn.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="skpspc.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="strequ.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="linkov.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="io.c">
+    <ClCompile Include="os.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lst.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="omf.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -51,6 +45,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="_version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lst.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="omf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="os.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

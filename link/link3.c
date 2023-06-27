@@ -14,8 +14,8 @@
 char *segName[] = { "ABSOLUTE", "CODE    ", "DATA    ", "STACK   ", "MEMORY  " };
 
 bool segUsed[6];
-byte segToUse   = SEG_BLANK - 1;
-bool commonSeen = false;
+uint8_t segToUse = SBLANK - 1;
+bool commonSeen  = false;
 
 comseginfo_t comSegInfo[256];
 segFrag_t *segFrags[6];
@@ -25,56 +25,22 @@ symbol_t *tailSegOrderLink;
 symbol_t *nxtSymbolP;
 module_t *hmoduleP;
 bool publicsOnly;
-byte moreRecords;
-byte haveModuleHdr;
-byte inSegCombine;
-byte curSeg;
-word inSegLen;
-word newExtId;
-word newUnresolved;
-word externCnt;
-word inSegOffset;
+uint8_t moreRecords;
+uint8_t haveModuleHdr;
+uint8_t inSegCombine;
+uint8_t curSeg;
+uint16_t inSegLen;
+uint16_t newExtId;
+uint16_t newUnresolved;
+uint16_t externCnt;
+uint16_t inSegOffset;
 
 // simple code to covert pascal to C string
 // uses a shared string area so subsequent
 // calls will overwrite
 
-char *p2cstr(pstr_t *p) {
-    static char str[32]; // module name can be up to 31 chars
-    if (p->len > 31)
-        FatalError("%.*s: name > 31 chars", p->len, p->str);
-    memcpy(str, p->str, p->len);
-    str[p->len] = '\0';
-    return str;
-}
-
-
-pstr_t *ReadName() {
-    pstr_t *pname = (pstr_t *)inP;
-    if (inP >= inEnd || (inP += pname->len + 1) > inEnd)
-        IllFmt();
-    return pname; /* read a name */
-} /* ReadName() */
-
-/* read in 4 byte block num and byte num inP points to the data, return a uint32_t offset */
-uint32_t ReadLocation() {
-    uint32_t offset = ReadWord() * 128;
-    return offset + ReadWord();
-}
-uint16_t ReadWord() {
-    if ((inP += 2) > inEnd)
-        IllFmt();
-    return getWord(inP - 2);
-}
-
-uint8_t ReadByte() {
-    if (inP >= inEnd)
-        IllFmt();
-    return *inP++;
-}
-
 /* get next record, test type, and error if not as expected */
-void ExpectRecord(byte type) {
+void ExpectRecord(uint8_t type) {
     GetRecord();
     recNum = 0;
     if (type != inType)
@@ -82,7 +48,7 @@ void ExpectRecord(byte type) {
 } /* ExpectType() */
 
 /* print segment base, Size() and alignment */
-void PrintBaseSizeAlign(word baddr, word bsize, byte align) {
+void PrintBaseSizeAlign(uint16_t baddr, uint16_t bsize, uint8_t align) {
     if ((++align) <= 1) /* ANONE || AUNKNOWN */
         Printf("\n%04XH  %04XH  ", baddr, baddr + bsize - 1);
     else /* replace start / stop with spaces */
@@ -96,15 +62,14 @@ void WriteStats() {
 
     if (!mapWanted) /* user doesn't want */
         return;
-    Printf("\nLINK MAP OF MODULE %s\nWRITTEN TO FILE %s", p2cstr((pstr_t *)&moduleName),
-           omfOutName);
+    Printf("\nLINK MAP OF MODULE %s\nWRITTEN TO FILE %s", moduleName->str, omfOutName);
     Printf("\nMODULE IS %s MAIN MODULE\n\n", moduleType == MT_NOTMAIN ? "NOT A" : "A");
 
     Printf("SEGMENT INFORMATION:\n"
            "START   STOP LENGTH REL NAME\n");
 
-    for (byte seg = SEG_CODE; seg <= SEG_MEMORY; seg++) { /* regular segments */
-        if (segLen[seg] > 0) {                            /* segment is used */
+    for (uint8_t seg = SCODE; seg <= SMEMORY; seg++) { /* regular segments */
+        if (segLen[seg] > 0) {                         /* segment is used */
             PrintBaseSizeAlign(0, segLen[seg], alignType[seg]);
             Printf(segName[seg]);
             if (alignType[seg] == AINPAGE && segLen[seg] > 256)
@@ -119,11 +84,10 @@ void WriteStats() {
     /* common block segments */
     for (symbol_t *commSym = headCommSym; commSym; commSym = commSym->nxtSymbol->hashChain) {
         PrintBaseSizeAlign(0, commSym->len, commSym->flags); /* print Size() info */
-        Printf("/%s/", commSym->name.str);
+        Printf("/%s/", commSym->name->str);
 
         if (commSym->flags == AINPAGE && commSym->len > 256) /* warn of problems */
             Printf("  *INPAGE Segment > 256 bytes*");
-
     }
     if (segLen[0] > 0) { /* handle blank common */
         PrintBaseSizeAlign(0, segLen[0], alignType[0]);
@@ -131,12 +95,12 @@ void WriteStats() {
         if (alignType[0] == 1 && segLen[0] > 256)
             Printf("  *INPAGE Segment > 256 Bytes*");
     }
-    word hiAddr = 0; /* high water mark for over lap detection - start at address 0 */
-    /* frags for SEG_ABS are real data blocks go through them */
+    uint16_t hiAddr = 0; /* high water mark for over lap detection - start at address 0 */
+    /* frags for SABS are real data blocks go through them */
     for (segFrag_t *frag = segFrags[0]; frag; frag = frag->next) {
         /* print the sizes and segment */
         PrintBaseSizeAlign(frag->bot, frag->top - frag->bot + 1, 0);
-        Printf(segName[SEG_ABS]);
+        Printf(segName[SABS]);
         if (frag->bot < hiAddr) /* check for overlap */
             Printf("  *OVERLAP*");
 
@@ -150,7 +114,7 @@ void WriteStats() {
         for (module = objFile->modules; module; module = module->next) {
             /* ignore if publics only && nothing loaded */
             if (!objFile->publics || module->symbols)
-                Printf(" %s(%s)%s\n", objFile->name, module->name.str,
+                Printf(" %s(%s)%s\n", objFile->name, module->name->str,
                        objFile->publics ? " (PUBLICS)" : "");
         }
     }
@@ -158,14 +122,14 @@ void WriteStats() {
 
 void ChainUnresolved() { /* creates a chain of unresolved externals */
     symbol_t *p;
-    word toChain;
+    uint16_t toChain;
 
     if (unresolved == 0) /* nothing to write */
         return;
-    PrintAndEcho("\nUnresolved External Names:\n");
+    PrintfAndLog("\nUnresolved External Names:\n");
 
     toChain = unresolved;
-    for (byte i = 0; i <= 127; i++) { /* traverse all of the HashF() chains */
+    for (uint8_t i = 0; i <= 127; i++) { /* traverse all of the HashF() chains */
         for (symbol_t *symbol = hashTab[i]; symbol; symbol = symbol->hashChain) {
             /* traverse the single HashF() chain */
             if (symbol->flags == F_EXTERN) { /* we have an extern */
@@ -176,7 +140,7 @@ void ChainUnresolved() { /* creates a chain of unresolved externals */
                         break; /* passed insert point using sym num */
                     nxtSymbolP = (symbol_t *)&p->nxtSymbol;
                 }
-                symbol->nxtSymbol    = nxtSymbolP->hashChain; /* add to the unresolved chain */
+                symbol->nxtSymbol     = nxtSymbolP->hashChain; /* add to the unresolved chain */
                 nxtSymbolP->hashChain = symbol;
                 if (--toChain == 0) /* done */
                     return;
@@ -186,7 +150,7 @@ void ChainUnresolved() { /* creates a chain of unresolved externals */
 } /* ChainUnresolved() */
 
 /* inserts a block of data into segment list at proper address */
-void CreateFragment(byte seg, word bot, word top) {
+void CreateFragment(uint8_t seg, uint16_t bot, uint16_t top) {
     if (!mapWanted) /* we are not creating a map so ignore */
         return;
     segFragP      = xmalloc(sizeof(segFrag_t)); /* allocate and initialise the fragment */
@@ -204,9 +168,9 @@ void CreateFragment(byte seg, word bot, word top) {
 } /* CreateFragment() */
 
 void P1CommonSegments() {
-    if (curSeg == SEG_BLANK) { /* blank common */
-        if (segUsed[0])        /* record seen in slot 0 */
-            IllFmt();
+    if (curSeg == SBLANK) { /* blank common */
+        if (segUsed[0])     /* record seen in slot 0 */
+            IllegalReloc();
         segUsed[0] = true;
         if (inSegLen > segLen[0]) /* record max Size() */
             segLen[0] = inSegLen;
@@ -220,23 +184,23 @@ void P1CommonSegments() {
             commonSeen = true;
         }
         if (comSegInfo[curSeg].combine != AUNKNOWN) /* duplicate */
-            IllFmt();
+            IllegalReloc();
         comSegInfo[curSeg].combine        = inSegCombine; /* save combine and Size() */
         comSegInfo[curSeg].lenOrLinkedSeg = inSegLen;
     }
 } /* P1CommonSegments() */
 
 void P1StdSegments() {
-    word prevLen, segLoadBase;
+    uint16_t prevLen, segLoadBase;
 
     if (segUsed[curSeg]) /* duplicate seg Size() info */
-        IllFmt();
+        IllegalReloc();
     segUsed[curSeg] = true;
-    if (curSeg == SEG_ABS || curSeg > SEG_MEMORY)
-        IllFmt();
+    if (curSeg == SABS || curSeg > SMEMORY)
+        IllegalReloc();
     if (inSegLen == 0) /* nothing to do */
         return;
-    if (curSeg == SEG_CODE || curSeg == SEG_DATA) {
+    if (curSeg == SCODE || curSeg == SDATA) {
         if (alignType[curSeg] == AUNKNOWN) { /* first seg */
             alignType[curSeg] = inSegCombine;
             segLen[curSeg]    = inSegLen;
@@ -265,21 +229,21 @@ void P1StdSegments() {
                 segLoadBase = prevLen + inSegLen; /* Lookup() out Load() address */
                 break;
             default:
-                IllFmt();
+                IllegalReloc();
             }
             segLen[curSeg] = segLoadBase; /* update the overall seg len */
-            if ((segLoadBase = segLoadBase - inSegLen) >
+            if ((segLoadBase -= inSegLen) >
                 prevLen) /* backup to start of this Load() address */
                 CreateFragment(curSeg, prevLen,
                                segLoadBase - 1); /* not contiguous so create fragment */
             if (segLen[curSeg] < segLoadBase)    /* oops we went over 64k */
                 RecError("Segment too large");   /* segment too large */
         }
-        if (curSeg == SEG_CODE) /* update the code / data base address */
+        if (curSeg == SCODE) /* update the code / data base address */
             module->cbias = segLoadBase;
         else
             module->dbias = segLoadBase;
-    } else {                               /* SEG_STACK or SEG_MEMORY or SEG_RESERVE */
+    } else {                               /* SSTACK or SMEMORY or SRESERVE */
         if (alignType[curSeg] == AUNKNOWN) /* set initial combine */
             alignType[curSeg] = inSegCombine;
         else if (alignType[curSeg] != ABYTE || inSegCombine != ABYTE) /* APAGE if ! both ABYTE */
@@ -294,20 +258,20 @@ void P1StdSegments() {
     after the comdef records have been processed
 */
 
-byte SelectInSeg(byte seg) {
+uint8_t SelectInSeg(uint8_t seg) {
     inSegOffset = 0;
-    if (seg == SEG_CODE)
+    if (seg == SCODE)
         inSegOffset = module->cbias;
-    else if (seg == SEG_DATA)
+    else if (seg == SDATA)
         inSegOffset = module->dbias;
-    else if (seg >= SEG_NAMCOM && seg != SEG_BLANK) {
+    else if (seg >= SNAMED && seg != SBLANK) {
         if (!commonSeen) /* selecting common when none exists !! */
             RecError("Content for undeclared COMMON");
         if (comSegInfo[seg].combine == ANONE) /* named common has been seen so ok */
-            return (byte)comSegInfo[seg].lenOrLinkedSeg;
+            return (uint8_t)comSegInfo[seg].lenOrLinkedSeg;
         if (comSegInfo[seg].combine != AUNKNOWN)
             BadRecordSeq();
-        IllFmt();
+        IllegalReloc();
     }
     return seg;
 } /* SelectInSeg() */
@@ -332,8 +296,8 @@ void P1ModHdr() {
         if (ReadByte() != tranVn)
             tranVn = 0;
     }
-    module->cbias = segLen[SEG_CODE]; /* code and data offsets of this module */
-    module->dbias = segLen[SEG_DATA];
+    module->cbias = segLen[SCODE]; /* code and data offsets of this module */
+    module->dbias = segLen[SDATA];
     commonSeen    = false;
     memset(segUsed, false, sizeof(segUsed));
 
@@ -343,8 +307,8 @@ void P1ModHdr() {
         inSegCombine = ReadByte();
 
         if (inSegCombine - 1 > 2) /* only AINPAGE - ABYTE valid */
-            IllFmt();
-        if (curSeg >= SEG_NAMCOM)
+            IllegalReloc();
+        if (curSeg >= SNAMED)
             P1CommonSegments();
         else
             P1StdSegments();
@@ -359,8 +323,8 @@ void P1ModEnd() {
         if (moduleType != MT_NOTMAIN) /* duplicate main modules !! */
             ModuleWarning("More than 1 main module, conflict in ");
         else {
-            moduleType = MT_MAIN;                 /* record main and save entry point */
-            entrySeg  = SelectInSeg(ReadByte()); // seg
+            moduleType  = MT_MAIN;                 /* record main and save entry point */
+            entrySeg    = SelectInSeg(ReadByte()); // seg
             entryOffset = inSegOffset + ReadWord();
         }
     }
@@ -373,17 +337,17 @@ void P1ModEnd() {
 
 void Pass1CONTENT() {
 
-    if (!publicsOnly) {                         /* skip if just processing publics */
-        if ((curSeg = ReadByte()) == SEG_ABS) { /* absolute record */
+    if (!publicsOnly) {                      /* skip if just processing publics */
+        if ((curSeg = ReadByte()) == SABS) { /* absolute record */
             uint16_t offset = ReadWord();
             if (recLen > 4)
-                CreateFragment(SEG_ABS, offset, offset + recLen - 5);
+                CreateFragment(SABS, offset, offset + recLen - 5);
         } else {               /* relocatable record */
             if (recLen > 1025) /* only abs > 1025 */
                 RecError("Non Absolute content record length > 1025");
-            if (curSeg == SEG_STACK)
+            if (curSeg == SSTACK)
                 RecError("Illegal stack content record");
-            if ((curSeg < SEG_NAMCOM && !segUsed[curSeg]) || (curSeg == SEG_BLANK && !segUsed[0]))
+            if ((curSeg < SNAMED && !segUsed[curSeg]) || (curSeg == SBLANK && !segUsed[0]))
                 RecError("Content defined for undeclared segment");
             else
                 curSeg = SelectInSeg(curSeg);
@@ -397,12 +361,12 @@ void Pass1COMDEF() {
     if (!commonSeen) /* can't have common def if no common segments */
         BadRecordSeq();
     while (inP < inEnd) {
-        curSeg       = ReadByte();
-        pstr_t *name = ReadName();
-        if (curSeg < SEG_NAMCOM || curSeg == SEG_BLANK) /* ! a named common */
-            IllFmt();
+        curSeg             = ReadByte();
+        pstr_t const *name = ReadName();
+        if (curSeg < SNAMED || curSeg == SBLANK) /* ! a named common */
+            IllegalReloc();
         if (comSegInfo[curSeg].combine + 1 < 2) /* AUNKNOWN && ANONE invalid */
-            IllFmt();
+            IllegalReloc();
         symbol_t *commSym;
         if (Lookup(name, &commSym, F_ALNMASK)) /* already exist ? */
         {
@@ -413,19 +377,19 @@ void Pass1COMDEF() {
             {
                 if (comSegInfo[curSeg].lenOrLinkedSeg > commSym->len) /* set as max of sizes */
                     commSym->len = comSegInfo[curSeg].lenOrLinkedSeg;
-                PrintAndEcho("/%s/", commSym->name.str);
+                PrintfAndLog("/%s/", commSym->name->str);
                 ModuleWarning(" -Unequal COMMON length, conflict in ");
             }
         } else { /* new entry required */
-            commSym->hashChain = xmalloc(sizeof(symbol_t) + name->len + 1);
+            commSym->hashChain = xmalloc(sizeof(symbol_t));
             commSym            = commSym->hashChain; /* link in and mark new end of chain */
             commSym->hashChain = 0;
             commSym->flags     = comSegInfo[curSeg].combine; /* save the combine value */
             /* check we haven't created too many segs in the linked file */
-            if (segToUse < SEG_NAMCOM)
+            if (segToUse < SNAMED)
                 RecError("Too many COMMON segments");
-            commSym->seg = segToUse--;     /* record the linked seg for this segment */
-            freezePstr(name, &commSym->name); /* copy the name */
+            commSym->seg                  = segToUse--; /* record the linked seg for this segment */
+            commSym->name                 = pstrdup(name);                     /* copy the name */
             commSym->len                  = comSegInfo[curSeg].lenOrLinkedSeg; /* and Size() */
             commSym->nxtSymbol->hashChain = tailSegOrderLink->hashChain; /* chain into seg order */
             tailSegOrderLink->hashChain   = commSym;
@@ -438,31 +402,30 @@ void Pass1COMDEF() {
 }
 
 void MarkPublic(symbol_t *symbol, uint16_t offset) {
-    symbol->flags        = F_PUBLIC; /* now public */
-    symbol->seg          = curSeg;   /* location known */
-    symbol->offsetOrSym  = inSegOffset + offset;
+    symbol->flags         = F_PUBLIC; /* now public */
+    symbol->seg           = curSeg;   /* location known */
+    symbol->offsetOrSym   = inSegOffset + offset;
     segmap[curSeg]        = 0xFF;                  /* flag as used seg */
-    symbol->nxtSymbol    = nxtSymbolP->hashChain; /* add to the publics chain */
+    symbol->nxtSymbol     = nxtSymbolP->hashChain; /* add to the publics chain */
     nxtSymbolP->hashChain = symbol;
     nxtSymbolP            = (symbol_t *)&symbol->nxtSymbol;
 } /* MarkPublic() */
 
 void Pass1PUBNAMES() {
-    if ((curSeg = ReadByte()) != SEG_ABS &&
-        publicsOnly) /* publics only requires absolute targets */
+    if ((curSeg = ReadByte()) != SABS && publicsOnly) /* publics only requires absolute targets */
         return;
     curSeg = SelectInSeg(curSeg); /* get the linked seg */
 
     while (inP < inEnd) { /* while more public definitions */
         /* Lookup() extern || public */
-        uint16_t offset = ReadWord();
-        pstr_t *name    = ReadName();
+        uint16_t offset    = ReadWord();
+        pstr_t const *name = ReadName();
 
         symbol_t *symbol;
         if (Lookup(name, &symbol, F_SCOPEMASK)) {
             if (symbol->flags == F_PUBLIC) { /* error if ! same location */
                 if (curSeg != 0 || symbol->seg != curSeg || symbol->offsetOrSym != offset) {
-                    PrintAndEcho(symbol->name.str);
+                    PrintfAndLog(symbol->name->str);
                     ModuleWarning(" - Multiply defined, duplicate in ");
                 }
             } else { /* was extern but we now have an address */
@@ -470,11 +433,11 @@ void Pass1PUBNAMES() {
                 MarkPublic(symbol, offset);
             }
         } else { /* create a new entry */
-            symbol->hashChain = xmalloc(sizeof(symbol_t) + name->len + 1);
+            symbol->hashChain = xmalloc(sizeof(symbol_t));
             symbol            = symbol->hashChain; /* add to HashF() chain */
             symbol->hashChain = 0;
-            freezePstr(name, &symbol->name); /* add the name */
-            MarkPublic(symbol, offset);            /* make it a public */
+            symbol->name      = pstrdup(name); /* add the name */
+            MarkPublic(symbol, offset);        /* make it a public */
         }
         ReadByte(); // end 0
     }
@@ -484,17 +447,17 @@ void Pass1EXTNAMES() {
     if (publicsOnly) /* skip if ! wanted */
         return;
     while (inP < inEnd) { /* while more external definitions */
-        pstr_t *name = ReadName();
-        externCnt++;                                /* bump the number of externs */
+        pstr_t const *name = ReadName();
+        externCnt++; /* bump the number of externs */
         symbol_t *symbol;
-        if (!Lookup(name, &symbol, F_SCOPEMASK)) { /* ! currently extern || public */
-            symbol->hashChain   = xmalloc(sizeof(symbol_t) + name->len + 1); /* create an entry */
-            symbol              = symbol->hashChain;                    /* link in */
+        if (!Lookup(name, &symbol, F_SCOPEMASK)) {           /* ! currently extern || public */
+            symbol->hashChain   = xmalloc(sizeof(symbol_t)); /* create an entry */
+            symbol              = symbol->hashChain;         /* link in */
             symbol->hashChain   = 0;
             symbol->flags       = F_EXTERN; /* extern and record symcnt number */
             symbol->offsetOrSym = ++newExtId;
-            freezePstr(name, &symbol->name); /* copy name */
-            unresolved++;                  /* one more to resolve */
+            symbol->name        = pstrdup(name); /* copy name */
+            unresolved++;                        /* one more to resolve */
             newUnresolved++;
         }
         ReadByte(); // 0
@@ -502,15 +465,15 @@ void Pass1EXTNAMES() {
 } /* Pass1EXTNAMES() */
 
 /* process pass 1 records */
-void P1Records(byte newModule) {
+void P1Records(uint8_t newModule) {
     if (newModule) /* create entry for new module */
     {
 
-        hmoduleP->next  = (module = xmalloc(sizeof(module_t) + inP[0] + 1));
+        hmoduleP->next  = (module = xmalloc(sizeof(module_t)));
         module->next    = 0;
         module->symbols = 0;
-        freezePstr((pstr_t *)inP, &module->name);
-        hmoduleP = module;
+        module->name    = pstrdup((pstr_t *)inP);
+        hmoduleP        = module;
     }
     externCnt     = 0;
     recNum        = 1;
@@ -553,7 +516,7 @@ void P1Records(byte newModule) {
             Pass1COMDEF();
             break;
         default:
-            IllegalRelo();
+            IllegalRecord();
             break;
         }
         GetRecord();
@@ -567,22 +530,22 @@ void P1Records(byte newModule) {
 
 typedef struct {
     uint32_t location;
-    pointer dictionary;
+    uint8_t *dictionary;
     bool required;
 } lib_t;
 
 void P1LibScan() {
     objFile->isLib = true;
-    word count     = ReadWord();
+    uint16_t count = ReadWord();
     if (unresolved > 0) {
         hmoduleP          = (module_t *)&objFile->modules;
         uint32_t location = ReadLocation();
-        SeekOMFIn(location);   /* Seek() to library module names record */
+        SeekOMFIn(location);    /* Seek() to library module names record */
         ExpectRecord(R_LIBNAM); /* get rec and validate type */
         ExpectRecord(R_LIBLOC); /* should have the locations */
         // load all of the locations to memory to avoid repeated reloads
         if (count * 4 > recLen - 1)
-            IllFmt();
+            IllegalReloc();
         lib_t *libData = xmalloc(sizeof(lib_t) * count);
         for (int i = 0; i < count; i++)
             libData[i].location = ReadLocation();
@@ -592,22 +555,22 @@ void P1LibScan() {
         dictionary[recLen] = '\0'; // extra byte so strchr works on bad files
         char *p            = dictionary;
         for (int i = 0; i < count; i++) {
-            libData[i].dictionary = (pointer)p;
+            libData[i].dictionary = (uint8_t *)p;
             p                     = strchr(p, '\0') + 1;
             if (p >= dictionary + recLen)
-                IllFmt();
+                IllegalReloc();
         }
 
         newUnresolved = unresolved; /* first pass attempts to resolve all unresolved */
         /* loop incase scan adds more externs that the lib can resolve */
         while (newUnresolved > 0) {
-            word toResolve = newUnresolved; /* 1st pass scans for all unresolved */
+            uint16_t toResolve = newUnresolved; /* 1st pass scans for all unresolved */
 
             for (int i = 0; i < count; i++) // remove required marker
                 libData[i].required = false;
             /* scan the dictionary across all names or until no unresolved */
             for (int i = 0; i < count && toResolve; i++) {
-                for (pointer s = libData[i].dictionary; *s; s += s[0] + 1) {
+                for (uint8_t *s = libData[i].dictionary; *s; s += s[0] + 1) {
                     /* matched an unresolved external */
                     symbol_t *symbol;
                     if (Lookup((pstr_t *)s, &symbol, F_EXTERN)) {
@@ -637,9 +600,9 @@ void P1LibScan() {
 } /* P1LibScan() */
 
 void P1LibUserModules() {
-    word modIdx, i;
+    uint16_t modIdx, i;
     bool unmatched;
-    pstr_t *name;
+    pstr_t const *name;
 
     ReadWord(); // count
 
@@ -653,7 +616,7 @@ void P1LibUserModules() {
                                                /* go over the supplied list of modules */
         for (module = objFile->modules; module; module = module->next) {
             if (module->cbias == 0) { /* ! matched yet */
-                if (PStrequ(name, &module->name))
+                if (pstrequ(name, module->name))
                     module->cbias = modIdx; /* record matched module */
                 else
                     unmatched = true; /* at least one module not matched */
@@ -670,7 +633,7 @@ void P1LibUserModules() {
                 module->location = location;
         }
     }
-    hmoduleP = (module_t *)&objFile->modules; /* pointer to remove missing modules from the chain */
+    hmoduleP = (module_t *)&objFile->modules; /*uint8_t *to remove missing modules from the chain */
     for (module = objFile->modules; module; module = module->next) {
         if (module->cbias == 0) {
             ModuleWarning("Module not in library, looking for ");
@@ -685,33 +648,33 @@ void P1LibUserModules() {
 } /* P1LibUserModules() */
 
 void Phase1() {
-    for (byte i = SEG_ABS; i <= SEG_RESERVE; i++)
+    for (uint8_t i = SABS; i <= SRESERVED; i++)
         segFrags[i] = 0;
-    newExtId           = 0;                        /* no symbols */
+    newExtId         = 0;                        /* no symbols */
     tailSegOrderLink = (symbol_t *)&headCommSym; /* no common segments */
     /* process each item in the Input() list */
     for (objFile = objFileList; objFile; objFile = objFile->next) {
         openOMFIn(objFile->name); /* open the file */
         publicsOnly = objFile->publics;
-        GetRecord();              /* Load() the first record */
+        GetRecord();            /* Load() the first record */
         if (inType == R_LIBHDR) /* library? */
         {
             if (objFile->isLib) /* user specified modules */
                 P1LibUserModules();
             else
                 P1LibScan();               /* library scan */
-        } else if (inType == R_MODHDR) { /* simple object file */
+        } else if (inType == R_MODHDR) {   /* simple object file */
             if (objFile->isLib)            /* oops user thought it was a library */
                 RecError("Not a library"); /* not a library */
             hmoduleP = (module_t *)&objFile->modules;
             while (inType == R_MODHDR) /* process each module in file */
-                P1Records(true);         /* this is a new module */
+                P1Records(true);       /* this is a new module */
 
             if (inType != R_MODEOF)
                 RecError("EOF record missing"); /* no eof */
         } else
             RecError("Module header record missing");
-        CloseObjFile();
+        closeOMFIn();
     }
     printDriveMap();
     WriteStats();

@@ -25,31 +25,25 @@
 #define DIRSEP    "/"
 #define namecmp   strcmp
 #endif
+#include "os.h"
+#include "omf.h"
+#include "lst.h"
 
 #ifndef _MSC_VER
 #define stricmp strcasecmp
 #endif
 
-typedef unsigned char byte;
-typedef unsigned short word;
-typedef byte *pointer;
-typedef word *wpointer;
-
 #define High(n)    ((n) >> 8)
 #define Low(n)     ((n)&0xff)
-#define Shr(v, n)  ((word)(v) >> (n))
-#define Shl(v, n)  ((word)(v) << (n))
-#define RorB(v, n) ((byte)(((v) | ((v) << 8)) >> (n)))
-#define RolB(v, n)	((byte)(Ror((v), (8 - (n))))
+#define Shr(v, n)  ((uint16_t)(v) >> (n))
+#define Shl(v, n)  ((uint16_t)(v) << (n))
+#define RorB(v, n) ((uint8_t)(((v) | ((v) << 8)) >> (n)))
+#define RolB(v, n)	((uint8_t)(Ror((v), (8 - (n))))
 #define Move(s, d, c) memcpy(d, s, c)
 
-typedef struct { // generic pascal string
-    byte len;
-    char str[1];
-} pstr_t;
 
 typedef struct { // pascal string for module names
-    byte len;
+    uint8_t len;
     char str[31];
 } psModName_t;
 
@@ -65,30 +59,30 @@ typedef struct { // pascal string for module names
 
 typedef struct _segfrag {
     struct _segfrag *next;
-    word bot;
-    word top;
+    uint16_t bot;
+    uint16_t top;
 } segFrag_t;
 
 typedef struct _symbol {
     struct _symbol *hashChain;
-    byte flags;
-    byte seg;
+    uint8_t flags;
+    uint8_t seg;
     union {
-        word offsetOrSym;
-        word len;
-        word symId;
+        uint16_t offsetOrSym;
+        uint16_t len;
+        uint16_t symId;
     };
     struct _symbol *nxtSymbol;
-    pstr_t name;
+    pstr_t const *name;
 } symbol_t;
 
 typedef struct _module {
     struct _module *next;
     uint32_t location;
     symbol_t *symbols;
-    word cbias;
-    word dbias;
-    pstr_t name;
+    uint16_t cbias;
+    uint16_t dbias;
+    pstr_t const *name;
 } module_t;
 
 typedef struct _library {
@@ -96,83 +90,14 @@ typedef struct _library {
     module_t *modules;
     bool publics;
     bool isLib;
-    char *name;
+    char const *name;
 } objFile_t;
 
-
-// record fragments
-// typedef struct {
-//	word symId;
-//	word offset;
-//} extref_t;
-#define EXTREF_symId     0
-#define EXTREF_offset    2
-
-// typedef struct {
-//	byte segId;
-//	byte fixType;
-// } interseg_t;
-
-#define INTERSEG_segId   0
-#define INTERSEG_fixType 1
-
-// typedef struct {
-//	byte segId;
-//	word offset;
-//	byte dat[1];
-// } moddat_t;
-
-#define MODDAT_segId     0
-#define MODDAT_offset    1
-#define MODDAT_dat       3
-
-// typedef struct {
-//	byte modType;
-//	byte segId;
-//	word offset;
-// } modend_t;
-
-#define MODEND_modType   0
-#define MODEND_segId     1
-#define MODEND_offset    2
-#define MODEND_sizeof    4
-
-// typedef struct {
-//	word offset;
-//	word linNum;
-// } line_t;
-#define LINE_offset      0
-#define LINE_linNum      2
-
-// typedef struct {
-//	word offset;
-//	pstr_t name;
-// } def_t;
-#define DEF_offset       0
-#define DEF_name         2
-
-// typedef struct {
-//	byte segId;
-//	byte name[1];
-// } comnam_t;
-#define COMNAM_segId     0
-#define COMNAM_name      1
-#define COMNAM_sizeof    2 // + name chars
-
-// typedef struct {
-//	byte segId;
-//	word len;
-//	byte combine;
-// } segdef_t;
-
-#define SEGDEF_segId     0
-#define SEGDEF_len       1
-#define SEGDEF_combine   3
 #define SEGDEF_sizeof    4
 
 typedef struct {
-    byte combine;
-    word lenOrLinkedSeg;
+    uint8_t combine;
+    uint16_t lenOrLinkedSeg;
 } comseginfo_t;
 
 
@@ -222,16 +147,6 @@ typedef struct {
 #define FHIGH       2
 #define FBOTH       3
 
-/* segment types */
-#define SEG_ABS     0
-#define SEG_CODE    1
-#define SEG_DATA    2
-#define SEG_STACK   3
-#define SEG_MEMORY  4
-#define SEG_RESERVE 5 /* reserved for future Intel use */
-#define SEG_NAMCOM  6
-#define SEG_BLANK   255
-
 /* module type */
 #define MT_NOTMAIN  0
 #define MT_MAIN     1
@@ -244,65 +159,44 @@ typedef struct {
 
 
 // link.plm
-extern byte alignType[6];
+extern uint8_t alignType[6];
 extern module_t *module;
 extern objFile_t *objFile;
 extern bool mapWanted;
-extern word entryOffset;
-extern byte entrySeg;
-extern pointer inEnd;
+extern uint16_t entryOffset;
+extern uint8_t entrySeg;
 extern symbol_t *hashTab[128];
 extern symbol_t *headCommSym;
 extern symbol_t *unresolvedList;
-extern char const *omfInName;
-extern pointer inP;
-extern pointer inRecord;
-extern word maxExternCnt;
-extern byte tranId;
-extern byte tranVn;
-extern byte moduleType;
-extern psModName_t moduleName;
+
+extern uint16_t maxExternCnt;
+extern uint8_t tranId;
+extern uint8_t tranVn;
+extern uint8_t moduleType;
+extern pstr_t const *moduleName;
 extern objFile_t *objFileList;
-extern pointer outP;
-extern char *lstName;
-extern FILE *lstFp;
-extern FILE *omfInFp;
-extern word recLen;
-extern word recNum;
-extern word segLen[6];
-extern byte segmap[256];
-extern FILE *omfOutFp;
-extern char const *omfOutName;
-extern bool echoToStderr;
+
+extern uint16_t segLen[6];
+extern uint8_t segmap[256];
 
 
-extern word unresolved;
+extern uint16_t unresolved;
 #define VERSION "V3.0"
 
 // linkov.plm
-extern psModName_t ancestor;
-extern byte outRec[];
 
-extern char *commandLine;
-extern char *tokenLine; // a copy of command line that is used for tokens
-extern char const *cmdP;
-extern byte inType;
-extern bool warnOK;     // if true warnings are errors and out file is deleted
+
+extern bool warnOk;     // if true warnings are errors and out file is deleted
 extern int warned;
-extern char const *invokeName;
-extern char *toName;
+extern char *omfOutName;
 
 void AddExtMap(symbol_t *symP);
 void AddFileToInputList(char *token);
-void BadRecordSeq();
 void ChainUnresolved();
 void ChkLP();
 void ChkRP();
-void Close(word conn, wpointer statusP);
-void CloseObjFile();
-void CreateFragment(byte seg, word bot, word top);
-char const *Deblank(char const *pch);
-char const *Delimit(char const *pch);
+void closeOMFIn();
+void CreateFragment(uint8_t seg, uint16_t bot, uint16_t top);
 void EmitANCESTOR();
 void EmitCOMDEF();
 void EmitEnding();
@@ -310,31 +204,22 @@ void EmitEXTNAMES();
 void EmitMODHDR();
 void EmitPUBLICS();
 void EndRecord();
-void ExpectChar(byte ch, char const *errMsg);
+void ExpectChar(uint8_t ch, char const *errMsg);
 void ExpectComma();
-void ExpectRecord(byte type);
-bool ExtendRec(word cnt);
-_Noreturn void FatalCmdLineErr(char const *errMsg);
-_Noreturn void RecError(char const *errMsg);
-void GetInputListItem();
-void GetModuleName(char *token, psModName_t *pstr);
-void GetRecord();
-symbol_t *GetSymbolP(word symId);
-byte HashF(pstr_t *pstr);
-void IllegalRelo();
-_Noreturn void IllFmt();
+void ExpectRecord(uint8_t type);
+bool ExtendRec(uint16_t cnt);
+symbol_t *GetSymbolP(uint16_t symId);
+uint8_t HashF(pstr_t const *pstr);
 void InitExternsMap();
-void InitRecord(byte type);
 // void Load(address pathP, address LoadOffset, address switch, address entryP, address statusP);
-bool Lookup(pstr_t *pstr, symbol_t **pitemRef, byte mask);
+bool Lookup(pstr_t const *pstr, symbol_t **pitemRef, uint8_t mask);
 // void MemMov(address cnt, address srcp, address dstp);
-void openOMFIn(char const *name);
 void P1CommonSegments();
 void P1LibScan();
 void P1LibUserModules();
 void P1ModEnd();
 void P1ModHdr();
-void P1Records(byte newModule);
+void P1Records(uint8_t newModule);
 void P1StdSegments();
 void ParseCmdLine();
 void ParseControl();
@@ -351,42 +236,11 @@ void Pass2LOCALS();
 void Pass2MODHDR();
 void Phase1();
 void Phase2();
-void SeekOMFIn(uint32_t location);
-#define Pstrcpy(psrc, pdst) pstrcpy((pstr_t *)(psrc), (pstr_t *)(pdst))
-void pstrcpy(pstr_t const *psrc, pstr_t *pdst);
-void freezePstr(pstr_t const *psrc, pstr_t *pdst);
+uint8_t SelectInSeg(uint8_t seg);
+uint8_t SelectSeg(uint8_t seg);
 
-uint32_t ReadLocation();
-uint16_t ReadWord();
-uint8_t ReadByte();
-pstr_t *ReadName();
-void Rescan(word conn, wpointer statusP);
-byte SelectInSeg(byte seg);
-byte SelectSeg(byte seg);
-void SkipNonArgChars(char const *arg1w);
-void Start();
-bool PStrequ(pstr_t *s, pstr_t *t);
-void PrintAndEcho(char const *fmt, ...);
-void PrintBaseSizeAlign(word baddr, word bsize, byte align);
-void Printf(char const *fmt, ...);
+
+void PrintBaseSizeAlign(uint16_t baddr, uint16_t bsize, uint8_t align);
 void ModuleWarning(char const *msg);
 void WriteStats();
 
-// io.c support functions
-word putWord(pointer buf, word val);
-word getWord(pointer buf);
-
-_Noreturn void IoError(char const *path, char const *msg);
-FILE *Fopen(char const *pathP, char *access);
-_Noreturn void FatalError(char const *fmt, ...);
-char *basename(char *path);
-void printCmdLine(FILE *fp);
-void printDriveMap();
-
-char *p2cstr(pstr_t *p);
-void WriteName(pstr_t *name);
-void *xmalloc(size_t size);
-void *xrealloc(void *p, size_t size);
-
-_Noreturn void Exit(int result);
-_Noreturn void usage();

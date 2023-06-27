@@ -257,18 +257,19 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="io.c" />
+    <ClCompile Include="lst.c" />
+    <ClCompile Include="omf.c" />
+    <ClCompile Include="os.c" />
     <ClCompile Include="link.c" />
-    <ClCompile Include="link1a.c" />
     <ClCompile Include="link3.c" />
     <ClCompile Include="link3a.c" />
     <ClCompile Include="linkov.c" />
-    <ClCompile Include="pstfn.c" />
-    <ClCompile Include="skpspc.c" />
-    <ClCompile Include="strequ.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="link.h" />
+    <ClInclude Include="lst.h" />
+    <ClInclude Include="omf.h" />
+    <ClInclude Include="os.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>

@@ -8,85 +8,36 @@
  *                                                                          *
  ****************************************************************************/
 
-/*
- * vim:ts=4:shiftwidth=4:expandtab:
- */
 #include "link.h"
 #include <stdarg.h>
 #include <stdio.h>
-FILE *omfInFp;
-FILE *omfOutFp;
-FILE *lstFp;
-char const *omfInName;
-char const *omfOutName;
-char *lstName;
+
 bool mapWanted;
-psModName_t moduleName;
-byte moduleType;
-byte tranId;
-byte tranVn;
-byte entrySeg;
-word entryOffset;
-word segLen[6];
-byte alignType[6];
-byte segmap[256];
-pointer inEnd;
-pointer inP;
-word recNum;
-word recLen;
-pointer outP;
+pstr_t const *moduleName;
+uint8_t moduleType;
+uint8_t tranId;
+uint8_t tranVn;
+uint8_t entrySeg;
+uint16_t entryOffset;
+uint16_t segLen[6];
+uint8_t alignType[6];
+uint8_t segmap[256];
 objFile_t *objFileList;
 objFile_t *objFile;
 module_t *module;
 symbol_t *hashTab[128];
 symbol_t *headCommSym;
-word unresolved;
-word maxExternCnt;
+uint16_t unresolved;
+uint16_t maxExternCnt;
 symbol_t *unresolvedList;
 bool warnOk      = true;   // if false then warnings are teated as errors
 int warned     = 0;
 
-byte COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP'";
-
-_Noreturn void RecError(char const *errMsg) {
-    fprintf(stderr, " %s", omfInName);
-
-    if (module)
-        fprintf(stderr, "(%s)", module->name.str);
-
-    fprintf(stderr, ", %s\n Record Type %02XH, Record Number ", errMsg, inType);
-    if (recNum > 0)
-        fprintf(stderr, "%5d\n", recNum);
-    else
-        fputs("*****\n", stderr);
-
-    Exit(1);
-} /* FatalErr() */
-
-_Noreturn void IllFmt() {
-    RecError("Illegal record format");
-}
-
-_Noreturn void IllegalRelo() {
-    RecError("Invalid record");
-}
-
-_Noreturn void BadRecordSeq() {
-    RecError("Bad record sequence");
-}
-
-void pstrcpy(pstr_t const *psrc, pstr_t *pdst) {
-    memcpy(pdst, psrc, psrc->len + 1);
-}
-
-void freezePstr(pstr_t const *psrc, pstr_t *pdst) {
-    pstrcpy(psrc, pdst);
-    pdst->str[pdst->len] = '\0';    // make str a C string
-}
+uint8_t COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP'";
 
 
-byte HashF(pstr_t *pstr) {
-    byte i, j;
+uint8_t HashF(pstr_t const *pstr) {
+    uint8_t i, j;
 
     j = pstr->len;
     for (i = 0; i < pstr->len; i++)
@@ -94,66 +45,29 @@ byte HashF(pstr_t *pstr) {
     return j & 0x7F;
 } /* HashF() */
 
-bool Lookup(pstr_t *pstr, symbol_t **symRef, byte mask) {
+bool Lookup(pstr_t const *pstr, symbol_t **symRef, uint8_t mask) {
     symbol_t *p = (symbol_t *)&hashTab[HashF(pstr)];
 
     *symRef     = p;
     for (p = p->hashChain; p; p = p->hashChain) {
         *symRef = p;
-        if ((p->flags & mask) != AUNKNOWN && PStrequ(pstr, &p->name))
+        if ((p->flags & mask) != AUNKNOWN && pstrequ(pstr, p->name))
             return true;
     }
     return false;
 } /* Lookup() */
 
-void Printf(char const *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    if (vfprintf(lstFp, fmt, args) < 0)
-        IoError(lstName, "Write error");
-    va_end(args);
-}
-
-void PrintAndEcho(char const *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    if (vfprintf(lstFp, fmt, args) < 0)
-        IoError(lstName, "Write error");
-    /* 
-    * ISIS II does not have a STDERR device
-    * Here if the listing file is not a device
-    * echo to stderr
-    * in the case where stdout and stderr are left as the console
-    * this will do the right thing.
-    */
-    if (echoToStderr)
-        vfprintf( stderr, fmt, args);
-    va_end(args);
-    warned = 1;
-}
-
 void ModuleWarning(char const *msg) {
-    PrintAndEcho("%s%s(%s)\n", msg, objFile->name, module->name.str);
+    PrintfAndLog("%s%s(%s)\n", msg, objFile->name, module->name->str);
 }
 
 void Start() {
     ParseCmdLine();
     Phase1();
     Phase2();
-    Exit(warnOK ? 0 : warned);
+    Exit(warnOk ? 0 : warned);
 
 } /* Start */
-
-_Noreturn void Exit(int result) {
-    if (result) {
-        if (omfOutFp)
-            fclose(omfOutFp);
-        unlink(omfOutName);
-    }
-    if (lstFp)
-        fclose(lstFp);
-    exit(result);
-}
 
 _Noreturn void usage() {
     printf("Usage: %s inputList (TO | -o) targetFile [link option]*\n"

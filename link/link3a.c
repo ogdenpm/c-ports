@@ -12,34 +12,6 @@
 #include <ctype.h>
 #include <stdio.h>
 
-char const *cmdP;
-bool echoToStderr;
-char *toName;
-_Noreturn void FatalCmdLineErr(char const *errMsg) {
-    if (*cmdP != '\n') /* don't skip past the EOL */
-        cmdP++;
-    strcpy((char *)cmdP, "#\n"); // mark problem (remove 'const' from cmdP)
-    fprintf(stderr, "Command line error near #: %s\n", errMsg);
-    printCmdLine(stderr);
-    Exit(1);
-} /* FatalCmdLineErr() */
-
-void SkipNonArgChars(char const *s) {
-
-    cmdP = Deblank(s);            // remove const
-    while (*cmdP == '&') {        /* skip continuation lines */
-        cmdP = Deblank(cmdP + 4); // remove const
-    }
-} /* SkipNonArgChars() */
-
-void ExpectChar(byte ch, char const *errMsg) {
-    SkipNonArgChars(cmdP);
-    if (*cmdP == ch)
-        SkipNonArgChars(cmdP + 1);
-    else
-        FatalCmdLineErr(errMsg);
-} /* ExpectChar() */
-
 void ChkLP() {
     ExpectChar('(', "Left parenthesis expected");
 } /* ChkLP() */
@@ -52,22 +24,6 @@ void ExpectComma() {
     ExpectChar(',', "Comma expected");
 } /* ExpectComma() */
 
-void GetModuleName(char *token, psModName_t *pstr) {
-    pstr->len = 0;
-    if (!token[0])
-        FatalCmdLineErr("Missing module name");
-    if (isdigit(token[0]))
-        FatalCmdLineErr("Invalid module name, cannot start with a digit");
-    for (char *s = token; *s; s++) {
-        if (isalnum(*s) || *s == '?' || *s == '@' || *s == '_') {
-            if (pstr->len >= 31)
-                FatalCmdLineErr("Module name too long");
-            else
-                pstr->str[pstr->len++] = toupper(*s);
-        } else
-            FatalCmdLineErr("Invalid module name, illegal character");
-    }
-} /* GetModuleName() */
 
 void AddFileToInputList(char *token) {
     if (objFileList == 0)
@@ -83,21 +39,14 @@ void AddFileToInputList(char *token) {
     objFile->name    = token;
 }
 
-/* use a shadow copy of commandLine to create '\0' terminated tokens */
-char *GetToken() {
-    SkipNonArgChars(cmdP);
-    char *token                   = tokenLine + (cmdP - commandLine);
-    cmdP                          = Delimit(cmdP);
-    tokenLine[cmdP - commandLine] = '\0';
-    return token;
-}
+
 
 /* ISIS only allowed filenames in 6.3 format so PUBLICS could never start
    a filename, code modified to check for publics string only
 */
 
 void GetInputListItem() {
-    psModName_t curModuleName;
+    pstr_t const *curModuleName;
     char *token = GetToken();
     if (!*token)
         FatalCmdLineErr("Expected name");
@@ -117,22 +66,22 @@ void GetInputListItem() {
         {
             ChkLP();               /* gobble up the ( */
             objFile->isLib = true; /* note have module list */
-            GetModuleName(GetToken(), &curModuleName);
-            module          = (objFile->modules = xmalloc(sizeof(module_t) + curModuleName.len + 1));
+            curModuleName = GetModuleName(GetToken());
+            module          = (objFile->modules = xmalloc(sizeof(module_t)));
             module->next    = 0;
             module->symbols = 0;
             module->cbias   = 0;
-            freezePstr((pstr_t *)&curModuleName, &module->name);
+            module->name    = curModuleName;
             SkipNonArgChars(cmdP);
             while (*cmdP == ',') { /* get more modules if (specified */
                 ExpectComma();
-                GetModuleName(GetToken(), &curModuleName);
-                module->next    = xmalloc(sizeof(module_t) + curModuleName.len + 1);
+                curModuleName = GetModuleName(GetToken());
+                module->next    = xmalloc(sizeof(module_t));
                 module          = module->next;
                 module->next    = 0;
                 module->symbols = 0;
                 module->cbias   = 0;
-                freezePstr((pstr_t *)&curModuleName, &module->name);
+                module->name    = curModuleName;
                 SkipNonArgChars(cmdP);
             }
             ChkRP();
@@ -147,10 +96,10 @@ void ParseControl() {
         mapWanted = true;
     else if (stricmp(token, "NAME") == 0) {
         ChkLP();
-        GetModuleName(GetToken(), &moduleName);
+        moduleName = GetModuleName(GetToken());
         ChkRP();
     } else if (strcmp(token, "-n") == 0)
-        GetModuleName(GetToken(), &moduleName);
+        moduleName = GetModuleName(GetToken());
     else if (stricmp(token, "PRINT") == 0) {
         ChkLP();
         lstName = GetToken();
@@ -162,15 +111,13 @@ void ParseControl() {
         if (!*lstName)
             FatalCmdLineErr("Missing listing file for -p control");
     } else if (stricmp(token, "NOWARN") == 0 || strcmp(token, "-w") == 0)
-        warnOK = false;
+        warnOk = false;
     else
         FatalCmdLineErr("Unknown control");
 } /* ParseControl() */
 
 void ParseCmdLine() {
-    cmdP = commandLine + 1;
-
-    puts("OMF85 Object Linker " VERSION); /* put login message */
+    puts("OMF85 OBJECT LINKER " VERSION); /* put login message */
 
     GetToken();            // skip the invoke name
     objFileList = 0;       /* end of link file list marker */
@@ -183,61 +130,38 @@ void ParseCmdLine() {
     char *token = GetToken();
 
     if (stricmp(token, "to") == 0 || strcmp(token, "-o") == 0)
-        toName = GetToken();
+        omfOutName = GetToken();
     else
         FatalCmdLineErr("'TO' or '-o' expected");
 
-    SkipNonArgChars(Delimit(cmdP));
+    SkipNonArgChars(cmdP);
 
     while (*cmdP != '\n') /* while there are controls */
         ParseControl();
 
     /* check target isn't a file we are linking from */
     for (objFile = objFileList; objFile; objFile = objFile->next) {
-        if (namecmp(toName, objFile->name) == 0 && !objFile->publics)
+        if (namecmp(omfOutName, objFile->name) == 0 && !objFile->publics)
             FatalCmdLineErr("Target file is duplicate of input file");
     }
     // if no name, generate one from the output file
-    if (moduleName.len == 0) {
-        char *s = basename(toName);
-        for (moduleName.len = 0; moduleName.len < 31 && *s && *s != '.'; s++, moduleName.len++)
-            moduleName.str[moduleName.len] =
-                isalnum(*s) || *s == '@' || *s == '_' ? toupper(*s) : '@';
-        if (moduleName.len == 0)
-            strcpy((char *)&moduleName, "\x6NONAME");
-        else if (isdigit(moduleName.str[0]))
-            moduleName.str[0] = '@';
+    if (!moduleName || moduleName->len == 0) {
+        char const *fname = basename(omfOutName);
+        // use local non const var to setup the name
+        pstr_t *mname      = (pstr_t *)c2pstrdup(*fname ? fname : "NONAME");
+        if (mname->len > 31)
+            mname->str[31] = '\0';
+        char *s       = mname->str;
+        if (isdigit(*s))
+            *s++ = '@';
+        for (; *s && (*s != '.' || s == mname->str); s++)
+            *s = isalnum(*s) || *s == '@' || *s == '_' ? toupper(*s) : '@';
+        *s         = '\0';
+        mname->len = (uint8_t)(s - mname->str);
+        moduleName = mname;
     }
-
-    if (!lstName || !*lstName) {
-        lstFp   = stdout;
-        lstName = "stdout";
-    } else if (!(lstFp = Fopen(lstName, "wt")))
-        IoError(lstName, "Open error");
-    echoToStderr = !isatty(fileno(lstFp));
+    openLst("OMF85 OBJECT LINKER " VERSION);
     /* if (printing to other than console, log the login & command line */
-    if (lstFp != stdout) {
-        Printf("OMF85 OBJECT LINKER " VERSION " INVOKED BY:\n");
-        printCmdLine(lstFp);
-    }
+
 }
 
-// print the command line, splitting long lines
-void printCmdLine(FILE *fp) {
-    int col = 0;
-    char *s = commandLine;
-    char *brk;
-    while ((brk = strpbrk(s, ", &\n"))) {
-        brk++; // include the break char
-        if (col + (brk - s) >= 120) {
-            fputs("\\\n    ", fp);
-            col = 4;
-        }
-        fprintf(fp, "%.*s", (int)(brk - s), s);
-        if (brk[-1] != '\n')
-            col += (int)(brk - s);
-        else
-            col = 0;
-        s = brk;
-    }
-}

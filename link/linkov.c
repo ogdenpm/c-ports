@@ -14,54 +14,40 @@
 // static char COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP";
 
 struct {
-    word next;
+    uint16_t next;
     union {
         struct {
-            word typeAndSeg;
-            word headReloc;
+            uint16_t typeAndSeg;
+            uint16_t headReloc;
         } f;
         struct {
-            word offset;
-            word symId;
+            uint16_t offset;
+            uint16_t symId;
         } r;
     };
 } *fixups;
 
-word fixupCnt;
-word fixupSize;
+uint16_t fixupCnt;
+uint16_t fixupSize;
 #define HEADEXT 0
 #define HEADREL 1
 #define FCHUNK  256
 
-psModName_t ancestor;
+pstr_t const *ancestor;
 static bool ancestorNameNotSet;
-static word segBias;
+static uint16_t segBias;
 static symbol_t **extMap;
-static word externsCount = 0;
-byte outRec[1060]; // max record 1025 + 3 + room unchecked overflow symbol 32
+static uint16_t externsCount = 0;
 
-void WriteByte(uint8_t val) {
-    *outP++ = val;
-}
-
-void WriteWord(uint16_t val) {
-    *outP++ = (byte)val;
-    *outP++ = val >> 8;
-}
-
-void WriteName(pstr_t *name) {
-    Pstrcpy(name, outP);
-    outP += name->len + 1;
-}
 
 void AddExtMap(symbol_t *symbol) {
     extMap[externsCount++] = symbol; /* record the symbol mapping */
 } /* AddExtMap() */
 
-symbol_t *GetSymbolP(word symId) {
+symbol_t *GetSymbolP(uint16_t symId) {
 
     if (symId >= externsCount) /* out of range */
-        IllFmt();
+        IllegalReloc();
     return extMap[symId]; /* return the symbol */
 } /* GetSymbolP() */
 
@@ -71,25 +57,7 @@ void InitExternsMap() {
     externsCount = 0;
 } /* InitExternsMap() */
 
-void InitRecord(byte type) {
-    outRec[REC_TYPE] = type;
-    outP             = outRec + REC_DATA;
-} /* InitRecord() */
-
-void EndRecord() {
-    // 1025 (+3 for type & len, -1 for pending crc)
-    if (putWord(&outRec[REC_LEN], (word)(outP - outRec - 2)) > 1025)
-        FatalError("%s: Record length > 1025", omfOutName);
-    byte crc;
-    pointer pch;
-    for (crc = 0, pch = outRec; pch < outP; crc -= *pch++) /* calculate and insert crc */
-        ;
-    *outP++ = crc; // add the crc
-    if (fwrite(outRec, 1, outP - outRec, omfOutFp) != outP - outRec)
-        IoError(omfOutName, "Write error");
-} /* EndRecord() */
-
-bool ExtendRec(word cnt) {
+bool ExtendRec(uint16_t cnt) {
     if (outP - outRec + cnt < 1027) /* room in buffer allow for CRC */
         return false;
     EndRecord();           /* Close() off the current record */
@@ -97,7 +65,7 @@ bool ExtendRec(word cnt) {
     return true;
 } /* ExtendRec() */
 
-void static EmitMODHDRComSegInfo(byte seg, word len, byte combine) {
+void static EmitMODHDRComSegInfo(uint8_t seg, uint16_t len, uint8_t combine) {
     if (ExtendRec(SEGDEF_sizeof))                          /* make sure enough room */
         FatalError("%s: Module header too long", omfOutName); /* mod hdr too long */
     WriteByte(seg);
@@ -107,16 +75,16 @@ void static EmitMODHDRComSegInfo(byte seg, word len, byte combine) {
 
 void EmitMODHDR() {
     InitRecord(R_MODHDR);
-    WriteName((pstr_t *)&moduleName);
+    WriteName(moduleName);
     WriteByte(tranId);
     WriteByte(tranVn);
 
-    for (byte fixSeg = SEG_CODE; fixSeg <= SEG_MEMORY; fixSeg++) { /* regular segments */
+    for (uint8_t fixSeg = SCODE; fixSeg <= SMEMORY; fixSeg++) { /* regular segments */
         if (segLen[fixSeg] > 0)
             EmitMODHDRComSegInfo(fixSeg, segLen[fixSeg], alignType[fixSeg]);
     }
     if (segLen[0] > 0) /* unamed common segment */
-        EmitMODHDRComSegInfo(SEG_BLANK, segLen[0], alignType[0]);
+        EmitMODHDRComSegInfo(SBLANK, segLen[0], alignType[0]);
 
     /* named common segments */
     for (symbol_t *commSym = headCommSym; commSym; commSym = commSym->nxtSymbol)
@@ -140,29 +108,29 @@ void EmitCOMDEF() {
     InitRecord(R_COMDEF); /* prep the record */
     /* chase down the definitions in seg order */
     for (symbol_t *commSym = headCommSym; commSym; commSym = commSym->nxtSymbol) {
-        ExtendRec(2 + commSym->name.len); /* overflow to another record if needed */
+        ExtendRec(2 + commSym->name->len); /* overflow to another record if needed */
         WriteByte(commSym->seg);
-        WriteName(&commSym->name);
+        WriteName(commSym->name);
     }
     EndRecord(); /* finalise */
 } /* EmitCOMDEF() */
 
 void EmitPUBLICS() {
-    for (word fixSeg = 0; fixSeg < 256; fixSeg++) { /* scan all segs */
+    for (uint16_t fixSeg = 0; fixSeg < 256; fixSeg++) { /* scan all segs */
         if (segmap[fixSeg]) {                       /* seg used */
             InitRecord(R_PUBDEF);                   /* init the record */
-            WriteByte((byte)fixSeg);                /* seg needed */
+            WriteByte((uint8_t)fixSeg);                /* seg needed */
             /* scan all files, modules and symbols*/
             for (objFile = objFileList; objFile; objFile = objFile->next) {
                 for (module = objFile->modules; module; module = module->next) {
                     for (symbol_t *symbol = module->symbols; symbol; symbol = symbol->nxtSymbol) {
                         if (symbol->seg == fixSeg) { /* this symbol in the right seg */
                             /* makes sure enough room in record */
-                            if (ExtendRec(4 + symbol->name.len))
+                            if (ExtendRec(4 + symbol->name->len))
                                 /* overflowed to new record so add the segid */
-                                WriteByte((byte)fixSeg);
+                                WriteByte((uint8_t)fixSeg);
                             WriteWord(symbol->offsetOrSym);
-                            WriteName(&symbol->name);
+                            WriteName(symbol->name);
                             WriteByte(0);
                         }
                     }
@@ -180,9 +148,9 @@ void EmitEXTNAMES() {
     unresolved = 0;
 
     for (symbol_t *symbol = unresolvedList; symbol; symbol = symbol->nxtSymbol) {
-        if (ExtendRec(2 + symbol->name.len)) /* check room for len, symbol && 0 */
+        if (ExtendRec(2 + symbol->name->len)) /* check room for len, symbol && 0 */
             ;                                /* no need for special action on extend */
-        WriteName(&symbol->name);
+        WriteName(symbol->name);
         WriteByte(0);
         symbol->offsetOrSym = unresolved++; /* record the final ext sym id */
     }
@@ -193,16 +161,16 @@ void EmitANCESTOR() {
     if (ancestorNameNotSet) /* we have a module name to use */
     {
         InitRecord(R_ANCEST);          /* init the record */
-        WriteName((pstr_t *)&ancestor); /* copy name */
+        WriteName(ancestor); /* copy name */
         EndRecord();
         ancestorNameNotSet = false; /* it is now set */
     }
 } /* Emit_ANCESTOR() */
 
-byte SelectSeg(byte seg) {
-    if (seg == SEG_CODE)
+uint8_t SelectSeg(uint8_t seg) {
+    if (seg == SCODE)
         segBias = module->cbias;
-    else if (seg == SEG_DATA)
+    else if (seg == SDATA)
         segBias = module->dbias;
     else
         segBias = 0;    /* only code and data modules are relative to module location */
@@ -210,17 +178,18 @@ byte SelectSeg(byte seg) {
 } /* SelectOutSeg() */
 
 void Pass2MODHDR() {
-    Pstrcpy(ReadName(), &ancestor);       /* read in the module name as the current ancestor*/
+    free((void *)ancestor);
+    ancestor = pstrdup(ReadName()); /* read in the module name as the current ancestor*/ 
     ancestorNameNotSet = true;           /* note the ancestor record has not been written */
-    for (word seg = 0; seg < 256; seg++) /* init the segment mapping */
-        segmap[seg] = (byte)seg;
+    for (uint16_t seg = 0; seg < 256; seg++) /* init the segment mapping */
+        segmap[seg] = (uint8_t)seg;
     GetRecord();
 } /* Pass2MODHDR() */
 
 void Pass2COMDEF() {
     while (inP < inEnd) { /* while more common definitions */
         uint8_t segId = ReadByte();
-        pstr_t *name  = ReadName();
+        pstr_t const *name  = ReadName();
         symbol_t *commSym;
         if (!Lookup(name, &commSym, F_ALNMASK)) /* check found */
             RecError("Phase error");
@@ -231,14 +200,14 @@ void Pass2COMDEF() {
 
 void Pass2EXTNAMES() {
     while (inP < inEnd) { /* while more external definitions */
-        pstr_t *name = ReadName();
+        pstr_t const *name = ReadName();
         symbol_t *symbol;
         if (!Lookup(name, &symbol, F_SCOPEMASK)) /* get the name */
             RecError("Phase error");
         AddExtMap(symbol);
         if (symbol->flags == F_EXTERN) { /* still an extern */
             /* write the unresolved reference info */
-            PrintAndEcho(" %s", p2cstr(&symbol->name));
+            PrintfAndLog(" %s", symbol->name->str);
             ModuleWarning(" - REFERENCED IN ");
         }
         ReadByte(); // skip the 0
@@ -250,20 +219,20 @@ void Pass2EXTNAMES() {
  * rather than adding additional arguments to function calls
  */
 
-word newFixup() {
+uint16_t newFixup() {
     if (fixupCnt >= fixupSize)
-        fixups = xrealloc(fixups, sizeof(*fixups) * (fixupSize += FCHUNK));
+        fixups = xrealloc(fixups, sizeof(fixups[0]) * (fixupSize += FCHUNK));
     return fixupCnt++;
 }
 
-static word GetTypeAndSegHead(word prev, word typeAndSeg) {
+static uint16_t GetTypeAndSegHead(uint16_t prev, uint16_t typeAndSeg) {
     /* chase down the fixup chain matching seg and fixup type */
-    for (word i = fixups[prev].next; i; i = fixups[i].next) {
+    for (uint16_t i = fixups[prev].next; i; i = fixups[i].next) {
         if (fixups[i].f.typeAndSeg == typeAndSeg) /* found existing list */
             return i;
         prev = i; /* step along */
     }
-    word nf                 = newFixup(); /* add to the list */
+    uint16_t nf                 = newFixup(); /* add to the list */
     fixups[nf].next         = fixups[prev].next;
     fixups[prev].next       = nf;
     fixups[nf].f.typeAndSeg = typeAndSeg; /* save the typeAndSeg */
@@ -271,9 +240,9 @@ static word GetTypeAndSegHead(word prev, word typeAndSeg) {
     return nf;
 } /* GetTypeAndSegHead() */
 
-static void AddRelocFixup(byte type, byte fixType, word offset, word segOrSym) {
-    word head   = GetTypeAndSegHead(type, type == HEADEXT ? fixType : segOrSym * 256 + fixType);
-    word relIdx = newFixup();
+static void AddRelocFixup(uint8_t type, uint8_t fixType, uint16_t offset, uint16_t segOrSym) {
+    uint16_t head   = GetTypeAndSegHead(type, type == HEADEXT ? fixType : segOrSym * 256 + fixType);
+    uint16_t relIdx = newFixup();
     fixups[relIdx].next      = fixups[head].f.headReloc;
     fixups[head].f.headReloc = relIdx;
     fixups[relIdx].r.offset  = offset;
@@ -285,7 +254,7 @@ void Pass2CONTENT() {
     if (recLen > 1025) {
         if (ReadByte() == 0) { // ok for ABS segment
             // copy as large records shouldn't have fixup
-            if (fwrite(inRecord, 1, recLen + REC_DATA, omfOutFp) != recLen + 3)
+            if (fwrite(inRec, 1, recLen + REC_DATA, omfOutFp) != recLen + 3)
                 IoError(omfOutName, "Write error");
             GetRecord();
             return;
@@ -293,34 +262,34 @@ void Pass2CONTENT() {
             FatalError("%s: Record length > 1025 for non ABSOLUTE content", omfInName);
     }
     // it's a potentially relocatable record, so copy original to output
-    memcpy(outRec, inRecord, recLen + REC_DATA);
+    memcpy(outRec, inRec, recLen + REC_DATA);
 
-    byte outSeg  = SelectSeg(ReadByte()); /* get the mapped link segment */
-    word outBias = segBias;               /* and the bias to apply */
-    word start   = ReadWord();
-    word len     = recLen - 4; // data bytes excludes crc
-    word end     = start + len - 1;
+    uint8_t outSeg  = SelectSeg(ReadByte()); /* get the mapped link segment */
+    uint16_t outBias = segBias;               /* and the bias to apply */
+    uint16_t start   = ReadWord();
+    uint16_t len     = recLen - 4; // data bytes excludes crc
+    uint16_t end     = start + len - 1;
 
     GetRecord(); /* prime next record */
 
     InitRecord(R_MODDAT);
     WriteByte(outSeg);
     WriteWord(start + outBias);
-    pointer content = outP; // base location of data to be relocated
+   uint8_t *content = outP; // base location of data to be relocated
     outP += len;
 
     if (!fixups)
-        fixups = xmalloc(sizeof(*fixups) * (fixupSize = FCHUNK));
+        fixups = xmalloc(sizeof(fixups[0]) * (fixupSize = FCHUNK));
     fixups[HEADEXT].next = 0; // init fixup list
     fixups[HEADREL].next = 0;
     fixupCnt             = 2;
 
     /* process the relocate records */
     while (inType == R_FIXEXT || inType == R_FIXLOC || inType == R_FIXSEG) {
-        byte fixType;
+        uint8_t fixType;
         if (inType == R_FIXEXT) {
             if ((fixType = ReadByte()) - 1 > 2) /* make sure combine is valid */
-                IllFmt();
+                IllegalReloc();
             while (inP < inEnd) { /* process all of the extref fixups */
                 uint16_t extIdx = ReadWord();
                 uint16_t offset = ReadWord();
@@ -343,21 +312,21 @@ void Pass2CONTENT() {
                         putWord(&content[fixLoc], getWord(&content[fixLoc]) + symbol->offsetOrSym);
                         break;
                     }
-                    if (symbol->seg != SEG_ABS) /* if not ABS add a fixup entry */
+                    if (symbol->seg != SABS) /* if not ABS add a fixup entry */
                         AddRelocFixup(HEADREL, fixType, offset + outBias, symbol->seg);
                 } else /* is an extern still so add to list */
                     AddRelocFixup(HEADEXT, fixType, offset + outBias, symbol->symId);
             }
         } else {                                /* reloc or interseg */
-            byte fixSeg = outSeg;               /* get default reloc seg */
+            uint8_t fixSeg = outSeg;               /* get default reloc seg */
             segBias     = outBias;              /* and reloc base to that of the content record */
             if (inType == R_FIXSEG)             /* if we are interseg then update the reloc seg */
                 fixSeg = SelectSeg(ReadByte()); /* also updates the outRelocOffset */
 
             if (fixSeg == 0) /* ABS is illegal */
-                IllFmt();
+                IllegalReloc();
             if ((fixType = ReadByte()) - 1 > 2) /* bad fix up type ? */
-                IllFmt();
+                IllegalReloc();
             while (inP < inEnd) { /* process all of the relocates */
                 uint16_t offset = ReadWord();
                 if (offset < start || end < offset + (fixType == FBOTH))
@@ -383,11 +352,11 @@ void Pass2CONTENT() {
 
     EndRecord(); /* finish the content record */
     /* process the extern lists */
-    for (word fixupIdx = fixups[HEADEXT].next; fixupIdx; fixupIdx = fixups[fixupIdx].next) {
+    for (uint16_t fixupIdx = fixups[HEADEXT].next; fixupIdx; fixupIdx = fixups[fixupIdx].next) {
         InitRecord(R_FIXEXT);                          /* create a extref record */
         WriteByte(Low(fixups[fixupIdx].f.typeAndSeg)); /* set the fix type */
         /* process all of the extref of this fixtype */
-        for (word relIdx = fixups[fixupIdx].f.headReloc; relIdx; relIdx = fixups[relIdx].next) {
+        for (uint16_t relIdx = fixups[fixupIdx].f.headReloc; relIdx; relIdx = fixups[relIdx].next) {
             if (ExtendRec(4)) /* make sure we have room */
                               /* if (! add the fixtype to the newly created follow on record */
                 WriteByte(Low(fixups[fixupIdx].f.typeAndSeg));
@@ -397,12 +366,12 @@ void Pass2CONTENT() {
         EndRecord(); /* Close() any open record */
     }
     /* now do the relocates */
-    for (word fixupIdx = fixups[HEADREL].next; fixupIdx; fixupIdx = fixups[fixupIdx].next) {
+    for (uint16_t fixupIdx = fixups[HEADREL].next; fixupIdx; fixupIdx = fixups[fixupIdx].next) {
         InitRecord(R_FIXSEG);                           /* interseg record */
         WriteByte(High(fixups[fixupIdx].f.typeAndSeg)); /* fill in segment */
         WriteByte(Low(fixups[fixupIdx].f.typeAndSeg));  /* and fixtype */
         /* chase down the references */
-        for (word relIdx = fixups[fixupIdx].f.headReloc; relIdx; relIdx = fixups[relIdx].next) {
+        for (uint16_t relIdx = fixups[fixupIdx].f.headReloc; relIdx; relIdx = fixups[relIdx].next) {
             if (ExtendRec(2)) { /* two bytes or create follow on record */
                                 /* fill in follow on record */
                 WriteByte(High(fixups[fixupIdx].f.typeAndSeg)); /* fill in segment */
@@ -427,7 +396,8 @@ void Pass2LINENO() {
 } /* Pass2LINENO() */
 
 void Pass2ANCESTOR() {
-    Pstrcpy(ReadName(), &ancestor); /* copy the module name over and mark as valid */
+    free((void *)ancestor);
+    ancestor = pstrdup(ReadName()); /* copy the module name over and mark as valid */
     ancestorNameNotSet = true;     /* note it isn't written yet */
     GetRecord();
 } /* Pass2ANCESTOR() */
@@ -450,7 +420,7 @@ void Pass2LOCALS() {
 /* process pass 2 records */
 void Phase2() {
     InitExternsMap();
-    if (!(omfOutFp = Fopen(toName, "wb+")))
+    if (!(omfOutFp = Fopen(omfOutName, "wb+")))
         IoError(omfOutName, "Create error");
     EmitMODHDR(); /* process the simple records */
     EmitCOMDEF();
@@ -509,12 +479,12 @@ void Phase2() {
                         Pass2COMDEF();
                         break;
                     default:
-                        IllegalRelo();
+                        IllegalRecord();
                         break;
                     }
                 }
             }
-            CloseObjFile();
+            closeOMFIn();
         }         /* of else */
     }             /* of do while */
     EmitEnding(); /* write final modend and eof record */
