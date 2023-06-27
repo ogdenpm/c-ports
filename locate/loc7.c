@@ -18,22 +18,23 @@
  * this will do the right thing.
  */
 bool echoToStderr;
+char *toName;
 
-word ParseLPNumRP() {
+uint16_t ParseLPNumRP(void) {
     ExpectLP();
-    word num = ParseSimpleNumber();
+    uint16_t num = ParseSimpleNumber();
     ExpectRP();
     return num;
-} /* ParseLPNumRP */
+}
 
-word ParseSimpleNumber() {
+uint16_t ParseSimpleNumber(void) {
     int num = ParseNumber(GetToken());
     if (num < 0)
         FatalCmdLineErr("Invalid number"); /* invalid syntax */
-    return (word)num;
+    return (uint16_t)num;
 }
 
-byte GetCommonSegId(char *token) {
+uint8_t GetCommonSegId(char *token) {
     char *s = strchr(token + 1, '/');
     if (!s || s[1])
         FatalCmdLineErr("invalid COMMON name");
@@ -44,48 +45,40 @@ byte GetCommonSegId(char *token) {
         if (segNames[i] && stricmp(segNames[i], token) == 0)
             return i;
     FatalCmdLineErr("unknown COMMON name");
-} /* GetCommonSegId */
-
-/* use a shadow copy of commandLine to create '\0' terminated tokens */
-char *GetToken() {
-    SkipNonArgChars(cmdP);
-    char *token                   = tokenLine + (cmdP - commandLine);
-    cmdP                          = Delimit(cmdP);
-    tokenLine[cmdP - commandLine] = '\0';
-    return token;
 }
 
-void ProcArgsInit() {
+
+
+void ProcArgsInit(void) {
     char *token;
     char *mark;
 
     /* display the sign on message skipping the form feed */
     fputs("OMF85 OBJECT LOADER " VERSION "\n", stdout);
-    cmdP = commandLine;
     GetToken(); // skip invoke name and leading -
-    inName = GetToken();
+    char *inName = GetToken();
     mark   = cmdP;
     token  = GetToken();
+    char *toName;
     if (stricmp(token, "TO") == 0 || stricmp(token, "-o") == 0)
-        outName = GetToken();
+        toName = GetToken();
     else {
         cmdP    = mark; // back up
-        char *s = basename(inName);
+        char *s = basename(omfInName);
         char *t = strrchr(s, '.');
         if (!t || t == s)
             FatalCmdLineErr("TO expected");
-        outName             = xstrdup(inName);
-        outName[t - inName] = '\0'; // remove ext
+        toName             = xstrdup(inName);
+        toName[t - inName] = '\0'; // remove ext
     }
 
-    if (!(inFp = Fopen(inName, "rb")))
-        IoError(inName, "Open error");
+    openOMFIn(inName);
 
     recNum = 0;
     /* check we have a relocation file */
     GetRecord();
     if (inType != R_MODHDR)
-        FatalError("%s: has no module header record", inName);
+        FatalError("%s: has no module header record", omfInName);
     ProcHdrAndComDef();
 
     /* process the rest of the command args */
@@ -96,10 +89,7 @@ void ProcArgsInit() {
     }
     FixSegOrder();
 
-    if (!(outFp = Fopen(outName, "wb"))) {
-        IoError(outName, "Create error");
-        echoToStderr = !isatty(fileno(lstFp));
-    }
+    openOMFOut(toName);
     /* and the print file (or console) */
     if (lstName) {
         if (!(lstFp = Fopen(lstName, "wt")))
@@ -110,10 +100,11 @@ void ProcArgsInit() {
         lstName = "stdout";
         lstFp   = stdout;
     }
+    echoToStderr = !isatty(fileno(lstFp));
     printDriveMap(lstFp);
-} /* ProcArgsInit */
+}
 
-word AlignAddress(byte align, word size, word laddr) {
+uint16_t AlignAddress(uint8_t align, uint16_t size, uint16_t laddr) {
     if (size == 0 || align == ABYTE) /* no alignment needed */
         return laddr;
 
@@ -124,7 +115,7 @@ word AlignAddress(byte align, word size, word laddr) {
             return laddr;
     }
     return (laddr + 0xff) & 0xff00; /* get a whole page */
-} /* AlignAddress */
+}
 
 // The original ProcModhdr has been split into two parts
 // the first reads the MODHDR and sets up the sizes and align
@@ -132,14 +123,14 @@ word AlignAddress(byte align, word size, word laddr) {
 // The second part AssignAddress is called after the command
 // line has been processed
 // This allows COMMON names to processed ready for the command line
-void ProcModhdr() {
+void ProcModhdr(void) {
     moduleName = pstrdup(ReadName());
     tranId     = ReadByte();
     tranVn     = ReadByte();
     while (inP < inEnd) { /* process all of the seg info */
-        byte seg      = ReadByte();
+        uint8_t seg      = ReadByte();
         segSizes[seg] = ReadWord();
-        byte align    = ReadByte();
+        uint8_t align    = ReadByte();
         if (align < AINPAGE || ABYTE < align) /* check valid alignment */
             IllegalRecord();
         if (segFlags[seg]) // has been seen already
@@ -149,7 +140,7 @@ void ProcModhdr() {
     GetRecord();
 }
 
-void AssignAddress() {
+void AssignAddress(void) {
     bool loadHasSize = false;
     for (int i = 0; i < 256; i++) {
         if (segSizes[i]) {
@@ -165,16 +156,16 @@ void AssignAddress() {
     if (!seen.stackSize && loadHasSize) /* it STACK not specified by user and we have data */
         segSizes[SSTACK] += 12;         /* reserve an additional 12 bytes */
 
-    word loadAddress = 0x3680; // default ISIS load address
+    uint16_t loadAddress = 0x3680; // default ISIS load address
     bool atTop       = false;  // not at top of memory
 
     for (int order = 1; order < 255; order++) { /* set addresses, using load order */
-        byte seg  = segOrder[order];            // use next seg in order
-        word size = segSizes[seg];
+        uint8_t seg  = segOrder[order];            // use next seg in order
+        uint16_t size = segSizes[seg];
         if (!(segFlags[seg] & FHASADDR)) { /* no address specified */
             if (atTop) {                   /* check for going over 64k */
                 if (size > 0)
-                    FatalError("%s: Program exceeds 64k", outName);
+                    FatalError("%s: Program exceeds 64k", omfOutName);
                 segFlags[seg] |= FWRAP0;
             }
         } else { /* user specified address */
@@ -185,26 +176,26 @@ void AssignAddress() {
         /* update this segments base address allowing for alignment */
         segBases[seg] = AlignAddress(segFlags[seg] & AMASK, size, loadAddress);
         if (segBases[seg] == 0 && loadAddress)
-            FatalError("%s: Program exceeds 64k", outName);
+            FatalError("%s: Program exceeds 64k", omfOutName);
         if (seg == SMEMORY && size == 0 && loadHasSize) // size memory segment
             if (!atTop && MEMCK > segBases[SMEMORY])
                 segSizes[SMEMORY] = size = MEMCK - segBases[SMEMORY];
         /* advance loadAddress and check for memory wrap around */
         if ((loadAddress = segBases[seg] + size) < segBases[seg]) {
             if (loadAddress) /* beyond 64k boundary */
-                FatalError("%s: Program exceeds 64k", outName);
+                FatalError("%s: Program exceeds 64k", omfOutName);
             else
                 atTop = true;
         }
     }
     segBases[SSTACK] += segSizes[SSTACK]; /* stack goes down so update to top */
-} /* ProcModhdr */
+}
 
-void ProcComdef() {
+void ProcComdef(void) {
     segNames[SBLANK] = ""; // default  blank common
     while (inType == R_COMDEF) {
         while (inP < inEnd) {
-            byte seg = ReadByte();
+            uint8_t seg = ReadByte();
             if (seg < SNAMED || seg == SBLANK)
                 IllegalRecord();
             /* check if (combine value not appropriate for common or if this one already seen */
@@ -215,9 +206,9 @@ void ProcComdef() {
         }
         GetRecord();
     }
-} /* ProcComdef */
+}
 
-void ProcHdrAndComDef() {
+void ProcHdrAndComDef(void) {
     ProcModhdr();
     ProcComdef();
     // check entries, if used should have FSEGSEEN and align type

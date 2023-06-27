@@ -13,7 +13,7 @@
 
 char const *segNames[256]    = { "ABSOLUTE", "CODE", "DATA", "STACK", "MEMORY", "Reserved" };
 
-void PrintMemoryMap() {
+void PrintMemoryMap(void) {
 
     if (seen.map) { /* print map header info if asked for */
         PrintListingHeader("MEMORY MAP OF MODULE");
@@ -30,7 +30,7 @@ void PrintMemoryMap() {
     }
 
     segBases[SSTACK] -= segSizes[SSTACK]; //  remove stack seg bias
-    byte seg;
+    uint8_t seg;
     for (int i = 1; i <= 254; i++) {
         // original had test with unused flag 20H, replaced here
         // with FSEGSEEN as it seems appropriate
@@ -42,10 +42,10 @@ void PrintMemoryMap() {
 
     /* emit information on all of the blocks */
     for (int i = 0; i < segFragCnt; i++) {
-        word start = segFrags[i].start;
-        word len   = segFrags[i].len;
-        byte flags = segFrags[i].flags;
-        byte seg   = segFrags[i].seg;
+        uint16_t start = segFrags[i].start;
+        uint16_t len   = segFrags[i].len;
+        uint8_t flags = segFrags[i].flags;
+        uint8_t seg   = segFrags[i].seg;
 
         bool addCRLF = false;
         if (seen.map) { /* if MAP is being produced */
@@ -84,10 +84,5 @@ void PrintMemoryMap() {
         } else if (minStart < 0x10000 && (uint32_t)(start + len) > minStart) /* update the minStart */
                 minStart = start + len;
     }
-} /* PrintMemoryMap */
+}
 
-char *SkipSpc(char *pch) {
-    while (*pch == ' ')
-        pch++;
-    return pch;
-} /* SkipSpc */

@@ -16,10 +16,10 @@ char *cmdP;
 int warningMask;
 int warnings;
 static bool orderDef[256];
-static byte nxtSegOrder;
+static uint8_t nxtSegOrder;
 static struct {
-    byte type;
-    byte aux;
+    uint8_t type;
+    uint8_t aux;
     char *name;
 } controls[] = {
     { 1, 1, "CODE" },     { 1, 2, "DATA" },       { 1, 3, "STACK" },     { 1, 4, "MEMORY" },
@@ -32,50 +32,28 @@ static struct {
     { 10, 1, "-ne" },     { 10, 2, "NOOVERLAP" }, { 10, 2, "-no" }
 };
 
-_Noreturn void FatalCmdLineErr(char const *errMsg) {
-    if (*cmdP != '\n') /* don't skip past the EOL */
-        cmdP++;
-    strcpy((char *)cmdP, "#\n"); // mark problem (remove 'const' from cmdP)
-    fprintf(stderr, "Command line error near #: %s\n", errMsg);
-    printCmdLine(stderr);
-    Exit(1);
-} /* FatalCmdLineErr() */
 
-void SkipNonArgChars(char *pch) {
-    cmdP = SkipSpc(pch);
-    /* skip any continuation bits and leading space */
-    while (*cmdP == '&') {
-        cmdP = SkipSpc(cmdP + 5);
-    }
-} /* SkipNonArgChars */
 
-void ExpectChar(byte ch, char const *msg) {
-    SkipNonArgChars(cmdP);
-    if (ch == *cmdP)
-        SkipNonArgChars(cmdP + 1);
-    else
-        FatalCmdLineErr(msg);
-} /* ExpectChar */
 
-void ExpectLP() {
+void ExpectLP(void) {
     ExpectChar('(', "left parenthesis expected"); /* left parenthesis expected */
-} /* ExpectLP */
+}
 
-void ExpectRP() {
+void ExpectRP(void) {
     ExpectChar(')', "right parenthesis expected"); /* right parenthesis expected */
-} /* ExpectRP */
+}
 
-void ExpectSlash() {
+void ExpectSlash(void) {
     ExpectChar('/', "invalid syntax, expected '/'"); /* invalid syntax */
-} /* ExpectSlash */
+}
 
 /* modified to fixup segOrder post cmdline to avoid multiple inserts */
-void ResetSegOrder() {
+void ResetSegOrder(void) {
     memset(orderDef, false, sizeof(orderDef));
     nxtSegOrder = 0;
 }
 
-void AddSegOrder(byte seg) {
+void AddSegOrder(uint8_t seg) {
     if (!orderDef[seg]) {
         segOrder[++nxtSegOrder] = seg;
         orderDef[seg]           = true;
@@ -83,13 +61,13 @@ void AddSegOrder(byte seg) {
         FatalCmdLineErr("segment already specified"); /* invalid syntax */
 }
 
-static void append(byte seg) { // expect compiler to inline
+static void append(uint8_t seg) { // expect compiler to inline
     if (!orderDef[seg])
         segOrder[++nxtSegOrder] = seg;
 }
 
 // add the unspecified segments as per default order
-void FixSegOrder() {
+void FixSegOrder(void) {
     segOrder[0] = SABS;
     append(SCODE);
     append(SSTACK);
@@ -101,8 +79,8 @@ void FixSegOrder() {
     append(SMEMORY);
 }
 
-pstr_t const *GetModuleName() {
-    pstr_t const *name = toPstr(GetToken());
+pstr_t const *GetModuleName(void) {
+    pstr_t const *name = c2pstrdup(GetToken());
     if (name->len > 31)
         FatalCmdLineErr("Module name too long");
     if (isdigit(name->str[0]))
@@ -115,8 +93,8 @@ pstr_t const *GetModuleName() {
     return name;
 }
 
-void ProcessControls() {
-    byte type, aux, seg;
+void ProcessControls(void) {
+    uint8_t type, aux, seg;
     char *token = GetToken();
     if (*token == '/') // handle common
         type = 9;
@@ -206,4 +184,4 @@ void ProcessControls() {
         warningMask |= aux;
         break;
     }
-} /* ProcessControls */
+}

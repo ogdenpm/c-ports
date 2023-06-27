@@ -261,8 +261,9 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="error.h" />
+    <ClInclude Include="os.h" />
     <ClInclude Include="loc.h" />
+    <ClInclude Include="omf.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>
@@ -272,13 +273,10 @@
     <ClCompile Include="loc2b.c" />
     <ClCompile Include="loc3.c" />
     <ClCompile Include="loc4.c" />
-    <ClCompile Include="loc4a.c" />
-    <ClCompile Include="loc5a.c" />
-    <ClCompile Include="loc5b.c" />
     <ClCompile Include="loc6.c" />
     <ClCompile Include="loc7.c" />
     <ClCompile Include="loc8a.c" />
-    <ClCompile Include="memory.c" />
+    <ClCompile Include="omf.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\intel.licenseheader" />

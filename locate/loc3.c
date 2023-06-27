@@ -13,7 +13,7 @@
  */
 #include "loc.h"
 
-void ProcLinNum() {
+void ProcLinNum(void) {
     if (!seen.purge || seen.lines) { // check if needed
         SetTargetSeg(ReadByte());    /* get ABS seg and set working base address */
         if (!seen.purge) {           /* need to create output record */
@@ -21,8 +21,8 @@ void ProcLinNum() {
             WriteByte(SABS);
         }
         while (inP < inEnd) { /* loop over all entries */
-            word offset = ReadWord() + targetBase;
-            word lineno = ReadWord();
+            uint16_t offset = ReadWord() + targetBase;
+            uint16_t lineno = ReadWord();
             if (!seen.purge) { /* emit to output record */
                 WriteWord(offset);
                 WriteWord(lineno);
@@ -34,25 +34,25 @@ void ProcLinNum() {
             EndRecord();
     }
     GetRecord(); /* prep next record */
-} /* ProcLinNum */
+}
 
-void ProcAncest() {
+void ProcAncest(void) {
 
     if (!seen.purge)
         CopyRecord();
     if (seen.lines || seen.symbols) { // check if needed
-        pstr_t *name = ReadName();
+        pstr_t const *name = ReadName();
         PrintColumn(CTMOD, name->len, name->str); /* print the ancestor */
         ForceSOL();
     }
 
     GetRecord(); /* prep next record */
-} /* ProcAncest */
+}
 
-void ProcDefs(byte list, byte ctype) {
-    byte outSeg = SABS;
+void ProcDefs(uint8_t list, uint8_t ctype) {
+    uint8_t outSeg = SABS;
     if (!seen.purge || list) { /* check if we need to process */
-        byte seg = ReadByte();
+        uint8_t seg = ReadByte();
         if (seg == SSTACK) {
             outSeg         = SSTACK;
             targetBase = 0; /* stack base is 0 */
@@ -63,8 +63,8 @@ void ProcDefs(byte list, byte ctype) {
             WriteByte(outSeg);
         }
         while (inP < inEnd) {
-            word offset  = ReadWord() + targetBase;
-            pstr_t *name = ReadName();
+            uint16_t offset  = ReadWord() + targetBase;
+            pstr_t const *name = ReadName();
             ReadByte();
             if (!seen.purge) {
                 WriteWord(offset);
@@ -78,28 +78,28 @@ void ProcDefs(byte list, byte ctype) {
             EndRecord();
     }
     GetRecord(); /* prep for next record */
-} /* ProcDefs */
+}
 
-void ProcExtnam() {
+void ProcExtnam(void) {
     // copy over the record to the output
     CopyRecord();
     warnings |= warningMask & 1;
     while (inP < inEnd) { /* process each item in the input EXTNAM record */
         ForceSOL();
-        pstr_t *name = ReadName();
+        pstr_t const *name = ReadName();
         ReadByte();
         PrintfAndLog("UNSATISFIED EXTERNAL(%d) %.*s\n", unsatisfiedCnt++, name->len, name->str);
     }
     GetRecord(); /* prep the next record */
-} /* ProcExtnam */
+}
 
 void PrintListingHeader(char const *heading) {
-    Printf("\n%s %s\nREAD FROM FILE %s\nWRITTEN TO FILE %s\n", heading, moduleName->str, inName,
-           outName);
+    Printf("\n%s %s\nREAD FROM FILE %s\nWRITTEN TO FILE %s\n", heading, moduleName->str, omfInName,
+           omfOutName);
 }
 
 /* main procedure to locate the file */
-void LocateFile() {
+void LocateFile(void) {
     AssignAddress();      // allocate segment addresses
     InitRecord(R_MODHDR); /* create header record */
     WriteName(moduleName);
@@ -163,5 +163,5 @@ void LocateFile() {
     ProcModend(); /* Read the modend and generate the rest of the located file */
     ForceSOL();       /* make sure at start of line if (symbols listed */
     PrintMemoryMap(); /* print the final memory map + any overlay Errors() */
-    fclose(inFp);
-} /* LocateFile */
+    fclose(omfInFp);
+}

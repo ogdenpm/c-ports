@@ -14,7 +14,7 @@
 // modified to return -1 on error
 int ParseNumber(char const *token) {
     char const *pch;
-    byte radix, digit;
+    uint8_t radix, digit;
     int num;
 
     for (pch = token; isxdigit(*pch); pch++)
@@ -42,4 +42,4 @@ int ParseNumber(char const *token) {
             return -1;
     }
     return num;
-} /* ParseNumber */;
+};

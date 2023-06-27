@@ -9,16 +9,17 @@
  ****************************************************************************/
 
 // vim:ts=4:shiftwidth=4:expandtab:
+// #include "loc.h"
+#include "omf.h"
+#include "os.h"
 #include <ctype.h>
-#include <fcntl.h>
 #include <showVersion.h>
 #include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
+extern FILE *lstFp;
 
 #ifdef _WIN32
 #include <io.h>
@@ -30,24 +31,50 @@
 #define DIRSEP    "/"
 #endif
 
+#define CLCHUNK 256 // size increase as command line grows
 
-#include "loc.h"
+#define STDIN   0
+#define STDOUT  1
 
-#define STDIN	0
-#define STDOUT	1
+char *cmdP; // current location on command line
 
-char *commandLine;      // users command line
-char *tokenLine;        // copy of the line, modified to create C string tokens
-int cmdLineLen;         // current command line length
-int cmdLineSize;        // space allocate for the command line
 char *invokeName; // sanitised invoking command
-#define CLCHUNK 256     // size increase as command line grows
 
-char const *deviceMap[10];
+char const *deviceMap[10]; // mappings of :Fx: to directories
 
-static void getCmdLine(int argc, char **argv);
+// forward ref
+static char *getCmdLine(int argc, char **argv);
 
-//char *deviceMap[10];
+int main(int argc, char **argv) {
+    CHK_SHOW_VERSION(argc, argv); // version info
+
+    invokeName = basename(argv[0]); // remove the directory part
+#ifdef _WIN32
+    char *s;
+    // remove .exe under windows
+    if ((s = strrchr(invokeName, '.')) && strcasecmp(s, ".exe") == 0)
+        *s = '\0';
+#endif
+    // check for help request
+    if (argc == 2 && strcmp(argv[1], "-h") == 0)
+        usage();
+    cmdP = getCmdLine(argc, argv);
+    Start();
+}
+
+_Noreturn void Exit(int retCode) {
+    if (lstFp)
+        fclose(lstFp);
+
+    if (retCode) {
+
+        if (omfOutFp) {
+            fclose(omfOutFp);
+            unlink(omfOutName);
+        }
+    }
+    exit(retCode);
+}
 
 char *basename(char *path) {
     char *s;
@@ -88,28 +115,7 @@ static char *MapFile(char *osName, const char *isisPath) {
     return osName;
 }
 
-
-
-
-
-int main(int argc, char **argv) {
-    CHK_SHOW_VERSION(argc, argv); // version info
-
-    invokeName = basename(argv[0]); // remove the directory part
-#ifdef _WIN32
-    char *s;
-    // remove .exe under windows
-    if ((s = strrchr(invokeName, '.')) && strcasecmp(s, ".exe") == 0)
-        *s = '\0';
-#endif
-    // check for help request
-    if (argc == 2 && strcmp(argv[1], "-h") == 0)
-        usage();
-    getCmdLine(argc, argv);
-    Start();
-}
-
-
+// variant of fopen that maps :Fx: prefixes if needed
 FILE *Fopen(char const *pathP, char *access) {
     char name[_MAX_PATH + 1];
 
@@ -126,34 +132,25 @@ FILE *Fopen(char const *pathP, char *access) {
     return fopen(name, access);
 }
 
-
-
-
-_Noreturn void Exit(int retCode) {
-    if (lstFp)
-        fclose(lstFp);
-
-    if (retCode) {
-
-        if (outFp) {
-            fclose(outFp);
-            unlink(outName);
+// print the ISIS drive mapping if any
+void printDriveMap(FILE *fp) { // show which :Fx: drive maps are  used
+    bool showMsg = true;
+    for (int i = 0; i < 10; i++) {
+        if (deviceMap[i]) {
+            if (showMsg) {
+                fputs("\nISIS DRIVE MAPPING\n", fp);
+                showMsg = false;
+            }
+            fprintf(fp, ":F%d: -> %s\n", i, deviceMap[i]);
         }
     }
-    exit(retCode);
 }
 
-
-_Noreturn void FatalError(char const *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    fputs("Fatal Error: ", stderr);
-    vfprintf(stderr, fmt, args);
-    va_end(args);
-    fputc('\n', stderr);
-    Exit(1);
-}
-
+// command line routines
+static char *commandLine; // users command line
+static int cmdLineLen;    // current command line length
+static int cmdLineSize;   // space allocate for the command line
+static char *tokenLine;   // copy of the line, modified to create C string tokens
 // returns true if more appends to the command line are needed
 static bool appendCmdLine(char const *s) {
     int c;
@@ -161,7 +158,7 @@ static bool appendCmdLine(char const *s) {
     int len              = (int)strlen(s);
 
     if (cmdLineLen + len + 3 > cmdLineSize) { // allow for #\n\0 for error reporting
-        while (cmdLineLen + len + 3 > cmdLineSize) 
+        while (cmdLineLen + len + 3 > cmdLineSize)
             cmdLineSize += CLCHUNK;
         commandLine = xrealloc(commandLine, cmdLineSize);
     }
@@ -184,7 +181,7 @@ static bool appendCmdLine(char const *s) {
     return true; // not reached end of line or &\n seen
 }
 
-static void getCmdLine(int argc, char **argv) {
+static char *getCmdLine(int argc, char **argv) {
     bool haveArg = argc > 1; // allows for response file if no command line args
     appendCmdLine("-");
     appendCmdLine(invokeName);
@@ -210,6 +207,44 @@ static void getCmdLine(int argc, char **argv) {
     commandLine[cmdLineLen] = '\0';
     tokenLine               = xmalloc(cmdLineLen + 1);
     memcpy(tokenLine, commandLine, cmdLineLen + 1);
+    return commandLine;
+}
+
+static char *SkipSpc(char *pch) {
+    while (*pch == ' ')
+        pch++;
+    return pch;
+}
+
+static char *skipToDelim(char *pch) {
+    char *p = strpbrk(pch, " ,()&\n");
+    return p ? p : strchr(pch, '\0');
+}
+
+// public command line handling functions
+void SkipNonArgChars(char *pch) {
+    cmdP = SkipSpc(pch);
+    /* skip any continuation bits and leading space */
+    while (*cmdP == '&') {
+        cmdP = SkipSpc(cmdP + 5);
+    }
+}
+
+void ExpectChar(uint8_t ch, char const *msg) {
+    SkipNonArgChars(cmdP);
+    if (ch == *cmdP)
+        SkipNonArgChars(cmdP + 1);
+    else
+        FatalCmdLineErr(msg);
+}
+
+/* use a shadow copy of commandLine to create '\0' terminated tokens */
+char *GetToken(void) {
+    SkipNonArgChars(cmdP);
+    char *token                   = tokenLine + (cmdP - commandLine);
+    cmdP                          = skipToDelim(cmdP);
+    tokenLine[cmdP - commandLine] = '\0';
+    return token;
 }
 
 // print the command line, splitting long lines
@@ -232,22 +267,56 @@ void printCmdLine(FILE *fp) {
     }
 }
 
-void printDriveMap(FILE *fp) { // show which :Fx: drive maps are  used
-    bool showMsg = true;
-    for (int i = 0; i < 10; i++) {
-        if (deviceMap[i]) {
-            if (showMsg) {
-                fputs("\nISIS DRIVE MAPPING\n", fp);
-                showMsg = false;
-            }
-            fprintf(fp, ":F%d: -> %s\n", i, deviceMap[i]);
-        }
-    }
-}
-
-
-_Noreturn void IoError(char const *path, char const *msg) {
-    fprintf(stderr, "%s: %s: %s", path, msg, strerror(errno));
+// common error handlers
+_Noreturn void FatalCmdLineErr(char const *errMsg) {
+    if (*cmdP != '\n') /* don't skip past the EOL */
+        cmdP++;
+    strcpy((char *)cmdP, "#\n"); // mark problem (remove 'const' from cmdP)
+    fprintf(stderr, "Command line error near #: %s\n", errMsg);
+    printCmdLine(stderr);
     Exit(1);
 }
 
+_Noreturn void FatalError(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fputs("Fatal Error: ", stderr);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    fputc('\n', stderr);
+    Exit(1);
+}
+
+_Noreturn void IoError(char const *path, char const *msg) {
+    fprintf(stderr, "%s: %s: %s\n", path, msg, strerror(errno));
+
+    char name[_MAX_PATH + 1];
+    MapFile(name, path);
+    if (strcmp(name, path))
+        fprintf(stderr, "Mapped file is: %s\n", name);
+
+    Exit(1);
+}
+
+
+// safe memory allocation
+void *xmalloc(size_t size) {
+    void *p = malloc(size);
+    if (!p)
+        FatalError("Out of memory");
+    return p;
+}
+
+void *xrealloc(void *p, size_t size) {
+    void *q = realloc(p, size);
+    if (!q)
+        FatalError("Out of memory");
+    return q;
+}
+
+char *xstrdup(char const *str) {
+    char *s = strdup(str);
+    if (!s)
+        FatalError("Out of memory");
+    return s;
+}

@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="error.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="loc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -25,6 +22,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="_version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="omf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="os.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -44,15 +47,6 @@
     <ClCompile Include="loc4.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="loc4a.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="loc5a.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="loc5b.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="loc6.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -62,7 +56,7 @@
     <ClCompile Include="loc8a.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="memory.c">
+    <ClCompile Include="omf.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

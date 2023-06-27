@@ -13,68 +13,35 @@
 */
 #include "loc.h"
 #include <stdarg.h>
-#include <stdlib.h>
 
 // static byte copyright[] = "(C) 1976, 1977, 1979 INTEL CORP";
 #define VERSION "V3.0"
 
-FILE *inFp, *outFp, *lstFp, *tmpFp;
-char *inName, *outName;
+FILE *lstFp;
+
 char *lstName;
-word columns = 1;
+uint16_t columns = 1;
 seen_t seen; /* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
 pstr_t const *moduleName;
 bool isMain;
-byte tranId;
-byte tranVn;
-word startAddr;
-byte segOrder[255];
-word segBases[256]; /* abs, code, data */
-word segSizes[256];
-byte segFlags[256];
-pointer inRec;
-pointer inEnd;
-pointer inP;
-byte inType;
-word recNum;
-word recLen;
-int maxRecLen;
-byte outRec[1060]; // sized to allow for unchecked name write at end
-pointer outP;
+uint8_t tranId;
+uint8_t tranVn;
+uint16_t startAddr;
+uint8_t segOrder[255];
+uint16_t segBases[256]; /* abs, code, data */
+uint16_t segSizes[256];
+uint8_t segFlags[256];
 dataFrag_t inBlock;
 
-byte image[0x10000];
+uint8_t image[0x10000];
 
-// helper functions to allow portability
-word getWord(byte *buf) {
-    return buf[0] + buf[1] * 256;
-}
 
-void IllegalRecord() {
-    RecError("unknown record type");
-}
-
-void IllegalReloc() {
-    RecError("illegal record format");
-}
-
-void BadRecordSeq() {
-    RecError("unexpected record");
-}
-
-void pstrcpy(pstr_t const *psrc, pstr_t *pdst) { /* copy pascal style string */
-    memcpy(pdst, psrc, psrc->len + 1);
-}
 
 void Printf(char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     vfprintf(lstFp, fmt, args);
     va_end(args);
-}
-
-void Prints(char const *s) {
-    fputs(s, lstFp);
 }
 
 void PrintfAndLog(char const *fmt, ...) {
@@ -89,70 +56,11 @@ void PrintfAndLog(char const *fmt, ...) {
     }
 }
 
-pstr_t *ReadName() {
-    pstr_t *pname = (pstr_t *)inP;
-    if (inP >= inEnd || (inP += pname->len + 1) > inEnd)
-        IllegalReloc();
-    return pname; /* read a name */
-} /* ReadName() */
 
-/* read in 4 byte block num and byte num inP points to the data, return a uint32_t offset */
-uint32_t ReadLocation() {
-    uint32_t offset = ReadWord() * 128;
-    return offset + ReadWord();
-}
-uint16_t ReadWord() {
-    if ((inP += 2) > inEnd)
-        IllegalReloc();
-    return getWord(inP - 2);
-}
 
-uint8_t ReadByte() {
-    if (inP >= inEnd)
-        IllegalReloc();
-    return *inP++;
-}
-
-void GetRecord() {
-    if (!inRec)
-        inRec = xmalloc(maxRecLen = 2048);
-    if (fread(inRec, 1, 3, inFp) != 3)
-        FatalError("%s: Premature EOF", inName);
-    recLen = getWord(inRec + REC_LEN);
-    if (maxRecLen < recLen + 3) {
-        while (maxRecLen <= recLen + REC_DATA)
-            maxRecLen += 4096;
-        inRec = xrealloc(inRec, maxRecLen);
-    }
-    inP   = inRec + REC_DATA;
-    inEnd = inRec + recLen + 2; // exclude CRC
-    if (fread(inP, 1, recLen, inFp) != recLen)
-        FatalError("%s: Premature EOF", inName);
-    recNum++;
-
-    byte inCRC = 0;
-    for (int i = 0; i < recLen + REC_DATA; i++)
-        inCRC += inRec[i];
-    if (inCRC)
-        RecError("Checksum error");
-    inType = inRec[0];
-    if (inType == 0 || inType > R_COMDEF || (inType & 1)) /* other invalid caught elsewhere */
-        IllegalReloc();
-    /* check for special case handling */
-    if (recLen > 1025 && inType != R_MODDAT && (inType < R_LIBNAM || inType == R_COMDEF))
-        RecError("Record length > 1025");
-}
-
-void Rewind() {
-
-    fseek(inFp, 0, SEEK_SET);
-    IoError(inName, "Rewind error");
-
-    recNum = 0; /* reset vars */
-}
 
 /* convert a target address into its current location in cache */
-pointer AddrInMem(word addr) {
+uint8_t * AddrInMem(uint16_t addr) {
     return image + addr;
 }
 
@@ -165,7 +73,7 @@ int segFragSize;
     For abs segments this merges blocks
     but assumes no overlap!!
 */
-void AddSegFrag(byte flags, byte seg, word start, word len) {
+void AddSegFrag(uint8_t flags, uint8_t seg, uint16_t start, uint16_t len) {
     int i;
     for (i = 0; i < segFragCnt; i++) {
         if (segFrags[i].start > start) {
@@ -200,7 +108,7 @@ int dataFragCnt;
 int dataFragSize;
 #define DFCHUNK 256
 
-void AddDataFrag(word saddr, word eaddr) {
+void AddDataFrag(uint16_t saddr, uint16_t eaddr) {
     int i;
     for (i = 0; i < dataFragCnt; i++) {
         if (dataFrags[i].saddr > saddr) {          // higher block found
@@ -242,18 +150,18 @@ void AddDataFrag(word saddr, word eaddr) {
     dataFrags[i].eaddr = eaddr;
 }
 
-void LoadModdat(byte segId) {
+void LoadModdat(uint8_t segId) {
     /* when called the segId and offset have already been read */
     memcpy(AddrInMem(inBlock.saddr), inP, recLen - 4);
 }
 
-void Start() {
+void Start(void) {
     ProcArgsInit();
     LocateFile();
     Exit(warnings != 0);
 }
 
-_Noreturn void usage() {
+_Noreturn void usage(void) {
     printf("Usage: %s inputFile [(TO|-o) targetFile] [locate option]*\n"
            "or:    %s (-h | -v | -V)\n",
            invokeName, invokeName);
