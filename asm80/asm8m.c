@@ -10,25 +10,25 @@
 
 #include "asm80.h"
 
-static byte b7183[] = {0x3F, 0, 0x20, 0, 0, 0, 8, 0, 0x10};
-    /* bit vector 64 - 00000000 00100000 00000000 00000000 00000000 00001000 00000000 00010000 */
-    /*                 EOLCH, COMMA, SEMI */                                  
+static byte b7183[] = { 0x3F, 0, 0x20, 0, 0, 0, 8, 0, 0x10 };
+/* bit vector 64 - 00000000 00100000 00000000 00000000 00000000 00001000 00000000 00010000 */
+/*                 EOLCH, COMMA, SEMI */
 
 static word baseMacroBlk;
 static byte savedTokenIdx;
 static bool inAngleBrackets;
 static byte paramCnt;
-static  byte startNestCnt;
+static byte startNestCnt;
 static tokensym_t *pMacro;
 static pointer pNextArg;
 
 static bool IsEndParam(void) {
-    if (IsEOL()) {		// new line forces end
+    if (IsEOL()) { // new line forces end
         inAngleBrackets = false;
         return true;
     }
 
-    if (inAngleBrackets)	// return whether end of balanced list
+    if (inAngleBrackets) // return whether end of balanced list
         return argNestCnt == startNestCnt;
 
     if (IsLT() || (curMacro.mtype != M_IRP && IsGT())) {
@@ -39,15 +39,12 @@ static bool IsEndParam(void) {
     return IsWhite() || IsComma() || IsGT() || curChar == ';';
 }
 
-
-
 static void InitParamCollect(void) {
-    symTab[TID_MACRO] = endSymTab[TID_MACRO] = endSymTab[TID_SYMBOL];	// init macro parameter table
+    symTab[TID_MACRO] = endSymTab[TID_MACRO] = endSymTab[TID_SYMBOL]; // init macro parameter table
     resetTmpStrings();
-    paramCnt = curMacro.localsCnt = 0;	// no params yet
-    yyType = MACROARG;
+    paramCnt = curMacro.localsCnt = 0; // no params yet
+    yyType                        = MACROARG;
 }
-
 
 static void Sub720A(void) {
     savedMtype = curMacro.mtype;
@@ -59,34 +56,31 @@ static void Sub720A(void) {
 
     if (nestMacro) {
         macro[macroDepth].bufP = macro[0].bufP;
-        macro[macroDepth].blk = macro[0].blk;
+        macro[macroDepth].blk  = macro[0].blk;
     }
 
-    nestMacro = false;
-    curMacro.pCurArg = pNextArg;
+    nestMacro            = false;
+    curMacro.pCurArg     = pNextArg;
     curMacro.localIdBase = localIdCnt;
-    localIdCnt += curMacro.localsCnt;		
+    localIdCnt += curMacro.localsCnt;
     ReadM(curMacro.savedBlk);
     curMacro.bufP = macroBuf;
 }
 
-
 static bool IsUnnestedMacro(void) {
-    if (! (mSpoolMode & 1))
+    if (!(mSpoolMode & 1))
         return true;
     macroSpoolNestDepth++;
-    b6B2C = topOp != REPT;
+    b6B2C  = topOp != REPT;
     yyType = MACROARG;
     return false;
 }
 
-
-void DoIrpX(byte mtype)
-{    /* 1 -> IRP, 2 -> IRPC */
+void DoIrpX(byte mtype) { /* 1 -> IRP, 2 -> IRPC */
     if (IsUnnestedMacro()) {
         InitParamCollect();
         Nest(1);
-        curMacro.cnt = 0;
+        curMacro.cnt   = 0;
         curMacro.mtype = mtype;
     }
 }
@@ -100,17 +94,14 @@ static void Acc1ToDecimal(void) {
         CollectByte(*s);
 }
 
-
 void initMacroParam(void) {
-    pNextArg = topMacroArg;
-    yyType = ITERPARAM;
+    pNextArg    = topMacroArg;
+    yyType      = ITERPARAM;
     inMacroBody = true;
-    b9060 = false;
+    b9060       = false;
 }
 
-
-static pointer AddMacroText(byte len, pointer arg)
-{
+static pointer AddMacroText(byte len, pointer arg) {
     if (topMacroArg + len + 1 >= &macroArgs[MAXMACROARGTEXT])
         FatalError("Out of macro Arg space");
     *topMacroArg++ = (len + 1) | 0x80;
@@ -119,29 +110,26 @@ static pointer AddMacroText(byte len, pointer arg)
     return topMacroArg;
 }
 
-
 static void InitSpoolMode(void) {
     macroSpoolNestDepth = 1;
-    macroInIdx = 0;
-    mSpoolMode = 1;
-    baseMacroBlk = macroBlkCnt;
+    macroInIdx          = 0;
+    mSpoolMode          = 1;
+    baseMacroBlk        = macroBlkCnt;
 }
-
-
 
 static void ChkForLocationError(void) {
     if (usrLookupIsID && asmErrCode != 'U')
         LocationError();
 }
 
-
 void GetMacroToken(void) {
     byte isPercent;
 
     savedTokenIdx = tokenIdx;
     SkipWhite();
-    if (! (isPercent = curChar == '%')) {
-        startNestCnt = argNestCnt - 1;		// if nested than argNestCnt will already have been incremented for the <
+    if (!(isPercent = curChar == '%')) {
+        startNestCnt = argNestCnt -
+                       1; // if nested than argNestCnt will already have been incremented for the <
         if ((inAngleBrackets = IsLT()))
             curChar = GetCh();
 
@@ -157,8 +145,7 @@ void GetMacroToken(void) {
                         CollectByte('\'');
                         CollectByte('\'');
                     }
-                }
-                else {
+                } else {
                     CollectByte('\'');
                     continue;
                 }
@@ -167,11 +154,12 @@ void GetMacroToken(void) {
             if (curMacro.mtype == M_IRPC)
                 curMacro.cnt++;
 
-            if (curChar == '!')
+            if (curChar == '!') {
                 if (GetCh() != EOLCH)
                     CollectByte(curChar);
                 else
                     reget = 1;
+            }
             GetCh();
         }
 
@@ -186,10 +174,9 @@ void GetMacroToken(void) {
     }
 
     inMacroBody = false;
-    if (curMacro.mtype == M_INVOKE)
-    {
-        if ((! inAngleBrackets) && token.size == 5)
-            if (StrUcEqu("MACRO", (char *)tokenStart)) {	// nested macro definition
+    if (curMacro.mtype == M_INVOKE) {
+        if ((!inAngleBrackets) && token.size == 5)
+            if (StrUcEqu("MACRO", (char *)tokenStart)) { // nested macro definition
                 yyType = MACRO;
                 PopToken();
                 pNextArg = curMacro.pCurArg;
@@ -199,7 +186,7 @@ void GetMacroToken(void) {
 #endif
                 reget = 1;
                 EmitXref(XREF_DEF, name);
-                haveUserSymbol = false;
+                haveUserSymbol  = false;
                 nestedMacroSeen = true;
                 return;
             }
@@ -215,12 +202,10 @@ void GetMacroToken(void) {
     }
 }
 
-
-
 void DoMacro(void) {
     if (IsUnnestedMacro()) {
         expectOperand = false;
-        pMacro = token.symbol;
+        pMacro        = token.symbol;
         UpdateSymbolEntry(0, MACRONAME);
         curMacro.mtype = M_MACRO;
         InitParamCollect();
@@ -229,42 +214,39 @@ void DoMacro(void) {
 
 void DoMacroBody(void) {
     if (HaveTokens()) {
-        if (token.type == 0)		// saved parameters have type 0
-            MultipleDefError();		// so if found we have a multiple definition
+        if (token.type == 0)    // saved parameters have type 0
+            MultipleDefError(); // so if found we have a multiple definition
 
-        InsertMacroSym(++paramCnt, 0);	// add the parameter setting type to 0
-    }
-    else if (curMacro.mtype != M_MACRO)	// only MACRO is allowed to have no parameters
+        InsertMacroSym(++paramCnt, 0);    // add the parameter setting type to 0
+    } else if (curMacro.mtype != M_MACRO) // only MACRO is allowed to have no parameters
         SyntaxError();
 
-    if (curMacro.mtype != M_MACRO) {	// none MACRO have parameters -> dummy,value
-        SkipWhite();					// as dummy is entered above look for , value
+    if (curMacro.mtype != M_MACRO) { // none MACRO have parameters -> dummy,value
+        SkipWhite();                 // as dummy is entered above look for , value
         if (IsComma()) {
             reget = 0;
-            curOp = VALUE;		   // mark beginning of expression
+            curOp = VALUE; // mark beginning of expression
             initMacroParam();
-            if (curMacro.mtype == M_IRP) {		/* if IRP then expression begins with < */
+            if (curMacro.mtype == M_IRP) { /* if IRP then expression begins with < */
                 curChar = GetCh();
                 SkipWhite();
-                if (! IsLT()) {
-                    SyntaxError();		/* report error but assume < was given */
-                    reget = 1;			/* make sure the non < is read again */
+                if (!IsLT()) {
+                    SyntaxError(); /* report error but assume < was given */
+                    reget = 1;     /* make sure the non < is read again */
                 }
             }
+        } else {
+            SyntaxError();   /* report error and assume param list complete */
+            InitSpoolMode(); /* spool rest of definition */
         }
-        else
-        {
-            SyntaxError();				/* report error and assume param list complete */
-            InitSpoolMode();			/* spool rest of definition */
-        }
-    }
-    else if (curOp == EOL)		// got the parameters
+    } else if (curOp == EOL) // got the parameters
     {
-        if (! MPorNoErrCode())	// skip if multiple defined, phase or no error 
+        if (!MPorNoErrCode()) // skip if multiple defined, phase or no error
         {
             curMacro.mtype = M_BODY;
             if (pMacro && (pMacro->type & 0x7F) == MACRONAME)
-                pMacro->type = asmErrCode == 'L' ? (O_NAME + 0x80) : O_NAME;	// location error illegal forward ref
+                pMacro->type = asmErrCode == 'L' ? (O_NAME + 0x80)
+                                                 : O_NAME; // location error illegal forward ref
         }
         InitSpoolMode();
     }
@@ -272,27 +254,27 @@ void DoMacroBody(void) {
 
 void DoEndm(void) {
     if (mSpoolMode & 1) {
-        if (--macroSpoolNestDepth == 0) {	// Reached end of spooling ?
-            mSpoolMode = 0;		// spooling done
-            if (! (curMacro.mtype == M_BODY)) {
+        if (--macroSpoolNestDepth == 0) { // Reached end of spooling ?
+            mSpoolMode = 0;               // spooling done
+            if (!(curMacro.mtype == M_BODY)) {
                 if (curMacro.mtype == M_IRPC)
                     pNextArg = topMacroArg - 2 - curMacro.cnt;
                 /* endm cannot have a label */
                 for (int i = startMacroLineIdx; i < startMacroTokenIdx; i++) {
                     curChar = macroText[i];
-                    if (! IsWhite())
+                    if (!IsWhite())
                         SyntaxError();
                 }
 
                 /* replace line with the ESC char to mark end */
-                macroInIdx = startMacroLineIdx;
+                macroInIdx            = startMacroLineIdx;
                 macroText[macroInIdx] = ESC;
-                FlushM(true);		// write to vdisk
-                endSymTab[TID_MACRO] = symTab[TID_MACRO];	// reset macro parameter symbol table
+                FlushM(true);                             // write to vdisk
+                endSymTab[TID_MACRO] = symTab[TID_MACRO]; // reset macro parameter symbol table
                 resetTmpStrings();
                 if (curMacro.mtype == M_MACRO) {
-                    pMacro->blk = baseMacroBlk;
-                    pMacro->nlocals = curMacro.localsCnt;		// number of locals
+                    pMacro->blk     = baseMacroBlk;
+                    pMacro->nlocals = curMacro.localsCnt; // number of locals
                 } else {
                     curMacro.savedBlk = baseMacroBlk;
                     Sub720A();
@@ -301,41 +283,42 @@ void DoEndm(void) {
                 }
             }
         }
-    }
-    else
+    } else
         NestingError();
 }
-
 
 void DoExitm(void) {
     if (expandingMacro) {
         if (curOp == EOL) {
-            condAsmSeen = true;
-            macroCondSP = curMacro.condSP;
-            ifDepth = curMacro.ifDepth;
-            curMacro.cnt = 1;		// force apparent endm - last repitition
-            lookAhead = ESC;		// and endm marker
-            macroCondStk[0] = 1;	// and any if else
+            condAsmSeen     = true;
+            macroCondSP     = curMacro.condSP;
+            ifDepth         = curMacro.ifDepth;
+            curMacro.cnt    = 1;   // force apparent endm - last repitition
+            lookAhead       = ESC; // and endm marker
+            macroCondStk[0] = 1;   // and any if else
         } else
             SyntaxError();
     } else
         NestingError();
 }
 
-
 void DoIterParam(void) {
     static byte endMarker[1] = { 0x80 };
 
     if (savedTokenIdx + 1 != tokenIdx)
         SyntaxError();
-    else if (! b9060) {
+    else if (!b9060) {
         if (token.type != O_PARAM) {
             accum1 = GetNumVal();
             Acc1ToDecimal();
         }
 
         if (curMacro.mtype == M_IRPC)
-            curMacro.cnt = token.size == 0 ? 1 : token.size;	// plm uses true->FF and byte arithmetic. Replaced here for clarity
+            curMacro.cnt =
+                token.size == 0
+                    ? 1
+                    : token
+                          .size; // plm uses true->FF and byte arithmetic. Replaced here for clarity
 
         topMacroArg = AddMacroText(token.size, tokenStart);
         PopToken();
@@ -347,8 +330,7 @@ void DoIterParam(void) {
 
         if (curMacro.mtype == M_IRP)
             curMacro.cnt++;
-    }
-    else
+    } else
         SyntaxError();
 
     if (curOp == EOL) {
@@ -356,7 +338,7 @@ void DoIterParam(void) {
         if (argNestCnt > 0)
             BalanceError();
 
-        if (! MPorNoErrCode()) {
+        if (!MPorNoErrCode()) {
             ChkForLocationError();
             if (curMacro.mtype == M_MACRO) {
                 Sub720A();
@@ -368,27 +350,25 @@ void DoIterParam(void) {
             topMacroArg = AddMacroText(1, endMarker); // add end marker
             if (curMacro.mtype == M_MACRO) {
                 curMacro.localsCnt = token.symbol->flags;
-                curMacro.savedBlk = GetNumVal();
+                curMacro.savedBlk  = GetNumVal();
                 Sub720A();
             } else if (curMacro.cnt == 0)
                 SyntaxError();
         }
 
-        if (! (curMacro.mtype == M_MACRO))
+        if (!(curMacro.mtype == M_MACRO))
             InitSpoolMode();
     }
 }
-
-
 
 void DoRept(void) {
     DoIrpX(M_REPT);
     if ((yyType = curOp) != EOL)
         SyntaxError();
 
-    if (! (mSpoolMode & 1)) {
-        curMacro.cnt = accum1;		// get the repeat count
-        if (! MPorNoErrCode()) {	// skip processing if error other than M or P
+    if (!(mSpoolMode & 1)) {
+        curMacro.cnt = accum1;  // get the repeat count
+        if (!MPorNoErrCode()) { // skip processing if error other than M or P
             ChkForLocationError();
             curMacro.cnt = 0;
         }
@@ -396,39 +376,37 @@ void DoRept(void) {
     }
 }
 
-
 void DoLocal(void) {
     if (mSpoolMode == 2) {
         if (HaveTokens()) {
-            if (++curMacro.localsCnt == 0)		// 256 locals!!
+            if (++curMacro.localsCnt == 0) // 256 locals!!
                 StackError();
 
-            if (token.type != O_NAME)					// already seen so error
+            if (token.type != O_NAME) // already seen so error
                 MultipleDefError();
 
-            InsertMacroSym(curMacro.localsCnt, 1);		// save this local with index
+            InsertMacroSym(curMacro.localsCnt, 1); // save this local with index
             macroInIdx = 0;
         }
-        if (curOp == EOL) {			// local line processed to return to normal spooling
+        if (curOp == EOL) { // local line processed to return to normal spooling
             mSpoolMode = 1;
             macroInIdx = 0;
         }
     } else
-        SyntaxError();					// local not ok here
+        SyntaxError(); // local not ok here
 }
 
-
-
 void Sub78CE(void) {
-    byte ch = *curMacro.pCurArg;
-    byte chCnt = (ch == '!' && savedMtype == M_IRPC) ? 2 : 1;	// size arg (2 if escaped char)
-    if (savedMtype == M_MACRO || (curMacro.cnt -= chCnt) == 0)	// all done
+    byte ch    = *curMacro.pCurArg;
+    byte chCnt = (ch == '!' && savedMtype == M_IRPC) ? 2 : 1;  // size arg (2 if escaped char)
+    if (savedMtype == M_MACRO || (curMacro.cnt -= chCnt) == 0) // all done
         UnNest(1);
     else {
         if (savedMtype == M_IRP)
-            pNextArg = curMacro.pCurArg + (ch & 0x7F);		// skip foward to start of arg (stored as len, arg)
+            pNextArg =
+                curMacro.pCurArg + (ch & 0x7F); // skip foward to start of arg (stored as len, arg)
         else
-            pNextArg = curMacro.pCurArg + chCnt;	// skip char or escaped char
+            pNextArg = curMacro.pCurArg + chCnt; // skip char or escaped char
 
         curMacro.mtype = savedMtype;
         Sub720A();

@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     for (int i = 2; i < argc; i++)	// add args lengths with space between
             len += strlen(argv[i]) + 1;
 
-    s = cmdchP = cmdLineBuf = malloc(len + 3);
+    s = cmdchP = cmdLineBuf = xmalloc(len + 3);
     
     *s = 0;
     for (int i = 2; i < argc; i++)  { // add args with space between

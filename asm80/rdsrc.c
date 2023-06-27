@@ -40,7 +40,8 @@ int inBufSize;
 static char *getLine() {
     int c;
     int i = 0;
-
+    if (!inBuf)
+        inBuf = xrealloc(inBuf, inBufSize += 256);
     while ((c = getc(srcfp)) != '\n' && c != EOF) {
         if (c >= ' ' || c == '\t' || c == '\f') {    // only allow tab or FF as a control char, others are stripped
             if (i >= inBufSize - 2)     // allow room for "\n\0"
