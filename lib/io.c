@@ -333,13 +333,6 @@ void Exit()
 	_exit(1);
 }
 
-void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer statusP)
-{
-	fprintf(stderr, "load not implmented\n");
-	exit(2);
-}
-
-
 
 
 void Open(wpointer connP, const char *pathP, word access, word echo, wpointer statusP)
@@ -547,10 +540,3 @@ void Rename(char const *oldP, char const *newP, wpointer statusP)
 }
 
 
-void Spath(char *pathP, spath_t *infoP, wpointer statusP)
-{
-	if ((*statusP = ParseIsisName(infoP, pathP)) != ERROR_SUCCESS)
-		return;
-	if (infoP->deviceType == 3)
-		infoP->driveType = 4;
-}
