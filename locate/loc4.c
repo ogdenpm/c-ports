@@ -26,7 +26,7 @@ void PrintMemoryMap(void) {
             if (seen.restart0)
                 Printf(", RESTART CONTROL IGNORED");
         }
-        fputs("\n\nSTART   STOP LENGTH REL NAME\n\n", lstFp);
+        Printf("\n\nSTART   STOP LENGTH REL NAME\n\n");
     }
 
     segBases[SSTACK] -= segSizes[SSTACK]; //  remove stack seg bias
@@ -53,7 +53,7 @@ void PrintMemoryMap(void) {
             if (len > 0)
                 Printf( "%04XH", start + len - 1);
             else
-                fputs("****H", lstFp);
+                Printf("****H");
             Printf( "  %4XH  %c  ", len, "AIPB"[flags & AMASK]);
             if (seg >= SNAMED) /* seg is COMMON */
                 Printf( "/%s/", segNames[seg]);

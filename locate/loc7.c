@@ -17,22 +17,17 @@
  * in the case where stdout and stderr are left as the console
  * this will do the right thing.
  */
-bool echoToStderr;
+bool logToStderr;
 char *toName;
 
 uint16_t ParseLPNumRP(void) {
     ExpectLP();
-    uint16_t num = ParseSimpleNumber();
+    uint16_t num = ParseNumber();
     ExpectRP();
     return num;
 }
 
-uint16_t ParseSimpleNumber(void) {
-    int num = ParseNumber(GetToken());
-    if (num < 0)
-        FatalCmdLineErr("Invalid number"); /* invalid syntax */
-    return (uint16_t)num;
-}
+
 
 uint8_t GetCommonSegId(char *token) {
     char *s = strchr(token + 1, '/');
@@ -54,25 +49,25 @@ void ProcArgsInit(void) {
     char *mark;
 
     /* display the sign on message skipping the form feed */
-    fputs("OMF85 OBJECT LOADER " VERSION "\n", stdout);
+    puts("OMF85 OBJECT LOADER " VERSION);
     GetToken(); // skip invoke name and leading -
     char *inName = GetToken();
     mark   = cmdP;
     token  = GetToken();
-    char *toName;
     if (stricmp(token, "TO") == 0 || stricmp(token, "-o") == 0)
-        toName = GetToken();
+        omfOutName = GetToken();
     else {
         cmdP    = mark; // back up
         char *s = basename(omfInName);
         char *t = strrchr(s, '.');
         if (!t || t == s)
             FatalCmdLineErr("TO expected");
-        toName             = xstrdup(inName);
-        toName[t - inName] = '\0'; // remove ext
+        omfOutName             = xstrdup(inName);
+        omfOutName[t - inName] = '\0'; // remove ext
     }
 
     openOMFIn(inName);
+    openLst("OMF85 OBJECT LOADER " VERSION);
 
     recNum = 0;
     /* check we have a relocation file */
@@ -89,19 +84,9 @@ void ProcArgsInit(void) {
     }
     FixSegOrder();
 
-    openOMFOut(toName);
-    /* and the print file (or console) */
-    if (lstName) {
-        if (!(lstFp = Fopen(lstName, "wt")))
-            IoError(lstName, "Create error");
-        Printf("OMF85 OBJECT LOADER " VERSION " INVOKED BY:\n");
-        printCmdLine(lstFp);
-    } else {
-        lstName = "stdout";
-        lstFp   = stdout;
-    }
-    echoToStderr = !isatty(fileno(lstFp));
-    printDriveMap(lstFp);
+    openOMFOut();
+
+    printDriveMap();
 }
 
 uint16_t AlignAddress(uint8_t align, uint16_t size, uint16_t laddr) {

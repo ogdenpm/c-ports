@@ -10,16 +10,15 @@
 
 // vim:ts=4:shiftwidth=4:expandtab:
 // #include "loc.h"
-#include "omf.h"
-#include "os.h"
 #include <ctype.h>
 #include <showVersion.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-extern FILE *lstFp;
+#include "omf.h"
+#include "os.h"
+#include "lst.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -133,15 +132,15 @@ FILE *Fopen(char const *pathP, char *access) {
 }
 
 // print the ISIS drive mapping if any
-void printDriveMap(FILE *fp) { // show which :Fx: drive maps are  used
+void printDriveMap() { // show which :Fx: drive maps are  used
     bool showMsg = true;
     for (int i = 0; i < 10; i++) {
         if (deviceMap[i]) {
             if (showMsg) {
-                fputs("\nISIS DRIVE MAPPING\n", fp);
+                Printf("\nISIS DRIVE MAPPING\n");
                 showMsg = false;
             }
-            fprintf(fp, ":F%d: -> %s\n", i, deviceMap[i]);
+            Printf(":F%d: -> %s\n", i, deviceMap[i]);
         }
     }
 }
@@ -246,6 +245,42 @@ char *GetToken(void) {
     tokenLine[cmdP - commandLine] = '\0';
     return token;
 }
+
+uint16_t ParseNumber(void) {
+    char const *pch;
+    uint8_t radix, digit;
+    uint32_t num = 0;
+    char *token  = GetToken();
+
+    for (pch = token; isxdigit(*pch); pch++)
+        ;
+    char suffix = toupper(*pch);
+    if (suffix == 'H')
+        radix = 16;
+    else if (suffix == 'O' || suffix == 'Q')
+        radix = 8;
+    else if (*pch != '\0')
+        num = 0x10000;
+    else if (toupper(pch[-1]) == 'B' || toupper(pch[-1]) == 'D') {
+        if (--pch == token)
+            num = 0x10000;
+        else
+            radix = toupper(pch[-1]) == 'B' ? 2 : 10;
+    } else
+        radix = 10;
+
+    for (; num < 0x10000 && token < pch; token++) {
+        digit = isdigit(*token) ? *token - '0' : toupper(*token) - 'A' + 10;
+        if (digit >= radix)
+            num = 0x10000;
+        else
+            num = num * radix + digit;
+    }
+    if (num >= 0x10000)
+        FatalCmdLineErr("Invalid number");
+    return (uint16_t)num;
+}
+
 
 // print the command line, splitting long lines
 void printCmdLine(FILE *fp) {

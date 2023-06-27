@@ -261,6 +261,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="lst.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="loc.h" />
     <ClInclude Include="omf.h" />
@@ -268,6 +269,7 @@
     <ClInclude Include="_version.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="lst.c" />
     <ClCompile Include="os.c" />
     <ClCompile Include="loc1.c" />
     <ClCompile Include="loc2b.c" />
@@ -275,7 +277,6 @@
     <ClCompile Include="loc4.c" />
     <ClCompile Include="loc6.c" />
     <ClCompile Include="loc7.c" />
-    <ClCompile Include="loc8a.c" />
     <ClCompile Include="omf.c" />
   </ItemGroup>
   <ItemGroup>

@@ -11,8 +11,6 @@
 #include "loc.h"
 #include <ctype.h>
 
-char *cmdP;
-
 int warningMask;
 int warnings;
 static bool orderDef[256];
@@ -31,8 +29,6 @@ static struct {
     { 7, 0, "ORDER" },    { 8, 0, "COLUMNS" },    { 8, 16, "-c" },       { 10, 1, "NOEXTERN" },
     { 10, 1, "-ne" },     { 10, 2, "NOOVERLAP" }, { 10, 2, "-no" }
 };
-
-
 
 
 void ExpectLP(void) {
@@ -79,19 +75,7 @@ void FixSegOrder(void) {
     append(SMEMORY);
 }
 
-pstr_t const *GetModuleName(void) {
-    pstr_t const *name = c2pstrdup(GetToken());
-    if (name->len > 31)
-        FatalCmdLineErr("Module name too long");
-    if (isdigit(name->str[0]))
-        FatalCmdLineErr("Module name cannot start with a digit");
-    for (char *s = (char *)name->str; *s; s++) // remove const to allow upper casing
-        if (isalnum(*s) || *s == '?' || *s == '@' || *s == '_')
-            *s = toupper(*s);
-        else
-            FatalCmdLineErr("Illegal character in module name");
-    return name;
-}
+
 
 void ProcessControls(void) {
     uint8_t type, aux, seg;
@@ -118,11 +102,11 @@ void ProcessControls(void) {
         break;
     case 2:                          /* START */
         seen.start = true;           /* got a start address */
-        startAddr  = aux & 0x10 ? ParseSimpleNumber() : ParseLPNumRP(); /* and its value */
+        startAddr  = aux & 0x10 ? ParseNumber() : ParseLPNumRP(); /* and its value */
         break;
     case 3:                                /* STACKSIZE */
         seen.stackSize   = true;           /* got a stack size */
-        segSizes[SSTACK] = aux & 0x10 ? ParseSimpleNumber() : ParseLPNumRP(); /* and its value */
+        segSizes[SSTACK] = aux & 0x10 ? ParseNumber() : ParseLPNumRP(); /* and its value */
         break;
     case 4:                   // RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE
         seen.all[aux] = true; /* simple command seen */
@@ -130,10 +114,10 @@ void ProcessControls(void) {
     case 5:               /* NAME */
         seen.name = true; /* got a module name */
         if (aux & 0x10)
-            moduleName = GetModuleName();
+            moduleName = GetModuleName(GetToken());
         else {
             ExpectLP();
-            moduleName = GetModuleName(); /* get its value */
+            moduleName = GetModuleName(GetToken()); /* get its value */
             ExpectRP();
         }
         break;
@@ -171,7 +155,7 @@ void ProcessControls(void) {
         ExpectRP();
         break;
     case 8: /* COLUMNS */ /* get the number of columns */
-        columns = aux & 0x10 ? ParseSimpleNumber() : ParseLPNumRP();
+        columns = aux & 0x10 ? ParseNumber() : ParseLPNumRP();
         if (columns < 1 || columns > 3)
             FatalCmdLineErr("Expected number in range 1-3");
         break;

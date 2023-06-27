@@ -109,11 +109,11 @@ void LocateFile(void) {
     /* print symbol table header message if (required */
     if (seen.publics || seen.symbols || seen.lines) {
         PrintListingHeader("SYMBOL TABLE OF MODULE ");
-        fputc('\n', lstFp);
+        Putc('\n');
         /* print the column headings */
         for (int i = 0; i < columns; i++)
             PrintColumn(CTHEAD);
-        fputc('\n', lstFp);
+        Putc('\n');
     }
     /* process the link file */
     while (inType != R_MODEND) {

@@ -1,4 +1,9 @@
-#include "loc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include "os.h"
+#include "omf.h"
 
 // omf record handlers for basic records
 
@@ -16,13 +21,10 @@ uint16_t putWord(uint8_t * buf, uint16_t val) {
     return val;
 }
 
-void openOMFOut(char const *name) {
-    if (omfOutFp && fclose(omfOutFp))
-        IoError(omfOutName, "Close error");
-    if (!(omfOutFp = Fopen(name, "wb+")))
-        IoError(name, "Create error");
-    free(omfOutName);
-    omfOutName = xstrdup(name);
+void openOMFOut() {
+    if (!(omfOutFp = Fopen(omfOutName, "wb+")))
+        IoError(omfOutName, "Create error");
+
 }
 
 
@@ -90,15 +92,15 @@ _Noreturn void RecError(char const *errMsg) {
     Exit(1);
 } 
 
-void IllegalRecord(void) {
+_Noreturn void IllegalRecord(void) {
     RecError("unknown record type");
 }
 
-void IllegalReloc(void) {
+_Noreturn void IllegalReloc(void) {
     RecError("illegal record format");
 }
 
-void BadRecordSeq(void) {
+_Noreturn void BadRecordSeq(void) {
     RecError("unexpected record");
 }
 
@@ -187,6 +189,20 @@ void CopyRecord(void) {
         IoError(omfOutName, "Write error");
 }
 
+
+pstr_t const *GetModuleName(char const *token) {
+    pstr_t const *name = c2pstrdup(token);
+    if (name->len > 31)
+        FatalCmdLineErr("Module name too long");
+    if (isdigit(name->str[0]))
+        FatalCmdLineErr("Module name cannot start with a digit");
+    for (char *s = (char *)name->str; *s; s++) // remove const to allow upper casing
+        if (isalnum(*s) || *s == '?' || *s == '@' || *s == '_')
+            *s = toupper(*s);
+        else
+            FatalCmdLineErr("Illegal character in module name");
+    return name;
+}
 
 //  pascal style string handling for OMF
 

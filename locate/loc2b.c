@@ -38,7 +38,7 @@ void EmitModDat(dataFrag_t *block) {
 
 void ForceSOL(void) {
     if (curcol) {
-        fputc('\n', lstFp);
+        Putc('\n');
         curcol = 0;
     }
 }
@@ -59,7 +59,7 @@ void PrintColumn(uint8_t ctype, ...) {
         Printf("%*s", toPad, "");
     va_list args;
     va_start(args, ctype);
-    toPad = CWIDTH - vfprintf(lstFp, fmt[ctype], args);
+    toPad = CWIDTH - vPrintf(fmt[ctype], args);
     va_end(args);
 }
 

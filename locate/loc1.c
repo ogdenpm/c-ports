@@ -17,9 +17,7 @@
 // static byte copyright[] = "(C) 1976, 1977, 1979 INTEL CORP";
 #define VERSION "V3.0"
 
-FILE *lstFp;
 
-char *lstName;
 uint16_t columns = 1;
 seen_t seen; /* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
 pstr_t const *moduleName;
@@ -35,26 +33,6 @@ dataFrag_t inBlock;
 
 uint8_t image[0x10000];
 
-
-
-void Printf(char const *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(lstFp, fmt, args);
-    va_end(args);
-}
-
-void PrintfAndLog(char const *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(lstFp, fmt, args);
-    va_end(args);
-
-    if (echoToStderr) {
-        va_start(args, fmt);
-        vfprintf(stderr, fmt, args);
-    }
-}
 
 
 

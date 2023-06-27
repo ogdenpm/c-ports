@@ -55,7 +55,7 @@ extern char *omfOutName;
 extern FILE *omfOutFp;
 
 uint16_t putWord(uint8_t *buf, uint16_t val);
-void openOMFOut(char const *name);
+void openOMFOut();  // opens omfOutName
 void InitRecord(uint8_t type);
 void WriteByte(uint8_t val);
 void WriteWord(uint16_t val);
@@ -75,9 +75,9 @@ extern FILE *omfInFp;
 
 uint16_t getWord(uint8_t *buf);
 _Noreturn void RecError(char const *errMsg);
-void IllegalRecord(void);
-void IllegalReloc(void);
-void BadRecordSeq(void);
+_Noreturn void IllegalRecord(void);
+_Noreturn void IllegalReloc(void);
+_Noreturn void BadRecordSeq(void);
 void openOMFIn(char const *name);
 pstr_t const *ReadName(void);
 uint32_t ReadLocation(void);
@@ -89,6 +89,7 @@ void SeekOMFIn(long loc);
 
 void CopyRecord(void); // allow copy of unmodified record
 
+pstr_t const *GetModuleName(char const *token);
 
 // pascal string handling functions
 pstr_t const *pstrdup(pstr_t const *pstr);

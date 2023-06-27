@@ -22,11 +22,11 @@
 #include <unistd.h>
 #define stricmp strcasecmp
 #endif
-#define VERSION "V3.0"
 
 #include "os.h"
 #include "omf.h"
-
+#include "lst.h"
+#define VERSION "V3.0"
 // ISIS uses MemCk to return the top of memory
 // this is used to calculate a size for MEMORY seg
 // defined a MEMCK value to use in calculation
@@ -103,9 +103,7 @@ typedef union {
 //#define seen.purge   seen(7)
 //#define seen.name  seen(8)
 
-
 extern uint16_t columns;
-extern char crlf[];
 
 extern dataFrag_t inBlock;
 
@@ -116,7 +114,6 @@ extern pstr_t const *moduleName;
 
 extern FILE *lstFp;
 extern char *lstName;
-
 extern seen_t seen;
 extern uint16_t segBases[256];
 extern uint8_t segFlags[256];
@@ -127,7 +124,6 @@ extern uint16_t unsatisfiedCnt;
 extern uint16_t targetBase;
 extern char const *segNames[];
 
-extern bool echoToStderr;
 extern dataFrag_t *dataFrags;
 extern int dataFragCnt;
 extern segFrag_t *segFrags;
@@ -136,8 +132,7 @@ extern int warningMask;
 extern int warnings;
 
 /* loc1.c */
-void Printf(char const *fmt, ...);
-void PrintfAndLog(char const *fmt, ...);
+
 uint8_t *AddrInMem(uint16_t addr);
 void AddSegFrag(uint8_t flags, uint8_t seg, uint16_t start, uint16_t len);
 void AddDataFrag(uint16_t saddr, uint16_t eaddr);
@@ -170,12 +165,10 @@ void ExpectSlash(void);
 void ResetSegOrder(void);
 void AddSegOrder(uint8_t seg);
 void FixSegOrder(void);
-pstr_t const *GetModuleName(void);
 void ProcessControls(void);
 
 /* loc7.c */
 uint16_t ParseLPNumRP(void);
-uint16_t ParseSimpleNumber(void);
 uint8_t GetCommonSegId(char *token);
 void ProcArgsInit(void);
 uint16_t AlignAddress(uint8_t align, uint16_t size, uint16_t laddr);
@@ -184,8 +177,6 @@ void AssignAddress(void);
 void ProcComdef(void);
 void ProcHdrAndComDef(void);
 
-/* loc8a.c */
-int ParseNumber(char const *token);
 
 
 

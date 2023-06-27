@@ -30,6 +30,9 @@
     <ClInclude Include="os.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="lst.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="os.c">
@@ -53,10 +56,10 @@
     <ClCompile Include="loc7.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="loc8a.c">
+    <ClCompile Include="omf.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="omf.c">
+    <ClCompile Include="lst.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
