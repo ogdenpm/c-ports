@@ -33,7 +33,7 @@ word fixupSize;
 #define HEADREL 1
 #define FCHUNK  256
 
-psModName_t modName;
+psModName_t ancestor;
 static bool ancestorNameNotSet;
 static word segBias;
 static symbol_t **extMap;
@@ -79,14 +79,14 @@ void InitRecord(byte type) {
 void EndRecord() {
     // 1025 (+3 for type & len, -1 for pending crc)
     if (putWord(&outRec[REC_LEN], (word)(outP - outRec - 2)) > 1025)
-        FatalError("%s: Record length > 1025", outName);
+        FatalError("%s: Record length > 1025", omfOutName);
     byte crc;
     pointer pch;
     for (crc = 0, pch = outRec; pch < outP; crc -= *pch++) /* calculate and insert crc */
         ;
     *outP++ = crc; // add the crc
-    if (fwrite(outRec, 1, outP - outRec, outFp) != outP - outRec)
-        IoError(outName, "Write error");
+    if (fwrite(outRec, 1, outP - outRec, omfOutFp) != outP - outRec)
+        IoError(omfOutName, "Write error");
 } /* EndRecord() */
 
 bool ExtendRec(word cnt) {
@@ -99,7 +99,7 @@ bool ExtendRec(word cnt) {
 
 void static EmitMODHDRComSegInfo(byte seg, word len, byte combine) {
     if (ExtendRec(SEGDEF_sizeof))                          /* make sure enough room */
-        FatalError("%s: Module header too long", outName); /* mod hdr too long */
+        FatalError("%s: Module header too long", omfOutName); /* mod hdr too long */
     WriteByte(seg);
     WriteWord(len);
     WriteByte(combine);
@@ -193,7 +193,7 @@ void EmitANCESTOR() {
     if (ancestorNameNotSet) /* we have a module name to use */
     {
         InitRecord(R_ANCEST);          /* init the record */
-        WriteName((pstr_t *)&modName); /* copy name */
+        WriteName((pstr_t *)&ancestor); /* copy name */
         EndRecord();
         ancestorNameNotSet = false; /* it is now set */
     }
@@ -210,7 +210,7 @@ byte SelectSeg(byte seg) {
 } /* SelectOutSeg() */
 
 void Pass2MODHDR() {
-    Pstrcpy(ReadName(), &modName);       /* read in the module name */
+    Pstrcpy(ReadName(), &ancestor);       /* read in the module name as the current ancestor*/
     ancestorNameNotSet = true;           /* note the ancestor record has not been written */
     for (word seg = 0; seg < 256; seg++) /* init the segment mapping */
         segmap[seg] = (byte)seg;
@@ -239,7 +239,7 @@ void Pass2EXTNAMES() {
         if (symbol->flags == F_EXTERN) { /* still an extern */
             /* write the unresolved reference info */
             PrintAndEcho(" %s", p2cstr(&symbol->name));
-            ModuleWarning(" - Referenced in ");
+            ModuleWarning(" - REFERENCED IN ");
         }
         ReadByte(); // skip the 0
     }
@@ -285,12 +285,12 @@ void Pass2CONTENT() {
     if (recLen > 1025) {
         if (ReadByte() == 0) { // ok for ABS segment
             // copy as large records shouldn't have fixup
-            if (fwrite(inRecord, 1, recLen + REC_DATA, outFp) != recLen + 3)
-                IoError(outName, "Write error");
+            if (fwrite(inRecord, 1, recLen + REC_DATA, omfOutFp) != recLen + 3)
+                IoError(omfOutName, "Write error");
             GetRecord();
             return;
         } else
-            FatalError("%s: Record length > 1025 for non ABSOLUTE content", objName);
+            FatalError("%s: Record length > 1025 for non ABSOLUTE content", omfInName);
     }
     // it's a potentially relocatable record, so copy original to output
     memcpy(outRec, inRecord, recLen + REC_DATA);
@@ -427,7 +427,7 @@ void Pass2LINENO() {
 } /* Pass2LINENO() */
 
 void Pass2ANCESTOR() {
-    Pstrcpy(ReadName(), &modName); /* copy the module name over and mark as valid */
+    Pstrcpy(ReadName(), &ancestor); /* copy the module name over and mark as valid */
     ancestorNameNotSet = true;     /* note it isn't written yet */
     GetRecord();
 } /* Pass2ANCESTOR() */
@@ -450,8 +450,8 @@ void Pass2LOCALS() {
 /* process pass 2 records */
 void Phase2() {
     InitExternsMap();
-    if (!(outFp = Fopen(outName, "wb+")))
-        IoError(outName, "Create error");
+    if (!(omfOutFp = Fopen(toName, "wb+")))
+        IoError(omfOutName, "Create error");
     EmitMODHDR(); /* process the simple records */
     EmitCOMDEF();
     EmitPUBLICS();
@@ -459,11 +459,11 @@ void Phase2() {
     /* process all files */
     for (objFile = objFileList; objFile; objFile = objFile->next) {
         if (!objFile->publics) { /* publics only file doesn't need more processing*/
-            OpenObjFile();       /* Open file */
+            openOMFIn(objFile->name);       /* Open file */
             /* for each module in the file */
             for (module = objFile->modules; module; module = module->next) {
                 if (objFile->isLib) /* is in a library */
-                    Position(module->location);
+                    SeekOMFIn(module->location);
                 GetRecord(); /* Load the modhdr */
                 if (inType != R_MODHDR)
                     RecError("Phase error");
@@ -482,7 +482,7 @@ void Phase2() {
                         Pass2LINENO();
                         break;
                     case R_MODEOF:
-                        FatalError("%s: Unexpected EOF record", objName);
+                        FatalError("%s: Unexpected EOF record", omfInName);
                         break;
                     case R_ANCEST:
                         Pass2ANCESTOR();
@@ -518,6 +518,6 @@ void Phase2() {
         }         /* of else */
     }             /* of do while */
     EmitEnding(); /* write final modend and eof record */
-    if (fclose(outFp))
-        IoError(outName, "Close error");
+    if (fclose(omfOutFp))
+        IoError(omfOutName, "Close error");
 } /* Phase2() */

@@ -45,7 +45,7 @@ typedef word *wpointer;
 
 typedef struct { // generic pascal string
     byte len;
-    char str[0];
+    char str[1];
 } pstr_t;
 
 typedef struct { // pascal string for module names
@@ -254,7 +254,7 @@ extern pointer inEnd;
 extern symbol_t *hashTab[128];
 extern symbol_t *headCommSym;
 extern symbol_t *unresolvedList;
-extern char *objName;
+extern char const *omfInName;
 extern pointer inP;
 extern pointer inRecord;
 extern word maxExternCnt;
@@ -266,13 +266,13 @@ extern objFile_t *objFileList;
 extern pointer outP;
 extern char *lstName;
 extern FILE *lstFp;
-extern FILE *objFp;
+extern FILE *omfInFp;
 extern word recLen;
 extern word recNum;
 extern word segLen[6];
 extern byte segmap[256];
-extern FILE *outFp;
-extern char *outName;
+extern FILE *omfOutFp;
+extern char const *omfOutName;
 extern bool echoToStderr;
 
 
@@ -280,7 +280,7 @@ extern word unresolved;
 #define VERSION "V3.0"
 
 // linkov.plm
-extern psModName_t modName;
+extern psModName_t ancestor;
 extern byte outRec[];
 
 extern char *commandLine;
@@ -290,6 +290,7 @@ extern byte inType;
 extern bool warnOK;     // if true warnings are errors and out file is deleted
 extern int warned;
 extern char const *invokeName;
+extern char *toName;
 
 void AddExtMap(symbol_t *symP);
 void AddFileToInputList(char *token);
@@ -327,7 +328,7 @@ void InitRecord(byte type);
 // void Load(address pathP, address LoadOffset, address switch, address entryP, address statusP);
 bool Lookup(pstr_t *pstr, symbol_t **pitemRef, byte mask);
 // void MemMov(address cnt, address srcp, address dstp);
-void OpenObjFile();
+void openOMFIn(char const *name);
 void P1CommonSegments();
 void P1LibScan();
 void P1LibUserModules();
@@ -350,14 +351,14 @@ void Pass2LOCALS();
 void Pass2MODHDR();
 void Phase1();
 void Phase2();
-void Position(uint32_t location);
+void SeekOMFIn(uint32_t location);
 #define Pstrcpy(psrc, pdst) pstrcpy((pstr_t *)(psrc), (pstr_t *)(pdst))
 void pstrcpy(pstr_t const *psrc, pstr_t *pdst);
+void freezePstr(pstr_t const *psrc, pstr_t *pdst);
+
 uint32_t ReadLocation();
 uint16_t ReadWord();
 uint8_t ReadByte();
-
-void ReadCmdLine();
 pstr_t *ReadName();
 void Rescan(word conn, wpointer statusP);
 byte SelectInSeg(byte seg);

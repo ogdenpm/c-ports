@@ -38,7 +38,6 @@ char *tokenLine;        // copy of the line, modified to create C string tokens
 int cmdLineLen;         // current command line length
 int cmdLineSize;        // space allocate for the command line
 char const *invokeName; // sanitised invoking command
-bool warnOK = true;     // if false then warnings are teated as errors
 #define CLCHUNK 256     // size increase as command line grows
 
 static void getCmdLine(int argc, char **argv);
@@ -83,7 +82,7 @@ static char *MapFile(char *osName, const char *isisPath) {
     return osName;
 }
 
-void printDriveMap() {  // show which :Fx: drive maps are  used
+void printDriveMap() { // show which :Fx: drive maps are  used
     bool showMsg = true;
     for (int i = 0; i < 10; i++) {
         if (deviceMap[i]) {
@@ -98,7 +97,7 @@ void printDriveMap() {  // show which :Fx: drive maps are  used
 
 int main(int argc, char **argv) {
 
-    CHK_SHOW_VERSION(argc, argv);   // version info
+    CHK_SHOW_VERSION(argc, argv); // version info
 
     invokeName = basename(argv[0]); // remove the directory part
 #ifdef _WIN32
@@ -156,9 +155,14 @@ _Noreturn void FatalError(char const *fmt, ...) {
 static bool appendCmdLine(char const *s) {
     int c;
     static bool contSeen = false;
+    int len              = (int)strlen(s);
 
-    if (cmdLineLen + strlen(s) + 3 > cmdLineSize) // allow for #\n\0 for error reporting
-        commandLine = xrealloc(commandLine, cmdLineSize += CLCHUNK);
+    if (cmdLineLen + len + 3 > cmdLineSize) { // allow for #\n\0 for error reporting
+        while (cmdLineLen + len + 3 > cmdLineSize)
+            cmdLineSize += CLCHUNK;
+        commandLine = xrealloc(commandLine, cmdLineSize);
+    }
+
     while ((c = *s++)) {
         if (c != '\n') {
             if (contSeen && c > ' ')
@@ -171,15 +175,15 @@ static bool appendCmdLine(char const *s) {
                 cmdLineLen--;
             commandLine[cmdLineLen++] = '\n';
             if (!contSeen)
-                return false;   // user didn't have & at end of line so all done
-            contSeen = false;   // remove flag for next line
+                return false; // user didn't have & at end of line so all done
+            contSeen = false; // remove flag for next line
         }
     }
-    return true;    // not reached end of line or &\n seen
+    return true; // not reached end of line or &\n seen
 }
 
 static void getCmdLine(int argc, char **argv) {
-    bool haveArg = argc > 1;   // allows for response file if no command line args
+    bool haveArg = argc > 1; // allows for response file if no command line args
     appendCmdLine("-");
     appendCmdLine(invokeName);
     for (int i = 1; i < argc; i++) {
@@ -197,7 +201,6 @@ static void getCmdLine(int argc, char **argv) {
         appendCmdLine("**");
         if (!fgets(line, 256, stdin)) {
             fprintf(stderr, "Unexpected EOF on command line\n");
-            warned = 1;
             appendCmdLine("\n\n"); // finish off line even if previous had &
             break;
         }

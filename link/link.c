@@ -14,11 +14,11 @@
 #include "link.h"
 #include <stdarg.h>
 #include <stdio.h>
-FILE *objFp;
-FILE *outFp;
+FILE *omfInFp;
+FILE *omfOutFp;
 FILE *lstFp;
-char *objName;
-char *outName;
+char const *omfInName;
+char const *omfOutName;
 char *lstName;
 bool mapWanted;
 psModName_t moduleName;
@@ -43,15 +43,16 @@ symbol_t *headCommSym;
 word unresolved;
 word maxExternCnt;
 symbol_t *unresolvedList;
+bool warnOk      = true;   // if false then warnings are teated as errors
 int warned     = 0;
 
 byte COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP'";
 
 _Noreturn void RecError(char const *errMsg) {
-    fprintf(stderr, " %s", objName);
+    fprintf(stderr, " %s", omfInName);
 
     if (module)
-        fprintf(stderr, "(%s)", p2cstr(&module->name));
+        fprintf(stderr, "(%s)", module->name.str);
 
     fprintf(stderr, ", %s\n Record Type %02XH, Record Number ", errMsg, inType);
     if (recNum > 0)
@@ -76,7 +77,13 @@ _Noreturn void BadRecordSeq() {
 
 void pstrcpy(pstr_t const *psrc, pstr_t *pdst) {
     memcpy(pdst, psrc, psrc->len + 1);
-} /* pstrcpy() */
+}
+
+void freezePstr(pstr_t const *psrc, pstr_t *pdst) {
+    pstrcpy(psrc, pdst);
+    pdst->str[pdst->len] = '\0';    // make str a C string
+}
+
 
 byte HashF(pstr_t *pstr) {
     byte i, j;
@@ -126,7 +133,7 @@ void PrintAndEcho(char const *fmt, ...) {
 }
 
 void ModuleWarning(char const *msg) {
-    PrintAndEcho("%s%s(%s)\n", msg, objFile->name, &module->name);
+    PrintAndEcho("%s%s(%s)\n", msg, objFile->name, module->name.str);
 }
 
 void Start() {
@@ -139,9 +146,9 @@ void Start() {
 
 _Noreturn void Exit(int result) {
     if (result) {
-        if (outFp)
-            fclose(outFp);
-        unlink(outName);
+        if (omfOutFp)
+            fclose(omfOutFp);
+        unlink(omfOutName);
     }
     if (lstFp)
         fclose(lstFp);
@@ -163,7 +170,7 @@ _Noreturn void usage() {
            "MAP              Intel equivalent of -m option\n"
            "NAME(moduleName) Intel equivalent of -n option\n"
            "PRINT(listfile)  Intel equivalent of -p option\n"
-           "WERROR           Intel style equivalent of -w option\n"
+           "NOWARN           Intel style equivalent of -w option\n"
            "See Intel linker documentation for inputList specification\n"
            "Notes:\n"
            "* File names are of the format [:Fx:]path, where x is a digit and path\n"

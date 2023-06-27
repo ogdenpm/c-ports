@@ -18,8 +18,8 @@ byte inType;
 void GetRecord() {
     if (!inRecord)
         inRecord = xmalloc(maxRecLen = 2048);
-    if (fread(inRecord, 1, 3, objFp) != 3)
-        FatalError("%s: Premature EOF", objName);
+    if (fread(inRecord, 1, 3, omfInFp) != 3)
+        FatalError("%s: Premature EOF", omfInName);
     recLen = getWord(inRecord + REC_LEN);
     if (maxRecLen < recLen + 3) {
         while (maxRecLen <= recLen + REC_DATA)
@@ -28,8 +28,8 @@ void GetRecord() {
     }
     inP   = inRecord + REC_DATA;
     inEnd = inRecord + recLen + 2;  // exclude CRC
-    if (fread(inP, 1, recLen, objFp) != recLen)
-        FatalError("%s: Premature EOF", objName);
+    if (fread(inP, 1, recLen, omfInFp) != recLen)
+        FatalError("%s: Premature EOF", omfInName);
     recNum++;
 
     byte inCRC = 0;
@@ -45,24 +45,24 @@ void GetRecord() {
         RecError("Record length > 1025");
 }
 
-void Position(uint32_t location) {
+void SeekOMFIn(uint32_t location) {
 
-    if (fseek(objFp, location, SEEK_SET))
-        IoError(objName, "Seek error");
+    if (fseek(omfInFp, location, SEEK_SET))
+        IoError(omfInName, "Seek error");
 
     recNum = 0; /* reset vars */
 
 } /* Position() */
 
-void OpenObjFile() {
-    objName = objFile->name;
-    if (!(objFp = Fopen(objName, "rb")))
-        IoError(objName, "Open error");
+void openOMFIn(char const *name) {
+    if (!(omfInFp = Fopen(name, "rb")))
+        IoError(name, "Open error");
+    omfInName = name;
     recNum = 0;
     module = 0; /* reset vars and read at least 1 byte */
 } /* OpenObjFile() */
 
 void CloseObjFile() { /* Close() file and link to next one */
-    if (fclose(objFp))
-        IoError(objName, "Close error");
+    if (fclose(omfInFp))
+        IoError(omfInName, "Close error");
 } /* CloseObjFile() */

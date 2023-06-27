@@ -97,7 +97,7 @@ void WriteStats() {
     if (!mapWanted) /* user doesn't want */
         return;
     Printf("\nLINK MAP OF MODULE %s\nWRITTEN TO FILE %s", p2cstr((pstr_t *)&moduleName),
-           outName);
+           omfOutName);
     Printf("\nMODULE IS %s MAIN MODULE\n\n", moduleType == MT_NOTMAIN ? "NOT A" : "A");
 
     Printf("SEGMENT INFORMATION:\n"
@@ -119,7 +119,7 @@ void WriteStats() {
     /* common block segments */
     for (symbol_t *commSym = headCommSym; commSym; commSym = commSym->nxtSymbol->hashChain) {
         PrintBaseSizeAlign(0, commSym->len, commSym->flags); /* print Size() info */
-        Printf("/%s/", p2cstr(&commSym->name));
+        Printf("/%s/", commSym->name.str);
 
         if (commSym->flags == AINPAGE && commSym->len > 256) /* warn of problems */
             Printf("  *INPAGE Segment > 256 bytes*");
@@ -150,7 +150,7 @@ void WriteStats() {
         for (module = objFile->modules; module; module = module->next) {
             /* ignore if publics only && nothing loaded */
             if (!objFile->publics || module->symbols)
-                Printf(" %s(%s)%s\n", objFile->name, p2cstr(&module->name),
+                Printf(" %s(%s)%s\n", objFile->name, module->name.str,
                        objFile->publics ? " (PUBLICS)" : "");
         }
     }
@@ -413,11 +413,11 @@ void Pass1COMDEF() {
             {
                 if (comSegInfo[curSeg].lenOrLinkedSeg > commSym->len) /* set as max of sizes */
                     commSym->len = comSegInfo[curSeg].lenOrLinkedSeg;
-                PrintAndEcho("/%s/", &commSym->name);
+                PrintAndEcho("/%s/", commSym->name.str);
                 ModuleWarning(" -Unequal COMMON length, conflict in ");
             }
         } else { /* new entry required */
-            commSym->hashChain = xmalloc(sizeof(symbol_t) + name->len);
+            commSym->hashChain = xmalloc(sizeof(symbol_t) + name->len + 1);
             commSym            = commSym->hashChain; /* link in and mark new end of chain */
             commSym->hashChain = 0;
             commSym->flags     = comSegInfo[curSeg].combine; /* save the combine value */
@@ -425,7 +425,7 @@ void Pass1COMDEF() {
             if (segToUse < SEG_NAMCOM)
                 RecError("Too many COMMON segments");
             commSym->seg = segToUse--;     /* record the linked seg for this segment */
-            Pstrcpy(name, &commSym->name); /* copy the name */
+            freezePstr(name, &commSym->name); /* copy the name */
             commSym->len                  = comSegInfo[curSeg].lenOrLinkedSeg; /* and Size() */
             commSym->nxtSymbol->hashChain = tailSegOrderLink->hashChain; /* chain into seg order */
             tailSegOrderLink->hashChain   = commSym;
@@ -462,7 +462,7 @@ void Pass1PUBNAMES() {
         if (Lookup(name, &symbol, F_SCOPEMASK)) {
             if (symbol->flags == F_PUBLIC) { /* error if ! same location */
                 if (curSeg != 0 || symbol->seg != curSeg || symbol->offsetOrSym != offset) {
-                    PrintAndEcho(p2cstr(&symbol->name));
+                    PrintAndEcho(symbol->name.str);
                     ModuleWarning(" - Multiply defined, duplicate in ");
                 }
             } else { /* was extern but we now have an address */
@@ -470,10 +470,10 @@ void Pass1PUBNAMES() {
                 MarkPublic(symbol, offset);
             }
         } else { /* create a new entry */
-            symbol->hashChain = xmalloc(sizeof(symbol_t) + name->len);
+            symbol->hashChain = xmalloc(sizeof(symbol_t) + name->len + 1);
             symbol            = symbol->hashChain; /* add to HashF() chain */
             symbol->hashChain = 0;
-            Pstrcpy(name, &symbol->name); /* add the name */
+            freezePstr(name, &symbol->name); /* add the name */
             MarkPublic(symbol, offset);            /* make it a public */
         }
         ReadByte(); // end 0
@@ -488,12 +488,12 @@ void Pass1EXTNAMES() {
         externCnt++;                                /* bump the number of externs */
         symbol_t *symbol;
         if (!Lookup(name, &symbol, F_SCOPEMASK)) { /* ! currently extern || public */
-            symbol->hashChain   = xmalloc(sizeof(symbol_t) + name->len); /* create an entry */
+            symbol->hashChain   = xmalloc(sizeof(symbol_t) + name->len + 1); /* create an entry */
             symbol              = symbol->hashChain;                    /* link in */
             symbol->hashChain   = 0;
             symbol->flags       = F_EXTERN; /* extern and record symcnt number */
             symbol->offsetOrSym = ++newExtId;
-            Pstrcpy(name, &symbol->name); /* copy name */
+            freezePstr(name, &symbol->name); /* copy name */
             unresolved++;                  /* one more to resolve */
             newUnresolved++;
         }
@@ -506,10 +506,10 @@ void P1Records(byte newModule) {
     if (newModule) /* create entry for new module */
     {
 
-        hmoduleP->next  = (module = xmalloc(sizeof(module_t) + inP[0]));
+        hmoduleP->next  = (module = xmalloc(sizeof(module_t) + inP[0] + 1));
         module->next    = 0;
         module->symbols = 0;
-        Pstrcpy(inP, &module->name);
+        freezePstr((pstr_t *)inP, &module->name);
         hmoduleP = module;
     }
     externCnt     = 0;
@@ -528,7 +528,7 @@ void P1Records(byte newModule) {
             Pass1CONTENT();
             break;
         case R_MODEOF:
-            FatalError("%s: Unexpected MODEOF record", objName);
+            FatalError("%s: Unexpected MODEOF record", omfInName);
             break;
         case R_PUBDEF:
             Pass1PUBNAMES();
@@ -577,7 +577,7 @@ void P1LibScan() {
     if (unresolved > 0) {
         hmoduleP          = (module_t *)&objFile->modules;
         uint32_t location = ReadLocation();
-        Position(location);   /* Seek() to library module names record */
+        SeekOMFIn(location);   /* Seek() to library module names record */
         ExpectRecord(R_LIBNAM); /* get rec and validate type */
         ExpectRecord(R_LIBLOC); /* should have the locations */
         // load all of the locations to memory to avoid repeated reloads
@@ -622,7 +622,7 @@ void P1LibScan() {
             for (int i = 0; i < count; i++) { /* process each module needed */
                 if (libData[i].required) {
                     libData[i].dictionary[0] = '\0'; // no need scan again as they will be defined
-                    Position(libData[i].location);
+                    SeekOMFIn(libData[i].location);
                     ExpectRecord(R_MODHDR);
                     P1Records(true); /* creates a new module entry */
                     module->location = libData[i].location;
@@ -643,7 +643,7 @@ void P1LibUserModules() {
 
     ReadWord(); // count
 
-    Position(ReadLocation()); /* Seek to the libnam section - libhdr is current rec */
+    SeekOMFIn(ReadLocation()); /* Seek to the libnam section - libhdr is current rec */
     ExpectRecord(R_LIBNAM);
     modIdx    = 0;
     unmatched = true;
@@ -676,7 +676,7 @@ void P1LibUserModules() {
             ModuleWarning("Module not in library, looking for ");
             hmoduleP->next = module->next; /* remove this module from the list */
         } else {
-            Position(module->location); /* process the module */
+            SeekOMFIn(module->location); /* process the module */
             ExpectRecord(R_MODHDR);
             P1Records(false);  /* module already known so don't create entry for it */
             hmoduleP = module; /* this module remains on the list */
@@ -691,7 +691,7 @@ void Phase1() {
     tailSegOrderLink = (symbol_t *)&headCommSym; /* no common segments */
     /* process each item in the Input() list */
     for (objFile = objFileList; objFile; objFile = objFile->next) {
-        OpenObjFile(); /* open the file */
+        openOMFIn(objFile->name); /* open the file */
         publicsOnly = objFile->publics;
         GetRecord();              /* Load() the first record */
         if (inType == R_LIBHDR) /* library? */

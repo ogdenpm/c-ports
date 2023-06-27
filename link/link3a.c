@@ -14,6 +14,7 @@
 
 char const *cmdP;
 bool echoToStderr;
+char *toName;
 _Noreturn void FatalCmdLineErr(char const *errMsg) {
     if (*cmdP != '\n') /* don't skip past the EOL */
         cmdP++;
@@ -69,7 +70,6 @@ void GetModuleName(char *token, psModName_t *pstr) {
 } /* GetModuleName() */
 
 void AddFileToInputList(char *token) {
-    objName = token;
     if (objFileList == 0)
         objFileList = objFile = xmalloc(sizeof(objFile_t));
     else {
@@ -80,8 +80,8 @@ void AddFileToInputList(char *token) {
     objFile->modules = 0;
     objFile->publics = false;
     objFile->isLib   = false;
-    objFile->name    = objName;
-} /* AddFileToInputList() */
+    objFile->name    = token;
+}
 
 /* use a shadow copy of commandLine to create '\0' terminated tokens */
 char *GetToken() {
@@ -103,7 +103,7 @@ void GetInputListItem() {
         FatalCmdLineErr("Expected name");
     if (stricmp(token, "publics") == 0) {
         ChkLP(); // publics ( file [,file]* )
-        AddFileToInputList(token);
+        AddFileToInputList(GetToken());
         objFile->publics = true; /* record PUBLICS */
         while (*cmdP == ',') {   /* process any more PUBLICS files */
             ExpectComma();
@@ -118,21 +118,21 @@ void GetInputListItem() {
             ChkLP();               /* gobble up the ( */
             objFile->isLib = true; /* note have module list */
             GetModuleName(GetToken(), &curModuleName);
-            module          = (objFile->modules = xmalloc(sizeof(module_t) + curModuleName.len));
+            module          = (objFile->modules = xmalloc(sizeof(module_t) + curModuleName.len + 1));
             module->next    = 0;
             module->symbols = 0;
             module->cbias   = 0;
-            Pstrcpy(&curModuleName, &module->name);
+            freezePstr((pstr_t *)&curModuleName, &module->name);
             SkipNonArgChars(cmdP);
             while (*cmdP == ',') { /* get more modules if (specified */
                 ExpectComma();
                 GetModuleName(GetToken(), &curModuleName);
-                module->next    = xmalloc(sizeof(module_t) + curModuleName.len);
+                module->next    = xmalloc(sizeof(module_t) + curModuleName.len + 1);
                 module          = module->next;
                 module->next    = 0;
                 module->symbols = 0;
                 module->cbias   = 0;
-                Pstrcpy(&curModuleName, &module->name);
+                freezePstr((pstr_t *)&curModuleName, &module->name);
                 SkipNonArgChars(cmdP);
             }
             ChkRP();
@@ -161,14 +161,13 @@ void ParseControl() {
         lstName = GetToken();
         if (!*lstName)
             FatalCmdLineErr("Missing listing file for -p control");
-    } else if (stricmp(token, "WERROR") == 0 || strcmp(token, "-w") == 0)
+    } else if (stricmp(token, "NOWARN") == 0 || strcmp(token, "-w") == 0)
         warnOK = false;
     else
         FatalCmdLineErr("Unknown control");
 } /* ParseControl() */
 
 void ParseCmdLine() {
-
     cmdP = commandLine + 1;
 
     puts("OMF85 Object Linker " VERSION); /* put login message */
@@ -184,7 +183,7 @@ void ParseCmdLine() {
     char *token = GetToken();
 
     if (stricmp(token, "to") == 0 || strcmp(token, "-o") == 0)
-        outName = GetToken();
+        toName = GetToken();
     else
         FatalCmdLineErr("'TO' or '-o' expected");
 
@@ -195,12 +194,12 @@ void ParseCmdLine() {
 
     /* check target isn't a file we are linking from */
     for (objFile = objFileList; objFile; objFile = objFile->next) {
-        if (namecmp(outName, objFile->name) == 0 && !objFile->publics)
+        if (namecmp(toName, objFile->name) == 0 && !objFile->publics)
             FatalCmdLineErr("Target file is duplicate of input file");
     }
     // if no name, generate one from the output file
     if (moduleName.len == 0) {
-        char *s = basename(outName);
+        char *s = basename(toName);
         for (moduleName.len = 0; moduleName.len < 31 && *s && *s != '.'; s++, moduleName.len++)
             moduleName.str[moduleName.len] =
                 isalnum(*s) || *s == '@' || *s == '_' ? toupper(*s) : '@';
@@ -220,7 +219,7 @@ void ParseCmdLine() {
     if (lstFp != stdout) {
         Printf("OMF85 OBJECT LINKER " VERSION " INVOKED BY:\n");
         printCmdLine(lstFp);
-    } /* ParseCmdLine() */
+    }
 }
 
 // print the command line, splitting long lines
