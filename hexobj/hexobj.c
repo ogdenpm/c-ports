@@ -28,7 +28,9 @@
 #include <ctype.h>
 #include <showVersion.h>
 
+#ifdef _MSC_VER
 #define strncasecmp _strnicmp
+#endif
 // intel OMF record types
 #define MODHDR  2
 #define MODEND  4
@@ -374,7 +376,7 @@ int main(int argc, char **argv) {
     writeModEof(fpout);
     fclose(fpin);
     if (fclose(fpout) < 0) {
-        fprintf(stderr, "%s: Error closeing file\n", outFile);
+        fprintf(stderr, "%s: Error closing file\n", outFile);
         exit(1);
     }
 }
