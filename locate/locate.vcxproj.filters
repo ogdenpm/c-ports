@@ -32,7 +32,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="io.c">
+    <ClCompile Include="os.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="loc1.c">

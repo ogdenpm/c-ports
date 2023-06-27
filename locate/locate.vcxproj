@@ -268,7 +268,7 @@
     <ClInclude Include="_version.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="io.c" />
+    <ClCompile Include="os.c" />
     <ClCompile Include="loc1.c" />
     <ClCompile Include="loc2b.c" />
     <ClCompile Include="loc3.c" />
