@@ -1,7 +1,7 @@
 TARGET = lib
-OBJS =	lib.o lib1.o lib3.o lib4.o io.o
+OBJS =	lib.o newlib.o os.o omf.o
 
 include ../common.mk
 
-
-$(OBJS) : lib.h error.h
+$(OBJS): os.h omf.h
+lib.o newlib.o: lib.h
