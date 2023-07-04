@@ -87,35 +87,35 @@ static byte GetTok(void) {
 
 
 
-static bool FinaliseFileNameOpt(char *arg1w)
-{
-//    word pad;
-
-    if (tokBufIdx == 0)
-        return false;
-
-    tokBuf[tokBufLen = tokBufIdx] = '\0';
-    if (IsWhite())
-        return ChkParen(')');
-    return true;
-}
-
 static void GetFileNameOpt(void) {
     SkipNextWhite();
+    int endCh = ')';
+    int spcCnt  = 0;    // keep count of trailing spaces. Avoids adding to tokBuf
 
-    while (curChar != EOLCH) {
-        if (IsRParen() || IsWhite()) {
-            if (FinaliseFileNameOpt(tokBuf))
-                return;
-           break;
+    if (curChar == '\'') {
+        endCh = '\'';
+        curChar = GetCh();
+    }
+    while (curChar != EOLCH && curChar != endCh && tokBufIdx <= MAXFILENAME) {
+        if (endCh == ')' && curChar == ' ') // possibly trailing space
+            spcCnt++;
+        else {
+            // any spaces pending, were actually embedded in the name, add them back
+            while (spcCnt && tokBufIdx <= MAXFILENAME) {
+                tokBuf[tokBufIdx++] = ' ';
+                spcCnt--;
+            }
+            if (tokBufIdx <= MAXFILENAME)   // just in cases space addition cased overrun
+                tokBuf[tokBufIdx++] = curChar;
         }
-        if (tokBufIdx > MAXFILENAME)
-           break;
-        tokBuf[tokBufIdx++] = curChar;
+
         curChar = GetCh();
     }
     tokBuf[tokBufIdx] = '\0';
-    FileError();
+    if (endCh == '\'' && curChar == '\'')
+        SkipNextWhite();
+    if (curChar != ')' || tokBufIdx == 0 || tokBufIdx > MAXFILENAME)
+        FileError();
 }
 
 
