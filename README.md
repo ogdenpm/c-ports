@@ -18,6 +18,72 @@ There are also a three of script files from my [versionTools](https://github.com
 
 ## Recent major changes
 
+### 4-Jul-2023
+
+Lib 2.1 has basically been rewritten, the major changes are
+
+- Like link and locate it now supports long command lines.
+- CREATE has been enhanced to allow the library to be created **with** a list of filenames and library modules to be included as part of the create. When this is done any old library file is overwritten unlike the basic CREATE command
+- Lib supports a command line parameters with & at the end of the line allowing for additional input from stdin. In this case lib exits after the command
+- When used without command line parameters, the utility enters an interactive mode where multiple commands can be issued. These also support long line and & continuation.
+- A new HELP command has been added
+- Under windows lib adds setargv.obj to support file name wild cards. See the notes below about a feature added to make use of this.
+
+Other changes
+
+- Restrictions on file names have been eased and improved for command line arguments
+
+  - When processing file names or text within parentheses, where a single item is expected, leading and trailing spaces are removed. Note, a file name cannot contain a ) character.
+    
+  - When processing file names or text, the string can be enclosed in single quotes. All text inside the quotes is accepted including leading and trailing spaces. Note a single quote cannot be included.
+    Apart from asm80, the quoting model works for all non punctuation tokens, see examples below, however in most cases it isn't needed, even for file names. For asm80 the quotes only work for filenames.
+
+  - When entering text on the command line, it is recommended to include either the parentheses or quote options inside double quotes to  ensure that the OS shell does not change embedded spaces.
+
+    Examples of file name processing:
+
+    ```
+    When expecting a single item
+    PRINT( my file's.map )		 uses "my file's.map"
+    PRINT( 'my (new) file.map' ) uses "my (new) file.map"
+    from the command line
+    "PRINT(my file's map)"		 uses "my file's.map"
+    -p "'my file's.map'"	     uses "my file" and will likely error on s.map
+    -p "'my (new) file.map'"	 uses "my (new) file.map"
+    
+    When not expecting a single item
+    LIST plm80.lib(@PRMSK,@PSMSK)	@PRMSK & @PSMSK processed as expected
+    
+    Quoting of tokens
+    'PRINT'  (  'my file'  )  is ok
+    'PRINT' '(' 'my file' ')' is not as punctuation should not be quoted
+    ```
+
+  - Note, embedded control characters are mapped to space, so they can still not be used, although non ascii characters should work.
+
+- Module names are now checked, with underbar '_' being added to the valid characters allowed.
+
+- For the command line only, for lib, link and locate, as an extension a single ! toggles between inserting spaces or commas between arguments. The principle reason for this is that entering a comma between multiple arguments prevents the use of wildcards on file names in lib.  However it can make entering lists for link and locate easier. The switch to comma is after the next argument, the switch back to a space is immediate. For example 
+
+  ```
+  lib c libname with *.obj	- will fail with more than one object file matching *.obj
+  lib c libname with ! *.obj	- will insert commas between the file names and work
+  lib a ! *.obj ! to libname	- will only comma separate the *.obj files
+  ```
+
+  **Caution:** The location  where commas and spaces are added is based on what the OS shell interprets as an argument, for example
+  
+  ```
+  link ! a.obj b.obj "my.lib(" MOD1 MOD2 ")" ! ... would be passed as
+  	link a.obj,b.obj,my.lib(,MOD1,MOD2,) ...	   - probably not as intended
+  link ! a.obj b.obj "my.lib( MOD1, MOD2)" ! ... would be passed as
+  	link a.obj,b.obj,my.lib( MOD1, MOD2) ...	   - as intended
+  link ! a.obj b.obj "my.lib(" ! MOD1 MOD2 ! ")" ... - would also work
+  Note the use of quotes around the my.lib( and ) is to avoid bash shell trying to process the ( or ).
+  ```
+  
+  
+
 ### 27-Jun-2023
 
 Locate  3.0 has been updated, the major changes are
@@ -162,5 +228,5 @@ I have done the first part of a major rework of asm80, the key changes are noted
 ------
 
 ```
-Updated by Mark Ogden 4-May-2023
+Updated by Mark Ogden 4-Jul-2023
 ```
