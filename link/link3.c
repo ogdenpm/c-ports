@@ -676,7 +676,7 @@ void Phase1() {
             RecError("Module header record missing");
         closeOMFIn();
     }
-    printDriveMap();
+    printDriveMap(lstFp);
     WriteStats();
     ChainUnresolved();
 } /* Phase1() */

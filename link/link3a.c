@@ -72,7 +72,6 @@ void GetInputListItem() {
             module->symbols = 0;
             module->cbias   = 0;
             module->name    = curModuleName;
-            SkipNonArgChars(cmdP);
             while (*cmdP == ',') { /* get more modules if (specified */
                 ExpectComma();
                 curModuleName = GetModuleName(GetToken());
@@ -82,7 +81,6 @@ void GetInputListItem() {
                 module->symbols = 0;
                 module->cbias   = 0;
                 module->name    = curModuleName;
-                SkipNonArgChars(cmdP);
             }
             ChkRP();
         }
@@ -102,7 +100,7 @@ void ParseControl() {
         moduleName = GetModuleName(GetToken());
     else if (stricmp(token, "PRINT") == 0) {
         ChkLP();
-        lstName = GetToken();
+        lstName = GetText();
         if (!*lstName)
             FatalCmdLineErr("Missing listing file for PRINT control");
         ChkRP();
@@ -134,7 +132,6 @@ void ParseCmdLine() {
     else
         FatalCmdLineErr("'TO' or '-o' expected");
 
-    SkipNonArgChars(cmdP);
 
     while (*cmdP != '\n') /* while there are controls */
         ParseControl();

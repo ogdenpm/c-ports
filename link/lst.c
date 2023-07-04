@@ -1,6 +1,6 @@
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 #ifdef _MSC_VER
 #include <io.h>
 #else
@@ -19,6 +19,7 @@ void openLst(char const *signon) {
     if (lstName && *lstName) {
         if (!(lstFp = Fopen(lstName, "wt")))
             IoError(lstName, "Create error");
+        setTrap(closeLst);
         Printf("%s INVOKED BY:\n", signon);
         printCmdLine(lstFp);
     } else {
@@ -28,12 +29,17 @@ void openLst(char const *signon) {
     logToStderr = !isatty(fileno(lstFp));
 }
 
+void closeLst(void) {
+    setTrap(0); // don't allow recursive exit
+    if (lstFp && lstFp != stdout && fclose(lstFp))
+        IoError(lstName, "Close error");
+    lstFp = NULL;
+}
 
 void Putc(int c) {
     if (fputc(c, lstFp) < 0)
         IoError(lstName, "Write error");
 }
-
 
 int vPrintf(char const *fmt, va_list args) {
     int cnt = vfprintf(lstFp, fmt, args);
@@ -49,7 +55,6 @@ int Printf(char const *fmt, ...) {
     va_end(args);
     return cnt;
 }
-
 
 int PrintfAndLog(char const *fmt, ...) {
     va_list args;

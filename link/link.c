@@ -69,7 +69,7 @@ void Start() {
 
 } /* Start */
 
-_Noreturn void usage() {
+void usage() {
     printf("Usage: %s inputList (TO | -o) targetFile [link option]*\n"
            "or:    %s (-v | -V | -h)\n",
            invokeName, invokeName);
@@ -88,9 +88,7 @@ _Noreturn void usage() {
            "See Intel linker documentation for inputList specification\n"
            "Notes:\n"
            "* File names are of the format [:Fx:]path, where x is a digit and path\n"
-           "  can contain directory components but not spaces, commas, ampersand or parenthesis.\n"
            "  The :Fx: maps to a directory prefix from the same named environment variable\n"
-           "  It can be used to work around directory character limitations\n"
            "* Response file input for linking is supported by using \"%s <file\"\n"
            "* targetFile is deleted on error, which helps with make builds\n", invokeName);
     exit(0);
