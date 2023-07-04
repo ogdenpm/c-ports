@@ -102,11 +102,11 @@ void ProcessControls(void) {
         break;
     case 2:                          /* START */
         seen.start = true;           /* got a start address */
-        startAddr  = aux & 0x10 ? ParseNumber() : ParseLPNumRP(); /* and its value */
+        startAddr  = aux & 0x10 ? GetNumber() : ParseLPNumRP(); /* and its value */
         break;
     case 3:                                /* STACKSIZE */
         seen.stackSize   = true;           /* got a stack size */
-        segSizes[SSTACK] = aux & 0x10 ? ParseNumber() : ParseLPNumRP(); /* and its value */
+        segSizes[SSTACK] = aux & 0x10 ? GetNumber() : ParseLPNumRP(); /* and its value */
         break;
     case 4:                   // RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE
         seen.all[aux] = true; /* simple command seen */
@@ -126,14 +126,13 @@ void ProcessControls(void) {
             lstName = GetToken();
         else {
             ExpectLP();
-            lstName = GetToken();
+            lstName = GetText();
             ExpectRP();
         }
         break;
     case 7: /* ORDER */  /* process the order list */
         ResetSegOrder(); // ORDER resets. Remove this to make additive
         ExpectLP();
-        SkipNonArgChars(cmdP);
         while (*(token = GetToken())) {
             if (*token == '/') {
                 seg = GetCommonSegId(token);
@@ -147,7 +146,6 @@ void ProcessControls(void) {
                 else
                     FatalCmdLineErr("Unknown segment");
             }
-            SkipNonArgChars(cmdP);
             if (*cmdP != ',') // list?
                 break;
             cmdP++;
@@ -155,7 +153,7 @@ void ProcessControls(void) {
         ExpectRP();
         break;
     case 8: /* COLUMNS */ /* get the number of columns */
-        columns = aux & 0x10 ? ParseNumber() : ParseLPNumRP();
+        columns = aux & 0x10 ? GetNumber() : ParseLPNumRP();
         if (columns < 1 || columns > 3)
             FatalCmdLineErr("Expected number in range 1-3");
         break;

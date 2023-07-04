@@ -16,24 +16,11 @@ uint16_t unsatisfiedCnt;
 static uint8_t curcol;
 
 void EmitModDat(dataFrag_t *block) {
-    uint16_t len;
-    uint8_t crc = 0;
-
     InitRecord(R_MODDAT);
-    len = block->eaddr - block->saddr + 1;
-    putWord(&outRec[REC_LEN], len + 4);
     WriteByte(SABS);
     WriteWord(block->saddr);
-    uint8_t *data = AddrInMem(block->saddr);
-    // calculate the crc
-    for (uint8_t *p = outRec; p < outP; p++)
-        crc -= *p;
-    for (uint8_t *p = data; p < data + len; p++)
-        crc -= *p;
-    // write data to file directly
-    if (fwrite(outRec, 1, outP - outRec, omfOutFp) != outP - outRec ||
-        (uint16_t)fwrite(data, 1, len, omfOutFp) != len || fputc(crc, omfOutFp) == EOF)
-        IoError(omfOutName, "write error");
+    EndUserRecord(AddrInMem(block->saddr), block->eaddr - block->saddr + 1);
+
 }
 
 void ForceSOL(void) {

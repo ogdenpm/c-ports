@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-
 typedef struct { // pascal generic string
     uint8_t len;
     char str[1]; // when dynamically allocated, will allow space for '\0' as well
@@ -48,19 +47,24 @@ typedef struct { // pascal generic string
 #define SNAMED    6 /* through 254 */
 #define SBLANK    255
 
+#define MAXOUTLEN 1057 // 1025 + accidental overrun by max name 32
+
 // OMF input variables & functions
-extern uint8_t outRec[1060]; // allows for accidental overrun by long name
+extern uint8_t outRec[]; 
 extern uint8_t *outP;        // uint8_t * to current location in outRec
 extern char *omfOutName;
 extern FILE *omfOutFp;
 
 uint16_t putWord(uint8_t *buf, uint16_t val);
 void openOMFOut();  // opens omfOutName
+void closeOMFOut();
 void InitRecord(uint8_t type);
 void WriteByte(uint8_t val);
 void WriteWord(uint16_t val);
 void WriteName(pstr_t const *name);
+void WriteLocation(uint32_t loc);
 void EndRecord(void);
+void EndUserRecord(uint8_t *content, uint32_t len);
 
 
 // OMF output variables & functions
@@ -79,6 +83,7 @@ _Noreturn void IllegalRecord(void);
 _Noreturn void IllegalReloc(void);
 _Noreturn void BadRecordSeq(void);
 void openOMFIn(char const *name);
+void closeOMFIn();
 pstr_t const *ReadName(void);
 uint32_t ReadLocation(void);
 uint16_t ReadWord(void);

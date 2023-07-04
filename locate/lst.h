@@ -5,6 +5,7 @@ extern FILE *lstFp;
 extern char *lstName;
 
 void openLst(char const *signon);	// opens lstName
+void closeLst(void);
 void Putc(int c);
 int Printf(char const *fmt, ...);
 int vPrintf(char const *fmt, va_list args);

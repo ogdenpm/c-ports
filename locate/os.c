@@ -10,15 +10,15 @@
 
 // vim:ts=4:shiftwidth=4:expandtab:
 // #include "loc.h"
+#include "os.h"
+#include "omf.h"
 #include <ctype.h>
 #include <showVersion.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "omf.h"
-#include "os.h"
-#include "lst.h"
+// "lst.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -38,11 +38,16 @@
 char *cmdP; // current location on command line
 
 char *invokeName; // sanitised invoking command
+bool prompt;
 
 char const *deviceMap[10]; // mappings of :Fx: to directories
+char *endToken;            // used in error reporting
 
-// forward ref
-static char *getCmdLine(int argc, char **argv);
+void (*trap)(void);
+
+void setTrap(void (*f)(void)) {
+    trap = f;
+}
 
 int main(int argc, char **argv) {
     CHK_SHOW_VERSION(argc, argv); // version info
@@ -55,22 +60,22 @@ int main(int argc, char **argv) {
         *s = '\0';
 #endif
     // check for help request
-    if (argc == 2 && strcmp(argv[1], "-h") == 0)
+    if (argc == 2 && strcmp(argv[1], "-h") == 0) {
         usage();
-    cmdP = getCmdLine(argc, argv);
+        exit(0);
+    }
+    prompt = isatty(STDIN) && isatty(STDOUT);
+    cmdP   = getCmdLine(argc, argv);
     Start();
 }
 
 _Noreturn void Exit(int retCode) {
-    if (lstFp)
-        fclose(lstFp);
-
-    if (retCode) {
-
-        if (omfOutFp) {
-            fclose(omfOutFp);
+    if (trap)
+        trap();
+    if (omfOutFp) {
+        fclose(omfOutFp);
+        if (retCode)
             unlink(omfOutName);
-        }
     }
     exit(retCode);
 }
@@ -132,15 +137,15 @@ FILE *Fopen(char const *pathP, char *access) {
 }
 
 // print the ISIS drive mapping if any
-void printDriveMap() { // show which :Fx: drive maps are  used
+void printDriveMap(FILE *fp) { // show which :Fx: drive maps are  used
     bool showMsg = true;
     for (int i = 0; i < 10; i++) {
         if (deviceMap[i]) {
             if (showMsg) {
-                Printf("\nISIS DRIVE MAPPING\n");
+                fputs("\nISIS DRIVE MAPPING\n", fp);
                 showMsg = false;
             }
-            Printf(":F%d: -> %s\n", i, deviceMap[i]);
+            fprintf(fp, ":F%d: -> %s\n", i, deviceMap[i]);
         }
     }
 }
@@ -151,11 +156,14 @@ static int cmdLineLen;    // current command line length
 static int cmdLineSize;   // space allocate for the command line
 static char *tokenLine;   // copy of the line, modified to create C string tokens
 // returns true if more appends to the command line are needed
+
 static bool appendCmdLine(char const *s) {
     int c;
-    static bool contSeen = false;
-    int len              = (int)strlen(s);
+    static bool ampersandSeen = false;
+    int len                   = (int)strlen(s);
 
+    if (cmdLineLen == 0)
+        ampersandSeen = false;
     if (cmdLineLen + len + 3 > cmdLineSize) { // allow for #\n\0 for error reporting
         while (cmdLineLen + len + 3 > cmdLineSize)
             cmdLineSize += CLCHUNK;
@@ -163,43 +171,60 @@ static bool appendCmdLine(char const *s) {
     }
     while ((c = *s++)) {
         if (c != '\n') {
-            if (contSeen && c > ' ')
-                FatalCmdLineErr("Non white space after &");
+            if (c > ' ')
+                ampersandSeen = false;
             else if (c == '&')
-                contSeen = true;
+                ampersandSeen = true;
             commandLine[cmdLineLen++] = c >= ' ' ? c : ' ';
         } else {
             while (commandLine[cmdLineLen - 1] == ' ') // trim
                 cmdLineLen--;
-            commandLine[cmdLineLen++] = '\n';
-            if (!contSeen)
+
+            if (!ampersandSeen) {
+                commandLine[cmdLineLen++] = '\n';
                 return false; // user didn't have & at end of line so all done
-            contSeen = false; // remove flag for next line
+            }
+            commandLine[cmdLineLen++] = '\r';
+            ampersandSeen             = false; // remove flag for next line
         }
     }
     return true; // not reached end of line or &\n seen
 }
-
-static char *getCmdLine(int argc, char **argv) {
-    bool haveArg = argc > 1; // allows for response file if no command line args
-    appendCmdLine("-");
-    appendCmdLine(invokeName);
-    for (int i = 1; i < argc; i++) {
-        appendCmdLine(" ");
-        appendCmdLine(argv[i]);
-    }
+// get the command line and a shadow copy for token constructio
+//    if argc == 0 get line in interactive mode, argv ignored
+char *getCmdLine(int argc, char **argv) {
     char line[256];
-    line[0] = '\n'; // terminate the invocation line
-    line[1] = '\0';
-    while (appendCmdLine(line) || !haveArg) {
-        haveArg = true;
-        /* issue the prompt if not redirected to a file */
-        if (strchr(line, '\n') && isatty(STDIN) && isatty(STDOUT))
+    cmdLineLen = 0;
+    free(tokenLine);
+    if (argc == 0) {
+        if (prompt)
+            putchar('*');
+        strcpy(line, "*");
+    } else {
+        appendCmdLine(argc > 1 ? "-" : "*"); // flag whether actual cmd line params
+        appendCmdLine(invokeName);
+        bool useComma = false;
+        char *sep     = " ";
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "!") == 0) {
+                if (!(useComma = !useComma))
+                    sep = " ";
+            }  else {
+                appendCmdLine(sep);
+                appendCmdLine(argv[i]);
+                if (useComma)
+                    sep = ",";
+            }
+        }
+        strcpy(line, argc > 0 ? "\n" : "&\n");
+    }
+    while (appendCmdLine(line)) {
+        /* new a new line */
+        if (strchr(line, '\n') && prompt)
             fputs("**", stdout);
-        appendCmdLine("**");
         if (!fgets(line, 256, stdin)) {
-            fprintf(stderr, "Unexpected EOF on command line\n");
-            appendCmdLine("\n\n"); // finish off line even if previous had &
+            if (cmdLineLen > 1)
+                appendCmdLine("\n\n"); // finish off line even if previous had &
             break;
         }
     }
@@ -209,44 +234,66 @@ static char *getCmdLine(int argc, char **argv) {
     return commandLine;
 }
 
-static char *SkipSpc(char *pch) {
-    while (*pch == ' ')
-        pch++;
-    return pch;
-}
-
-static char *skipToDelim(char *pch) {
-    char *p = strpbrk(pch, " ,()&\n");
-    return p ? p : strchr(pch, '\0');
-}
 
 // public command line handling functions
-void SkipNonArgChars(char *pch) {
-    cmdP = SkipSpc(pch);
-    /* skip any continuation bits and leading space */
-    while (*cmdP == '&') {
-        cmdP = SkipSpc(cmdP + 5);
-    }
+void SkipWs() {
+    while (*cmdP == ' ' || *cmdP == '\r')
+        cmdP++;
 }
 
 void ExpectChar(uint8_t ch, char const *msg) {
-    SkipNonArgChars(cmdP);
-    if (ch == *cmdP)
-        SkipNonArgChars(cmdP + 1);
-    else
+    SkipWs();
+    if (ch == *cmdP) {
+        endToken = ++cmdP;
+        SkipWs();
+    } else
         FatalCmdLineErr(msg);
 }
 
-/* use a shadow copy of commandLine to create '\0' terminated tokens */
-char *GetToken(void) {
-    SkipNonArgChars(cmdP);
-    char *token                   = tokenLine + (cmdP - commandLine);
-    cmdP                          = skipToDelim(cmdP);
-    tokenLine[cmdP - commandLine] = '\0';
+static char *ScanToken(char const *delims) {
+    SkipWs();
+    if (*cmdP == '\'') { // quoted token
+        cmdP++;
+        delims = "'\n\r";
+    }
+    char *token = tokenLine + (cmdP - commandLine);
+    char *p = strpbrk(cmdP, delims);
+    if (!p)
+        p = strchr(cmdP, '\0');
+    if (*p != *delims) {
+        if (*delims == '\'')
+            FatalCmdLineErr("Missing terminating quote");
+        else if (*delims == ')')
+            FatalCmdLineErr("Missing terminating )");
+    }
+    if (*p == '\'')
+        cmdP = p + 1;
+    else if (*delims != '\'') { // trim unless started with '
+        while (p > cmdP && p[-1] == ' ')
+            p--;
+        cmdP = p;
+    }
+    tokenLine[p - commandLine] = '\0';
+    endToken = p;
+    SkipWs();
     return token;
 }
 
-uint16_t ParseNumber(void) {
+void SetEndToken(char *p) {
+    endToken = p;
+}
+
+
+/* use a shadow copy of commandLine to create '\0' terminated tokens */
+char *GetToken(void) {
+    return ScanToken(" ,()\n\r");
+}
+
+char *GetText(void) {
+    return ScanToken(")\n\r");
+}
+
+uint16_t GetNumber(void) {
     char const *pch;
     uint8_t radix, digit;
     uint32_t num = 0;
@@ -281,32 +328,37 @@ uint16_t ParseNumber(void) {
     return (uint16_t)num;
 }
 
-
 // print the command line, splitting long lines
 void printCmdLine(FILE *fp) {
     int col = 0;
     char *s = commandLine;
-    char *brk;
-    while ((brk = strpbrk(s, ", &\n"))) {
-        brk++; // include the break char
-        if (col + (brk - s) >= 120) {
+    while (*s) {
+        char *brk = strpbrk(s, ", '\n\r");
+        if (*brk == '\'')
+            brk = strpbrk(brk + 1, "'\n\r"); // for quoted token include it
+        if (!brk)
+            brk = strchr(s, '\0'); // if no break do whole string
+        if (col + (brk + 1 - s) >= 120) {
             fputs("\\\n    ", fp);
             col = 4;
         }
-        fprintf(fp, "%.*s", (int)(brk - s), s);
-        if (brk[-1] != '\n')
-            col += (int)(brk - s);
-        else
-            col = 0;
-        s = brk;
+        col += fprintf(fp, "%.*s", (int)(brk - s), s);
+        if (!*brk || *brk == '\n')
+            break;
+        if (*brk == '\r') {
+            fputs("&\n**", fp);
+            col = 2;
+        } else
+            fputc(*brk, fp);
+        s = brk + 1;
     }
+    if (col)
+        fputc('\n', fp);
 }
 
 // common error handlers
 _Noreturn void FatalCmdLineErr(char const *errMsg) {
-    if (*cmdP != '\n') /* don't skip past the EOL */
-        cmdP++;
-    strcpy((char *)cmdP, "#\n"); // mark problem (remove 'const' from cmdP)
+    strcpy(endToken, "#\n");
     fprintf(stderr, "Command line error near #: %s\n", errMsg);
     printCmdLine(stderr);
     Exit(1);
@@ -322,9 +374,13 @@ _Noreturn void FatalError(char const *fmt, ...) {
     Exit(1);
 }
 
-_Noreturn void IoError(char const *path, char const *msg) {
-    fprintf(stderr, "%s: %s: %s\n", path, msg, strerror(errno));
-
+_Noreturn void IoError(char const *path, char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "%s: ", path);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    fputc('\n', stderr);
     char name[_MAX_PATH + 1];
     MapFile(name, path);
     if (strcmp(name, path))
@@ -332,7 +388,6 @@ _Noreturn void IoError(char const *path, char const *msg) {
 
     Exit(1);
 }
-
 
 // safe memory allocation
 void *xmalloc(size_t size) {

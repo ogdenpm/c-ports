@@ -22,7 +22,7 @@ char *toName;
 
 uint16_t ParseLPNumRP(void) {
     ExpectLP();
-    uint16_t num = ParseNumber();
+    uint16_t num = GetNumber();
     ExpectRP();
     return num;
 }
@@ -67,7 +67,7 @@ void ProcArgsInit(void) {
     }
 
     openOMFIn(inName);
-    openLst("OMF85 OBJECT LOADER " VERSION);
+
 
     recNum = 0;
     /* check we have a relocation file */
@@ -77,16 +77,15 @@ void ProcArgsInit(void) {
     ProcHdrAndComDef();
 
     /* process the rest of the command args */
-    SkipNonArgChars(cmdP);
-    while (*cmdP != '\n') {
+    while (*cmdP != '\n')
         ProcessControls();
-        SkipNonArgChars(cmdP);
-    }
+
+
     FixSegOrder();
 
     openOMFOut();
-
-    printDriveMap();
+    openLst("OMF85 OBJECT LOADER " VERSION);
+    printDriveMap(lstFp);
 }
 
 uint16_t AlignAddress(uint8_t align, uint16_t size, uint16_t laddr) {
