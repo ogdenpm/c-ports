@@ -15,19 +15,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="io.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="lib.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lib1.c">
+    <ClCompile Include="omf.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lib3.c">
+    <ClCompile Include="os.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lib4.c">
+    <ClCompile Include="newlib.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -42,6 +39,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="_version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="omf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="os.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
