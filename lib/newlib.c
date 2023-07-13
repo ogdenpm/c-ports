@@ -227,10 +227,7 @@ void ProcessFile(char const *fileName, bool adding, namelist_t *mlist) {
 
 void libReset(void) {
     // avoid recursive errors
-    setTrap(0);
-    closeOMFOut();
-    closeOMFIn();
-    unlink(libTmp);
+    SetITrap(0);
     resetLibMem();
     longjmp(reset, 2);
 }
@@ -238,7 +235,7 @@ void libReset(void) {
 void InitLib() {
     if (!*libTmp)
         sprintf(libTmp, "_lib_%d", getpid());
-    setTrap(libReset);
+    SetITrap(libReset);
     omfOutName = libTmp;
     openOMFOut();
     InitRecord(R_LIBHDR);
@@ -267,10 +264,10 @@ void FinaliseLib(char const *libName) {
     WriteLocation(namesLoc);
     EndRecord();
     closeOMFOut();
-    if (access(libName, 0) == 0 && unlink(libName))
+    if (Access(libName, 0) == 0 && Delete(libName))
         IoError(libName, "Delete failed");
-    if (rename(libTmp, libName))
+    if (Rename(libTmp, libName))
         IoError(libName, "Renaming library tmp file failed");
     resetLibMem();
-    setTrap(0);
+    SetITrap(0);
 }

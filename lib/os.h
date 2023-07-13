@@ -7,9 +7,16 @@ void Start();
 
 
 // io.c routines
-void setTrap(void (*trap)(void));
+void SetITrap(void (*f)(void));
+void RegCleanup(void (*f)(void));
+void DeregCleanup(void (*f)(void));
+
 char *basename(char *path);
 FILE *Fopen(char const *pathP, char *access);
+int Delete(char const *ipath);
+int Rename(char const *iold, char const *inew);
+int Access(char const *ipath, int mode);
+
 _Noreturn void Exit(int retCode);
 
 // error handlers

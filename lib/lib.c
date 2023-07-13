@@ -147,7 +147,7 @@ static void CreateCmd() {
         SetEndToken(cmdP + 1);
         FatalCmdLineErr("Unexpected text");
     }
-    if (!force && access(libName, 0) == 0)
+    if (!force && Access(libName, 0) == 0)
         IoError(libName, "Already exists");
     InitLib();
     for (file_t *p = fileHead; p; p = p->next)
@@ -159,11 +159,7 @@ FILE *lstFp;
 char *lstName;
 
 void listReset(void) {
-    setTrap(0);
-    if (lstFp && lstFp != stdout)
-        fclose(lstFp);
-    lstFp = NULL;
-    closeOMFIn();
+    SetITrap(0);
     longjmp(reset, 3);
 }
 
@@ -187,7 +183,7 @@ static void ListCmd() {
         FatalCmdLineErr("Unexpected text");
     }
 
-    setTrap(listReset);
+    SetITrap(listReset);
 
     if (!lstName || !(lstFp = Fopen(lstName, "wt"))) {
         lstFp   = stdout;
@@ -252,12 +248,11 @@ static void ListCmd() {
 
     if (lstFp != stdout)
         fclose(lstFp);
-    lstFp = NULL;
-    setTrap(0);
+    SetITrap(0);
 }
 
 void cmdReset(void) {
-    setTrap(0);
+    SetITrap(0);
     longjmp(reset, 1);
 }
 void Start() {
@@ -290,7 +285,7 @@ void Start() {
         fileHead  = NULL;
         fileChain = (file_t *)&fileHead;
 
-        setTrap(cmdReset);
+        SetITrap(cmdReset);
         if (interactive)
             cmdP = getCmdLine(0, NULL) + 1;
         if (!*cmdP) // EOF
