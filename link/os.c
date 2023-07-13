@@ -8,17 +8,15 @@
  *                                                                          *
  ****************************************************************************/
 
-// vim:ts=4:shiftwidth=4:expandtab:
-// #include "loc.h"
 #include "os.h"
-#include "omf.h"
 #include <ctype.h>
+#include <errno.h>
 #include <showVersion.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// "lst.h"
+
 
 #ifdef _WIN32
 #include <io.h>
@@ -26,6 +24,7 @@
 #else
 #include <errno.h>
 #include <unistd.h>
+extern int fcloseall(void);
 #define _MAX_PATH 4096
 #define DIRSEP    "/"
 #endif
@@ -43,11 +42,40 @@ bool prompt;
 char const *deviceMap[10]; // mappings of :Fx: to directories
 char *endToken;            // used in error reporting
 
-void (*trap)(void);
 
-void setTrap(void (*f)(void)) {
-    trap = f;
+// interactive trap handler
+static void (*itrap)(void);
+
+void SetITrap(void (*f)(void)) {
+    itrap = f;
 }
+
+
+// cleanup registration
+#define MAXCLEAN 5
+void (*cleanup[MAXCLEAN])(void);
+
+void RegCleanup(void (*f)(void)) {
+    for (int i = 0; i < MAXCLEAN; i++)
+        if (cleanup[i] == f)    // already registered
+            return;
+    for (int i = 0; i < MAXCLEAN; i++)
+        if (cleanup[i] == NULL) {
+            cleanup[i] = f;
+            return;
+        }
+    fprintf(stderr, "System error: Too many cleanups registered\n");
+    exit(1);
+}
+
+void DeregCleanup(void (*f)(void)) {
+    for (int i = 0; i < MAXCLEAN; i++)
+        if (cleanup[i] == f) {
+            cleanup[i] = NULL;
+            return;
+        }
+}
+
 
 int main(int argc, char **argv) {
     CHK_SHOW_VERSION(argc, argv); // version info
@@ -70,12 +98,18 @@ int main(int argc, char **argv) {
 }
 
 _Noreturn void Exit(int retCode) {
-    if (trap)
-        trap();
-    if (omfOutFp) {
-        fclose(omfOutFp);
-        if (retCode)
-            unlink(omfOutName);
+    if (fcloseall() < 0)
+        fprintf(stderr, "Warning: Problem closing open files\n");
+    if (retCode) {
+        for (int i = 0; i < MAXCLEAN; i++) {
+            if (cleanup[i]) {
+                void (*tmp)(void) = cleanup[i];
+                cleanup[i]        = NULL; // cleanups are single shot to avoid recursion
+                tmp();
+            }
+        }
+        if (itrap)
+            itrap();
     }
     exit(retCode);
 }
@@ -136,6 +170,21 @@ FILE *Fopen(char const *pathP, char *access) {
     return fopen(name, access);
 }
 
+int Delete(char const *ipath) {
+    char name[_MAX_PATH + 1];
+    return unlink(MapFile(name, ipath));
+}
+
+int Rename(char const *iold, char const *inew) {
+    char oname[_MAX_PATH + 1];
+    char nname[_MAX_PATH + 1];
+    return rename(MapFile(oname, iold), MapFile(nname, inew));
+}
+
+int Access(char const *ipath, int mode) {
+    char name[_MAX_PATH + 1];
+    return access(MapFile(name, ipath), mode);
+}
 // print the ISIS drive mapping if any
 void printDriveMap(FILE *fp) { // show which :Fx: drive maps are  used
     bool showMsg = true;
@@ -209,7 +258,7 @@ char *getCmdLine(int argc, char **argv) {
             if (strcmp(argv[i], "!") == 0) {
                 if (!(useComma = !useComma))
                     sep = " ";
-            }  else {
+            } else {
                 appendCmdLine(sep);
                 appendCmdLine(argv[i]);
                 if (useComma)
@@ -234,7 +283,6 @@ char *getCmdLine(int argc, char **argv) {
     return commandLine;
 }
 
-
 // public command line handling functions
 void SkipWs() {
     while (*cmdP == ' ' || *cmdP == '\r')
@@ -257,7 +305,7 @@ static char *ScanToken(char const *delims) {
         delims = "'\n\r";
     }
     char *token = tokenLine + (cmdP - commandLine);
-    char *p = strpbrk(cmdP, delims);
+    char *p     = strpbrk(cmdP, delims);
     if (!p)
         p = strchr(cmdP, '\0');
     if (*p != *delims) {
@@ -274,7 +322,7 @@ static char *ScanToken(char const *delims) {
         cmdP = p;
     }
     tokenLine[p - commandLine] = '\0';
-    endToken = p;
+    endToken                   = p;
     SkipWs();
     return token;
 }
@@ -282,7 +330,6 @@ static char *ScanToken(char const *delims) {
 void SetEndToken(char *p) {
     endToken = p;
 }
-
 
 /* use a shadow copy of commandLine to create '\0' terminated tokens */
 char *GetToken(void) {
@@ -380,6 +427,8 @@ _Noreturn void IoError(char const *path, char const *fmt, ...) {
     fprintf(stderr, "%s: ", path);
     vfprintf(stderr, fmt, args);
     va_end(args);
+    if (errno)
+        fprintf(stderr, ": %s", errno == EINVAL ? "Invalid file name" : strerror(errno));
     fputc('\n', stderr);
     char name[_MAX_PATH + 1];
     MapFile(name, path);

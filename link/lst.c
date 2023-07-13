@@ -19,7 +19,6 @@ void openLst(char const *signon) {
     if (lstName && *lstName) {
         if (!(lstFp = Fopen(lstName, "wt")))
             IoError(lstName, "Create error");
-        setTrap(closeLst);
         Printf("%s INVOKED BY:\n", signon);
         printCmdLine(lstFp);
     } else {
@@ -29,11 +28,11 @@ void openLst(char const *signon) {
     logToStderr = !isatty(fileno(lstFp));
 }
 
+
+
 void closeLst(void) {
-    setTrap(0); // don't allow recursive exit
     if (lstFp && lstFp != stdout && fclose(lstFp))
         IoError(lstName, "Close error");
-    lstFp = NULL;
 }
 
 void Putc(int c) {
