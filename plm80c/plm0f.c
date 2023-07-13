@@ -23,7 +23,7 @@ static void SkipToSemiColon()
 static void ExpectSemiColon()
 {
     if (YylexNotMatch(T_SEMICOLON)) {
-        TokenErrorAt(ERR32);    /* INVALID SYNTAX, TEXT IGNORED UNTIL ';' */
+        Wr1TokenErrorAt(ERR32);    /* INVALID SYNTAX, TEXT IGNORED UNTIL ';' */
         SkipToSemiColon();
     }
 }
@@ -37,7 +37,7 @@ static void ErrorSkip()
 static void PopStateWord(wpointer stateP)
 {
     if (stateIdx == 0)
-        FatalError(ERR97);      /* COMPILER Error: PARSE STACK UNDERFLOW */
+        PFatalError(ERR97);      /* COMPILER Error: PARSE STACK UNDERFLOW */
     *stateP = stateStack[stateIdx];
     stateIdx = stateIdx - 1;
 }
@@ -67,7 +67,7 @@ static void ParseStmtLabels()
 
         if (YylexMatch(T_COLON)) {
             if (stmtLabelCnt == 9)
-                TokenErrorAt(ERR30);    /* LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT */
+                Wr1TokenErrorAt(ERR30);    /* LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT */
             else
                 stmtLabelCnt++;
             stmtLabels[stmtLabelCnt] = curSymbolP;
@@ -119,10 +119,10 @@ static void ParseStartStmt()
         linfo.stmtCnt = curStmtCnt;
         linfo.blkCnt = curBlkCnt;
     }
-    WrByte(L_STMTCNT);
-    WrWord(curStmtCnt);
+    Wr1Byte(L_STMTCNT);
+    Wr1Word(curStmtCnt);
     if (trunc) {
-        SyntaxError(ERR86); /* LIMIT EXCEEDED: SOURCE LINE length() */
+        Wr1SyntaxError(ERR86); /* LIMIT EXCEEDED: SOURCE LINE length() */
         trunc = false;
     }
     ParseStmtLabels();
@@ -134,7 +134,7 @@ static void ParseStartStmt()
     else if (stmtStartToken >= T_CALL && stmtStartToken <= T_RETURN)
         stmtStartCode = stmtStartToken - T_CALL + S_CALL;     /* maps to S_CALL through S_RETURN */
     else {
-        TokenErrorAt(ERR29);    /* ILLEGAL STATEMENT */
+        Wr1TokenErrorAt(ERR29);    /* ILLEGAL STATEMENT */
         stmtStartCode = S_SEMICOLON;
         ErrorSkip();
     }
@@ -153,23 +153,23 @@ static void WrLabelDefs()
             FindScopedInfo(*curScopeP);
             if (curInfoP != 0) {    /* already seen at this scope */
                 if (TestInfoFlag(F_LABEL))
-                    TokenError(ERR33, curSymbolP);  /* DUPLICATE LABEL DECLARATION */
+                    Wr1TokenError(ERR33, curSymbolP);  /* DUPLICATE LABEL DECLARATION */
                 else {
-                    WrByte(L_LABELDEF);         // log label def to lexical stream
-                    WrInfoOffset(curInfoP);
+                    Wr1Byte(L_LABELDEF);         // log label def to lexical stream
+                    Wr1InfoOffset(curInfoP);
                     SetInfoFlag(F_LABEL);       // mark as defined
                 }
-                WrXrefUse();                    // write xref
+                Wr1XrefUse();                    // write xref
             } else {
                 CreateInfo(*curScopeP, LABEL_T);    // its new so create
-                WrXrefDef();                    // write xref
-                WrByte(L_LABELDEF);             
-                WrInfoOffset(curInfoP);
+                Wr1XrefDef();                    // write xref
+                Wr1Byte(L_LABELDEF);             
+                Wr1InfoOffset(curInfoP);
                 SetInfoFlag(F_LABEL);
             }
         }
         if (*curScopeP == 0x100)
-            WrByte(L_MODULE);               // record at module level
+            Wr1Byte(L_MODULE);               // record at module level
     }
     curSymbolP = tmp;
 } /* WrLabelDefs() */
@@ -180,20 +180,20 @@ static bool IsEndOfModule()
     if (YylexMatch(T_IDENTIFIER)) {
         curInfoP = procInfo[1];
         if (GetSymbol() != curSymbolP)
-            TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
+            Wr1TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
     }
     ExpectSemiColon();
     if (afterEOF) {             // END after EOF i.e. recovery mode
-        WrByte(L_END);          // write closing END to lex stream
+        Wr1Byte(L_END);          // write closing END to lex stream
         return true;            // no more processing
     } else {
         Yylex();
         if (afterEOF) {         // was final end
-            WrByte(L_END);      // write the END to lex stream
+            Wr1Byte(L_END);      // write the END to lex stream
             afterEOF = false;   // no need to add recovery tokens
             return true;        // no more processing
         } else {                // report error and keep going
-            SyntaxError(ERR93); /* MISSING 'DO' FOR 'END' , 'END' IGNORED */
+            Wr1SyntaxError(ERR93); /* MISSING 'DO' FOR 'END' , 'END' IGNORED */
             SetYyAgain();       
             return false;
         }
@@ -211,14 +211,14 @@ static void ProcEnding()
     if (YylexMatch(T_IDENTIFIER)) {    // if end name check names match
         curInfoP = curProcInfoP;
         if (GetSymbol() != curSymbolP)
-            TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
+            Wr1TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
     }
     curInfoP = curProcInfoP;
     v = GetParamCnt();
     for (i = 1; i <= v; i++) {      // scan any parameters (info after proc info)
         AdvNxtInfo();
         if (!TestInfoFlag(F_LABEL)) // not declared?
-            TokenError(ERR25, GetSymbol());   /* UNDECLARED PARAMETER */
+            Wr1TokenError(ERR25, GetSymbol());   /* UNDECLARED PARAMETER */
     }
     PopStateWord(&doBlkCnt);    // restore doBlkCnt & curProcInfoP to parent of proc
 
@@ -232,7 +232,7 @@ static void PushStateWord(word v)
     if (stateIdx != 0x63)
         stateStack[++stateIdx] = v;
     else
-        FatalError(ERR31);      /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+        PFatalError(ERR31);      /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
 }
 
 
@@ -248,15 +248,15 @@ static void CreateModuleInfo(offset_t symPtr)
     curSymbolP = symPtr;
     CreateInfo(0, PROC_T);
     SetInfoFlag(F_LABEL);
-    WrXrefDef();
+    Wr1XrefDef();
     curProcInfoP = curInfoP;
     SetProcId(1);
     procCnt = 1;
     procInfo[1] = curInfoP;
     *curScopeP = 0x100;           /* proc = 1,  do level = 0 */
-    WrByte(L_DO);
-    WrByte(L_SCOPE);
-    WrWord(*curScopeP);
+    Wr1Byte(L_DO);
+    Wr1Byte(L_SCOPE);
+    Wr1Word(*curScopeP);
     PushBlock(*curScopeP);
 }
 
@@ -266,18 +266,18 @@ static void State0()
     ParseStartStmt();
     PushStateByte(1);            // check for module level <unit>
     if (stmtStartCode != S_DO) {
-        SyntaxError(ERR89);     /* MISSING 'do' FOR MODULE */
+        Wr1SyntaxError(ERR89);     /* MISSING 'do' FOR MODULE */
         Lookup((pstr_t *)"\x6MODULE");
         CreateModuleInfo(curSymbolP);
         PushStateByte(19);      // next parse <declaration> assuming 'do' provided
     } else {
         if (stmtLabelCnt == 0) {
-            SyntaxError(ERR90); /* MISSING NAME FOR MODULE */
+            Wr1SyntaxError(ERR90); /* MISSING NAME FOR MODULE */
             Lookup((pstr_t *)"\x6MODULE");
             stmtLabelCnt = 1;
             stmtLabels[1] = curSymbolP;
         } else if (stmtLabelCnt > 1)
-            SyntaxError(ERR18); /* INVALID MULTIPLE LABELS AS MODULE NAMES */
+            Wr1SyntaxError(ERR18); /* INVALID MULTIPLE LABELS AS MODULE NAMES */
         CreateModuleInfo(stmtLabels[1]);
         ExpectSemiColon();
         PushStateByte(3);      // get start statement and parse <declaration>
@@ -290,11 +290,11 @@ static void State1()
 {
     if (stmtStartCode != S_END) {
         haveModuleLevelUnit = true;
-        WrByte(L_MODULE);
+        Wr1Byte(L_MODULE);
         PushStateByte(2);         // parse module level <unit>...
     } else {
         if (stmtLabelCnt != 0)
-            TokenErrorAt(ERR19);    /* INVALID LABEL IN MODULE WITHOUT MAIN PROGRAM */
+            Wr1TokenErrorAt(ERR19);    /* INVALID LABEL IN MODULE WITHOUT MAIN PROGRAM */
         if (!IsEndOfModule()) {
             PushStateByte(1);     // check for module level <unit>
             PushStateByte(10);    // get the statement start
@@ -312,7 +312,7 @@ static void State2()
     } else {
         WrLabelDefs();          // write any label prefixes
         if (IsEndOfModule())
-            WrByte(L_HALT);     // write the final halt
+            Wr1Byte(L_HALT);     // write the final halt
         else {
             PushStateByte(2);   // parse module level <unit>...
             PushStateByte(10);  // get the statement start
@@ -345,11 +345,11 @@ static void State19()
 static void State4()
 {
     if (stmtLabelCnt == 0) {
-        SyntaxError(ERR21); /* MISSING procedure NAME */
+        Wr1SyntaxError(ERR21); /* MISSING procedure NAME */
         PushStateByte(7);   // skip bad nested proc/do
     } else {
         if (stmtLabelCnt != 1) {
-            TokenErrorAt(ERR22);    /* INVALID MULTIPLE LABELS AS PROCEDURE NAMES */
+            Wr1TokenErrorAt(ERR22);    /* INVALID MULTIPLE LABELS AS PROCEDURE NAMES */
             stmtLabelCnt = 1;
         }
         PushStateWord(curProcInfoP);    // save current procInfoP   
@@ -373,7 +373,7 @@ static void State5()
     ParseStartStmt();
     if (stmtStartCode == S_END) {   // cannot label END in external proc def
         if (stmtLabelCnt != 0) {
-            TokenErrorAt(ERR23);    /* INVALID LABELLED END IN EXTERNAL PROCEDURE */
+            Wr1TokenErrorAt(ERR23);    /* INVALID LABELLED END IN EXTERNAL PROCEDURE */
             stmtLabelCnt = 0;
         }
         ProcEnding();
@@ -383,7 +383,7 @@ static void State5()
             ParseDeclareElementList();             // get the parameter declarations
             ExpectSemiColon();      // finish
         } else {
-            TokenErrorAt(ERR24);    /* INVALID STATEMENT IN external procedure */
+            Wr1TokenErrorAt(ERR24);    /* INVALID STATEMENT IN external procedure */
             if (stmtStartCode == S_PROCEDURE ||
                 stmtStartCode == S_DO)
                 PushStateByte(7);   // skip bad nested proc/do
@@ -398,7 +398,7 @@ static void State5()
 static void State21()
 {
     if (stmtStartCode == S_END)
-        TokenErrorAt(ERR174);   /* INVALID NULL procedure */
+        Wr1TokenErrorAt(ERR174);   /* INVALID NULL procedure */
     else
         PushStateByte(9);       // parse <unit>
 }
@@ -408,7 +408,7 @@ static void State6()
 {
     WrLabelDefs();    // write any labels on the END to the lex stream
     ProcEnding();
-    WrByte(L_END);      // add end to the lexical stream
+    Wr1Byte(L_END);      // add end to the lexical stream
 }
 
 
@@ -458,7 +458,7 @@ static void State11()
         stmtStartCode == S_PROCEDURE ||
         stmtStartCode == S_END) {
 
-        TokenErrorAt(ERR26);    /* INVALID DECLARATION, STATEMENT OUT OF PLACE */
+        Wr1TokenErrorAt(ERR26);    /* INVALID DECLARATION, STATEMENT OUT OF PLACE */
         PushStateByte(20);      // parse unexpected <declaration>
     } else if (stmtStartCode == S_DO)
         PushStateByte(12);      // parse rest of <do block>
@@ -466,11 +466,11 @@ static void State11()
         PushStateByte(16);      // parse rest of <conditional clause>
     else {                      // <label definition> <unit>
         WrLabelDefs();          // write labels
-        WrByte(startLexCode);   // and first lex token of <basic statement>
+        Wr1Byte(startLexCode);   // and first lex token of <basic statement>
         if (stmtStartCode != S_SEMICOLON) {   /* Semicolon() */
             if (stmtStartCode == S_IDENTIFIER) {   /* Variable() */
-                WrByte(L_IDENTIFIER);     // write var for <assignment statement>
-                WrWord(stmtStartSymbol);
+                Wr1Byte(L_IDENTIFIER);     // write var for <assignment statement>
+                Wr1Word(stmtStartSymbol);
             }
             ParseExpresion(T_SEMICOLON);
         }
@@ -506,40 +506,40 @@ static void State12()
     else
         PushStateWord(0);                              // or null if none
     if (YylexMatch(T_IDENTIFIER)) {
-        WrByte(L_DOLOOP);               // convert <iterative do statement> to lex format
-        WrLexToken();                   // the <index variable>
+        Wr1Byte(L_DOLOOP);               // convert <iterative do statement> to lex format
+        Wr1LexToken();                   // the <index variable>
         ParseExpresion(T_SEMICOLON);
         PushStateByte(13);              // parse <ending>  labels already collected
         PushStateByte(9);               // parse <unit>...
         PushStateByte(10);              // get start statement
     } else if (YylexMatch(T_WHILE)) {   // <do-while block>
-        WrByte(L_WHILE);                // convert <do-while statement> to lex format
+        Wr1Byte(L_WHILE);                // convert <do-while statement> to lex format
         ParseExpresion(T_SEMICOLON);
         PushStateByte(13);              // parse <ending>  labels already collected
         PushStateByte(9);               // parse <unit>...
         PushStateByte(10);              // get start statement
     } else if (YylexMatch(T_CASE)) {    // <do-case block>
-        WrByte(L_CASE);                 // convert <do-case statement> to lex format
+        Wr1Byte(L_CASE);                 // convert <do-case statement> to lex format
         ParseExpresion(T_SEMICOLON);
         NewLocalLabel();       // make sure later passes have space for the end of case target
         PushStateWord(localLabelCnt);   // push the index of end of case target for later
         PushStateByte(14);              // parse case <unit>... <ending>
     } else {
-        WrByte(L_DO);                   // convert <simple do statement> to lex format
+        Wr1Byte(L_DO);                   // convert <simple do statement> to lex format
         PushStateByte(13);              // parse <ending>  labels already collected
         PushStateByte(9);               // parse <unit>...
         PushStateByte(3);               // get start statement and parse <declaration>
     }
     ExpectSemiColon();      /* we should now see a semicolon at end of do ... statement */
     if (doBlkCnt >= 255)
-        SyntaxError(ERR27); /* LIMIT EXCEEDED: NUMBER OF do BLOCKS */
+        Wr1SyntaxError(ERR27); /* LIMIT EXCEEDED: NUMBER OF do BLOCKS */
     else
         doBlkCnt++;
 
     curScope[DOBLKCNT] = (byte)doBlkCnt;
     PushBlock(*curScopeP);              // push new scope
-    WrByte(L_SCOPE);                    // and write to lex stream
-    WrWord(*curScopeP);
+    Wr1Byte(L_SCOPE);                    // and write to lex stream
+    Wr1Word(*curScopeP);
 }
 
 
@@ -553,8 +553,8 @@ static void State13()
     PopStateWord(&labelPtr);        // get the do block label
     if (YylexMatch(T_IDENTIFIER))   // if we have "end identifier" do they match
         if (curSymbolP != labelPtr)
-            TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
-    WrByte(L_END);                  // write lex END token
+            Wr1TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
+    Wr1Byte(L_END);                  // write lex END token
     ExpectSemiColon();
 }
 
@@ -567,26 +567,26 @@ static void State14()
     ParseStartStmt();
     if (stmtStartCode != S_END) {   // not at end of do case
         NewLocalLabel();   // reserve space for this case target
-        WrByte(L_CASELABEL);        // and add to the lex stream
-        WrWord(localLabelCnt);
+        Wr1Byte(L_CASELABEL);        // and add to the lex stream
+        Wr1Word(localLabelCnt);
         PushStateByte(15);          // write jmp to end of case & re-enter state14
         PushStateByte(11);          // parse <unit>
     } else {
         PopStateWord(&stateWord);   /* get the label index for end of case target */
         WrLabelDefs();              // write any labels associated with the end
         if (stmtLabelCnt != 0) {    // write jmp to end target if there are labels
-            WrByte(L_JMP);
-            WrWord(stateWord);
+            Wr1Byte(L_JMP);
+            Wr1Word(stateWord);
         }
         PopBlock();                 // restore scope
         PopStateWord(&labelPtr);    // get any prefix label to do
-        WrByte(L_END);              // write end
-        WrByte(L_LOCALLABEL);       // & target label
-        WrWord(stateWord);
+        Wr1Byte(L_END);              // write end
+        Wr1Byte(L_LOCALLABEL);       // & target label
+        Wr1Word(stateWord);
         /* check end label if (present */
         if (YylexMatch(T_IDENTIFIER))
             if (curSymbolP != labelPtr)
-                SyntaxError(ERR20); /* MISMATCHED IDENTIFIER AT END OF BLOCK */
+                Wr1SyntaxError(ERR20); /* MISMATCHED IDENTIFIER AT END OF BLOCK */
         ExpectSemiColon();
     }
 }
@@ -598,8 +598,8 @@ static void State15()
     word stateWord;
 
     PopStateWord(&stateWord);           // get index of end of case label
-    WrByte(L_JMP);                      // write jmp & target
-    WrWord(stateWord);
+    Wr1Byte(L_JMP);                      // write jmp & target
+    Wr1Word(stateWord);
     PushStateWord(stateWord);           // resave
     PushStateByte(14);                  // parse case <unit>... <ending>
 }
@@ -609,17 +609,17 @@ static void State15()
 static void State16()
 {
     WrLabelDefs();              // write any prefix labels
-    WrByte(L_IF);               // convert <if condition> to lex stream
+    Wr1Byte(L_IF);               // convert <if condition> to lex stream
     ParseExpresion(T_THEN);
     if (YylexNotMatch(T_THEN)) {    // oops no THEN
-        TokenErrorAt(ERR28);    /* MISSING 'then' */
-        WrByte(L_JMPFALSE);     // write jmpfalse 0 to lex stream
-        WrWord(0);
+        Wr1TokenErrorAt(ERR28);    /* MISSING 'then' */
+        Wr1Byte(L_JMPFALSE);     // write jmpfalse 0 to lex stream
+        Wr1Word(0);
     } else {
         NewLocalLabel();   // end of <true unit> target label
         PushStateWord(localLabelCnt);   // save on stack
-        WrByte(L_JMPFALSE);         // write jmp for false to lex stream
-        WrWord(localLabelCnt);
+        Wr1Byte(L_JMPFALSE);         // write jmp for false to lex stream
+        Wr1Word(localLabelCnt);
         PushStateByte(17);          // parse optional ELSE <false element>
         PushStateByte(11);          // parse <unit> (<true unit>)
         PushStateByte(10);          // get the statement start
@@ -638,8 +638,8 @@ static void State17()
     lineInfoToWrite = false;
     if (tokenType == T_ELSE) {  // ELSE <false element>
         NewLocalLabel();        // reserve space for end of <false element>
-        WrByte(L_JMP);          // write jmp around <false element> to lex stream
-        WrWord(localLabelCnt);
+        Wr1Byte(L_JMP);          // write jmp around <false element> to lex stream
+        Wr1Word(localLabelCnt);
         PushStateWord(localLabelCnt);   /* save labelref for end of <false element> */
         PushStateByte(18);      // parse end of <false element>
         PushStateByte(11);      // parse <unit> (<false element>)
@@ -647,8 +647,8 @@ static void State17()
     } else
         SetYyAgain();
 
-    WrByte(L_LOCALLABEL);   /* emit label for end <true unit> */
-    WrWord(stateWord);
+    Wr1Byte(L_LOCALLABEL);   /* emit label for end <true unit> */
+    Wr1Word(stateWord);
     lineInfoToWrite = tmp;      // restore status of lineInfoToWrite
 }
 
@@ -663,8 +663,8 @@ static void State18()
 
     lineInfoToWrite = false;
     PopStateWord(&stateWord);    /* labelref for end <false element> */
-    WrByte(L_LOCALLABEL);   /* emit label */
-    WrWord(stateWord);
+    Wr1Byte(L_LOCALLABEL);   /* emit label */
+    Wr1Word(stateWord);
     lineInfoToWrite = tmp;       // restore status of lineInfoTo
 }
 

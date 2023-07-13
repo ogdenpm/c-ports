@@ -32,16 +32,16 @@ void Sub_9514()
 	if (GetType() == ADDRESS_T) {
 		wC1DC[0] = bC2D1;
 		EncodeFragData(CF_MOVMRPR);
-		pc = pc + 3;
+		pc += 3;
 	}
 	else {
 		wC1DC[0] = bC2D1;
 		EncodeFragData(CF_MOVMLR);
-		pc = pc + 1;
+		pc++;
 	}
 	if (bC2D2 != curParamCnt) {
 		EncodeFragData(CF_DCXH);
-		pc = pc + 1;
+        pc++;
 	}
 }
 

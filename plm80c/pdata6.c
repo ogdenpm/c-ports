@@ -10,7 +10,7 @@
 
 #include "plm.h"
 bool b7AD9;
-byte b7ADA;
+
 // bool listing; in pdata4.c
 // bool listOff;
 // bool codeOn;

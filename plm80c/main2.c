@@ -114,8 +114,8 @@ static void Sub_3F27()
     botMem = MEMORY + 256;
     if (w3822 < botMem)
         Fatal(emsg, Length(emsg));
-    CreatF(&tx1File, tx1Buf, 512, 2);
-    CreatF(&tx2File, tx2Buf, 512, 1);
+    vfReset(&utf1);
+    vfRewind(&utf2);
     memset(wC1DC, 0, 10);
     blkCurInfo[0] = procInfo[1] + botInfo;
     programErrCnt = 0;
@@ -127,11 +127,11 @@ static void Sub_3F7D()
     curInfoP = procInfo[1] + botInfo;
     SetDimension(pc);
     SetBaseVal(wC1C5);
-    Fflush(&tx1File);
 } /* Sub_3F7D() */
 
 word Start2()
 {
+    dump(&utf2, "utf2_main2");
     if (setjmp(exception) == 0) {
         Sub_3F27();
         while (1) {

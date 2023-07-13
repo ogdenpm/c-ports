@@ -10,6 +10,7 @@
 
 #include "plm.h"
 
+
 offset_t topMem;
 offset_t botMem;
 offset_t botInfo;
@@ -18,7 +19,7 @@ offset_t topSymbol;
 offset_t botSymbol;
 offset_t curSymbolP;
 offset_t curInfoP;
-word offFirstChM1;
+bool moreCmdLine = true;
 word LEFTMARGIN;
 word localLabelCnt;
 word srcFileIdx;
@@ -36,16 +37,16 @@ word dsegSize = 0;
 word csegSize = 0;
 word objBlk;
 word objByte;
-word srcFileTable[60];
+file_t srcFileTable[6];
 file_t srcFil;
-file_t lstFil;
+file_t lstFile;
 file_t objFile;
 file_t conFile;
-file_t tx1File;
-file_t tx2File;
-file_t atFile;
-file_t nmsFile;
-file_t xrfFile;
+vfile_t utf1;
+vfile_t utf2;
+vfile_t atf;
+vfile_t nmsf;
+vfile_t xrff;
 file_t ixiFile;
 word procChains[35];
 word procInfo[255];
@@ -56,9 +57,7 @@ word blkSize1 = 0xC400;     // last address of ov2 rounded up to page boundary
 word blkSize2 = 0xA400;     // last address of ov4 rounded up to page boundary
 byte srcStemLen;
 bool standAlone = true;
-bool IXREFSet = true;
-bool PRINTSet = true;
-bool OBJECTSet = true;
+
 bool afterEOF = false;
 bool haveModuleLevelUnit = false;
 byte fatalErrorCode = 0;
@@ -72,15 +71,14 @@ offset_t cmdLineP;
 offset_t startCmdLineP;
 //byte overlay[7][FILE_NAME_LEN] = { ":F0:PLM80 .OV0 ", ":F0:PLM80 .OV1 ", ":F0:PLM80 .OV2 ", ":F0:PLM80 .OV3 ",
 //								   ":F0:PLM80 .OV4 ", ":F0:PLM80 .OV5 ", ":F0:PLM80 .OV6 "};
-char ixiFileName[FILE_NAME_LEN];
-char lstFileName[FILE_NAME_LEN];
-char objFileName[FILE_NAME_LEN];
-word pageNo = 0;
+char *ixiFileName;
+char *lstFileName;
+char *objFileName;
+bool isList = false;
+word pageNo      = 0;
 byte b3CF2;
-pointer lBufP = &b3CF2;	
 word lChCnt = 0;
 word lBufSz = 0;
-bool lfOpen = false;
 byte linLft = 0;
 byte wrapMarkerCol, wrapMarker, wrapTextCol;
 byte col = 0;
@@ -90,8 +88,7 @@ byte TITLELEN = 1;
 byte PAGELEN = 60;
 byte PWIDTH = 120;
 byte margin = 0xFF;
-char DATE[9];
-char plm80Compiler[] = "PL/M-80 COMPILER    ";
+char DATE[10];
 char TITLE[60] = " ";
 //word ISIS = 0x40;
 word REBOOTVECTOR = 0;

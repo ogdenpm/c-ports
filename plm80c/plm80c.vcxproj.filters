@@ -27,6 +27,12 @@
     <ClInclude Include="_version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="vfile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="os.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="allocs.c">
@@ -68,16 +74,10 @@
     <ClCompile Include="fatlio.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="itoa.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="lookup.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="lstinf.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="lstlin.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="lstsup.c">
@@ -222,6 +222,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="debug.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="vfile.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="os.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

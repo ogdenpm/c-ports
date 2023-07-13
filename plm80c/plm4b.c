@@ -9,224 +9,228 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include "os.h"
 
 /* plm4a.plm */
 static byte digits[] = " 123456789";
-static byte errStrings[] = {            // merged plm4b & plm6b messages
-    "\x1" "INVALID PL/M-80 CHARACTER\0"
-    "\x2" "UNPRINTABLE ASCII CHARACTER\0"
-    "\x3" "IDENTIFIER, STRING, OR NUMBER TOO LONG, TRUNCATED\0"
-    "\x4" "ILLEGAL NUMERIC CONSTANT TYPE\0"
-    "\x5" "INVALID CHARACTER IN NUMERIC CONSTANT\0"
-    "\x6" "ILLEGAL MACRO REFERENCE, RECURSIVE EXPANSION\0"
-    "\x7" "LIMIT EXCEEDED: MACROS NESTED TOO DEEPLY\0"
-    "\x8" "INVALID CONTROL FORMAT\0"
-    "\x9" "INVALID CONTROL\0"
-    "\xA" "ILLEGAL USE OF PRIMARY CONTROL AFTER NON-CONTROL LINE\0"
-    "\xB" "MISSING CONTROL PARAMETER\0"
-    "\xC" "INVALID CONTROL PARAMETER\0"
-    "\xD" "LIMIT EXCEEDED: INCLUDE NESTING\0"
-    "\xE" "INVALID CONTROL FORMAT, INCLUDE NOT LAST CONTROL\0"
-    "\xF" "MISSING INCLUDE CONTROL PARAMETER\0"
-    "\x10" "ILLEGAL PRINT CONTROL\0"
-    "\x11" "INVALID PATH-NAME\0"
-    "\x12" "INVALID MULTIPLE LABELS AS MODULE NAMES\0"
-    "\x13" "INVALID LABEL IN MODULE WITHOUT MAIN PROGRAM\0"
-    "\x14" "MISMATCHED IDENTIFIER AT END OF BLOCK\0"
-    "\x15" "MISSING PROCEDURE NAME\0"
-    "\x16" "INVALID MULTIPLE LABELS AS PROCEDURE NAMES\0"
-    "\x17" "INVALID LABELLED END IN EXTERNAL PROCEDURE\0"
-    "\x18" "INVALID STATEMENT IN EXTERNAL PROCEDURE\0"
-    "\x19" "UNDECLARED PARAMETER\0"
-    "\x1A" "INVALID DECLARATION, STATEMENT OUT OF PLACE\0"
-    "\x1B" "LIMIT EXCEEDED: NUMBER OF DO BLOCKS\0"
-    "\x1C" "MISSING 'THEN'\0"
-    "\x1D" "ILLEGAL STATEMENT\0"
-    "\x1E" "LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT\0"
-    "\x1F" "LIMIT EXCEEDED: PROGRAM TOO COMPLEX\0"
-    "\x20" "INVALID SYNTAX, TEXT IGNORED UNTIL ';'\0"
-    "\x21" "DUPLICATE LABEL DECLARATION\0"
-    "\x22" "DUPLICATE PROCEDURE DECLARATION\0"
-    "\x23" "LIMIT EXCEEDED: NUMBER OF PROCEDURES\0"
-    "\x24" "MISSING PARAMETER\0"
-    "\x25" "MISSING ')' AT END OF PARAMETER LIST\0"
-    "\x26" "DUPLICATE PARAMETER NAME\0"
-    "\x27" "INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL\0"
-    "\x28" "DUPLICATE ATTRIBUTE\0"
-    "\x29" "CONFLICTING ATTRIBUTE\0"
-    "\x2A" "INVALID INTERRUPT VALUE\0"
-    "\x2B" "MISSING INTERRUPT VALUE\0"
-    "\x2C" "ILLEGAL ATTRIBUTE, 'INTERRUPT' WITH PARAMETERS\0"
-    "\x2D" "ILLEGAL ATTRIBUTE, 'INTERRUPT' WITH TYPED PROCEDURE\0"
-    "\x2E" "ILLEGAL USE OF LABEL\0"
-    "\x2F" "MISSING ')' AT END OF FACTORED DECLARATION\0"
-    "\x30" "ILLEGAL DECLARATION STATEMENT SYNTAX\0"
-    "\x31" "LIMIT EXCEEDED: NUMBER OF ITEMS IN FACTORED DECLARE\0"
-    "\x32" "INVALID ATTRIBUTES FOR BASE\0"
-    "\x33" "INVALID BASE, SUBSCRIPTING ILLEGAL\0"
-    "\x34" "INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES\0"
-    "\x35" "INVALID STRUCTURE MEMBER IN BASE\0"
-    "\x36" "UNDECLARED BASE\0"
-    "\x37" "UNDECLARED STRUCTURE MEMBER IN BASE\0"
-    "\x38" "INVALID MACRO TEXT, NOT A STRING CONSTANT\0"
-    "\x39" "INVALID DIMENSION, ZERO ILLEGAL\0"
-    "\x3A" "INVALID STAR DIMENSION IN FACTORED DECLARATION\0"
-    "\x3B" "ILLEGAL DIMENSION ATTRIBUTE\0"
-    "\x3C" "MISSING ')' AT END OF DIMENSION\0"
-    "\x3D" "MISSING TYPE\0"
-    "\x3E" "INVALID STAR DIMENSION WITH 'STRUCTURE' OR 'EXTERNAL'\0"
-    "\x3F" "INVALID DIMENSION WITH THIS ATTRIBUTE\0"
-    "\x40" "MISSING STRUCTURE MEMBERS\0"
-    "\x41" "MISSING ')' AT END OF STRUCTURE MEMBER LIST\0"
-    "\x42" "INVALID STRUCTURE MEMBER, NOT AN IDENTIFIER\0"
-    "\x43" "DUPLICATE STRUCTURE MEMBER NAME\0"
-    "\x44" "LIMIT EXCEEDED: NUMBER OF STRUCTURE MEMBERS\0"
-    "\x45" "INVALID STAR DIMENSION WITH STRUCTURE MEMBER\0"
-    "\x46" "INVALID MEMBER TYPE, 'STRUCTURE' ILLEGAL\0"
-    "\x47" "INVALID MEMBER TYPE, 'LABEL' ILLEGAL\0"
-    "\x48" "MISSING TYPE FOR STRUCTURE MEMBER\0"
-    "\x49" "INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL\0"
-    "\x4A" "INVALID STAR DIMENSION, NOT WITH 'DATA' OR 'INITIAL'\0"
-    "\x4B" "MISSING ARGUMENT OF 'AT', 'DATA', OR 'INITIAL'\0"
-    "\x4C" "CONFLICTING ATTRIBUTE WITH PARAMETER\0"
-    "\x4D" "INVALID PARAMETER DECLARATION, BASE ILLEGAL\0"
-    "\x4E" "DUPLICATE DECLARATION\0"
-    "\x4F" "ILLEGAL PARAMETER TYPE, NOT BYTE OR ADDRESS\0"
-    "\x50" "INVALID DECLARATION, LABEL MAY NOT BE BASED\0"
-    "\x51" "CONFLICTING ATTRIBUTE WITH 'BASE'\0"
-    "\x52" "INVALID SYNTAX, MISMATCHED '('\0"
-    "\x53" "LIMIT EXCEEDED: DYNAMIC STORAGE\0"
-    "\x54" "LIMIT EXCEEDED: BLOCK NESTING\0"
-    "\x55" "LONG STRING ASSUMED CLOSED AT NEXT SEMICOLON OR QUOTE\0"
-    "\x56" "LIMIT EXCEEDED: SOURCE LINE LENGTH\0"
-    "\x57" "MISSING 'END', END-OF-FILE ENCOUNTERED\0"
-    "\x58" "INVALID PROCEDURE NESTING, ILLEGAL IN REENTRANT PROCEDURE\0"
-    "\x59" "MISSING 'DO' FOR MODULE\0"
-    "\x5A" "MISSING NAME FOR MODULE\0"
-    "\x5B" "ILLEGAL PAGELENGTH CONTROL VALUE\0"
-    "\x5C" "ILLEGAL PAGEWIDTH CONTROL VALUE\0"
-    "\x5D" "MISSING 'DO' FOR 'END', 'END' IGNORED\0"
-    "\x5E" "ILLEGAL CONSTANT, VALUE > 65535\0"
-    "\x5F" "ILLEGAL RESPECIFICATION OF PRIMARY CONTROL IGNORED\0"
-    "\x60" "COMPILER ERROR: SCOPE STACK UNDERFLOW\0"
-    "\x61" "COMPILER ERROR: PARSE STACK UNDERFLOW\0"
-    "\x62" "INCLUDE FILE IS NOT A DISKETTE FILE\0"
+static struct {
+    uint16_t errCode;
+    char const *errStr;
+} errStrings[] = { // merged plm4b & plm6b messages
+    { 0x1, "INVALID PL/M-80 CHARACTER" },
+    { 0x2, "UNPRINTABLE ASCII CHARACTER" },
+    { 0x3, "IDENTIFIER, STRING, OR NUMBER TOO LONG, TRUNCATED" },
+    { 0x4, "ILLEGAL NUMERIC CONSTANT TYPE" },
+    { 0x5, "INVALID CHARACTER IN NUMERIC CONSTANT" },
+    { 0x6, "ILLEGAL MACRO REFERENCE, RECURSIVE EXPANSION" },
+    { 0x7, "LIMIT EXCEEDED: MACROS NESTED TOO DEEPLY" },
+    { 0x8, "INVALID CONTROL FORMAT" },
+    { 0x9, "INVALID CONTROL" },
+    { 0xA, "ILLEGAL USE OF PRIMARY CONTROL AFTER NON-CONTROL LINE" },
+    { 0xB, "MISSING CONTROL PARAMETER" },
+    { 0xC, "INVALID CONTROL PARAMETER" },
+    { 0xD, "LIMIT EXCEEDED: INCLUDE NESTING" },
+    { 0xE, "INVALID CONTROL FORMAT, INCLUDE NOT LAST CONTROL" },
+    { 0xF, "MISSING INCLUDE CONTROL PARAMETER" },
+    { 0x10, "ILLEGAL PRINT CONTROL" },
+    { 0x11, "INVALID PATH-NAME" },
+    { 0x12, "INVALID MULTIPLE LABELS AS MODULE NAMES" },
+    { 0x13, "INVALID LABEL IN MODULE WITHOUT MAIN PROGRAM" },
+    { 0x14, "MISMATCHED IDENTIFIER AT END OF BLOCK" },
+    { 0x15, "MISSING PROCEDURE NAME" },
+    { 0x16, "INVALID MULTIPLE LABELS AS PROCEDURE NAMES" },
+    { 0x17, "INVALID LABELLED END IN EXTERNAL PROCEDURE" },
+    { 0x18, "INVALID STATEMENT IN EXTERNAL PROCEDURE" },
+    { 0x19, "UNDECLARED PARAMETER" },
+    { 0x1A, "INVALID DECLARATION, STATEMENT OUT OF PLACE" },
+    { 0x1B, "LIMIT EXCEEDED: NUMBER OF DO BLOCKS" },
+    { 0x1C, "MISSING 'THEN'" },
+    { 0x1D, "ILLEGAL STATEMENT" },
+    { 0x1E, "LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT" },
+    { 0x1F, "LIMIT EXCEEDED: PROGRAM TOO COMPLEX" },
+    { 0x20, "INVALID SYNTAX, TEXT IGNORED UNTIL ';'" },
+    { 0x21, "DUPLICATE LABEL DECLARATION" },
+    { 0x22, "DUPLICATE PROCEDURE DECLARATION" },
+    { 0x23, "LIMIT EXCEEDED: NUMBER OF PROCEDURES" },
+    { 0x24, "MISSING PARAMETER" },
+    { 0x25, "MISSING ')' AT END OF PARAMETER LIST" },
+    { 0x26, "DUPLICATE PARAMETER NAME" },
+    { 0x27, "INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL" },
+    { 0x28, "DUPLICATE ATTRIBUTE" },
+    { 0x29, "CONFLICTING ATTRIBUTE" },
+    { 0x2A, "INVALID INTERRUPT VALUE" },
+    { 0x2B, "MISSING INTERRUPT VALUE" },
+    { 0x2C, "ILLEGAL ATTRIBUTE, 'INTERRUPT' WITH PARAMETERS" },
+    { 0x2D, "ILLEGAL ATTRIBUTE, 'INTERRUPT' WITH TYPED PROCEDURE" },
+    { 0x2E, "ILLEGAL USE OF LABEL" },
+    { 0x2F, "MISSING ')' AT END OF FACTORED DECLARATION" },
+    { 0x30, "ILLEGAL DECLARATION STATEMENT SYNTAX" },
+    { 0x31, "LIMIT EXCEEDED: NUMBER OF ITEMS IN FACTORED DECLARE" },
+    { 0x32, "INVALID ATTRIBUTES FOR BASE" },
+    { 0x33, "INVALID BASE, SUBSCRIPTING ILLEGAL" },
+    { 0x34, "INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES" },
+    { 0x35, "INVALID STRUCTURE MEMBER IN BASE" },
+    { 0x36, "UNDECLARED BASE" },
+    { 0x37, "UNDECLARED STRUCTURE MEMBER IN BASE" },
+    { 0x38, "INVALID MACRO TEXT, NOT A STRING CONSTANT" },
+    { 0x39, "INVALID DIMENSION, ZERO ILLEGAL" },
+    { 0x3A, "INVALID STAR DIMENSION IN FACTORED DECLARATION" },
+    { 0x3B, "ILLEGAL DIMENSION ATTRIBUTE" },
+    { 0x3C, "MISSING ')' AT END OF DIMENSION" },
+    { 0x3D, "MISSING TYPE" },
+    { 0x3E, "INVALID STAR DIMENSION WITH 'STRUCTURE' OR 'EXTERNAL'" },
+    { 0x3F, "INVALID DIMENSION WITH THIS ATTRIBUTE" },
+    { 0x40, "MISSING STRUCTURE MEMBERS" },
+    { 0x41, "MISSING ')' AT END OF STRUCTURE MEMBER LIST" },
+    { 0x42, "INVALID STRUCTURE MEMBER, NOT AN IDENTIFIER" },
+    { 0x43, "DUPLICATE STRUCTURE MEMBER NAME" },
+    { 0x44, "LIMIT EXCEEDED: NUMBER OF STRUCTURE MEMBERS" },
+    { 0x45, "INVALID STAR DIMENSION WITH STRUCTURE MEMBER" },
+    { 0x46, "INVALID MEMBER TYPE, 'STRUCTURE' ILLEGAL" },
+    { 0x47, "INVALID MEMBER TYPE, 'LABEL' ILLEGAL" },
+    { 0x48, "MISSING TYPE FOR STRUCTURE MEMBER" },
+    { 0x49, "INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL" },
+    { 0x4A, "INVALID STAR DIMENSION, NOT WITH 'DATA' OR 'INITIAL'" },
+    { 0x4B, "MISSING ARGUMENT OF 'AT', 'DATA', OR 'INITIAL'" },
+    { 0x4C, "CONFLICTING ATTRIBUTE WITH PARAMETER" },
+    { 0x4D, "INVALID PARAMETER DECLARATION, BASE ILLEGAL" },
+    { 0x4E, "DUPLICATE DECLARATION" },
+    { 0x4F, "ILLEGAL PARAMETER TYPE, NOT BYTE OR ADDRESS" },
+    { 0x50, "INVALID DECLARATION, LABEL MAY NOT BE BASED" },
+    { 0x51, "CONFLICTING ATTRIBUTE WITH 'BASE'" },
+    { 0x52, "INVALID SYNTAX, MISMATCHED '('" },
+    { 0x53, "LIMIT EXCEEDED: DYNAMIC STORAGE" },
+    { 0x54, "LIMIT EXCEEDED: BLOCK NESTING" },
+    { 0x55, "LONG STRING ASSUMED CLOSED AT NEXT SEMICOLON OR QUOTE" },
+    { 0x56, "LIMIT EXCEEDED: SOURCE LINE LENGTH" },
+    { 0x57, "MISSING 'END', END-OF-FILE ENCOUNTERED" },
+    { 0x58, "INVALID PROCEDURE NESTING, ILLEGAL IN REENTRANT PROCEDURE" },
+    { 0x59, "MISSING 'DO' FOR MODULE" },
+    { 0x5A, "MISSING NAME FOR MODULE" },
+    { 0x5B, "ILLEGAL PAGELENGTH CONTROL VALUE" },
+    { 0x5C, "ILLEGAL PAGEWIDTH CONTROL VALUE" },
+    { 0x5D, "MISSING 'DO' FOR 'END', 'END' IGNORED" },
+    { 0x5E, "ILLEGAL CONSTANT, VALUE > 65535" },
+    { 0x5F, "ILLEGAL RESPECIFICATION OF PRIMARY CONTROL IGNORED" },
+    { 0x60, "COMPILER ERROR: SCOPE STACK UNDERFLOW" },
+    { 0x61, "COMPILER ERROR: PARSE STACK UNDERFLOW" },
+    { 0x62, "INCLUDE FILE IS NOT A DISKETTE FILE" },
     /* 0X63 */
-    "\x64" "INVALID STRING CONSTANT IN Expression\0"
-    "\x65" "INVALID ITEM FOLLOWS DOT OPERATOR\0"
-    "\x66" "MISSING PRIMARY OPERAND\0"
-    "\x67" "MISSING ')' AT END OF SUBEXPRESSION\0"
-    "\x68" "ILLEGAL PROCEDURE INVOCATION WITH DOT OPERATOR\0"
-    "\x69" "UNDECLARED IDENTIFIER\0"
-    "\x6A" "INVALID INPUT/OUTPUT PORT NUMBER\0"
-    "\x6B" "ILLEGAL INPUT/OUTPUT PORT NUMBER, NOT NUMERIC CONSTANT\0"
-    "\x6C" "MISSING ')' AFTER INPUT/OUTPUT PORT NUMBER\0"
-    "\x6D" "MISSING INPUT/OUTPUT PORT NUMBER\0"
-    "\x6E" "INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE\0"
-    "\x6F" "INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER\0"
-    "\x70" "UNDECLARED STRUCTURE MEMBER\0"
-    "\x71" "MISSING ')' AT END OF ARGUMENT LIST\0"
-    "\x72" "INVALID SUBSCRIPT, MULTIPLE SUBSCRIPTS ILLEGAL\0"
-    "\x73" "MISSING ')' AT END OF SUBSCRIPT\0"
-    "\x74" "MISSING '=' IN ASSIGNMENT STATEMENT\0"
-    "\x75" "MISSING PROCEDURE NAME IN CALL STATEMENT\0"
-    "\x76" "INVALID INDIRECT CALL, IDENTIFIER NOT AN ADDRESS SCALAR\0"
-    "\x77" "LIMIT EXCEEDED: PROGRAM TOO COMPLEX\0"
-    "\x78" "LIMIT EXCEEDED: Expression TOO COMPLEX\0"
-    "\x79" "LIMIT EXCEEDED: Expression TOO COMPLEX\0"
-    "\x7A" "LIMIT EXCEEDED: PROGRAM TOO COMPLEX\0"
-    "\x7B" "INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL\0"
-    "\x7C" "MISSING ARGUMENTS FOR BUILT-IN PROCEDURE\0"
-    "\x7D" "ILLEGAL ARGUMENT FOR BUILT-IN PROCEDURE\0"
-    "\x7E" "MISSING ')' AFTER BUILT-IN PROCEDURE ARGUMENT LIST\0"
-    "\x7F" "INVALID SUBSCRIPT ON NON-ARRAY\0"
-    "\x80" "INVALID LEFT-HAND OPERAND OF ASSIGNMENT\0"
-    "\x81" "ILLEGAL 'CALL' WITH TYPED PROCEDURE\0"
-    "\x82" "ILLEGAL REFERENCE TO OUTPUT FUNCTION\0"
-    "\x83" "ILLEGAL REFERENCE TO UNTYPED PROCEDURE\0"
-    "\x84" "ILLEGAL USE OF LABEL\0"
-    "\x85" "ILLEGAL REFERENCE TO UNSUBSCRIPTED ARRAY\0"
-    "\x86" "ILLEGAL REFERENCE TO UNSUBSCRIPTED MEMBER ARRAY\0"
-    "\x87" "ILLEGAL REFERENCE TO AN UNQUALIFIED STRUCTURE\0"
-    "\x88" "INVALID RETURN FOR UNTYPED PROCEDURE, VALUE ILLEGAL\0"
-    "\x89" "MISSING VALUE IN RETURN FOR TYPED PROCEDURE\0"
-    "\x8A" "MISSING INDEX VARIABLE\0"
-    "\x8B" "INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS\0"
-    "\x8C" "MISSING '=' FOLLOWING INDEX VARIABLE\0"
-    "\x8D" "MISSING 'TO' CLAUSE\0"
-    "\x8E" "MISSING IDENTIFIER FOLLOWING GOTO\0"
-    "\x8F" "INVALID REFERENCE FOLLOWING GOTO, NOT A LABEL\0"
-    "\x90" "INVALID GOTO LABEL, NOT AT LOCAL OR MODULE LEVEL\0"
-    "\x91" "MISSING 'TO' FOLLOWING 'GO'\0"
-    "\x92" "MISSING ')' AFTER 'AT' RESTRICTED Expression\0"
-    "\x93" "MISSING IDENTIFIER FOLLOWING DOT OPERATOR\0"
-    "\x94" "INVALID QUALIFICATION IN RESTRICTED REFERENCE\0"
-    "\x95" "INVALID SUBSCRIPTING IN RESTRICTED REFERENCE\0"
-    "\x96" "MISSING ')' AT END OF RESTRICTED SUBSCRIPT\0"
-    "\x97" "INVALID OPERAND IN RESTRICTED Expression\0"
-    "\x98" "MISSING ')' AFTER CONSTANT LIST\0"
-    "\x99" "INVALID NUMBER OF ARGUMENTS IN CALL, TOO MANY\0"
-    "\x9A" "INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW\0"
-    "\x9B" "INVALID RETURN IN MAIN PROGRAM\0"
-    "\x9C" "MISSING RETURN STATEMENT IN TYPED PROCEDURE\0"
-    "\x9D" "INVALID ARGUMENT, ARRAY REQUIRED FOR LENGTH OR LAST\0"
-    "\x9E" "INVALID DOT OPERAND, LABEL ILLEGAL\0"
-    "\x9F" "COMPILER ERROR: PARSE STACK UNDERFLOW\0"
-    "\xA0" "COMPILER ERROR: OPERAND STACK UNDERFLOW\0"
-    "\xA1" "COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE\0"
-    "\xA2" "COMPILER ERROR: OPERATOR STACK UNDERFLOW\0"
-    "\xA3" "COMPILER ERROR: GENERATION FAILURE\0"
-    "\xA4" "COMPILER ERROR: SCOPE STACK OVERFLOW\0"
-    "\xA5" "COMPILER ERROR: SCOPE STACK UNDERFLOW\0"
-    "\xA6" "COMPILER ERROR: CONTROL STACK OVERFLOW\0"
-    "\xA7" "COMPILER ERROR: CONTROL STACK UNDERFLOW\0"
-    "\xA8" "COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT\0"
-    "\xA9" "ILLEGAL FORWARD CALL\0"
-    "\xAA" "ILLEGAL RECURSIVE CALL\0"
-    "\xAB" "INVALID USE OF DELIMITER OR RESERVED WORD IN Expression\0"
-    "\xAC" "INVALID LABEL: UNDEFINED\0"
-    "\xAD" "INVALID LEFT SIDE OF ASSIGNMENT: VARIABLE DECLARED WITH DATA ATTRIBUTE\0"
-    "\xAE" "INVALID NULL PROCEDURE\0"
-    /* xAF */
-    "\xB0" "INVALID INTVECTOR INTERVAL VALUE\0"
-    "\xB1" "INVALID INTVECTOR LOCATION VALUE\0"
-    "\xB2" "INVALID 'AT' RESTRICTED REFERENCE, EXTERNAL ATTRIBUTE CONFLICTS WITH PUBLIC ATTRIBUTE\0"
-    "\xB3" "OUTER 'IF' MAY NOT HAVE AN 'ELSE' PART\0"
-    "\xB4" "MISSING OR INVALID CONDITIONAL COMPILATION PARAMETER\0"
-    "\xB5" "MISSING OR INVALID CONDITIONAL COMPILATION CONSTANT\0"
-    "\xB6" "MISPLACED ELSE OR ELSEIF OPTION\0"
-    "\xB7" "MISPLACED ENDIF OPTION\0"
-    "\xB8" "CONDITIONAL COMPILATION PARAMETER NAME TOO LONG\0"
-    "\xB9" "MISSING OPERATOR IN CONDITIONAL COMPILATION Expression\0"
-    "\xBA" "INVALID CONDITIONAL COMPILATION CONSTANT, TOO LARGE\0"
-    "\xBB" "LIMIT EXCEEDED: NUMBER OF SAVE LEVELS > 5\0"
-    "\xBC" "MISPLACED RESTORE OPTION\0"
-    "\xBD" "NULL STRING NOT ALLOWED\0"
+    { 0x64, "INVALID STRING CONSTANT IN Expression" },
+    { 0x65, "INVALID ITEM FOLLOWS DOT OPERATOR" },
+    { 0x66, "MISSING PRIMARY OPERAND" },
+    { 0x67, "MISSING ')' AT END OF SUBEXPRESSION" },
+    { 0x68, "ILLEGAL PROCEDURE INVOCATION WITH DOT OPERATOR" },
+    { 0x69, "UNDECLARED IDENTIFIER" },
+    { 0x6A, "INVALID INPUT/OUTPUT PORT NUMBER" },
+    { 0x6B, "ILLEGAL INPUT/OUTPUT PORT NUMBER, NOT NUMERIC CONSTANT" },
+    { 0x6C, "MISSING ')' AFTER INPUT/OUTPUT PORT NUMBER" },
+    { 0x6D, "MISSING INPUT/OUTPUT PORT NUMBER" },
+    { 0x6E, "INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE" },
+    { 0x6F, "INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER" },
+    { 0x70, "UNDECLARED STRUCTURE MEMBER" },
+    { 0x71, "MISSING ')' AT END OF ARGUMENT LIST" },
+    { 0x72, "INVALID SUBSCRIPT, MULTIPLE SUBSCRIPTS ILLEGAL" },
+    { 0x73, "MISSING ')' AT END OF SUBSCRIPT" },
+    { 0x74, "MISSING '=' IN ASSIGNMENT STATEMENT" },
+    { 0x75, "MISSING PROCEDURE NAME IN CALL STATEMENT" },
+    { 0x76, "INVALID INDIRECT CALL, IDENTIFIER NOT AN ADDRESS SCALAR" },
+    { 0x77, "LIMIT EXCEEDED: PROGRAM TOO COMPLEX" },
+    { 0x78, "LIMIT EXCEEDED: Expression TOO COMPLEX" },
+    { 0x79, "LIMIT EXCEEDED: Expression TOO COMPLEX" },
+    { 0x7A, "LIMIT EXCEEDED: PROGRAM TOO COMPLEX" },
+    { 0x7B, "INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL" },
+    { 0x7C, "MISSING ARGUMENTS FOR BUILT-IN PROCEDURE" },
+    { 0x7D, "ILLEGAL ARGUMENT FOR BUILT-IN PROCEDURE" },
+    { 0x7E, "MISSING ')' AFTER BUILT-IN PROCEDURE ARGUMENT LIST" },
+    { 0x7F, "INVALID SUBSCRIPT ON NON-ARRAY" },
+    { 0x80, "INVALID LEFT-HAND OPERAND OF ASSIGNMENT" },
+    { 0x81, "ILLEGAL 'CALL' WITH TYPED PROCEDURE" },
+    { 0x82, "ILLEGAL REFERENCE TO OUTPUT FUNCTION" },
+    { 0x83, "ILLEGAL REFERENCE TO UNTYPED PROCEDURE" },
+    { 0x84, "ILLEGAL USE OF LABEL" },
+    { 0x85, "ILLEGAL REFERENCE TO UNSUBSCRIPTED ARRAY" },
+    { 0x86, "ILLEGAL REFERENCE TO UNSUBSCRIPTED MEMBER ARRAY" },
+    { 0x87, "ILLEGAL REFERENCE TO AN UNQUALIFIED STRUCTURE" },
+    { 0x88, "INVALID RETURN FOR UNTYPED PROCEDURE, VALUE ILLEGAL" },
+    { 0x89, "MISSING VALUE IN RETURN FOR TYPED PROCEDURE" },
+    { 0x8A, "MISSING INDEX VARIABLE" },
+    { 0x8B, "INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS" },
+    { 0x8C, "MISSING '=' FOLLOWING INDEX VARIABLE" },
+    { 0x8D, "MISSING 'TO' CLAUSE" },
+    { 0x8E, "MISSING IDENTIFIER FOLLOWING GOTO" },
+    { 0x8F, "INVALID REFERENCE FOLLOWING GOTO, NOT A LABEL" },
+    { 0x90, "INVALID GOTO LABEL, NOT AT LOCAL OR MODULE LEVEL" },
+    { 0x91, "MISSING 'TO' FOLLOWING 'GO'" },
+    { 0x92, "MISSING ')' AFTER 'AT' RESTRICTED Expression" },
+    { 0x93, "MISSING IDENTIFIER FOLLOWING DOT OPERATOR" },
+    { 0x94, "INVALID QUALIFICATION IN RESTRICTED REFERENCE" },
+    { 0x95, "INVALID SUBSCRIPTING IN RESTRICTED REFERENCE" },
+    { 0x96, "MISSING ')' AT END OF RESTRICTED SUBSCRIPT" },
+    { 0x97, "INVALID OPERAND IN RESTRICTED Expression" },
+    { 0x98, "MISSING ')' AFTER CONSTANT LIST" },
+    { 0x99, "INVALID NUMBER OF ARGUMENTS IN CALL, TOO MANY" },
+    { 0x9A, "INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW" },
+    { 0x9B, "INVALID RETURN IN MAIN PROGRAM" },
+    { 0x9C, "MISSING RETURN STATEMENT IN TYPED PROCEDURE" },
+    { 0x9D, "INVALID ARGUMENT, ARRAY REQUIRED FOR LENGTH OR LAST" },
+    { 0x9E, "INVALID DOT OPERAND, LABEL ILLEGAL" },
+    { 0x9F, "COMPILER ERROR: PARSE STACK UNDERFLOW" },
+    { 0xA0, "COMPILER ERROR: OPERAND STACK UNDERFLOW" },
+    { 0xA1, "COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE" },
+    { 0xA2, "COMPILER ERROR: OPERATOR STACK UNDERFLOW" },
+    { 0xA3, "COMPILER ERROR: GENERATION FAILURE" },
+    { 0xA4, "COMPILER ERROR: SCOPE STACK OVERFLOW" },
+    { 0xA5, "COMPILER ERROR: SCOPE STACK UNDERFLOW" },
+    { 0xA6, "COMPILER ERROR: CONTROL STACK OVERFLOW" },
+    { 0xA7, "COMPILER ERROR: CONTROL STACK UNDERFLOW" },
+    { 0xA8, "COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT" },
+    { 0xA9, "ILLEGAL FORWARD CALL" },
+    { 0xAA, "ILLEGAL RECURSIVE CALL" },
+    { 0xAB, "INVALID USE OF DELIMITER OR RESERVED WORD IN Expression" },
+    { 0xAC, "INVALID LABEL: UNDEFINED" },
+    { 0xAD, "INVALID LEFT SIDE OF ASSIGNMENT: VARIABLE DECLARED WITH DATA ATTRIBUTE" },
+    { 0xAE, "INVALID NULL PROCEDURE" },
+    /* 0xAF */
+    { 0xB0, "INVALID INTVECTOR INTERVAL VALUE" },
+    { 0xB1, "INVALID INTVECTOR LOCATION VALUE" },
+    { 0xB2,
+      "INVALID 'AT' RESTRICTED REFERENCE, EXTERNAL ATTRIBUTE CONFLICTS WITH PUBLIC ATTRIBUTE" },
+    { 0xB3, "OUTER 'IF' MAY NOT HAVE AN 'ELSE' PART" },
+    { 0xB4, "MISSING OR INVALID CONDITIONAL COMPILATION PARAMETER" },
+    { 0xB5, "MISSING OR INVALID CONDITIONAL COMPILATION CONSTANT" },
+    { 0xB6, "MISPLACED ELSE OR ELSEIF OPTION" },
+    { 0xB7, "MISPLACED ENDIF OPTION" },
+    { 0xB8, "CONDITIONAL COMPILATION PARAMETER NAME TOO LONG" },
+    { 0xB9, "MISSING OPERATOR IN CONDITIONAL COMPILATION Expression" },
+    { 0xBA, "INVALID CONDITIONAL COMPILATION CONSTANT, TOO LARGE" },
+    { 0xBB, "LIMIT EXCEEDED: NUMBER OF SAVE LEVELS > 5" },
+    { 0xBC, "MISPLACED RESTORE OPTION" },
+    { 0xBD, "NULL STRING NOT ALLOWED" },
     /* 0XBE, 0XBF, 0XC0, 0XC1, 0XC2, 0XC3, 0XC4, 0XC5, 0XC7 */
-    "\xC8" "LIMIT EXCEEDED: STATEMENT SIZE\0"
-    "\xC9" "INVALID DO CASE BLOCK, AT LEAST ONE CASE REQUIRED\0"
-    "\xCA" "LIMIT EXCEEDED: NUMBER OF ACTIVE CASES\0"
-    "\xCB" "LIMIT EXCEEDED: NESTING OF TYPED PROCEDURE CALLS\0"
-    "\xCC" "LIMIT EXCEEDED: NUMBER OF ACTIVE PROCEDURES AND DO CASE GROUPS\0"
-    "\xCD" "ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED\0"
-    "\xCE" "LIMIT EXCEEDED: CODE SEGMENT SIZE\0"
-    "\xCF" "LIMIT EXCEEDED: SEGMENT SIZE\0"
-    "\xD0" "LIMIT EXCEEDED: STRUCTURE SIZE\0"
-    "\xD1" "ILLEGAL INITIALIZATION OF MORE SPACE THAN DECLARED\0"
-    "\xD2" "ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255\0"
-    "\xD3" "INVALID IDENTIFIER IN 'AT' RESTRICTED REFERENCE\0"
-    "\xD4" "INVALID RESTRICTED REFERENCE IN 'AT', BASE ILLEGAL\0"
-    "\xD5" "UNDEFINED RESTRICTED REFERENCE IN 'AT'\0"
-    "\xD6" "COMPILER ERROR: OPERAND CANNOT BE TRANSFORMED\0"
-    "\xD7" "COMPILER ERROR: EOF READ IN FINAL ASSEMBLY\0"
-    "\xD8" "COMPILER ERROR: BAD LABEL ADDRESS\0"
-    "\xD9" "ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE\0"
-    "\xDA" "ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS\0"
-    "\xDB" "LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255\0" };
+    { 0xC8, "LIMIT EXCEEDED: STATEMENT SIZE" },
+    { 0xC9, "INVALID DO CASE BLOCK, AT LEAST ONE CASE REQUIRED" },
+    { 0xCA, "LIMIT EXCEEDED: NUMBER OF ACTIVE CASES" },
+    { 0xCB, "LIMIT EXCEEDED: NESTING OF TYPED PROCEDURE CALLS" },
+    { 0xCC, "LIMIT EXCEEDED: NUMBER OF ACTIVE PROCEDURES AND DO CASE GROUPS" },
+    { 0xCD, "ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED" },
+    { 0xCE, "LIMIT EXCEEDED: CODE SEGMENT SIZE" },
+    { 0xCF, "LIMIT EXCEEDED: SEGMENT SIZE" },
+    { 0xD0, "LIMIT EXCEEDED: STRUCTURE SIZE" },
+    { 0xD1, "ILLEGAL INITIALIZATION OF MORE SPACE THAN DECLARED" },
+    { 0xD2, "ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255" },
+    { 0xD3, "INVALID IDENTIFIER IN 'AT' RESTRICTED REFERENCE" },
+    { 0xD4, "INVALID RESTRICTED REFERENCE IN 'AT', BASE ILLEGAL" },
+    { 0xD5, "UNDEFINED RESTRICTED REFERENCE IN 'AT'" },
+    { 0xD6, "COMPILER ERROR: OPERAND CANNOT BE TRANSFORMED" },
+    { 0xD7, "COMPILER ERROR: EOF READ IN FINAL ASSEMBLY" },
+    { 0xD8, "COMPILER ERROR: BAD LABEL ADDRESS" },
+    { 0xD9, "ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE" },
+    { 0xDA, "ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS" },
+    { 0xDB, "LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255" }
+};
 
-
-void FlushRecs()
-{
+void FlushRecs() {
     WriteRec(rec8, 1);
     WriteRec(rec6_4, 3);
     WriteRec(rec22, 1);
@@ -237,216 +241,147 @@ void FlushRecs()
     putWord(((rec6_t *)rec6_4)->addr, baseAddr);
 }
 
+void AddWrdDisp(pstr_t *pstr, word arg2w) {
 
-
-void AddWrdDisp(pstr_t *pstr, word arg2w)
-{
-    if (arg2w != 0) { 
+    if (arg2w != 0) {
         if (arg2w > 0x8000) {
             pstr->str[pstr->len] = '-';
-            arg2w = -arg2w;
+            arg2w                = -arg2w;
         } else
             pstr->str[pstr->len] = '+';
         pstr->len++;
-        pstr->len += Num2Asc(arg2w, 0, -16, pstr->str + pstr->len);
+        pstrcat(pstr, hexfmt(0, arg2w));
     }
 }
 
-
-void EmitLinePrefix()
-{
-    if (! linePrefixChecked && listing) {
+void EmitLinePrefix() {
+    if (!linePrefixChecked && listing) {
         SetStartAndTabW(15, 4);
-        if (stmtCnt != 0)
-            LstLineNo();
+        if (stmtCnt)
+            lprintf("%4d", stmtCnt);
         TabLst(-7);
-        if (blkCnt < 10) {
-            PutLst(' ');
-            PutLst(digits[blkCnt]);
-        }
+        if (blkCnt)
+            lprintf("%2d", blkCnt);
         else
-            XnumLst(blkCnt, 2, 10);
-        if (srcFileIdx != 0) { 
+            lstStr("  ");
+        if (srcFileIdx) {
             TabLst(-11);
-            XwrnstrLst("=", 1);
-            if (srcFileIdx != 10) 
-                XnumLst(srcFileIdx / 10 - 1, 1, 10);
+            lstc('=');
+            if (srcFileIdx != 1)
+                lprintf("%d", srcFileIdx - 1);
         }
-        if (lstLineLen > 0) {
+        if (lstLineLen) {
             TabLst(-15);
-            XwrnstrLst(lstLine, lstLineLen);
-        }
+            lstStr(lstLine);
+        } else
+            lstc('\n');
 
-        NewLineLst();
         linePrefixEmitted = true;
     }
     linePrefixChecked = true;
-    listing = ! listOff && PRINT;
+    listing           = !listOff && PRINT;
 }
 
-
-
-void EmitStatementNo()
-{
+void EmitStatementNo() {
     EmitLinePrefix();
     TabLst(-50);
-    XwrnstrLst("; STATEMENT # ", 14);
-    XnumLst(stmtNo, 0, 0xA);
-    NewLineLst();
+    lprintf("; STATEMENT # %d\n", stmtNo);
 }
 
-
-void EmitLabel()
-{
-    if (codeOn) { 
+void EmitLabel() {
+    if (codeOn) {
         EmitLinePrefix();
         TabLst(-26);
-        XwrnstrLst(&locLabStr[1], locLabStr[0]);
-        XwrnstrLst(":", 1);
-        NewLineLst();
+        lprintf("%.*s:\n", locLabStr[0], locLabStr + 1);
     }
 }
 
-static  word errOff, errLen;
-
-void FindErrStr()
-{
-    word p, q;
-
-    q = 0;
-    while (errStrings[q] != 0) {
-        p = q;
-        while (errStrings[q] != 0)
-            q = q + 1;
-        if (errStrings[p] == errData.num) {
-            errOff = p + 1;
-            errLen = q - errOff;
-            return;
-        }
-        q = q + 1;
-    }
-    errLen = 0;
+char const *FindErrStr() {
+    for (int i = 0;
+         i < sizeof(errStrings) / sizeof(errStrings[0]) && errStrings[i].errCode <= errData.num;
+         i++)
+        if (errStrings[i].errCode == errData.num)
+            return errStrings[i].errStr;
+    return "UNKNOWN ERROR";
 }
 
-void EmitError()
-{
+void EmitError() {
 
     programErrCnt++;
     if (PRINT) {
         linePrefixChecked = linePrefixEmitted;
-        listing = true;
+        listing           = true;
         EmitLinePrefix();
-        XwrnstrLst("*** ERROR #", 11);
-        XnumLst(errData.num, 0, 10);
-        XwrnstrLst(", ", 2);
-        if (errData.stmt != 0)
-        {
-            XwrnstrLst("STATEMENT #", 11);
-            XnumLst(errData.stmt, 0, 10);
-            XwrnstrLst(", ", 2);
-        }
-        if (errData.info != 0)
-        { 
-            XwrnstrLst("NEAR '", 6);
-            curInfoP = errData.info + botInfo;
+        lprintf("*** ERROR #%d, ", errData.num);
+        if (errData.stmt)
+            lprintf("STATEMENT #%d, ", errData.stmt);
+        if (errData.info) {
+            lstStr("NEAR '");
+            curInfoP   = errData.info + botInfo;
             curSymbolP = GetSymbol();
             if (curSymbolP != 0)
-                XwrnstrLst(SymbolP(curSymbolP)->name.str, SymbolP(curSymbolP)->name.len);
+                lstPstr(&SymbolP(curSymbolP)->name);
             else
-                Xputstr2cLst("<LONG CONSTANT>", 0);
-            XwrnstrLst("', ", 3);
+                lstStr("<LONG CONSTANT>");
+            lstStr("', ");
         }
-        FindErrStr();
-        TabLst(2);
-        if (errLen == 0) 
-            XwrnstrLst("UNKNOWN ERROR", 13);
-        else
-            XwrnstrLst((char *) & errStrings[errOff], (byte)errLen);
-        NewLineLst();
+        lprintf("  %s\n", FindErrStr());
     }
 }
 
-void FatalError_ov46(byte arg1b)
-{
+void FatalError_ov46(byte arg1b) {
     errData.num = fatalErrorCode = arg1b;
-    errData.info = 0;
-    errData.stmt = stmtNo;
+    errData.info                 = 0;
+    errData.stmt                 = stmtNo;
     EmitError();
     longjmp(exception, -1);
 }
 
-void ListCodeBytes()
-{
+void ListCodeBytes() {
     byte i;
-    if (codeOn) { 
+    if (codeOn) {
         if (opByteCnt > 0) {
             TabLst(-12);
-            XnumLst(baseAddr, -4, 0x10);
+            lprintf("%04X", baseAddr);
             i = 0;
             TabLst(-18);
-            while (i < opByteCnt) {
-                XnumLst(opBytes[i], -2, 0x10);
-                i = i + 1;
-            }
+            for (int i = 0; i < opByteCnt; i++)
+                lprintf("%02X", opBytes[i]);
         }
         TabLst(-26);
         SetStartAndTabW(26, 8);
-        XwrnstrLst((char *)&line[1], line[0]);
+        lstPstr((pstr_t *)line);
         NewLineLst();
     }
 }
 
-
-
-static byte crCnt;
-
-
-static byte GetSourceCh()
-{
-    if (offCurCh == offLastCh) {
-        while (1) {
-            ReadF(&srcFil, srcbuf, 1280, &offLastCh);       // uses larger i/o buffer 
-            offCurCh = 0;
-            if (offLastCh > 0)
-                break;     /* there are more chars */
-            if (lstLineLen != 0)       /* we already have a part line */
-                return '\n';
-
-            if (srcFileIdx == 0) {     /* top level file */
-                if (crCnt != 0)    /* allow file to finish with cr */
-                    return '\n';
-                else
-                    FatalError(ERR215);
-            }
-            CloseF(&srcFil);        /* unnest include file */
-            srcFileIdx = srcFileIdx - 10;
-            InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]);
-            OpenF(&srcFil, 1);
-            SeekF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-        }
-        offLastCh = offLastCh - 1;      /* correct for 0 index */
-    } else
-        offCurCh = offCurCh + 1;        /* advance to next char */
-    return srcbuf[offCurCh] & 0x7f;       /* remove High() bits */
-}
-
-
-
-void GetSourceLine()
-{
-    lstLineLen = 0;
-    crCnt = 0;
-
-    while (1) {
-        lstLine[lstLineLen] = GetSourceCh();
-        if (lstLine[lstLineLen] == '\n') {
-            linePrefixChecked = false;
-            linePrefixEmitted = false;
-            return;
-        } else if (lstLine[lstLineLen] == '\r')
-            crCnt++;
-        else if (lstLine[lstLineLen] != '\r' && lstLineLen < 128)
-            lstLineLen++;
+static byte GetSourceCh() {
+    int c;
+    for (;;) {
+        if ((c = fgetc(srcFil.fp)) == '\r')
+            continue;
+        if (c != EOF)
+            return c & 0x7f;
+        if (lstLineLen != 0)
+            return '\n';
+        if (srcFileIdx == 0) /* top level file */
+            PFatalError(ERR215);
+        if (fclose(srcFil.fp))
+            IoError(srcFil.fNam, "Close error");
+        srcFil = srcFileTable[--srcFileIdx];
     }
 }
 
+void GetSourceLine() {
+    lstLineLen = 0;
+    while (1) {
+        lstLine[lstLineLen] = GetSourceCh();
+        if (lstLine[lstLineLen] == '\n') {
+            lstLine[lstLineLen + 1] = '\0'; // make a C string
+            linePrefixChecked       = false;
+            linePrefixEmitted       = false;
+            return;
+        } else if (lstLineLen < MAXLINE)
+            lstLineLen++;
+    }
+}

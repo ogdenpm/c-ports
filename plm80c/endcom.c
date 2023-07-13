@@ -10,17 +10,9 @@
 
 #include "plm.h"
 
-
-static char endMsg[] = "PL/M-80 COMPILATION COMPLETE.  ";
-static char errMsg[] = "XXXXX PROGRAM ERROR";
-
 void EndCompile()
 {
-	Num2Asc(programErrCnt, 5, 10, errMsg);
-	PrintStr(endMsg, Length(endMsg));
-	PrintStr(errMsg, Length(errMsg));
-	if (programErrCnt != 1 )
-		PrintStr("S", 1);
-	PrintStr("\r\n\r\n", 4);
+    printf("PL/M-80 COMPILATION COMPLETE.  %-5d PROGRAM ERROR%s\n\n", programErrCnt, programErrCnt == 1 ? "" : "S");
+
 }	
 

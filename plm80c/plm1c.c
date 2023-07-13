@@ -146,14 +146,14 @@ word InitialValueList(offset_t infoOffset)
     word p;
 
     p = 0;
-    WrAtFileByte(ATI_DHDR);
-    WrAtFileWord(infoOffset - botInfo);     // normalise
-    WrAtFileWord(curStmtNum);
+    WrAtByte(ATI_DHDR);
+    WrAtWord(infoOffset - botInfo);     // normalise
+    WrAtWord(curStmtNum);
     while (1) {
         if (MatchTx1Item(L_STRING)) {       // string initialisation
-            WrAtFileByte(ATI_STRING);
-            WrAtFileWord(tx1Item.dataw[0]); // write length
-            WrAtFile((pointer)&tx1Item.dataw[1], tx1Item.dataw[0]); // and the string
+            WrAtByte(ATI_STRING);
+            WrAtWord(tx1Item.len); // write length
+            WrAtBuf(tx1Item.str, tx1Item.len); // and the string
             curInfoP = infoOffset;
             if (GetType() == ADDRESS_T)     // count items written (scaled by 2 if address)
                 p += (tx1Item.dataw[0] + 1) / 2;
@@ -161,8 +161,8 @@ word InitialValueList(offset_t infoOffset)
                 p += tx1Item.dataw[0];
         } else {                            
             RestrictedExpression();         // get the restricted Expression
-            WrAtFileByte(ATI_DATA);
-            WrAtFile((pointer)&var, sizeof(var));   // and write the info
+            WrAtByte(ATI_DATA);
+            WrAtBuf((pointer)&var, sizeof(var));   // and write the info
             p++;
         }
         if (NotMatchTx1Item(L_COMMA))       // keep going if comma
@@ -173,7 +173,7 @@ word InitialValueList(offset_t infoOffset)
             break;
         }
     }
-    WrAtFileByte(ATI_END);
+    WrAtByte(ATI_END);
     ExpectRParen(152);  /* MISSING ') ' AFTER CONSTANT LIST */
     curInfoP = infoOffset;;
     return p;                               // items read i.e. dimension
@@ -187,7 +187,7 @@ void ResetStacks()
 void PushParseWord(word arg1w)
 {
     if (parseSP == 99)
-        FatalError(ERR119);    /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+        PFatalError(ERR119);    /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
     parseStack[++parseSP] = arg1w;
 }
 
@@ -195,7 +195,7 @@ void PushParseWord(word arg1w)
 void PopParseStack()
 {
     if (parseSP == 0)
-        FatalError(159);    /* COMPILER ERROR: PARSE STACK UNDERFLOW */
+        PFatalError(159);    /* COMPILER ERROR: PARSE STACK UNDERFLOW */
     parseSP = parseSP - 1;
 }
 
@@ -208,7 +208,7 @@ void PushParseByte(byte arg1b)
 static void ExprPush3(byte arg1b, byte arg2b, word arg3w)
 {
     if (exSP == EXPRSTACKSIZE - 1)
-        FatalError(121);    /* LIMIT EXCEEDED: Expression TOO COMPLEX */
+        PFatalError(121);    /* LIMIT EXCEEDED: Expression TOO COMPLEX */
     ex1Stack[++exSP] = arg1b;
     ex2Stack[exSP] = arg2b;
     ex3Stack[exSP] = arg3w;
@@ -217,7 +217,7 @@ static void ExprPush3(byte arg1b, byte arg2b, word arg3w)
 void ExprPop()
 {
     if (exSP == 0)
-        FatalError(160);    /* COMPILER Error: OPERAND STACK UNDERFLOW */
+        PFatalError(160);    /* COMPILER Error: OPERAND STACK UNDERFLOW */
     exSP = exSP - 1;
 }
 
@@ -229,7 +229,7 @@ static void SwapOperandStack()
     word op3;
 
     if (exSP < 2)
-        FatalError(161);    /* COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE */
+        PFatalError(161);    /* COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE */
     i = exSP - 1;
     op1 = ex1Stack[exSP];
     op2 = ex2Stack[exSP];
@@ -250,7 +250,7 @@ void ExprPush2(byte icode, word val)
 static void StmtPush3(byte arg1b, byte arg2b, word arg3w)
 {
     if (stSP == 299)
-        FatalError(122);    /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX   */
+        PFatalError(122);    /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX   */
     st1Stack[stSP = stSP + 1] = arg1b;
     st2Stack[stSP] = arg2b;
     st3Stack[stSP] = arg3w;
@@ -265,7 +265,7 @@ void MoveExpr2Stmt()
 void PushOperator(byte arg1b)
 {
     if (operatorSP == 0x31)
-        FatalError(120);    /* LIMIT EXCEEDED: Expression TOO COMPLEX */
+        PFatalError(120);    /* LIMIT EXCEEDED: Expression TOO COMPLEX */
     operatorStack[operatorSP = operatorSP + 1] = arg1b;
 }
 
@@ -273,7 +273,7 @@ void PushOperator(byte arg1b)
 void PopOperatorStack()
 {
     if (operatorSP == 0)
-        FatalError(162);    /* COMPILER Error: OPERATOR STACK UNDERFLOW */
+        PFatalError(162);    /* COMPILER Error: OPERATOR STACK UNDERFLOW */
     operatorSP = operatorSP - 1;
 }
 
@@ -286,7 +286,7 @@ void ExprMakeNode(byte icode, byte argCnt)
     w = stSP + 1;               // note base of where args will be on stmt stack
 
     if (exSP < argCnt)
-        FatalError(ERR163);    /* COMPILER ERROR: GENERATION FAILURE  */
+        PFatalError(ERR163);    /* COMPILER ERROR: GENERATION FAILURE  */
     j = exSP - argCnt + 1;
     i = argCnt;
     while (i != 0) {            // push the arg information to the stmt statck

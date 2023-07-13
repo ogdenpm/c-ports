@@ -4001,7 +4001,7 @@ void readcd() {
 
 bool doBuiltin(int val) {
     int i, j, k, m;
-    int ip, jp, kp;
+    int ip, kp;
     int ia, ib;
 
     _delete(1);

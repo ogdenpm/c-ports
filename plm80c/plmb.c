@@ -158,7 +158,8 @@ void SetDate(char *str, byte len)
     if (len > 9)
         len = 9;
     memset(DATE, ' ', 9);
-    memmove(DATE, str, len);
+    memcpy(DATE, str, len);
+    DATE[9] = '\0';
 } /* SetDate() */
 
 

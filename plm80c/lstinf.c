@@ -20,43 +20,16 @@ void LstModuleInfo()
 		if (r > p )
 			p = r;
 	}
-	SetSkipLst(3);
-	Xputstr2cLst("MODULE INFORMATION:", 0);
-	NewLineLst();
-	SetSkipLst(1);
-	TabLst(5);
-	Xputstr2cLst("CODE AREA SIZE     = ", 0);
-	XnumLst(csegSize, 0xFC, 0xF0);
-	TabLst(2);
-	XnumLst(csegSize, 5, 0xF6);
-	NewLineLst();
-	TabLst(5);
-	Xputstr2cLst("VARIABLE AREA SIZE = ", 0);
-	XnumLst(dsegSize, 0xFC, 0xF0);
-	TabLst(2);
-	XnumLst(dsegSize, 5, 0xF6);
-	NewLineLst();
-	TabLst(5);
-	Xputstr2cLst("MAXIMUM STACK SIZE = ", 0);
-	XnumLst(p, 0xFC, 0xF0);
-	TabLst(2);
-	XnumLst(p, 5, 0xF6);
-	NewLineLst();
-	TabLst(5);
-	XnumLst(linesRead, 0, 0xA);
-	Xputstr2cLst(" LINES READ", 0);
-	NewLineLst();
-	TabLst(5);
-	XnumLst(programErrCnt, 0, 0xA);
-	Xputstr2cLst(" PROGRAM ERROR", 0);
-	if (programErrCnt != 1)
-		Xputstr2cLst("S", 0);
-
-	NewLineLst();
-	SetSkipLst(1);
-	Xputstr2cLst("END OF PL/M-80 COMPILATION", 0);
-	NewLineLst();
-	FlushLstBuf();
-	CloseF(&lstFil);
-	lfOpen = false;
+    SetSkipLst(3);
+	lstStr("MODULE INFORMATION:\n");
+    SetSkipLst(1);
+	lprintf("     CODE AREA SIZE     = %s  %5dD\n", hexfmt(4, csegSize)->str, csegSize );
+    lprintf("     VARIABLE AREA SIZE = %s  %5dD\n", hexfmt(4, dsegSize)->str, dsegSize);
+    lprintf("     MAXIMUM STACK SIZE = %s  %5dD\n", hexfmt(4, p)->str, p);
+    lprintf("     %d LINES READ\n", linesRead);
+    lprintf("     %d PROGRAM ERROR%s\n", programErrCnt, programErrCnt != 1 ? "S" : "");
+    SetSkipLst(1);
+    lprintf("END OF PL/M-80 COMPILATION\n");
+	fclose(lstFile.fp);
+    lstFile.fp = NULL;
 }

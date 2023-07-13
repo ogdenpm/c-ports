@@ -117,29 +117,7 @@ void dumpBuf(file_t *fp)
     putchar('\n');
 }
 
-void copyFile(char const *src, char const *dst) // handles isis src file name
-{
-    byte buffer[2048];
-    word actual, status;
-    word srcfd;
-    FILE *dstfp;
 
-    Open(&srcfd, src, READ_MODE, 0, &status);
-    dstfp = fopen(dst, "wb");
-    if (status != 0 || dstfp == NULL) {
-        fprintf(stderr, "copyFile(%s, %s) fatal error\n", src, dst);
-        Exit();
-    }
-    
-    while (1) {
-        Read(srcfd, buffer, sizeof(buffer), &actual, &status);
-        if (actual == 0 || status != 0)
-            break;
-        fwrite(buffer, 1, actual, dstfp);
-    }
-    Close(srcfd, &status);
-    fclose(dstfp);
-}
 
 char *tx2NameTable[] = {
     "T2_LT", "T2_LE", "T2_NE", "T2_EQ", "T2_GE",
@@ -213,17 +191,6 @@ char *lexItems[] = {
 };
 
 
-static int getFileWord(FILE *fp)
-{
-    int cl = getc(fp);
-    int ch = getc(fp);
-    if (cl == EOF || ch == EOF) {
-        fprintf(stderr, "premature EOF in getFileWord\n");
-        return EOF;
-    }
-    return ch * 256 + cl;
-}
-
 void DumpLexStream() // to be used after Start1
 {
     FILE *fp;
@@ -233,68 +200,66 @@ void DumpLexStream() // to be used after Start1
     sym_t *sym;
     char inc[18];
     size_t ignore;     // gcc complains if result of fread is ignored
+    byte len;
+    vfile_t *vf = &utf1;
 
-    if ((fp = Fopen(tx1File.fNam, "rb")) == NULL) {
-        fprintf(stderr, "can't open lex stream\n");
-        return;
-    }
+    vfRewind(vf);
     if ((fpout = fopen("lex.dmp", "w")) == NULL) {
         fprintf(stderr, "can't create lex.dmp\n");
-        fclose(fp);
         return;
     }
-    while ((c = getc(fp)) != EOF) {
+    while ((c = vfRbyte(vf)) != EOF) {
         if (c > L_EXTERNAL)
             fprintf(fpout, "Invalid lex item %d\n", c);
         else {
             fprintf(fpout, "%s", lexItems[c]);
             switch (c) {
             case L_LINEINFO:
-                w1 = getFileWord(fp);
-                w2 = getFileWord(fp);
-                w3 = getFileWord(fp);
+                w1 = vfRword(vf);
+                w2 = vfRword(vf);
+                w3 = vfRword(vf);
                 fprintf(fpout, " line %d, stmt %d, blk %d", w1, w2, w3);
                 break;
             case L_SYNTAXERROR:
-                fprintf(fpout, " %d", getFileWord(fp));
+                fprintf(fpout, " %d", vfRword(vf));
                 break;
             case L_TOKENERROR:
-                w1 = getFileWord(fp);
-                sym = SymbolP(getFileWord(fp));
+                w1 = vfRword(vf);
+                sym = SymbolP(vfRword(vf));
                 if (sym == NULL)
                     fprintf(fpout, " %d -NULL-", w1);
                 else
                     fprintf(fpout, "%d %.*s", w1, sym->name.len, sym->name.str);
                 break;
             case L_STRING:
-                w1 = getFileWord(fp);
+                w1 = vfRword(vf);
                 fprintf(fpout, " %d '", w1);
-                while (w1-- > 0 && (c = getc(fp)) != EOF)
+                while (w1-- > 0 && (c = vfRbyte(vf)) != EOF)
                     putc(c, fpout);
                 putc('\'', fpout);
                 break;
             case L_NUMBER: case L_STMTCNT: case L_LABELDEF: case L_LOCALLABEL: case L_JMP: case L_JMPFALSE:
             case L_SCOPE: case L_CASELABEL:
-                w1 = getFileWord(fp);
+                w1 = vfRword(vf);
                 if (c != L_SCOPE)
                     fprintf(fpout, " %d", w1);
                 if (c == L_SCOPE || (c == L_NUMBER && w1 > 9))
                     fprintf(fpout, " [%04X]", w1);
                 break;
             case L_IDENTIFIER:
-                sym = SymbolP(getFileWord(fp));
+                sym = SymbolP(vfRword(vf));
                 if (sym == NULL)
                     fprintf(fpout, " -NULL-");
                 else
                     fprintf(fpout, " %.*s", sym->name.len, sym->name.str);
                 break;
             case L_AT: case L_INITIAL: case L_DATA:
-                //w1 = getFileWord(fp);
+                //w1 = vfRword(vf);
                 //fprintf(fpout, " info [%04X]", w1);
                 //break;
             case L_PROCEDURE:
             case L_XREFUSE: case L_XREFDEF: case L_EXTERNAL:
-                w1 = getFileWord(fp);
+                w1 = vfRword(vf);
                 if (w1 == 0)
                     fprintf(fpout, " -NULL-");
                 else {
@@ -303,11 +268,11 @@ void DumpLexStream() // to be used after Start1
                 }
                 break;
             case L_INCLUDE:
-                ignore = fread(inc + 12, 1, 6, fp);
-                ignore = fread(inc + 6, 1, 6, fp);
-                ignore = fread(inc, 1, 6, fp);
-                fprintf(fpout, " %.16s", inc);
-                (void)ignore;   // remove compliant that ignore is set but not used
+                {
+                    int c;
+                    while ((c = vfRbyte(vf)) > 0)
+                        fputc(c, fpout);
+                }
                 break;
             }
             putc('\n', fpout);

@@ -10,41 +10,39 @@
 
 #include "plm.h"
 
-void PutLst(byte ch)
-{
-    byte i;
+void lstc(byte ch) {
     if (col == 0) {
-        if (linLft == 0)
-            NewPgl();
-        else if (linLft <= skipCnt)
+        if (linLft == 0 || linLft <= skipCnt)
             NewPgl();
         else
             while (skipCnt != 0) {
-                WrcLst('\n');
+                WrLstC('\n');
                 linLft--;
                 skipCnt--;
             }
+        col = 0;
     } else if (col >= PWIDTH)
         NlLead();
-
 
     if (ch == '\t') {
         if (col < margin)
             return;
-        i = tWidth - (col - margin) % tWidth;
+        byte i = tWidth - (col - margin) % tWidth;
         if (col + i >= PWIDTH) {
             NlLead();
             return;
         }
         while (i-- != 0) {
-            WrcLst(' ');
+            WrLstC(' ');
             col++;
         }
     } else {
-        WrcLst(ch);
-        if (ch == '\r')
-            col = 0;
-        else
+        if (ch == '\n')
+            NewLineLst();
+        else {
+            WrLstC(ch);
             col++;
+        }
     }
+
 }

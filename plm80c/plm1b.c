@@ -30,11 +30,13 @@ void GetTx1Item()
         } else if ((tx1Item.type == L_XREFUSE && XREF)
               || (tx1Item.type == L_XREFDEF && (IXREF || XREF || SYMBOLS))) {
             tx1Item.dataw[1] = curStmtNum;
-            Fwrite(&xrfFile, &tx1Item, 5);             // write the L_XREFUSE/L_XREFDEF infoP and stmtNum to xrfFile
+            vfWbyte(&xrff, tx1Item.type);// write the L_XREFUSE/L_XREFDEF infoP and stmtNum to xrfFile
+            vfWword(&xrff, tx1Item.dataw[0]);
+            vfWword(&xrff, tx1Item.dataw[1]);          
         } else if (tx1Item.type == L_LINEINFO) {
             if (tx2LinfoPending)                                // write any pending lInfo
-                WrTx2File((pointer)&linfo, 7);
-            memcpy(&linfo, &tx1Item, 7);                        // copy new info
+                Wr2OptLineInfo();
+            memcpy(&linfo.lineCnt, tx1Item.dataw, 3 * sizeof(word));
             linfo.type = T2_LINEINFO;                           // update T2 code
             tx2LinfoPending = true;                             // flag as pending
         } else if ((tx1Aux2 & 0x20) != 0)                       // pass through
@@ -151,17 +153,17 @@ void GetVariable()
     }
 }
 
-void WrAtFile(pointer buf, word cnt)
+void WrAtBuf(pointer buf, word cnt)
 {
-    Fwrite(&atFile, buf, cnt);
+    vfWbuf(&atf, buf, cnt);
 }
 
-void WrAtFileByte(byte arg1b)
+void WrAtByte(byte arg1b)
 {
-    WrAtFile(&arg1b, 1);
+    vfWbyte(&atf, arg1b);
 }
 
-void WrAtFileWord(word arg1w)
+void WrAtWord(word arg1w)
 {
-    WrAtFile((pointer)&arg1w, 2);
+    vfWword(&atf, arg1w);
 }

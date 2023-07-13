@@ -516,7 +516,9 @@ static void EmitSource()
 {
     word p[3], s, t;
 
-    Fread(&tx1File, p, 6);
+    p[0] = Rd1Word();
+    p[1] = Rd1Word();
+    p[2] = Rd1Word();
     if (p[1] > 0 || p[2] == 0)
         s = p[0];
     else {
@@ -537,12 +539,12 @@ static void EmitSource()
 static void AddrCheck(word arg1w)
 {
     if (arg1w != baseAddr)
-        FatalError(0xD8);
+        PFatalError(0xD8);
 }
 
 static void NewStatementNo()
 {
-    Fread(&tx1File, &stmtNo, 2);
+    stmtNo = Rd1Word();
     if (stmtNo == 0)
         return;
     if (DEBUG) { 
@@ -560,17 +562,16 @@ static void NewStatementNo()
 
 static void EmitLocalLabel()
 {
-    Fread(&tx1File, &w96D7, 2);
-    locLabStr[1] = '@';
-    locLabStr[0] = Num2Asc(w96D7, 0, 10, &locLabStr[2]) + 1;
+    w96D7 = Rd1Word();
+    locLabStr[0] = sprintf(locLabStr + 1, "@%d", w96D7);
     AddrCheck(WordP(localLabelsP)[w96D7]);
     EmitLabel();
 }
 
 static void EmitSymLabel()
 {
-    Fread(&tx1File, &curInfoP, 2);
-    curInfoP = curInfoP + botInfo;
+    curInfoP = vfRword(&utf1);
+    curInfoP += botInfo;
     curSymbolP = GetSymbol();
     locLabStr[0] = SymbolP(curSymbolP)->name.len;
     memmove(&locLabStr[1], SymbolP(curSymbolP)->name.str, locLabStr[0]);
@@ -580,7 +581,7 @@ static void EmitSymLabel()
 
 static void EmitSimpleError()
 {
-    Fread(&tx1File, &errData, 2);
+    errData.num = Rd1Word();
     errData.info = 0;
     errData.stmt = stmtNo;
     EmitError();
@@ -589,14 +590,17 @@ static void EmitSimpleError()
 
 static void EmitNearError()
 {
-    Fread(&tx1File, &errData, 4);
+    errData.num = Rd1Word();
+    errData.info = Rd1Word();
     errData.stmt = stmtNo;
     EmitError();
 }
 
 static void EmitFullError()
 {
-    Fread(&tx1File, &errData, 6);
+    errData.num  = Rd1Word();
+    errData.info = Rd1Word();
+    errData.stmt = Rd1Word();
     EmitError();
 }
 
@@ -604,9 +608,9 @@ static void EmitFullError()
 
 static void SetNewAddr()
 {
-    Fread(&tx1File, &curInfoP, 2);
-    Fread(&tx1File, &baseAddr, 2);
-    curInfoP = curInfoP + botInfo;
+    curInfoP = Rd1Word();
+    baseAddr = Rd1Word();
+    curInfoP += botInfo;
     baseAddr += GetLinkVal();
     FlushRecs();
 }
@@ -614,11 +618,11 @@ static void SetNewAddr()
 
 void Sub_54BA()
 {
-    Fread(&tx1File, &cfCode, 1);
+    cfCode = Rd1Byte();
     if (cfCode == T2_LINEINFO)
         EmitSource();
     else if (cfCode == 0x86)
-        Fread(&tx1File, &stmtNo, 2);
+        Rd1Word(stmtNo);
     else if (cfCode == T2_STMTCNT)
         NewStatementNo();
     else if (cfCode == T2_LOCALLABEL || cfCode == T2_CASELABEL)
@@ -632,7 +636,7 @@ void Sub_54BA()
     else if (cfCode == T2_TOKENERROR)
         EmitNearError();
     else if (T2_LIST <= cfCode && cfCode <= T2_INCLUDE)
-        MiscControl(&tx1File);
+        MiscControl(&utf1);
     else if (cfCode == T2_EOF)
         bo812B = false;
     else if (cfCode == T2_ERROR)

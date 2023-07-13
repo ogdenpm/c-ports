@@ -12,8 +12,6 @@
 
 void PrintStr(char const *str, byte len)
 {
-	word status;
-
-	Write(0, str, len, &status);
+    printf("%.*s", len, str);
 } /* PrintStr() */
 

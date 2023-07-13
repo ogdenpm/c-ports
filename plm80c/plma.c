@@ -9,8 +9,10 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include <ctype.h>
+#include "os.h"
+extern char *cmdP;      // command line current position
 
-static char signonMsg[] = "\r\nISIS-II PL/M-80 COMPILER ";
 static char noMemMsg[] = "NOT ENOUGH MEMORY FOR A COMPILATION";
 static char aIxi[] = ".IXI";
 static char aObj[] = ".OBJ";
@@ -28,14 +30,9 @@ char *cmdTextP;
 
 static void SkipSpace()
 {
-    while (*cmdTextP == ' ' || *cmdTextP == '&') {
-        if (*cmdTextP == ' ')
-            cmdTextP++;
-        else if (CmdP(cmdLineP)->link) {
-            cmdLineP = CmdP(cmdLineP)->link;
-            cmdTextP = CmdP(cmdLineP)->pstr.str;
+    while (*cmdTextP == ' ' || *cmdTextP == '\r') {
+        cmdTextP++;
         }
-    }
 } /* SkipSpace() */
 
 #if 0
@@ -64,153 +61,80 @@ static void SkipAlphaNum()
 
 
 
-static void GetCmdLine()
-{
-    word actual, status;
-    byte i;
-    bool inQuote;
-
-    Rescan(1, &status);     // no need for LocalRescan
-    if (status != 0)
-        FatlIO(&conFile, status);
-    startCmdLineP = 0;
-    cmdLineP = topMem;
-
-    for (;;) {
-        ReadF(&conFile, ioBuffer, 128, &actual);
-        if (ioBuffer[actual - 1] != '\n' || ioBuffer[actual - 2] != '\r')
-            Fatal(aInvocationComm, Length(aInvocationComm));
-        topMem = cmdLineP - (sizeof(cmd_t) + actual);
-        if (startCmdLineP == 0)
-            startCmdLineP = topMem;
-        else
-            CmdP(cmdLineP)->link = topMem;
-        cmdLineP = topMem;
-        CmdP(cmdLineP)->pstr.len = (byte)actual;
-        memmove(&CmdP(cmdLineP)->pstr.str, ioBuffer, actual);
-        inQuote = false;
-        for (i = 0; i < actual; i++) {
-            if (ioBuffer[i] == QUOTE)
-                inQuote = ! inQuote;
-            else if (ioBuffer[i] == '&')
-                if (! inQuote)
-                    goto extend;
-        }
-        CmdP(cmdLineP)->link = 0;
-        cmdLineP = startCmdLineP;
-        topMem = topMem - 1;
-        return;
-    extend:
-        PrintStr("**", 2);
-    }
-} /* GetCmdLine() */
-
-static void ParseInvokeName()
-{
-    //pointer startP;
-    //word len;
-    //word p;
-
-    SkipSpace();
-//    debugFlag = TestToken("DEBUG", 5);        // cannot occur under windows
-//    SkipSpace();
-    //startP = cmdTextP;
-    if (*cmdTextP == ':')
-        cmdTextP += 4;    // skip drive
-    SkipAlphaNum();
-    //if ((len = (word)(cmdTextP - startP)) > 10)
-    //    len = 10;
-    /* plm had the overlay & invokename (ov0) split out
-     * I have combined them to avoid spaces in address ranges
-     * note invokeName is now overlay[0]
-     * overlayN is now overlay[N]
-     * In the end this code is not actually needed as overlays are
-     * handled differently
-     */
-    //for (p = 0; p <= 6; p++) {
-    //    memmove(overlay[p], startP, len);               // copy fileName
-    //    memmove(overlay[p] + len, overlay[p] + 10, 5);  // move up the ext
-    //}
-} /* ParseInvokeName() */
-
     
 static void ParseSrcFileName()
 {
-    char *fullName;
     char *fileName;
     word nameLen;
 
-    while (*cmdTextP != ' ' && *cmdTextP != '\r' && *cmdTextP != '&')
+    while (*cmdTextP != ' ' && *cmdTextP != '\r')   // skip invoke name
         cmdTextP++;
     SkipSpace();
-    fullName = cmdTextP;
-    if (*cmdTextP == ':') {
-        if (cmdTextP[3] != ':')
-            Fatal(aIncorrectDevice, Length(aIncorrectDevice));
-        if (cmdTextP[1] >= 'a')
-            cmdTextP[1] &= 0x5F;
-        if (cmdTextP[1] != 'F')
-            Fatal(aSourceFileNotDisk, Length(aSourceFileNotDisk));
-        cmdTextP += 4;
+    char *endChrs = " \r\n";
+    if (*cmdTextP == '\'') {
+        endChrs = "\'\r\n";
+        cmdTextP++;
     }
     fileName = cmdTextP;
-    SkipAlphaNum();
-    if ((nameLen = (word)(cmdTextP - fileName)) == 0 || nameLen > 6)
-        Fatal(aSourceFileName, Length(aSourceFileName));
-    srcStemLen = (byte)(cmdTextP - fullName);
-    memset(srcStemName, ' ', 10);
-    memmove(srcStemName, fullName, srcStemLen);
-    if (*cmdTextP == '.') {
-        fileName = ++cmdTextP;
-        SkipAlphaNum();
-        if ((nameLen = (word)(cmdTextP - fileName)) == 0 || nameLen > 3)
-            Fatal(aSourceFileBadExt, Length(aSourceFileBadExt));
+    cmdTextP            = strpbrk(fileName, endChrs);
+    if (!cmdTextP)
+        cmdTextP = strchr(fileName, '\0');
+    nameLen = (word)(cmdTextP - fileName);
+    if (*endChrs == '\'') {
+        if (*cmdTextP != '\'')
+            Fatal("Missing quote at end of file name", (byte)strlen("Missing quote at end of file name"));
+        cmdTextP++;
+        nameLen--;
     }
-    nameLen = (word)(cmdTextP - fullName);
-    srcFileIdx = 0;
-    memset(srcFileTable, ' ', 16);
-    memmove(srcFileTable, fullName, nameLen);
-    memset(&srcFileTable[8], 0, 4);
+    if (nameLen == 0)
+        Fatal("No source file", (byte)strlen("No source file"));
+    char *fNam           = xmalloc(nameLen + 1);
+    memcpy(fNam, fileName, nameLen);
+    fNam[nameLen]        = '\0';
+    srcFileTable[0].fNam = fNam;
     SkipSpace();
     if (*cmdTextP == '$')
         Fatal(aIllegalCommand, Length(aIllegalCommand));
-    if (*cmdTextP == '\r')
-        offFirstChM1 = 0;
-    else
-        offFirstChM1 = (word)(cmdTextP - CharP(cmdLineP) - 1);
+    moreCmdLine = *cmdTextP != '\n';
 } /* ParseSrcFileName() */
 
 static void InitFilesAndDefaults()
 {
     LEFTMARGIN = 1;
-    memset(ixiFileName, ' ', 15);
-    memmove(ixiFileName, srcStemName, srcStemLen);
-    memmove(&ixiFileName[srcStemLen], aIxi, 4);
-    InitF(&ixiFile, "IXREF ", ixiFileName);
-    objBlk = objByte = 0;
-    memset(objFileName, ' ', 15);	
-    memmove(objFileName, srcStemName, srcStemLen);
-    memmove(&objFileName[srcStemLen], aObj, 4);
-    InitF(&objFile, "OBJECT", objFileName);
-    memset(lstFileName, ' ', 15);	
-    memmove(lstFileName, srcStemName, srcStemLen);
-    memmove(&lstFileName[srcStemLen], aLst, 4);
-    InitF(&lstFil, "LIST ", lstFileName);
-    InitF(&tx1File, "UT1 ", ":F1:PLMTX1.TMP ");
-    InitF(&tx2File, "UT2 ", ":F1:PLMTX2.TMP ");
-    InitF(&atFile, "AT  ", ":F1:PLMAT.TMP ");
-    InitF(&nmsFile, "NAMES ", ":F1:PLMNMS.TMP ");
-    InitF(&xrfFile, "XREF ", ":F1:PLMXRF.TMP ");
+    char const *src  = srcFileTable[0].fNam;
+    char *s    = (char *)basename(src);
+    char *t    = strrchr(s, '.');
+    if (!t || t == s)
+        t = strchr(s, '\0');
+    int stemLen = (int)(t - src);
+    bool uc     = true;
+    for (char *r = s; *r && uc; r++)
+        if (islower(*r))
+            uc = false;
+
+    ixiFileName  = xmalloc(stemLen + 5);    //allow for .xxx\0
+    memcpy(ixiFileName, src, stemLen);
+    strcpy(ixiFileName + stemLen, uc ? ".IXI" : ".ixi");
+
+    lstFileName = xmalloc(stemLen + 5); // allow for .xxx\0
+    memcpy(lstFileName, src, stemLen);
+    strcpy(lstFileName + stemLen, uc ? ".LST" : ".lst");
+
+    objFileName = xmalloc(stemLen + 5); // allow for .xxx\0
+    memcpy(objFileName, src, stemLen);
+    strcpy(objFileName + stemLen, uc ? ".OBJ" : ".obj");
+
+
     IXREF = false;
-    IXREFSet = false;
+  
     PRINT = true;
-    PRINTSet = true;
+
     XREF = false;
     SYMBOLS = false;
     DEBUG = false;
     PAGING = true;
     OBJECT = true;
-    OBJECTSet = true;
+
     OPTIMIZE = true;
     SetDate(" ", 1);
     SetPageLen(57);
@@ -223,20 +147,15 @@ static void InitFilesAndDefaults()
 
 void SignOnAndGetSourceName()
 {
-    memmove(version, verNo, 4);
-    InitF(&conFile, "CONSOL", ":CI: ");
-    OpenF(&conFile, 1);
+    InitF(&conFile, "CONSOL", "stdin");
+    conFile.fp = stdin;
     topMem = MemCk() - 12;
     if (topMem < 0xC000)
         Fatal(noMemMsg, Length(noMemMsg));
-    GetCmdLine();
-    PrintStr(signonMsg, Length(signonMsg));
-    PrintStr(version, 4);
-    PrintStr("\r\n", 2);
-    cmdTextP = CmdP(cmdLineP)->pstr.str;
+    puts("\nISIS-II PL/M-80 COMPILER " VERSION);
+    cmdTextP = cmdP;
     blkSize1 = topMem - blkSize1 - 256;
     blkSize2 = topMem - blkSize2 - 256;
-    ParseInvokeName();
     ParseSrcFileName();
     InitFilesAndDefaults();
 } /* SignOnAndGetSourceName() */

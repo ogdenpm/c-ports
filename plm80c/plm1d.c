@@ -82,7 +82,7 @@ void ExprParse4()
 void ExprParse5()
 {
     word p;
-    pointer q;
+
 
     if (MatchTx1Item(L_IDENTIFIER)) {
         ChkIdentifier();
@@ -99,11 +99,9 @@ void ExprParse5()
     else if (MatchTx1Item(L_STRING)) {
         if (tx1Item.dataw[0] == 1)
             p = Low(tx1Item.dataw[1]);              // single char
-        else if (tx1Item.dataw[0] == 2) {           // double char
-            q = (pointer)&p;
-            q[0] = High(tx1Item.dataw[1]);          // swap bytes
-            q[1] = Low(tx1Item.dataw[1]);
-        } else {
+        else if (tx1Item.dataw[0] == 2)           // double char
+            p    = (tx1Item.dataw[1] >> 8) + (tx1Item.dataw[1] << 8);   // swap bytes;
+        else {
             WrTx2ExtError(ERR100);	/* INVALID STRING CONSTANT IN EXPRESSION  */
             p = 0;                                  // error so use 0
         }

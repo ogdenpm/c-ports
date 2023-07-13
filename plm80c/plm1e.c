@@ -484,7 +484,7 @@ static word controlSP;
 static void PushScope(word arg1w)
 {
     if (blockDepth == 0x22)
-        FatalError(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
+        PFatalError(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
     else
         procChains[blockDepth = blockDepth + 1] = arg1w;
 }
@@ -492,7 +492,7 @@ static void PushScope(word arg1w)
 static void PopScope()
 {
     if (blockDepth == 0)
-        FatalError(ERR165); /* COMPILER Error: SCOPE STACK UNDERFLOW */
+        PFatalError(ERR165); /* COMPILER Error: SCOPE STACK UNDERFLOW */
     else
         blockDepth = blockDepth - 1;
 }
@@ -500,15 +500,14 @@ static void PopScope()
 static void PushControl(byte arg1b)
 {
     if (controlSP == 0x13)
-        FatalError(ERR84);  /*  LIMIT EXCEEDED: BLOCK NESTING */
+        PFatalError(ERR84);  /*  LIMIT EXCEEDED: BLOCK NESTING */
     else {
-        b99FF[controlSP = controlSP + 1] = arg1b;
+        b99FF[++controlSP] = arg1b;
         b9A13[controlSP] = false;
         procInfoStack[controlSP] = 0;
         hNodes[controlSP] = 0;
         eNodes[controlSP] = 0;
         w9A9F[controlSP] = 0;
-        w9A9F[controlSP] = 0;   /* duplicate !! */
     }
 }
 
@@ -516,18 +515,18 @@ static void PushControl(byte arg1b)
 static void PopControl()
 {
     if (controlSP == 0)
-        FatalError(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
+        PFatalError(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
     else {
         if (b99FF[controlSP] != 0)
-            b9A13[controlSP - 1] = b9A13[controlSP] | b9A13[controlSP - 1];
-        controlSP = controlSP - 1;
+            b9A13[controlSP - 1] |= b9A13[controlSP];
+        controlSP--;
     }
 }
 
 static word NewLocalLabel()
 {
     Alloc(3, 3);
-    return (localLabelCnt = localLabelCnt + 1);
+    return ++localLabelCnt;
 }
 
 
@@ -612,7 +611,7 @@ static void Sub_6923()
     if (MatchTx1Item(L_JMPFALSE))
         p = WrTx2Item2Arg(T2_JMPFALSE, tx1Item.dataw[0], Sub_42EF(p));
     else
-        FatalError(ERR168);  /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
+        PFatalError(ERR168);  /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
 }
 
 static void ParseStmtcnt()
@@ -630,7 +629,7 @@ static void ParseIf()
 
 static void ParseProcedure()
 {
-    tx1Item.dataw[0] = tx1Item.dataw[0] - botInfo;
+    tx1Item.dataw[0] -= botInfo;
     MapLToT2();
     PushControl(DO_PROC);
     procInfoStack[controlSP] = curProcInfoP;
@@ -839,13 +838,13 @@ static void Locator()
 
     GetTx1Item();               // junk the (
     RestrictedExpression();     // get the AT Expression
-    WrAtFileByte(ATI_AHDR);
-    WrAtFileWord(p - botInfo);  // normalise the info offset
-    WrAtFileWord(curStmtNum);   // statement number
-    WrAtFileWord(var.infoOffset);   // info offset for identifier in Expression
-    WrAtFileWord(var.arrayIndex);   // any array index
-    WrAtFileWord(var.nestedArrayIndex); // ditto for any structure element
-    WrAtFileWord(var.val);          // the +/- delta
+    WrAtByte(ATI_AHDR);
+    WrAtWord(p - botInfo);  // normalise the info offset
+    WrAtWord(curStmtNum);   // statement number
+    WrAtWord(var.infoOffset);   // info offset for identifier in Expression
+    WrAtWord(var.arrayIndex);   // any array index
+    WrAtWord(var.nestedArrayIndex); // ditto for any structure element
+    WrAtWord(var.val);          // the +/- delta
     ExpectRParen(ERR146);   /* MISSING ') ' AFTER 'AT' RESTRICTED Expression */
 }
 

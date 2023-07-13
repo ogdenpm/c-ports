@@ -23,7 +23,7 @@ byte b4813[] = {
     8, 1, 3, 1, 8 };
 
 
-byte /* tx1Buf[1280], use plm0a.c nmsBuf[1280], use main6.c */ atBuf[1280], objBuf[1280];   // use buffer in plm0a.c
+byte /* tx1Buf[1280], use plm0a.c nmsBuf[1280], use main6.c */  objBuf[1280];   // use buffer in plm0a.c
 word w7197;
 byte b7199;
 byte rec2[54] = { 2, 0, 0 };
@@ -53,16 +53,11 @@ void Sub_4889()
 
 
 
-void Sub_48BA(pointer arg1w, byte arg2b, byte arg3b, char  const *arg4bP)
+void RecAddName(pointer recP, byte offset, byte len, char  const *str)
 {
-    byte i;
-
-    RecAddByte(arg1w, arg2b, arg3b);
-    i = 0;
-    while (i != arg3b) {
-        RecAddByte(arg1w, arg2b, (byte)arg4bP[i]);
-        i = i + 1;
-    }
+    RecAddByte(recP, offset, len);
+    for (int i = 0; i != len; i++)
+        RecAddByte(recP, offset, (byte)str[i]);
 }
 
 
@@ -113,24 +108,29 @@ word Sub_4984()
 
 void Sub_49BC(word arg1w, word arg2w, word arg3w)
 {
-    word tmp[] = { arg1w, arg2w, arg3w };
-    byte a3 = 0xa3;
-
     if (b7199) {
-        Fwrite(&tx1File, &a3, 1);
-        Fwrite(&tx1File, tmp, 6);
+        Wr1Byte(0xa3);
+        Wr1Word(arg1w);
+        Wr1Word(arg2w);
+        Wr1Word(arg3w);
+
     } else
-        programErrCnt = programErrCnt + 1;
+        programErrCnt++;
 }
 
-#pragma pack(push, 1)
-static struct {
-    byte type;
-    offset_t infoP;
-    word stmt;
-    var_t var;
+static union {
+    byte str[256];
+    struct {
+        byte type;
+        offset_t infoP;
+        word stmt;
+        offset_t infoOffset;
+        word arrayIndex;
+        word nestedArrayIndex;
+        word val;
+    };
 } atFData;
-#pragma pack(pop)
+
 static byte dat[255];
 
 static word w8115, w8117, w8119, w811B;
@@ -165,15 +165,15 @@ static void Sub_4B6C()
 static void Sub_4BF4()
 {
     if (!b811D || w8117 >= w8115) {
-        Fread(&atFile, &atFData.type, 1);
+        atFData.type = RdAtByte();
         switch (atFData.type - 2) {
-        case 0: Fread(&atFile, &atFData.var.val, 2); break; /* ATI_2 */
+        case 0: atFData.val = RdAtWord(); break; /* ATI_2 */
         case 1:     /* ATI_STRING */
-            Fread(&atFile, &w8115, 2);
-            Fread(&atFile, dat, w8115);
+            w8115 = RdAtWord();
+            vfRbuf(&atf, dat, w8115);
             w8117 = 0;
             break;
-        case 2: Fread(&atFile, &atFData.var.infoOffset, 8); break; /* ATI_DATA */
+        case 2: RdAtData(); break; /* ATI_DATA */
         case 3: break;    /* ATI_END */
         }
     }
@@ -185,11 +185,11 @@ static void Sub_4CAC()
 {
     if (GetType() == BYTE_T) {
         Sub_4908(rec6, 0x12c, 1);
-        RecAddByte(rec6, 3, (byte)atFData.var.val);
+        RecAddByte(rec6, 3, (byte)atFData.val);
         w7197 = w7197 + 1;
     } else {
         Sub_4908(rec6, 0x12C, 2);
-        RecAddWord(rec6, 3, atFData.var.val);
+        RecAddWord(rec6, 3, atFData.val);
         w7197 = w7197 + 2;
     }
 }
@@ -204,17 +204,14 @@ static void Sub_4D13()
 {
     pointer w8120;
 
-    if (GetType() == BYTE_T) {
-        atFData.var.val = dat[w8117];
-        w8117 = w8117 + 1;
-    } else {
-        w8120 = (pointer)&atFData.var.val;
-        w8120[1] = dat[w8117];
-        w8117 = w8117 + 1;
-        if (w8117 < w8115) {
-            w8120[0] = dat[w8117];
-            w8117 = w8117 + 1;
-        } else {
+    if (GetType() == BYTE_T)
+        atFData.val = dat[w8117++];
+    else {
+        w8120 = (pointer)&atFData.val;
+        w8120[1] = dat[w8117++];
+        if (w8117 < w8115)
+            w8120[0] = dat[w8117++];
+        else {
             w8120[0] = w8120[1];
             w8120[1] = 0;
         }
@@ -226,7 +223,7 @@ static void Sub_4D13()
 
 static void Sub_4D85()
 {
-    if (atFData.var.val > 255 && GetType() == BYTE_T)
+    if (atFData.val > 255 && GetType() == BYTE_T)
         Sub_4CF9();
     else
         Sub_4CAC();
@@ -238,19 +235,19 @@ static void Sub_4DA8()
     offset_t p;
     pointer q;
 
-    if (atFData.var.infoOffset == 0)
+    if (atFData.infoOffset == 0)
         Sub_4D85();
     else if (GetType() == BYTE_T)
         Sub_4CF9();
     else {
         p = curInfoP;
-        curInfoP = botInfo + atFData.var.infoOffset;
+        curInfoP = botInfo + atFData.infoOffset;
         if (TestInfoFlag(F_MEMBER)) {
-            atFData.var.val = atFData.var.val + Sub_4984() * atFData.var.nestedArrayIndex + GetLinkVal();
+            atFData.val = atFData.val + Sub_4984() * atFData.nestedArrayIndex + GetLinkVal();
             curInfoP = GetParentOffset();
         }
 
-        atFData.var.val = atFData.var.val + Sub_4984() * atFData.var.arrayIndex + GetLinkVal();
+        atFData.val = atFData.val + Sub_4984() * atFData.arrayIndex + GetLinkVal();
         if (TestInfoFlag(F_EXTERNAL)) {
             i = GetExternId();
             curInfoP = p;
@@ -300,7 +297,8 @@ static void Sub_4C7A()
 
 static void Sub_4A31()
 {
-    Fread(&atFile, (pointer)&atFData.infoP, 4);
+    atFData.infoP = RdAtWord();
+    atFData.stmt  = RdAtWord();
     curInfoP = (w811E = atFData.infoP) + botInfo;
     w8119 = w811B = w8115 = w8117 = 0;
     if (TestInfoFlag(F_DATA))
@@ -356,10 +354,11 @@ static void Sub_4A31()
 void Sub_49F9()
 {
     while (1) {
-        Fread(&atFile, &atFData.type, 1);
-        if (atFData.type == ATI_AHDR)
-            Fread(&atFile, (pointer)&atFData.infoP, 12);
-        else if (atFData.type == ATI_DHDR)
+        atFData.type = RdAtByte();
+        if (atFData.type == ATI_AHDR) {
+            RdAtHdr();
+            RdAtData();
+        } else if (atFData.type == ATI_DHDR)
             Sub_4A31();
         else
             return;

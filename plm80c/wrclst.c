@@ -10,32 +10,7 @@
 
 #include "plm.h"
 
-void WrcLst(char ch)
-{
-    lBufP[lChCnt] = ch;
-    if (lChCnt == lBufSz) {
-        if (! lfOpen) {
-            OpenF(&lstFil, 2);
-            lfOpen = true;
-        }
-        WriteF(&lstFil, lBufP, lBufSz + 1);
-        lChCnt = 0;
-    } else
-        lChCnt++;
+void WrLstC(char ch) {
+    fputc(ch, lstFile.fp);
 }
 
-void Wr2cLst(word arg1w)
-{
-    char *bp;
-
-    bp = (char *)&arg1w;
-    WrcLst(bp[1]);
-    WrcLst(bp[0]);
-}
-
-void WrnStrLst(char const *str, word cnt)
-{
-
-    while (cnt-- != 0)
-        WrcLst(*str++);
-}

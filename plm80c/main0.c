@@ -16,46 +16,32 @@ jmp_buf exception;
 static void FinishLexPass()
 {
     if (afterEOF)
-        SyntaxError(ERR87);	/* MISSING 'end' , end-OF-FILE ENCOUNTERED */
-    WriteLineInfo();
-    WrByte(L_EOF);
-    RewindTx1();
-    TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-    Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
+        Wr1SyntaxError(ERR87);	/* MISSING 'end' , end-OF-FILE ENCOUNTERED */
+    Wr1LineInfo();
+    Wr1Byte(L_EOF);
+    vfRewind(&utf1);
     CloseF(&srcFil);
 } /* FinishLexPass() */
 
 
 static void ParseCommandLine()
 {
-    InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]);
-    OpenF(&srcFil, 1);
-    SeekF(&srcFil,  (loc_t *)&srcFileTable[srcFileIdx + 8]);
-    offCurCh = offLastCh;
-    if (offFirstChM1 != 0)
-        while (cmdLineP != 0) {
-            ParseControlLine(offFirstChM1 + ByteP(cmdLineP));   // ParseControlLine will move to first char
-            offFirstChM1 = 2;   // offset to first char - 1
-            cmdLineP = CmdP(cmdLineP)->link;                    // continuation line
-        }
-    offFirstChM1 = 0;       // 0 if no more cmd line
+    if (moreCmdLine)
+        ParseControlLine(cmdTextP);   // ParseControlLine will move to first char
+    moreCmdLine = false;       // 0 if no more cmd line
     curScopeP = (wpointer)curScope;
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
-    inChrP = (byte *)"\n" - 1; // GNxtCh will see \n and get a non blank line
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+    inChrP = " \n"; // GNxtCh will see \n and get a non blank line
     blockDepth = 1;
     procChains[1] = 0;
-    GNxtCh();               // get the first char
+
 } /* ParseCommandLine() */
 
 static void LexPass()
 {
     ParseCommandLine();
+    InitF(&srcFil, "SOURCE", srcFileTable[0].fNam);
+    OpenF(&srcFil, "rt");
+    GNxtCh(); // get the first char
     ParseProgram();
 } /* LexPass() */
 

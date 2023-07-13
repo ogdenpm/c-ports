@@ -9,6 +9,7 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include "os.h"
 
 //static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 word putWord(pointer buf, word val) {
@@ -23,27 +24,14 @@ word getWord(pointer buf) {
 
 static void Sub_3F3C() {
     b7199 = PRINT | OBJECT;
-    if (OBJECTSet) {
-        DeletF(&objFile);
-        OBJECTSet = false;
-    }
-    if (!lfOpen && PRINTSet) {
-        DeletF(&lstFil);
-        PRINTSet = false;
-    }
-    CloseF(&tx2File);
-#ifdef _DEBUG
-    copyFile(tx2File.fNam, "plmtx2.tmp_main3");
-#endif
-    DeletF(&tx2File);
-    CreatF(&tx1File, tx1Buf, 1280, 2);
+
+    vfReset(&utf2);
     if (b7199 || IXREF)
-        CreatF(&nmsFile, nmsBuf, 1280, 1);
-    CreatF(&atFile, atBuf, 1280, 1);
+        vfRewind(&nmsf);
+    vfRewind(&atf);
     if (OBJECT) {
-        OpenF(&objFile, 3);
-        CreatF(&objFile, objBuf, 1280, 2);
-        SekEnd(&objFile);
+        OpenF(&objFile, "rb+");
+        fseek(objFile.fp, 0, SEEK_END);
     }
     w7197 = csegSize;
 }
@@ -104,12 +92,12 @@ static void Sub_4105()
 
     if (!standAlone)
         return;
+    Wr1Byte(0xa4);
+    Wr1Word(procInfo[1]);
 
-    Fwrite(&tx1File, "\xA4", 1);
-    Fwrite(&tx1File, &procInfo[1], 2);
     curInfoP = procInfo[1] + botInfo;
     p = w7197 - GetLinkVal();
-    Fwrite(&tx1File, &p, 2);
+    Wr1Word(p);
     for (i = 0; i <= 45; i++) {
         k = b42D6[i];
         j = k + b42A8[i];
@@ -130,17 +118,17 @@ static void Sub_4105()
 
 
 
-static void Sub_4201()
+void ReloadSymbols()
 {
     byte i;
 
     curSymbolP = (topSymbol = localLabelsP - 3) - 1;
-    Fread(&nmsFile, &i, 1);
+    i = vfRbyte(&nmsf);
     while (i != 0) {
         curSymbolP = curSymbolP - i - 1;
         SymbolP(curSymbolP)->name.len = i;
-        Fread(&nmsFile, SymbolP(curSymbolP)->name.str, i);
-        Fread(&nmsFile, &i, 1);
+        vfRbuf(&nmsf, SymbolP(curSymbolP)->name.str, i);
+        i = vfRbyte(&nmsf);
     }
     botSymbol = curSymbolP + 4;
     botMem = botSymbol;
@@ -154,7 +142,7 @@ static void Sub_426E()
     if (curSymbolP == 0)
         RecAddByte(rec2, 0, 0);
     else
-        Sub_48BA(rec2, 0, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
+        RecAddName(rec2, 0, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
     RecAddByte(rec2, 0, 1);
     RecAddByte(rec2, 0, (version[1] << 4) | (version[3] & 0xf));
     RecAddByte(rec2, 0, 1);
@@ -178,7 +166,6 @@ static void Sub_436C()
     pointer p;
     word q, r, s;
     byte i, j, k;
-    char t[6];
 
     s = 0;
     curInfoP = botInfo + 2;
@@ -189,7 +176,7 @@ static void Sub_436C()
                 if (getWord(((rec_t *)rec18)->len) + SymbolP(curSymbolP)->name.len + 2 >= 299)
                     WriteRec(rec18, 0);
                 s = s + 1;
-                Sub_48BA(rec18, 0, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
+                RecAddName(rec18, 0, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
                 RecAddByte(rec18, 0, 0);
             } else if (!(TestInfoFlag(F_AUTOMATIC) || TestInfoFlag(F_BASED) || TestInfoFlag(F_MEMBER))) {
                 if (TestInfoFlag(F_DATA) || GetType() == LABEL_T || GetType() == PROC_T) {
@@ -214,7 +201,7 @@ static void Sub_436C()
                     if (q + SymbolP(curSymbolP)->name.len + 4 >= 299)
                         WriteRec(p, 1);
                     RecAddWord(p, 1, GetLinkVal());
-                    Sub_48BA(p, 1, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
+                    RecAddName(p, 1, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
                     RecAddByte(p, 1, 0);
                 }
                 if (DEBUG) {
@@ -233,7 +220,7 @@ static void Sub_436C()
                             WriteRec(rec12, 1);
                         ((rec_t *)rec12)->val[0] = i;
                         RecAddWord(rec12, 1, GetLinkVal());
-                        Sub_48BA(rec12, 1, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
+                        RecAddName(rec12, 1, SymbolP(curSymbolP)->name.len, SymbolP(curSymbolP)->name.str);
                         RecAddByte(rec12, 1, 0);
                     }
                 }
@@ -242,17 +229,15 @@ static void Sub_436C()
         AdvNxtInfo();
     } /* of while */
 
-    t[0] = '@';
-    t[1] = 'P';
     if (!standAlone) {
-        for (k = 0; k <= 116; k++) {
-            if (WordP(helpersP)[k] != 0) {
-                WordP(helpersP)[k] = s;
-                s = s + 1;
+        for (k = 0; k < 117; k++) {
+            if (WordP(helpersP)[k]) {
+                WordP(helpersP)[k] = s++;
                 if (getWord(((rec_t *)rec18)->len) + 8 >= 299)
                     WriteRec(rec18, 0);
-                Num2Asc(k, 0xfc, 10, &t[2]);
-                Sub_48BA(rec18, 0, 6, t);
+                char t[7];
+                sprintf(t, "@P%04d", k);
+                RecAddName(rec18, 0, 6, t);
                 RecAddByte(rec18, 0, 0);
             }
         }
@@ -291,25 +276,18 @@ static void Sub_46B7()
 static void Sub_4746()
 {
     if (b7199 || IXREF) {
-        Fwrite(&tx1File, "\x9c", 1);
-        Fflush(&tx1File);
-        Rewind(&tx1File);
-        CloseF(&nmsFile);
-#ifdef _DEBUG
-        copyFile(nmsFile.fNam, "plmnms.tmp_main3");
-#endif
-        DeletF(&nmsFile);
-        Fflush(&objFile);
+        Wr1Byte(0x9c);
+        vfRewind(&utf1);
+        vfReset(&nmsf);
     }
-    CloseF(&atFile);
-#ifdef _DEBUG
-    copyFile(atFile.fNam, "plmat.tmp_main3");
-#endif
-    DeletF(&atFile);
+    vfReset(&atf);
 }
 
 word Start3()
 {
+    dump(&nmsf, "nmsf_main3");
+    dump(&atf, "atf_main3");
+
     Sub_3F3C();
     if (b7199 || IXREF)
         Sub_3FE2();
@@ -318,10 +296,8 @@ word Start3()
         Sub_40B6();
         Sub_4105();
         csegSize = w7197;
-        Sub_4201();
-#ifdef _DEBUG
-        symMode = 2;    // now info points to pstr symbols
-#endif
+        ReloadSymbols();
+
     }
     if (OBJECT) {
         Sub_426E();
@@ -333,16 +309,12 @@ word Start3()
     if (b7199)
         return 4; // Chain(overlay[4]);
     else {
-        CloseF(&tx1File);
-#ifdef _DEBUG
-        copyFile(tx1File.fNam, "plmtx1.tmp_main3");
-#endif
-        DeletF(&tx1File);
+        vfReset(&utf1);
         if (IXREF)
             return 5; // Chain(overlay[5]);
         else {
             EndCompile();
-            Exit();
+            Exit(programErrCnt != 0);
         }
     }
 }

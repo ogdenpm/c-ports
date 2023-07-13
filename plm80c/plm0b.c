@@ -8,7 +8,9 @@
  *                                                                          *
  ****************************************************************************/
 
+#include "os.h"
 #include "plm.h"
+#include <stdlib.h>
 
 #define BADINFO 0xffff
 
@@ -18,70 +20,39 @@ static void GetLin();
 
 // optTable is encoded with entries as follows
 // name as pstr, control bytes as per structure below
-#pragma pack(push, 1)
-typedef struct {
+static struct {
+    byte optLen;
+    char *optName;
     byte tokenId;    // if none zero then token id to put in lexical stream
     bool primary;    // true if primary control
     byte controlId;  // index into controls if not 0xff
     byte controlVal; // index used in switch in PraseExtControl
     byte primaryId;  // index into primaryCtrlSeen
-} tknflags_t;
-#pragma pack(pop)
-
-static byte optTable[] =      // name      tokenId   primary controlId   controlVal primaryid
-    "\x5PRINT\0\0\xFF\x7\0"   // PRINT        0         0       0xFF        7         0
-    "\x7NOPRINT\0\0\xFF\x8\0" // NOPRINT      0         0       0xFF        8         0
-    "\x4LIST\x3\x1\0\0\0"     // LIST         L_LIST    1       0           0         0
-    "\x6NOLIST\x4\x1\0\0\0"   // NOLIST       L_NOLIST  1       0           0         0
-    "\x4"
-    "CODE\x5\x1\0\0\0"         // CODE         L_CODE    1       0           0         0
-    "\x6NOCODE\x6\x1\0\0\0"    // NOCODE       L_NOCODE  1       0           0         0
-    "\x4XREF\0\0\x1\x1\x1"     // XREF         0         0       1           1         1
-    "\x6NOXREF\0\0\x1\0\x1"    // NOXREF       0         0       1           0         1
-    "\x7SYMBOLS\0\0\x2\x1\x2"  // SYMBOLS      0         0       2           1         2
-    "\x9NOSYMBOLS\0\0\x2\0\x2" // NOSYMBOLS    0         0       2           0         2
-    "\x5"
-    "DEBUG\0\0\x3\x1\x3"         // DEBUG        0         0       3           1         3
-    "\x7NODEBUG\0\0\x3\0\x3"     // NODEBUG      0         0       3           0         3
-    "\x6PAGING\0\0\x4\x1\x4"     // PAGING       0         0       4           1         4
-    "\x8NOPAGING\0\0\x4\0\x4"    // NOPAGING     0         0       4           0         4
-    "\xAPAGELENGTH\0\0\xFF\0\x5" // PAGELENGTH   0         0       0xFF        0         5
-    "\x9PAGEWIDTH\0\0\xFF\x1\x6" // PAGEWIDTH    0         0       0xFF        1         6
-    "\x4"
-    "DATE\0\0\xFF\x2\x7"     // DATE         0         0       0xFF        2         7
-    "\x5TITLE\0\0\xFF\x3\x8" // TITLE        0         0       0xFF        3         8
-    "\x5"
-    "EJECT\x7\x1\0\0\0"            // EJECT        L_EJECT   1       0           0         0
-    "\xALEFTMARGIN\0\x1\xFF\x4\0"  // LEFTMARGIN   0         1       0xFF        4         0
-    "\x6OBJECT\0\0\xFF\x5\x9"      // OBJECT       0         0       0xFF        5         9
-    "\x8NOOBJECT\0\0\xFF\x9\x9"    // NOOBJECT     0         0       0xFF        9         9
-    "\x8OPTIMIZE\0\0\x6\x1\xA"     // OPTIMIZE     0         0       6           1         10
-    "\xANOOPTIMIZE\0\0\x6\0\xA"    // NOOPTIMIZE   0         0       6           0         10
-    "\x7INCLUDE\0\x1\xFF\x6\0"     // INCLUDE      0         1       0xFF        6         0
-    "\x9WORKFILES\0\0\xFF\xA\xB"   // WORKFILES    0         0       0xFF        10        11
-    "\x9INTVECTOR\0\0\xFF\xB\xC"   // INTVECTOR    0         0       0xFF        11        12
-    "\xBNOINTVECTOR\0\0\xFF\xC\xC" // NOINTVECTOR  0         0       0xFF        12        12
-    "\x5IXREF\0\0\xFF\xD\xD"       // IXREF        0         0       0xFF        13        13
-    "\x7NOIXREF\0\0\xFF\xE\xD"     // NOIXREF      0         0       0xFF        14        13
-    "\x4SAVE\0\x1\xFF\xF\0"        // SAVE         0         1       0xFF        15        0
-    "\x7RESTORE\0\x1\xFF\x10\0"    // RESTORE      0         1       0xFF        16        0
-    "\x3SET\0\x1\xFF\x11\0"        // SET          0         1       0xFF        17        0
-    "\x5RESET\0\x1\xFF\x12\0"      // RESET        0         1       0xFF        18        0
-    "\x2IF\0\x1\xFF\x13\0"         // IF           0         1       0xFF        19        0
-    "\x6"
-    "ELSEIF\0\x1\xFF\x14\0" // ELSEIF       0         1       0xFF        20        0
-    "\x4"
-    "ELSE\0\x1\xFF\x14\0" // ELSE         0         1       0xFF        20        0
-    "\x5"
-    "ENDIF\0\x1\xFF\x15\0" // ENDIF        0         1       0xFF        21        0
-    "\x4"
-    "COND\0\x1\xFF\x16\0"       // COND         0         1       0xFF        22        0
-    "\x6NOCOND\0\x1\xFF\x17\0"; // NOCOND       0         1       0xFF        23        0
+} *tknFlagsP, optTable[] = {
+    { 5, "PRINT", 0, 0, 0xFF, 7, 0 },       { 7, "NOPRINT", 0, 0, 0xFF, 8, 0 },
+    { 4, "LIST", L_LIST, 1, 0, 0, 0 },      { 6, "NOLIST", L_NOLIST, 1, 0, 0, 0 },
+    { 4, "CODE", L_CODE, 1, 0, 0, 0 },      { 6, "NOCODE", L_NOCODE, 1, 0, 0, 0 },
+    { 4, "XREF", 0, 0, 1, 1, 1 },           { 6, "NOXREF", 0, 0, 1, 0, 1 },
+    { 7, "SYMBOLS", 0, 0, 2, 1, 2 },        { 9, "NOSYMBOLS", 0, 0, 2, 0, 2 },
+    { 5, "DEBUG", 0, 0, 3, 1, 3 },          { 7, "NODEBUG", 0, 0, 3, 0, 3 },
+    { 6, "PAGING", 0, 0, 4, 1, 4 },         { 8, "NOPAGING", 0, 0, 4, 0, 4 },
+    { 10, "PAGELENGTH", 0, 0, 0xFF, 0, 5 }, { 9, "PAGEWIDTH", 0, 0, 0xFF, 1, 6 },
+    { 4, "DATE", 0, 0, 0xFF, 2, 7 },        { 5, "TITLE", 0, 0, 0xFF, 3, 8 },
+    { 5, "EJECT", L_EJECT, 1, 0, 0, 0 },    { 10, "LEFTMARGIN", 0, 1, 0xFF, 4, 0 },
+    { 6, "OBJECT", 0, 0, 0xFF, 5, 9 },      { 8, "NOOBJECT", 0, 0, 0xFF, 9, 9 },
+    { 8, "OPTIMIZE", 0, 0, 6, 1, 10 },      { 10, "NOOPTIMIZE", 0, 0, 6, 0, 10 },
+    { 7, "INCLUDE", 0, 1, 0xFF, 6, 0 },     { 9, "WORKFILES", 0, 0, 0xFF, 10, 11 },
+    { 9, "INTVECTOR", 0, 0, 0xFF, 11, 12 }, { 11, "NOINTVECTOR", 0, 0, 0xFF, 12, 12 },
+    { 5, "IXREF", 0, 0, 0xFF, 13, 13 },     { 7, "NOIXREF", 0, 0, 0xFF, 14, 13 },
+    { 4, "SAVE", 0, 1, 0xFF, 15, 0 },       { 7, "RESTORE", 0, 1, 0xFF, 16, 0 },
+    { 3, "SET", 0, 1, 0xFF, 17, 0 },        { 5, "RESET", 0, 1, 0xFF, 18, 0 },
+    { 2, "IF", 0, 1, 0xFF, 19, 0 },         { 6, "ELSEIF", 0, 1, 0xFF, 20, 0 },
+    { 4, "ELSE", 0, 1, 0xFF, 20, 0 },       { 5, "ENDIF", 0, 1, 0xFF, 21, 0 },
+    { 4, "COND", 0, 1, 0xFF, 22, 0 },       { 6, "NOCOND", 0, 1, 0xFF, 23, 0 }
+};
 
 static char ebadTail[]     = "ILLEGAL COMMAND TAIL SYNTAX OR VALUE";
 static char ebadcontrol[]  = "UNRECOGNIZED CONTROL IN COMMAND TAIL";
-static char errNotDisk[]   = "INCLUDE FILE IS NOT A DISKETTE FILE";
-static char errWorkFiles[] = "MISPLACED CONTROL: WORKFILES ALREADY OPEN";
 
 byte primaryCtrlSeen[14]; // C defaults to all false
 static struct {
@@ -98,16 +69,14 @@ static bool COND = true;
 static byte *curChP;
 static byte chrClass;
 static byte tknLen;
-static byte *optStrValP;
+static char *optStrValP;
 static word optNumValue;
-static char optFileName[16];
+static char *optFileName; // modified to allow long filenames
 static bool ixiGiven;
 static bool objGiven;
 static bool lstGiven;
 static bool inIFpart;
 static word skippingIfDepth;
-
-static tknflags_t *tknFlagsP;
 
 // NxtCh()
 // on input curChP points to current char and chrClass is set to the correspondingly
@@ -122,37 +91,37 @@ static void NxtCh() {
         return;
     curChP++;
     if (*curChP == CR ||
-        (offFirstChM1 != 0 && *curChP == '&')) // end of line or & on the command line
+        (moreCmdLine != 0 && *curChP == '&')) // end of line or & on the command line
         chrClass = CC_NEWLINE;
     else if ((chrClass = cClass[*curChP]) == CC_NONPRINT)
         *curChP = ' ';
-    if (*curChP >= 'a')
-        *curChP &= 0x5f;
+//    if (*curChP >= 'a')
+//        *curChP &= 0x5f;
 } /* NxtCh() */
 
 static void BadCmdTail(byte err) {
-    if (offFirstChM1 != 0) // processing command line
+    if (moreCmdLine != 0) // processing command line
         Fatal(ebadTail, Length(ebadTail));
     else
-        SyntaxError(err);
+        Wr1SyntaxError(err);
 }
 
 static void UnknownCtrl() {
 
-    if (offFirstChM1 != 0) // processing command line
+    if (moreCmdLine != 0) // processing command line
         Fatal(ebadcontrol, Length(ebadcontrol));
     else
-        SyntaxError(ERR9); /* INVALID CONTROL */
+        Wr1SyntaxError(ERR9); /* INVALID CONTROL */
 }
 
 static void SkipWhite() // also skips non print characters
 {
-    while (*curChP == ' ') // PMO: should possibly also skip tab
+    while (*curChP == ' ' || *curChP == '\r') // space and cmdline continuation
         NxtCh();
 }
 
 static void SkipToRPARorEOL() {
-    while (*curChP != CR && *curChP != ')')
+    while (*curChP != '\r' && *curChP != ')' && *curChP != '\n')
         NxtCh();
     if (*curChP == ')')
         NxtCh();
@@ -201,18 +170,16 @@ static void AcceptFileName() {
         NxtCh();
         SkipWhite();
         optStrValP = curChP;
-        while (*curChP != ' ' && *curChP != ')' && chrClass != CC_NEWLINE) // doesn't allow tab
+        while (*curChP != ')' && chrClass != CC_NEWLINE) // doesn't allow tab
             NxtCh();
-        tknLen = (byte)(curChP - optStrValP);
-        if (tknLen > 14) {
-            BadCmdTail(ERR17); /* INVALID PATH-NAME */
-            tknLen = 0;
-        } else {
-            memset(optFileName, ' ', 16);
-            memcpy(optFileName, optStrValP, tknLen);
-            optStrValP = (pointer)optFileName;
-            tknLen     = tknLen + 1; // include trailing space
-        }
+        char *s = curChP;
+        while (s > optStrValP && s[-1] == ' ') // trim trailing space
+            s--;
+        tknLen      = (byte)(s - optStrValP);
+        optFileName = xmalloc(tknLen + 1);
+        memcpy(optFileName, optStrValP, tknLen);
+        optFileName[tknLen++] = '\0';
+        optStrValP            = optFileName;
         AcceptRP();
     }
 }
@@ -292,7 +259,8 @@ static void GetOptNumVal() {
 
 static void GetToken() {
     optStrValP = curChP;
-    while (*curChP != ' ' && *curChP != '(' && chrClass != CC_NEWLINE)
+    while (*curChP != ' ' && *curChP != '(' && chrClass != CC_NEWLINE &&
+           *curChP != '\r') // \r is cmdline continuation
         NxtCh();
     tknLen = (byte)(curChP - optStrValP);
 }
@@ -504,9 +472,7 @@ static void OptPageLen() {
 
 static void OptPageWidth() {
     GetOptNumVal();
-    if (optNumValue < 60 || optNumValue == 0xFFFF)
-        BadCmdTail(ERR92); /* ILLEGAL PAGEWIDTH CONTROL VALUE */
-    else if (optNumValue > 132)
+    if (optNumValue < 60 || optNumValue > 132)
         BadCmdTail(ERR92); /* ILLEGAL PAGEWIDTH CONTROL VALUE */
     else
         SetPageWidth(optNumValue);
@@ -526,7 +492,7 @@ static bool LocalSetTitle() {
     len = 0;
     while (1) {
         NxtCh();
-        if (*curChP == '\r')
+        if (*curChP == '\r' || *curChP == '\n')
             break;
         if (*curChP == '\'') {
             NxtCh();
@@ -534,8 +500,7 @@ static bool LocalSetTitle() {
                 break;
         }
         if (len <= 59) {
-            TITLE[len] = *curChP;
-            len        = len + 1;
+            TITLE[len++] = *curChP;
         }
     }
     if (len != 0)
@@ -555,11 +520,9 @@ static bool LocalSetTitle() {
 static void OptTitle() {
 
     SkipWhite();
-    if (*curChP != '(') {
+    if (*curChP != '(')
         BadCmdTail(ERR11); /* MISSING CONTROL PARAMETER */
-        return;
-    }
-    if (!LocalSetTitle()) {
+    else if (!LocalSetTitle()) {
         BadCmdTail(ERR12); /* INVALID CONTROL PARAMETER */
         SkipToRPARorEOL();
     }
@@ -579,27 +542,22 @@ static void OptLeftMargin() {
 
 static void OptIXRef() {
     AcceptFileName();
-    if (tknLen != 0)
-        InitF(&ixiFile, "IXREF ", (char *)optStrValP);
-    else
-        InitF(&ixiFile, "IXREF ", ixiFileName);
-    IXREFSet = true;
-    IXREF    = true;
-    OpenF(&ixiFile, 2);
-    ixiGiven = true;
+    if (tknLen) {
+        free(ixiFileName);
+        ixiFileName = optStrValP;
+    }
+
+    IXREF = true;
 }
 
 static void OptObject() {
     AcceptFileName();
-    if (tknLen != 0)
-        InitF(&objFile, "OBJECT", (char *)optStrValP);
-    else
-        InitF(&objFile, "OBJECT", (char *)objFileName);
+    if (tknLen) {
+        free(objFileName);
+        objFileName = optStrValP;
+    }
     objBlk = objByte = 0;
     OBJECT           = true;
-    OBJECTSet        = true;
-    OpenF(&objFile, 2);
-    objGiven = true;
 }
 
 static void OptInclude() {
@@ -608,48 +566,31 @@ static void OptInclude() {
         BadCmdTail(ERR15); /* MISSING INCLUDE CONTROL PARAMETER */
         return;
     }
-    if (optFileName[0] == ':' && optFileName[1] != 'F') {
-        if (offFirstChM1 != 0)
-            Fatal(errNotDisk, Length(errNotDisk));
-        else
-            FatalError(ERR98); /* INCLUDE FILE IS not A DISKETTE FILE */
-    }
-    if (srcFileIdx >= 50)
-        SyntaxError(ERR13); /* LIMIT EXCEEDED: INCLUDE NESTING */
+
+    if (srcFileIdx >= 5)
+        Wr1SyntaxError(ERR13); /* LIMIT EXCEEDED: INCLUDE NESTING */
     else {
-        TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
-        srcFileIdx = srcFileIdx + 10;
-        memmove(&srcFileTable[srcFileIdx], optStrValP, tknLen);
-        CloseF(&srcFil);
-        InitF(&srcFil, "SOURCE", (char *)optStrValP);
-        OpenF(&srcFil, 1);
-        offCurCh = offLastCh;
-        WrByte(L_INCLUDE);
-        WrBuf(optStrValP + 12, 6);
-        WrByte(L_INCLUDE);
-        WrBuf(optStrValP + 6, 6);
-        WrByte(L_INCLUDE);
-        WrBuf(optStrValP, 6);
+        srcFileTable[++srcFileIdx] = srcFil;
+        InitF(&srcFil, "SOURCE", optStrValP);
+        OpenF(&srcFil, "rt");
+        Wr1Byte(L_INCLUDE);
+        Wr1Buf(optStrValP, (word)(strlen(optStrValP) + 1)); // write out name and trailing \0
     }
     SkipWhite();
-    if (*curChP != '\r')
+    if (*curChP != '\r' && *curChP != '\n')
         BadCmdTail(ERR14); /* INVALID CONTROL FORMAT, INCLUDE not last() CONTROL */
 }
 
 static void OptPrint() {
     AcceptFileName();
-    if (lfOpen)
+    if (lstGiven)
         BadCmdTail(ERR16); /* ILLEGAL PRINT CONTROL */
-    else {
-        if (tknLen != 0)
-            InitF(&lstFil, "LIST ", (char *)optStrValP);
-        else
-            InitF(&lstFil, "PRINT ", lstFileName);
-        PRINTSet = true;
+    else if (tknLen) {
+        free(lstFileName);
+        lstFileName = optStrValP;
+        isList      = true;
     }
     PRINT = true;
-    OpenF(&lstFil, 2);
     lstGiven = true;
 }
 
@@ -726,13 +667,7 @@ static void OptWorkFiles() {
             return;
         if (!AcceptDrive(wrkFiles2, ')'))
             return;
-        if (tx1File.aftn != 0)
-            Fatal(errWorkFiles, Length(errWorkFiles));
-        memmove(atFile.fNam, wrkFiles1, 4);
-        memmove(nmsFile.fNam, wrkFiles1, 4);
-        memmove(tx1File.fNam, wrkFiles1, 4);
-        memmove(xrfFile.fNam, wrkFiles1, 4);
-        memmove(tx2File.fNam, wrkFiles2, 4);
+        BadCmdTail(ERR8); // INVAILD CONTROL FORMAT
     }
 }
 
@@ -740,11 +675,10 @@ static void OptSave() {
     if (saveDepth >= 5)
         BadCmdTail(ERR187); /* LIMIT EXCEEDED: NUMBER OF SAVE LEVELS > 5 */
     else {
-        saveStack[saveDepth].code       = CODE;
-        saveStack[saveDepth].list       = LIST;
-        saveStack[saveDepth].cond       = COND;
-        saveStack[saveDepth].leftMargin = LEFTMARGIN;
-        saveDepth                       = saveDepth + 1;
+        saveStack[saveDepth].code         = CODE;
+        saveStack[saveDepth].list         = LIST;
+        saveStack[saveDepth].cond         = COND;
+        saveStack[saveDepth++].leftMargin = LEFTMARGIN;
     }
 }
 
@@ -758,13 +692,13 @@ static void OptRestore() {
         COND       = saveStack[saveDepth].cond;
         LEFTMARGIN = saveStack[saveDepth].leftMargin;
         if (CODE)
-            WrByte(L_CODE);
+            Wr1Byte(L_CODE);
         else
-            WrByte(L_NOCODE);
+            Wr1Byte(L_NOCODE);
         if (LIST)
-            WrByte(L_LIST);
+            Wr1Byte(L_LIST);
         else
-            WrByte(L_NOLIST);
+            Wr1Byte(L_NOLIST);
     }
 }
 
@@ -811,7 +745,7 @@ static void OptIf() {
         skippingIfDepth = ifDepth; // record depth for unwind
         if (!COND)                 // if COND false and currently listing - surpress listing
             if (LIST)
-                WrByte(L_NOLIST);
+                Wr1Byte(L_NOLIST);
     }
 }
 
@@ -824,7 +758,7 @@ static void OptElseElseIf() {
         skippingIfDepth = ifDepth;
         if (!COND)
             if (LIST)
-                WrByte(L_NOLIST);
+                Wr1Byte(L_NOLIST);
     }
     while (*curChP != '\r') {
         NxtCh();
@@ -866,12 +800,10 @@ static void ParseControlExtra() {
         OptPrint();
         break;
     case 8:
-        PRINT    = false;
-        PRINTSet = false;
+        PRINT = false;
         break;
     case 9:
-        OBJECT    = false;
-        OBJECTSet = false;
+        OBJECT = false;
         break;
     case 10:
         OptWorkFiles();
@@ -886,8 +818,7 @@ static void ParseControlExtra() {
         OptIXRef();
         break;
     case 14:
-        IXREF    = false;
-        IXREFSet = false;
+        IXREF = false;
         break;
     case 15:
         OptSave();
@@ -920,17 +851,11 @@ static void ParseControlExtra() {
 }
 
 static void FindOption() {
-    word off, clen;
-    off  = 0;
-    clen = optTable[0];
-
-    while (clen != 0) {
-        if (clen == tknLen)
-            if (Strncmp((char *)optStrValP, (char *)(&optTable[off] + 1), (byte)clen) == 0) {
-                tknFlagsP = (tknflags_t *)(&optTable[off] + clen + 1);
-                return;
-            }
-        clen = optTable[off = off + clen + 6];
+    for (int i = 0; i < sizeof(optTable) / sizeof(optTable[0]); i++) {
+        if (optTable[i].optLen == tknLen && strnicmp(optStrValP, optTable[i].optName, tknLen) == 0) {
+            tknFlagsP = &optTable[i];
+            return;
+        }
     }
     tknFlagsP = 0;
 }
@@ -954,9 +879,10 @@ static void ParseControl() {
             UnknownCtrl();
             SkipControlParam();
         } else {
-            if (tknFlagsP->primary == 0) {
+            if (!tknFlagsP->primary) {
                 if (isNonCtrlLine) {
-                    SyntaxError(ERR10); /* ILLEGAL USE OF PRIMARY CONTROL AFTER NON-CONTROL LINE */
+                    Wr1SyntaxError(
+                        ERR10); /* ILLEGAL USE OF PRIMARY CONTROL AFTER NON-CONTROL LINE */
                     SkipControlParam();
                     return;
                 } else if (primaryCtrlSeen[tknFlagsP->primaryId]) {
@@ -972,7 +898,7 @@ static void ParseControl() {
                 if (tknFlagsP->tokenId == 0) // simple update to control value only
                     controls[tknFlagsP->controlId] = tknFlagsP->controlVal;
                 else { // write control to lexical stream
-                    WrByte(tknFlagsP->tokenId);
+                    Wr1Byte(tknFlagsP->tokenId);
                     if (tknFlagsP->tokenId == L_CODE) // update values for CODE and LIST
                         CODE = true;
                     else if (tknFlagsP->tokenId == L_NOCODE)
@@ -991,20 +917,11 @@ static void ParseControl() {
 void ParseControlLine(byte *pch) {
     curChP   = pch;
     chrClass = 0;
-    ixiGiven = objGiven = lstGiven = false;
-    NxtCh(); // skip $ or to first char of current cmd line string
 
     while (1) {
         SkipWhite();
-        if (chrClass == CC_NEWLINE) {
-            if (ixiGiven)
-                CloseF(&ixiFile);
-            if (objGiven)
-                CloseF(&objFile);
-            if (lstGiven)
-                CloseF(&lstFil);
+        if (chrClass == CC_NEWLINE)
             return;
-        }
         ParseControl();
     }
 }
@@ -1031,7 +948,7 @@ static void ChkEndSkipping(byte *pch) {
         if (!skippingCOND) // no longer skipping so record any change of listing status
             if (!COND)
                 if (LIST)
-                    WrByte(L_LIST);
+                    Wr1Byte(L_LIST);
     }
 }
 
@@ -1042,6 +959,7 @@ void GNxtCh() {
     inChrP++;
     while (*inChrP == '\n')
         GetLin();
+    // hack as original code assumed \r\n
     nextCh = *inChrP;
 }
 
@@ -1049,23 +967,14 @@ void GNxtCh() {
 // char is 0x81 on EOF, cr is discarded
 
 static byte InGetC() {
-    byte c;
-    do {
-        if (offCurCh == offLastCh) {
-            offCurCh = 0;
-            ReadF(&srcFil, inbuf, 512, &offLastCh);
-            if (offLastCh == 0) {
-                return *inChrP = ISISEOF; // EOF
-            } else
-                offLastCh--; // base from 0
-        } else
-            offCurCh++;
-    } while ((c = inbuf[offCurCh] & 0x7f) == '\r'); // make sure parity stripped & skip cr
-    return *inChrP = c;
+    int c;
+    while ((c = fgetc(srcFil.fp)) == '\r')
+        ;
+    return *inChrP = c == EOF ? ISISEOF : c & 0x7f;
 }
 
 static void RSrcLn() {
-    byte i = 127; // max chars;
+    int i = MAXLINE; // max chars;
 
     for (;;) {
         if (*inChrP == '\n' || *inChrP == ISISEOF)
@@ -1081,16 +990,16 @@ static void RSrcLn() {
 }
 
 static void GetSrcLine() {
-    WriteLineInfo(); // make sure linfo is written
+    Wr1LineInfo(); // make sure linfo is written
     inChrP = lineBuf;
     InGetC();
     if (*inChrP == ISISEOF) /* eof */
         return;
-    trunc = false;    // reset truncation flag
-    RSrcLn();         // get line
-    *inChrP++ = '\r'; // add cr lf
-    *inChrP   = '\n';
-    inChrP    = lineBuf;                 // point to start
+    trunc = false; // reset truncation flag
+    RSrcLn();      // get line
+    *inChrP++ = '\r';
+    *inChrP = '\n';
+    inChrP  = lineBuf;                   // point to start
     linfo.lineCnt++;                     // account for new line
     linfo.stmtCnt = linfo.blkCnt = 0;    // no stmt or blkcnt for this line yet
     lineInfoToWrite              = true; // note linfo needs to be written
@@ -1106,35 +1015,32 @@ static void GetCodeLine() {
             while (inChrP < startOfLine) {
                 if (*inChrP == '\r')
                     return; // effectively a blank line
-                inChrP = inChrP + 1;
+                inChrP++;
             }
             if (skippingCOND) // is skipping check to see if finished
                 ChkEndSkipping(inChrP);
             else if (*inChrP == '$') { // control line
-                WrByte(L_STMTCNT);     // note zero stmts on this line
-                WrWord(0);
+                Wr1Byte(L_STMTCNT);    // note zero stmts on this line
+                Wr1Word(0);
                 if (trunc) {
-                    SyntaxError(ERR86); /* LIMIT EXCEEDED: SOURCE LINE LENGTH */
+                    Wr1SyntaxError(ERR86); /* LIMIT EXCEEDED: SOURCE LINE LENGTH */
                     trunc = false;
                 }
-                ParseControlLine(inChrP); // process controls
+                ParseControlLine(inChrP + 1); // process controls
             } else {
-                isNonCtrlLine =
-                    true; // first none control line (even a comment) stops primary controls
-                return;   // we have a line
+                // first none control line (even a comment) stops primary controls
+                isNonCtrlLine = true;
+                return; // we have a line
             }
-        } else if (srcFileIdx == 0) { // EOF at end of main file
-            if (ifDepth != 0)         // oops we are nested (error code seems to be incorrect)
-                SyntaxError(ERR188);  /* MISPLACED RESTORE OPTION */
-            inChrP = (pointer)"/*'/**/EOF   "; // string to make sure any comments, strings are closed and EOF
+        } else if (srcFileIdx == 0) {   // EOF at end of main file
+            if (ifDepth != 0)           // oops we are nested (error code seems to be incorrect)
+                Wr1SyntaxError(ERR188); /* MISPLACED RESTORE OPTION */
+            inChrP = (pointer) "/*'/**/EOF   "; // string to make sure any comments, strings are
+                                                // closed and EOF
             return;
         } else {
             CloseF(&srcFil); // close nested file & reload caller file at saved position
-            srcFileIdx = srcFileIdx - 10;
-            InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]);
-            OpenF(&srcFil, 1);
-            SeekF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-            offCurCh = offLastCh; // force buffer reload
+            srcFil = srcFileTable[--srcFileIdx];
         }
     }
 }
@@ -1148,7 +1054,7 @@ static void GetLin() {
         SetType(LIT_T); // reset info entry to LIT_T from MACRO_T
         curMacroInfoP = ptr2Off((pointer)macroPtrs[macroDepth + 1]); // get the caller lit's infoP
         inChrP        = (pointer)macroPtrs[macroDepth]; // get the curent loc in the expansion
-        macroDepth -= 2;                       // prep for next line
+        macroDepth -= 2;                                // prep for next line
         curInfoP = tmp;
     } else
         GetCodeLine();

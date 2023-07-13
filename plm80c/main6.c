@@ -9,31 +9,26 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include "os.h"
 
-//static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+// static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
-void Sub_3F96()
-{
+void Sub_3F96() {
     if (PRINT) {
-        NewPageNextChLst();
-        Xputstr2cLst("ISIS-II PL/M-80 ", 0);
-        XwrnstrLst(version, 4);
-        Xputstr2cLst(" COMPILATION OF MODULE ", 0);
-        curInfoP = botInfo + procInfo[1];
+        EjectNext();
+        lstStr("ISIS-II PL/M-80 " VERSION " COMILATION OF MODULE ");
+        curInfoP   = botInfo + procInfo[1];
         curSymbolP = GetSymbol();
-        if (curSymbolP != 0)
-            XwrnstrLst(SymbolP(curSymbolP)->name.str, SymbolP(curSymbolP)->name.len);
-        NewLineLst();
-        if (OBJECT)
-            Xputstr2cLst("NO OBJECT MODULE GENERATED", 0);
-        else
-            Xputstr2cLst("NO OBJECT MODULE REQUESTED", 0);
-        NewLineLst();
-        Xputstr2cLst("COMPILER INVOKED by:  ", 0);
+        sym_t *sym = SymbolP(curSymbolP);
+        if (curSymbolP)
+            lprintf("%.*s", sym->name.len, sym->name.str);
+        lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:", OBJECT ? "GENERATED" : "REQUESTED");
+        lstStr("COMPILER INVOKED by:  ");
+        // replace with PrintCmdLine code
         cmdLineP = startCmdLineP;
         while (cmdLineP != 0) {
             TabLst(-23);
-            Xputstr2cLst(CmdP(cmdLineP)->pstr.str, '\r');
+            lstStrCh(CmdP(cmdLineP)->pstr.str, '\r');
             cmdLineP = CmdP(cmdLineP)->link;
         }
         NewLineLst();
@@ -41,105 +36,52 @@ void Sub_3F96()
     }
 }
 
-byte tx2Buf[2048];
-byte nmsBuf[2048];
+
+
 byte lstBuf_6[2048];
 
-void Sub_404A()
-{
-    if (PRINT) {
-        lBufP = lstBuf_6;
-        lBufSz = 2047;
-    }
+void Sub_404A() {
     b7AD9 = PRINT | OBJECT;
-    if (OBJECT)
-        DeletF(&objFile);
-    if (! lfOpen && PRINTSet) {
-        DeletF(&lstFil);
-        PRINTSet = false;
-    }
-    CloseF(&tx1File);
-#ifdef _DEBUG
-    copyFile(tx1File.fNam, "plmtx1.tmp_main6");
-#endif
-    DeletF(&tx1File);
-    CreatF(&tx2File, tx2Buf, 0x800, 1);
+
+    vfReset(&utf1);
+    vfRewind(&utf2);
     if (b7AD9 || IXREF)
-        CreatF(&nmsFile, nmsBuf, 0x800, 1);
+        vfRewind(&nmsf);
     stmtNo = 0;
     if (PRINT) {
         srcFileIdx = 0;
-        InitF(&srcFil, "SOURCE", (char *)&srcFileTable[srcFileIdx]); /* note word array used */
-        OpenF(&srcFil, 1);
+        InitF(&srcFil, "SOURCE", srcFileTable[srcFileIdx].fNam);
     }
     curInfoP = procInfo[1] + botInfo;
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
         errData.stmt = errData.info = 0;
-        errData.num = fatalErrorCode;
+        errData.num                 = fatalErrorCode;
         EmitError();
         SetSkipLst(2);
     }
-    listing = PRINT;
-    listOff = false;
-    codeOn = false;
+    listing       = PRINT;
+    listOff       = false;
+    codeOn        = false;
     programErrCnt = linesRead = csegSize = 0;
 }
 
-void Sub_4149()     // similar to Sub_4201 in main3.c
-{
-    topSymbol = localLabelsP - 3;
-    curSymbolP = topSymbol - 1;
-    Fread(&nmsFile, &b7ADA, 1);
-    while (b7ADA != 0) {
-        curSymbolP = curSymbolP - b7ADA - 1;
-        SymbolP(curSymbolP)->name.len = b7ADA;
-        Fread(&nmsFile, SymbolP(curSymbolP)->name.str, b7ADA);
-        Fread(&nmsFile, &b7ADA, 1);
-    }
-    botSymbol = curSymbolP + 4;
-    botMem = botSymbol;
-}
+void Sub_41B6() {
+    vfReset(&atf);
+    vfReset(&utf2);
 
+    if (b7AD9 || IXREF)
+        vfReset(&nmsf);
 
-void Sub_41B6()
-{
-    CloseF(&atFile);
-#ifdef _DEBUG
-    copyFile(atFile.fNam, "plmat.tmp_main6");
-#endif
-    DeletF(&atFile);
-    CloseF(&tx2File);
-#ifdef _DEBUG
-    copyFile(tx2File.fNam, "plmtx2.tmp_main6");
-#endif
-    DeletF(&tx2File);
-    if (b7AD9 || IXREF) {
-        CloseF(&nmsFile);
-#ifdef _DEBUG
-        copyFile(nmsFile.fNam, "plmnms.tmp_main6");
-#endif
-        DeletF(&nmsFile);
-    }
     linesRead = lineCnt;
-    if (PRINT) {
-        TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
-        CloseF(&srcFil);
-        FlushLstBuf();
-    }
 }
 
-word Start6()
-{
+word Start6() {
     if (setjmp(exception) == 0) {
         Sub_404A();
         if (b7AD9 || IXREF) {
-            Sub_4149();
-#ifdef _DEBUG
-            symMode = 2;
-#endif
+            ReloadSymbols();
         }
         Sub_3F96();
         while (b7AE4) {
@@ -149,14 +91,13 @@ word Start6()
         EmitLinePrefix();
     }
     Sub_41B6();
-    if (PRINT || IXREF)
-    {
-        if (XREF ||  SYMBOLS || IXREF)
+    if (PRINT || IXREF) {
+        if (XREF || SYMBOLS || IXREF)
             return 5; // Chain(&overlay5);
         else
             LstModuleInfo();
     }
     EndCompile();
-    Exit();
+    Exit(programErrCnt != 0);
 }
 /* split file */

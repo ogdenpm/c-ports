@@ -15,7 +15,8 @@
 bool listing;
 bool listOff;
 bool codeOn;
-char locLabStr[32];		/* used to hold symbol name */
+char line[82];
+char locLabStr[33]; /* used to hold symbol name + '\0' */
 err_t errData;
 bool bo812B = true;
 word baseAddr;
@@ -28,8 +29,9 @@ word stmtNo;
 //word offCurCh = 0;  already defined in plm0a.c
 bool linePrefixChecked = true;
 bool linePrefixEmitted = true;
-byte lstLineLen;
-char lstLine[130];
+uint16_t lstLineLen;
+char lstLine[MAXLINE + 1];	// allow for trailing '\0'
+
 byte rec6_4[1024] = {6, 0, 0, 1};
 byte rec22[1022] = {0x22, 0, 0, 3};
 byte rec24_1[1022] = {0x24, 0, 0, 1, 3};    // initialise for ov3 (code seg), main4.c updates to 0x24 0, 0, 2, 3
@@ -51,7 +53,8 @@ byte b96D6;
 word w96D7;
 byte curExtId;
 char commentStr[41] = "\0; ";
-byte line[81];  // pstr
+_pstr_t(_line, 81);
+
 byte opByteCnt;
 byte opBytes[3];
 byte dstRec;

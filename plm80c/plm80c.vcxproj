@@ -121,7 +121,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_MBCS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions);_CRT_NONSTDC_NO_WARNINGS</PreprocessorDefinitions>
       <CompileAs>CompileAsC</CompileAs>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -156,7 +156,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_MBCS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions);_CRT_NONSTDC_NO_WARNINGS</PreprocessorDefinitions>
       <CompileAs>CompileAsC</CompileAs>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -193,7 +193,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions);_CRT_NONSTDC_NO_WARNINGS</PreprocessorDefinitions>
       <CompileAs>CompileAsC</CompileAs>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ExceptionHandling>false</ExceptionHandling>
@@ -236,7 +236,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions);_CRT_NONSTDC_NO_WARNINGS</PreprocessorDefinitions>
       <CompileAs>CompileAsC</CompileAs>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -271,7 +271,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="error.h" />
+    <ClInclude Include="os.h" />
     <ClInclude Include="plm.h" />
+    <ClInclude Include="vfile.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>
@@ -287,6 +289,8 @@
     <ClCompile Include="debug.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="endcom.c" />
     <ClCompile Include="fatal.c" />
@@ -298,10 +302,8 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <ClCompile Include="itoa.c" />
     <ClCompile Include="lookup.c" />
     <ClCompile Include="lstinf.c" />
-    <ClCompile Include="lstlin.c" />
     <ClCompile Include="lstsup.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="main0.c" />
@@ -311,6 +313,7 @@
     <ClCompile Include="main4.c" />
     <ClCompile Include="main5.c" />
     <ClCompile Include="main6.c" />
+    <ClCompile Include="os.c" />
     <ClCompile Include="page.c" />
     <ClCompile Include="pdata4.c" />
     <ClCompile Include="pdata6.c" />
@@ -346,6 +349,7 @@
     <ClCompile Include="putlst.c" />
     <ClCompile Include="strcmp.c" />
     <ClCompile Include="util.c" />
+    <ClCompile Include="vfile.c" />
     <ClCompile Include="wrclst.c" />
   </ItemGroup>
   <ItemGroup>

@@ -9,89 +9,79 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include <stdarg.h>
 /* common source for lstsp[456].plm */
 
-void FlushLstBuf()
-{
-	if (lChCnt != 0) {
-		if (! lfOpen) {
-			OpenF(&lstFil, 2);
-			lfOpen = true;
-		}
-		WriteF(&lstFil, lBufP, lChCnt);
-		lChCnt = 0;
-	}
+
+void NewLineLst() {
+    if (col == 0 && linLft == 0)
+        NewPgl();
+    WrLstC('\n');
+    linLft--;
+    col = 0;
 }
 
-void NewLineLst()
-{
-	if (col == 0)
-		if (linLft == 0)
-			NewPgl();
-	Wr2cLst(0x0d0a);
-	linLft--;
-	col = 0;
+void TabLst(byte tabTo) {
+    if (tabTo > 127) {
+        tabTo = -tabTo;
+        if (col >= tabTo)
+            NewLineLst();
+        tabTo -= col + 1;
+    }
+    while (tabTo-- != 0)
+        lstc(' ');
 }
 
-
-void TabLst(byte tabTo)
-{
-	if (tabTo > 127) {
-		tabTo = -tabTo;
-		if (col >= tabTo)
-			NewLineLst();
-		tabTo -= col + 1;
-	}
-	while (tabTo-- != 0)
-		PutLst(' ');
-
+void EjectNext() {
+    linLft = 0;
 }
 
-
-void NewPageNextChLst()
-{
-	linLft = 0;
+void SetMarkerInfo(byte markerCol, byte marker, byte textCol) {
+    wrapMarkerCol = markerCol;
+    wrapMarker    = marker;
+    wrapTextCol   = textCol;
 }
 
-void SetMarkerInfo(byte markerCol, byte marker, byte textCol)
-{
-	wrapMarkerCol = markerCol;
-	wrapMarker = marker;
-	wrapTextCol = textCol;
+void SetStartAndTabW(byte startCol, byte width) {
+    margin = startCol - 1;
+    tWidth = width;
 }
 
+void SetSkipLst(byte cnt) {
+    skipCnt = cnt;
+}
 
-void SetStartAndTabW(byte startCol, byte width)
-{
-	margin = startCol - 1;
-	tWidth = width;
+void lstStr(char const *str) {
+    while (*str)
+        lstc(*str++);
+}
+
+void lstStrCh(char const *str, int endch) {
+    while (*str && *str != endch)
+        lstc(*str++);
+    
 }
 
 
-void SetSkipLst(byte cnt)
-{
-	skipCnt = cnt;
+void lprintf(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char tmp[1024];
+    vsprintf(tmp, fmt, args);
+    lstStr(tmp);
+    va_end(args);
 }
 
-
-void Xputstr2cLst(char const *str, byte endch)
-{
-	while (*str != endch)
-		PutLst(*str++);
+void lstPstr(pstr_t *ps) {
+    lprintf("%.*s", ps->len, ps->str);
 }
 
-void XwrnstrLst(char const *str, byte cnt)
-{
-	while (cnt-- != 0)
-		PutLst(*str++);
-}
+pstr_t const *hexfmt(byte digits, word val) {
+    static char str[8];
+    str[0] = sprintf(str + 1, "0%0*XH", digits, val);
+    if (str[2] > '9')
+        return (pstr_t *)str;
+    str[1] = str[0] - 1;
+    return (pstr_t *)(str + 1);
 
-
-void XnumLst(word num, byte width, byte radix)
-{
-    byte i;
-	char buf[7];
-
-	i = Num2Asc(num, width, radix, buf);
-	XwrnstrLst(buf, i);
 }

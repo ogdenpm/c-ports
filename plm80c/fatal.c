@@ -8,15 +8,13 @@
  *                                                                          *
  ****************************************************************************/
 
+#include "os.h"
 #include "plm.h"
 
-void Fatal(char const *str, byte len)
-{
-	PrintStr("\r\n\nPL/M-80 FATAL ERROR --\r\n\n", 28);
-	PrintStr(str, len);
-	PrintStr("\r\n\nCOMPILATION TERMINATED\r\n\n", 28);
-	//if (debugFlag)
-	//	REBOOTVECTOR();
-	//else
-		Exit();
+void Fatal(char const *str, byte len) {
+    printf("\n\nPL/M-80 FATAL ERROR --\n\n"
+           "%.*s\n"
+           "\nCOMPILATION TERMINATED\n\n",
+           len, str);
+    Exit(1);
 } /* Fatal() */

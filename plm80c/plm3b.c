@@ -9,6 +9,7 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include "os.h"
 
 void WriteRec(pointer recP, byte arg2b)
 {
@@ -27,19 +28,20 @@ void WriteRec(pointer recP, byte arg2b)
             crc -= recP[p++];
 
         recP[cnt] = crc;	/* insert checksum */
-        Fwrite(&objFile, recP, cnt + 1);
+        if (fwrite(recP, 1, cnt + 1, objFile.fp) != cnt + 1)
+            IoError(objFile.fNam, "Write error");
     }
     putWord(lenP, 0);
 }
 
 
 
-void RecAddByte(pointer recP, byte arg2b, byte arg3b)
+void RecAddByte(pointer recP, byte offset, byte val)
 {
     pointer lenP;
 
     lenP = ((rec_t *)recP)->len;
-    ((rec_t *)recP)->val[getWord(lenP) + arg2b] = arg3b;
+    ((rec_t *)recP)->val[getWord(lenP) + offset] = val;
     putWord(lenP, getWord(lenP) + 1);
 }
 
