@@ -18,6 +18,12 @@ There are also a three of script files from my [versionTools](https://github.com
 
 ## Recent major changes
 
+### 13-Jul-2023
+
+- Fixed a problem where delete, rename and access didn't map :Fx: files. Usage without the :Fx: prefix did work.
+- Did some refactoring to decouple omf.c from os.c as a precursor to adding native file support for plm80.
+- Although not yet shared, plm80 does now support native files and all the work files have been converted to be in memory. Further work is required on testing and tweaking prior to sharing. The new version already builds my Intel tools repository.
+
 ### 4-Jul-2023
 
 Lib 2.1 has basically been rewritten, the major changes are
