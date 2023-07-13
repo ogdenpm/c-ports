@@ -23,15 +23,27 @@ uint16_t putWord(uint8_t *buf, uint16_t val) {
     return val;
 }
 
+
+
+static void rmOmfOut(void) {
+    // all files should have been closed before cleaup (see Exit)
+    if (Delete(omfOutName))
+        fprintf(stderr, "Warning could not delete %s\n", omfOutName);
+
+}
+
 void openOMFOut() {
     if (!(omfOutFp = Fopen(omfOutName, "wb+")))
         IoError(omfOutName, "Create error");
+    RegCleanup(rmOmfOut);
 }
 
 void closeOMFOut() {
     if (omfOutFp && fclose(omfOutFp))
         IoError(omfInName, "Close error");
+    DeregCleanup(rmOmfOut);
     omfOutFp = NULL;
+    omfOutName = NULL;
 }
 
 void InitRecord(uint8_t type) {
