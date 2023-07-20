@@ -149,13 +149,8 @@ void SignOnAndGetSourceName()
 {
     InitF(&conFile, "CONSOL", "stdin");
     conFile.fp = stdin;
-    topMem = MemCk() - 12;
-    if (topMem < 0xC000)
-        Fatal(noMemMsg, Length(noMemMsg));
     puts("\nISIS-II PL/M-80 COMPILER " VERSION);
     cmdTextP = cmdP;
-    blkSize1 = topMem - blkSize1 - 256;
-    blkSize2 = topMem - blkSize2 - 256;
     ParseSrcFileName();
     InitFilesAndDefaults();
 } /* SignOnAndGetSourceName() */

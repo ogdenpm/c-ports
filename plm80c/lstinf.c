@@ -15,7 +15,7 @@ void LstModuleInfo()
 	word p, q, r;
 	p = 0;
 	for (q = 1; q <= procCnt; q++) {
-		curInfoP = botInfo + procInfo[q];
+		infoIdx = procInfo[q];
 		r = GetBaseVal();
 		if (r > p )
 			p = r;

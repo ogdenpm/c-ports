@@ -14,15 +14,14 @@ void FindInfo()
 {
     word i;
 
-    if (SymbolP(curSymbolP)->infoP == 0) {
-        curInfoP = 0;
+    if (!symtab[curSym].infoIdx) {
+        infoIdx = 0;
         return;
     }
     i = blockDepth;
-    while (i != 0) {
-        FindScopedInfo(procChains[i]);
-        if (curInfoP != 0)
+    while (i) {
+        FindScopedInfo(procChains[i--]);
+        if (infoIdx)
             return;
-        i = i - 1;
     }
 }

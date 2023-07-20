@@ -19,12 +19,12 @@ void GetTx1Item()
     while (1) {
         RdTx1Item();
         if (tx1Item.type == L_TOKENERROR) {
-            if ((curSymbolP = tx1Item.dataw[1]) != 0) {         // check we have symbol info
-                if (High(SymbolP(curSymbolP)->infoP) == 0xff)   // is it a keyword?
-                    SymbolP(curSymbolP)->infoP = 0;             // reset info link
-                if ((curInfoP = SymbolP(curSymbolP)->infoP) == 0)
+            if ((curSym = tx1Item.dataw[1]) != 0) {         // check we have symbol info
+                if (High(symtab[curSym].infoIdx) == 0xff)   // is it a keyword?
+                    symtab[curSym].infoIdx = 0;             // reset info link
+                if ((infoIdx = symtab[curSym].infoIdx) == 0)
                     CreateInfo(0, UNK_T);                       // allocate an UNK_T info block 
-                tx1Item.dataw[1] = curInfoP - botInfo;          // replace sym ref with info offset
+                tx1Item.dataw[1] = infoIdx;          // replace sym ref with info offset
             }
             MapLToT2();
         } else if ((tx1Item.type == L_XREFUSE && XREF)
@@ -47,9 +47,7 @@ void GetTx1Item()
             break;
     }
     if (tx1Item.type == L_IDENTIFIER)                   // set symbolP up
-        curSymbolP = tx1Item.dataw[0];
-    if ((tx1Aux2 & 0x10) != 0)                          // procedure, at, data, initial or external - adjust  offset
-        tx1Item.dataw[0] += botInfo;
+        curSym = tx1Item.dataw[0];
 }
 
 bool MatchTx1Item(byte arg1b)       // check for requested Lex item. If present return true else return false and don't consume item
@@ -110,7 +108,7 @@ void ExpectRParen(byte arg1b)
 void ChkIdentifier()
 {
     FindInfo();
-    if (curInfoP == 0 || GetType() == LIT_T)        // doesn't exist or appeared in recursive LIT!!
+    if (infoIdx == 0 || GetType() == LIT_T)        // doesn't exist or appeared in recursive LIT!!
         CreateInfo(0x100, BYTE_T);                  // assume a var was declared
     OptWrXrf();
     if (GetType() != BUILTIN_T)                     // check if declaraed
@@ -125,9 +123,9 @@ void ChkStructureMember()
 {
     word tmp;
 
-    tmp = curInfoP;     // save parent info
+    tmp = infoIdx;     // save parent info
     FindMemberInfo();   // get the member info
-    if (curInfoP == 0) {    // oops not there
+    if (infoIdx == 0) {    // oops not there
         CreateInfo(0, BYTE_T);  // create a member to allow compiler to continue
         SetParentOffset(tmp);
         SetInfoFlag(F_MEMBER);

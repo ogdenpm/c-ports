@@ -116,7 +116,7 @@ static void InstallKeywords()
     p = keywords;
     while (*p != 0) {
         Lookup((pstr_t *)p);
-        SymbolP(curSymbolP)->infoP = 0xFF00 | p[*p + 1];
+        symtab[curSym].infoIdx = 0xFF00 | p[*p + 1];
         p += *p + 2;
     }
 } /* InstallKeywords() */
@@ -124,22 +124,6 @@ static void InstallKeywords()
 
 static void InitInfoAndSym()
 {
-    word i;
-
-    if (ov0Boundary > ov1Boundary)  // plm check to make sure overlays don't overwrite
-        botMem = ov0Boundary;
-    else
-        botMem = ov1Boundary;
-    botMem = botMem + 256;          // reserve space
-    // heap memory is split
-    // info builds up, symbol builds down with hashChains table above
-    hashChainsP = (topMem + 1 - 64 * sizeof(offset_t)); // allocate hashChains table
-    topSymbol = hashChainsP - 1;
-    botSymbol = topSymbol + 1;
-    botInfo = botMem;
-    topInfo = botInfo + 1;
-    for (i = 0; i <= 63; i++)       // initialise the hashCHains
-        WordP(hashChainsP)[i] = 0;
     SetPageNo(1);
     localLabelCnt = 0;
     cmdLineCaptured++;

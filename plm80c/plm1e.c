@@ -63,7 +63,7 @@ byte Sub_59D4()
         Sub_50D5();
         if (GetDataType() != 0)
             WrTx2ExtError(ERR129);  /* ILLEGAL 'call' WITH TYPED procedure */
-        ExprPush2(I_IDENTIFIER, curInfoP);
+        ExprPush2(I_IDENTIFIER, infoIdx);
         PushParseWord(GetParamCnt());
         PushOperator(0);
         PushParseByte(16);
@@ -129,7 +129,7 @@ static void Sub_5BF5(word arg1w)
 
     p = st3Stack[arg1w];
     if ((i = st1Stack[arg1w]) == I_IDENTIFIER)
-        w99C1 = WrTx2Item1Arg(T2_IDENTIFIER, p - botInfo);
+        w99C1 = WrTx2Item1Arg(T2_IDENTIFIER, p);
     else if (i == I_NUMBER) {
         if (High(p) == 0)
             j = T2_NUMBER;
@@ -139,7 +139,7 @@ static void Sub_5BF5(word arg1w)
     } else if (i == I_INPUT)
         w99C1 = WrTx2Item1Arg(T2_INPUT, p);
     else if (i == I_LENGTH || i == I_LAST || i == I_SIZE)
-        w99C1 = WrTx2Item1Arg(icodeToTx2Map[i], p - botInfo);
+        w99C1 = WrTx2Item1Arg(icodeToTx2Map[i], p);
     else
         w99C1 = WrTx2Item(icodeToTx2Map[i]);
     FlgVisited(arg1w, w99C1);
@@ -214,9 +214,8 @@ static void SerialiseParse3()
     if (st2Stack[topNode] > 1) {   /* any args */
         PushParseWord(st2Stack[topNode] - 1); /* num args  */
         PushParseWord(st3Stack[topNode] + 1); /* index of arg info */
-        curInfoP = st3Stack[st3Stack[topNode]];   /* info of procedure */
-        AdvNxtInfo();                           /* adv to arginfo */
-        PushParseWord(curInfoP);
+        infoIdx = AdvNxtInfo(st3Stack[st3Stack[topNode]]); /* from proc info adv to arginfo */
+        PushParseWord(infoIdx);
         PushParseByte(4);
         PushParseWord(st3Stack[topNode] + 1); /* index of arg info */
         PushParseByte(0);
@@ -230,11 +229,11 @@ static void SerialiseParse4()
     byte i, j;
 
     q = (p = parseSP - 1) - 1;
-    curInfoP = parseStack[parseSP];
+    infoIdx = parseStack[parseSP];
     topNode = parseStack[p];
     i = (byte)parseStack[q];
     if (i > 2) {   /* all bar first 2 args to stack */
-        if (curInfoP == 0)
+        if (infoIdx == 0)
             w99C1 = WrTx2Item1Arg(T2_STKARG, Sub_42EF(st3Stack[topNode]));
         else {
             if (GetType() == BYTE_T)
@@ -242,8 +241,8 @@ static void SerialiseParse4()
             else
                 j = T2_STKWARG;
             w99C1 = WrTx2Item1Arg(j, Sub_42EF(st3Stack[topNode]));
-            AdvNxtInfo();
-            parseStack[parseSP] = curInfoP;
+            infoIdx = AdvNxtInfo(infoIdx);
+            parseStack[parseSP] = infoIdx;
         }
         FlgVisited(topNode, w99C1);
     }
@@ -278,7 +277,7 @@ static void SerialiseParse5()
         q = Sub_42EF(st3Stack[r + i]);
     } else if (i > 0)
         p = Sub_42EF(st3Stack[r + i]);
-    w99C1 = WrTx2Item3Arg(T2_CALL, p, q, st3Stack[r] - botInfo);
+    w99C1 = WrTx2Item3Arg(T2_CALL, p, q, st3Stack[r]);
     FlgVisited(topNode, w99C1);
 }
 
@@ -443,7 +442,7 @@ word SerialiseParse(word arg1w)
     byte i;
     word p;
 
-    p = curInfoP;
+    p = infoIdx;
     parseSP = 0;
     PushParseWord(arg1w);
     PushParseByte(0);
@@ -468,7 +467,7 @@ word SerialiseParse(word arg1w)
         case 15: SerialiseParse15(); break;
         }
     }
-    curInfoP = p;
+    infoIdx = p;
     return st3Stack[arg1w];
 }
 
@@ -484,7 +483,7 @@ static word controlSP;
 static void PushScope(word arg1w)
 {
     if (blockDepth == 0x22)
-        PFatalError(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
+        FatalError_ov1(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
     else
         procChains[blockDepth = blockDepth + 1] = arg1w;
 }
@@ -492,7 +491,7 @@ static void PushScope(word arg1w)
 static void PopScope()
 {
     if (blockDepth == 0)
-        PFatalError(ERR165); /* COMPILER Error: SCOPE STACK UNDERFLOW */
+        FatalError_ov1(ERR165); /* COMPILER Error: SCOPE STACK UNDERFLOW */
     else
         blockDepth = blockDepth - 1;
 }
@@ -500,7 +499,7 @@ static void PopScope()
 static void PushControl(byte arg1b)
 {
     if (controlSP == 0x13)
-        PFatalError(ERR84);  /*  LIMIT EXCEEDED: BLOCK NESTING */
+        FatalError_ov1(ERR84);  /*  LIMIT EXCEEDED: BLOCK NESTING */
     else {
         b99FF[++controlSP] = arg1b;
         b9A13[controlSP] = false;
@@ -515,7 +514,7 @@ static void PushControl(byte arg1b)
 static void PopControl()
 {
     if (controlSP == 0)
-        PFatalError(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
+        FatalError_ov1(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
     else {
         if (b99FF[controlSP] != 0)
             b9A13[controlSP - 1] |= b9A13[controlSP];
@@ -525,7 +524,6 @@ static void PopControl()
 
 static word NewLocalLabel()
 {
-    Alloc(3, 3);
     return ++localLabelCnt;
 }
 
@@ -534,11 +532,11 @@ static word Sub_671D(offset_t arg1w)
 {
     word p, q;
 
-    curInfoP = arg1w;
-    q = WrTx2Item1Arg(T2_IDENTIFIER, arg1w - botInfo);
+    infoIdx = arg1w;
+    q = WrTx2Item1Arg(T2_IDENTIFIER, arg1w);
     if (TestInfoFlag(F_MEMBER)) {
-        curInfoP = GetParentOffset();
-        p = WrTx2Item1Arg(T2_IDENTIFIER, curInfoP - botInfo);
+        infoIdx = GetParentOffset();
+        p = WrTx2Item1Arg(T2_IDENTIFIER, infoIdx);
         q = WrTx2Item2Arg(T2_MEMBER, Sub_42EF(p), Sub_42EF(q));
     }
     return q;
@@ -575,7 +573,7 @@ static void Sub_67E3()
     u = hNodes[controlSP];
     v = eNodes[controlSP];
     if ((w = w9A9F[controlSP]) == 0) {
-        curInfoP = p;
+        infoIdx = p;
         if (GetType() == BYTE_T)
             WrTx2Item1Arg(T2_LOCALLABEL, NewLocalLabel());
         q = Sub_677C(p);
@@ -611,7 +609,7 @@ static void Sub_6923()
     if (MatchTx1Item(L_JMPFALSE))
         p = WrTx2Item2Arg(T2_JMPFALSE, tx1Item.dataw[0], Sub_42EF(p));
     else
-        PFatalError(ERR168);  /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
+        FatalError_ov1(ERR168);  /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
 }
 
 static void ParseStmtcnt()
@@ -629,11 +627,10 @@ static void ParseIf()
 
 static void ParseProcedure()
 {
-    tx1Item.dataw[0] -= botInfo;
     MapLToT2();
     PushControl(DO_PROC);
-    procInfoStack[controlSP] = curProcInfoP;
-    curProcInfoP = curInfoP = tx1Item.dataw[0] + botInfo;
+    procInfoStack[controlSP] = procIdx;
+    procIdx = infoIdx = tx1Item.dataw[0];
     SetInfoFlag(F_DECLARED);
 }
 
@@ -673,7 +670,7 @@ static void IterativeDoStatement()
         return;
     }
     GetVariable();
-    w = curInfoP;
+    w = infoIdx;
     procInfoStack[controlSP] = w;
     if ((GetType() != BYTE_T && GetType() != ADDRESS_T) || TestInfoFlag(F_ARRAY)) {
         WrTx2ExtError(ERR139);  /* INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS */
@@ -726,12 +723,12 @@ static void ParseEND()
 {
     switch (b99FF[controlSP]) {
     case 0:
-        curInfoP = curProcInfoP;
+        infoIdx = procIdx;
         SetInfoFlag(F_DEFINED);
         if (GetDataType() != 0 && !b9A13[controlSP])
             WrTx2Error(ERR156); /* MISSING RETURN STATEMENT IN TYPED PROCEDURE */
          WrTx2Item(T2_ENDPROC);
-        curProcInfoP = procInfoStack[controlSP];
+        procIdx = procInfoStack[controlSP];
         break;
     case 1: break;
     case 2:
@@ -769,11 +766,11 @@ static void ReturnStatement()   // return already seen
     word p;
     byte i;
 
-    if (curProcInfoP == 0) {
+    if (procIdx == 0) {
         WrTx2Error(ERR155); /* INVALID RETURN IN MAIN PROGRAM */
         return;
     }
-    curInfoP = curProcInfoP;
+    infoIdx = procIdx;
     i = GetDataType();
     if (MatchTx2AuxFlag(0x80)) { /* there is an Expression item */
         SetRegetTx1Item();      
@@ -813,7 +810,7 @@ static void GotoStatement()
             if (High(GetScope()) == 1 && High(procChains[blockDepth]) != 1)     // goto is from local to a module level target
                 SetInfoFlag(F_MODGOTO);                                         // flag target as module level label
             if (High(GetScope()) == 1 || High(GetScope()) == High(procChains[blockDepth])) {    // its module level to module level or local to local
-                WrTx2Item1Arg(T2_GOTO, curInfoP - botInfo);                     // write lex token with normalised infoOffset
+                WrTx2Item1Arg(T2_GOTO, infoIdx);                     // write lex token with normalised infoOffset
                 ChkEndOfStmt();
             } else
                 WrTx2ExtError(ERR144); /* INVALID GOTO LABEL, NOT AT LOCAL OR MODULE LEVEL */
@@ -839,7 +836,7 @@ static void Locator()
     GetTx1Item();               // junk the (
     RestrictedExpression();     // get the AT Expression
     WrAtByte(ATI_AHDR);
-    WrAtWord(p - botInfo);  // normalise the info offset
+    WrAtWord(p);  // normalise the info offset
     WrAtWord(curStmtNum);   // statement number
     WrAtWord(var.infoOffset);   // info offset for identifier in Expression
     WrAtWord(var.arrayIndex);   // any array index
@@ -854,7 +851,7 @@ void Initialization()
     p = tx1Item.dataw[0];       // info of variable being initialised
     GetTx1Item();               // get next item
     cnt = InitialValueList(p);      // parse the initialisation list
-    if ((curInfoP = p) != botInfo)  // set the dimension if variable and (*) was specified
+    if ((infoIdx = p))  // set the dimension if variable and (*) was specified
         if (TestInfoFlag(F_STARDIM))
             SetDimension(cnt);
 }
@@ -866,7 +863,7 @@ void ParseLexItems()
     controlSP = 0;
     GetTx1Item();
     while (tx1Item.type != L_EOF) {
-        curInfoP = 0;
+        infoIdx = 0;
         switch (lexHandlerIdxTable[tx1Item.type]) {
         case 0: ParseStmtcnt(); break;  /* L_STMTCNT */
         case 1: PushScope(tx1Item.dataw[0]); break;  /* L_SCOPE */
@@ -892,7 +889,7 @@ void ParseLexItems()
         case 18: break;                 /* simple items */
         case 19: MapLToT2(); break;     /* L_LABELDEF, L_LOCALLABEL, L_JMP, L_JMPFALSE, L_CASELABEL */
         case 20:
-            curInfoP = tx1Item.dataw[0];  /* L_EXTERNAL */
+            infoIdx = tx1Item.dataw[0];  /* L_EXTERNAL */
             SetInfoFlag(F_DECLARED);      // flag proc as declared & defined
             SetInfoFlag(F_DEFINED);       // PMO - possible improvement to only flag if used
             break;

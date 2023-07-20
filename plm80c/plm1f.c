@@ -8,22 +8,19 @@
  *                                                                          *
  ****************************************************************************/
 
+#include "os.h"
 #include "plm.h"
 
 static byte externalsCnt = 0;
 static word atStmtNum    = 0;
-static byte b9B40;
 
 static void Sub_6EF6(word arg) {
     hasErrors = true;
     Wr2Byte(T2_ERROR);
     Wr2Word(arg);
-    Wr2Word(curInfoP - botInfo);
+    Wr2Word(infoIdx);
     Wr2Word(atStmtNum);
 }
-
-
-
 
 int32_t RdAtByte() {
     return vfRbyte(&atf);
@@ -32,7 +29,6 @@ int32_t RdAtByte() {
 int32_t RdAtWord() {
     return vfRword(&atf);
 }
-
 
 static word GetElementSize() {
     byte i;
@@ -70,62 +66,32 @@ static void RevMemMov(pointer srcp, pointer dstp, word cnt) {
         *(wpointer)dstp = (*(wpointer)dstp & 0xff) | (*(wpointer)srcp & 0xff00);
 }
 
-static void AdvNextDataInfo() {
+static index_t AdvNextDataInfo(index_t idx) {
     while (1) {
-        AdvNxtInfo();
-        if (curInfoP == 0)
-            return;
-        if (GetType() >= BYTE_T && GetType() <= STRUCT_T)
-            return;
+        idx = AdvNxtInfo(idx);
+        if (idx == 0 || infotab[idx].type >= BYTE_T && infotab[idx].type <= STRUCT_T)
+            return idx;
     }
 }
 
-static void DumpSymbols() {
-    offset_t p;
-    byte i;
-
-
-    if (!b9B40 && !IXREF)
-        return;
-    p = topSymbol - 1;
-    for (i = 0; i <= 63; i++) {
-        curSymbolP = WordP(hashChainsP)[i];
-        while (curSymbolP != 0) {
-            if ((curInfoP = SymbolP(curSymbolP)->infoP) != 0 && High(curInfoP) != 0xff) {
-                p = p - SymbolP(curSymbolP)->name.len - 1;
-                while (curInfoP != 0) {
-                    SetSymbol(p);
-                    curInfoP = GetLinkOffset();
-                }
-                vfWbuf(&nmsf, (uint8_t *)&SymbolP(curSymbolP)->name, SymbolP(curSymbolP)->name.len + 1);
-            }
-            curSymbolP = SymbolP(curSymbolP)->link;
-        }
-    }
-    vfWbyte(&nmsf, 0);
-}
 
 static void Sub_711F() {
     word p, q, r, s;
 
-    curInfoP = botInfo + 2;
-
-    AdvNextDataInfo();
-    while (curInfoP != 0) {
+    for (infoIdx = AdvNextDataInfo(0); infoIdx != 0; infoIdx = AdvNextDataInfo(infoIdx)) {
         if (GetType() == STRUCT_T) {
             SetParentOffset(0); /* struct Size() is 0 */
         } else if (TestInfoFlag(F_MEMBER)) {
             r        = GetVarSize();
-            p        = curInfoP;
-            curInfoP = GetParentOffset(); /* get structure info */
+            p        = infoIdx;
+            infoIdx = GetParentOffset(); /* get structure info */
             q        = GetParentOffset(); /* this gets Size() so far */
             if ((s = q + r) < r)          /* add in the new element */
                 Sub_6EF6(ERR208);         /* LIMIT EXCEEDED: structure Size() */
             SetParentOffset(s);           /* store the running Size() */
-            curInfoP = p;
+            infoIdx = p;
             SetLinkVal(q); /* use link value for offset of this memeber */
         }
-        AdvNextDataInfo();
     }
 }
 
@@ -141,10 +107,10 @@ static void Sub_7323() {
     word p;
     wpointer q;
 
-    p        = curInfoP;
-    curInfoP = procInfo[High(GetScope())];
-    q        = &InfoP(curInfoP)->parent; /* varsize union with parent */
-    curInfoP = p;
+    p        = infoIdx;
+    infoIdx = procInfo[High(GetScope())];
+    q        = &infotab[infoIdx].parent; /* varsize union with parent */
+    infoIdx = p;
     AllocVarAddress(q);
 }
 
@@ -153,10 +119,10 @@ static void Sub_719D() {
     word p;
 
     /* allocate external data ids */
-    curInfoP   = botInfo + 2;
+
     standAlone = haveModuleLevelUnit;
 
-    while (curInfoP != 0) {
+    for (infoIdx = AdvNxtInfo(0); infoIdx != 0; infoIdx = AdvNxtInfo(infoIdx)) {
         if ((GetType() >= BYTE_T && GetType() <= STRUCT_T) || GetType() == PROC_T ||
             GetType() == LABEL_T) {
             if (TestInfoFlag(F_EXTERNAL)) {
@@ -169,20 +135,17 @@ static void Sub_719D() {
             } else if (TestInfoFlag(F_PUBLIC))
                 standAlone = false;
         }
-        AdvNxtInfo();
     }
 
     /* allocate data variables */
-    curInfoP = botInfo + 2; /* start at bottom */
-    AdvNextDataInfo();      /* find next data */
 
-    while (curInfoP != 0) {
+    for (infoIdx = AdvNextDataInfo(0); infoIdx != 0; infoIdx = AdvNextDataInfo(infoIdx)) {
         if (!(TestInfoFlag(F_MEMBER) || TestInfoFlag(F_AT) || TestInfoFlag(F_EXTERNAL))) {
             if (TestInfoFlag(F_PARAMETER)) {
-                p        = curInfoP;
-                curInfoP = procInfo[High(GetScope())];
+                p        = infoIdx;
+                infoIdx = procInfo[High(GetScope())];
                 i        = TestInfoFlag(F_EXTERNAL); /* only allocate parameter if (! external */
-                curInfoP = p;
+                infoIdx = p;
             } else
                 i = false;
             if (i)
@@ -198,7 +161,6 @@ static void Sub_719D() {
             else
                 AllocVarAddress(&dsegSize); /* allocate uninitalised data */
         }
-        AdvNextDataInfo(); /* get next data */
     }
 }
 
@@ -208,10 +170,7 @@ union {
         byte type;
         offset_t infoP;
         word stmt;
-        offset_t infoOffset;
-        word arrayIndex;
-        word nestedArrayIndex;
-        word val;
+        var_t var;
     };
 
 } atFData;
@@ -222,14 +181,11 @@ void RdAtHdr() {
     atFData.stmt  = RdAtWord();
 }
 void RdAtData() {
-    atFData.infoOffset       = RdAtWord();
-    atFData.arrayIndex       = RdAtWord();
-    atFData.nestedArrayIndex = RdAtWord();
-    atFData.val              = RdAtWord();
+    vfRbuf(&atf, (uint8_t *)&atFData.var, sizeof(var_t));
 }
 static void Sub_7486() {
     byte i, j;
-    if (atFData.infoOffset == 0)
+    if (atFData.var.infoOffset == 0)
         i = 0;
     else if (GetType() > STRUCT_T || GetType() < BYTE_T) {
         i = 0;
@@ -250,12 +206,12 @@ static void Sub_7486() {
         i = 0;
     else
         i = 5;
-    curInfoP = atFData.infoP;
+    infoIdx = atFData.infoP;
 
     while (1) {
         if (!TestInfoFlag(F_MEMBER)) {
             if (TestInfoFlag(F_DATA)) {
-                ClrFlag(InfoP(curInfoP)->flag, F_DATA);
+                ClrFlag(infotab[infoIdx].flag, F_DATA);
                 SetInfoFlag(F_INITIAL);
             }
             SetLinkVal(atOffset);
@@ -284,10 +240,8 @@ static void Sub_7486() {
                 break;
             }
         }
-        AdvNextDataInfo();
-        if (curInfoP == 0)
-            return;
-        if (!(TestInfoFlag(F_PACKED) || TestInfoFlag(F_MEMBER)))
+        infoIdx = AdvNextDataInfo(infoIdx);
+        if (infoIdx == 0 || !(TestInfoFlag(F_PACKED) || TestInfoFlag(F_MEMBER)))
             return;
     }
 }
@@ -296,18 +250,18 @@ static void Sub_73DC() {
     RdAtData();
     if (atFData.infoP == 0)
         return;
-    atFData.infoP = atFData.infoP + botInfo;
+    atFData.infoP = atFData.infoP;
     atStmtNum     = atFData.stmt;
-    atOffset      = atFData.val;
-    if (atFData.infoOffset != 0) {
-        curInfoP = atFData.infoOffset + botInfo;
+    atOffset      = atFData.var.val;
+    if (atFData.var.infoOffset != 0) {
+        infoIdx = atFData.var.infoOffset;
         if (TestInfoFlag(F_MEMBER)) {
-            atOffset = GetElementSize() * atFData.nestedArrayIndex + atOffset + GetLinkVal();
-            curInfoP = GetParentOffset();
+            atOffset = GetElementSize() * atFData.var.nestedArrayIndex + atOffset + GetLinkVal();
+            infoIdx = GetParentOffset();
         }
-        atOffset = GetLinkVal() + GetElementSize() * atFData.arrayIndex + atOffset;
+        atOffset = GetLinkVal() + GetElementSize() * atFData.var.arrayIndex + atOffset;
         if (TestInfoFlag(F_AT))
-            if (curInfoP >= atFData.infoP)
+            if (infoIdx >= atFData.infoP)
                 Sub_6EF6(ERR213); /* UNDEFINED RESTRICTED REFERENCE IN 'at' */
     }
     Sub_7486();
@@ -318,75 +272,54 @@ static void ProcAtFile() {
     while (1) {
         atFData.type = RdAtByte();
         switch (atFData.type) {
-        case 0:
+        case ATI_AHDR:
             Sub_73DC();
-            break; /* AT_AHDR */
-        case 1:
+            break;
+        case ATI_DHDR:
             atFData.infoP = RdAtWord();
             atFData.stmt  = RdAtWord();
-            break; /* AT_DHDR */
-        case 2:
-            atFData.val = RdAtWord();
-            break; /* AT_2 */
-        case 3:    /* AT_STRING */
-            atFData.val = RdAtWord();
-            vfRbuf(&atf, atFData.str, atFData.val); // effectively junk it.
             break;
-        case 4:
-            atFData.infoOffset       = RdAtWord();
-            atFData.arrayIndex       = RdAtWord();
-            atFData.nestedArrayIndex = RdAtWord();
-            atFData.val              = RdAtWord();
-            break; /* AT_DATA */
-        case 5:
-            break; /* AT_END */
-        case 6:
-            return; /* AT_EOF */
+        case ATI_2:
+            atFData.var.val = RdAtWord();
+            break;
+        case ATI_STRING:
+            atFData.var.val = RdAtWord();
+            vfRbuf(&atf, atFData.str, atFData.var.val); // effectively junk it.
+            break;
+        case ATI_DATA:
+            RdAtData();
+            break;
+        case ATI_END:
+            break;
+        case ATI_EOF:
+            return;
         }
     }
 }
 
 static void Sub_75F7() {
-    botInfo = botMem + topMem - topInfo;
-    topInfo = topMem;
-    RevMemMov(ByteP(botMem), ByteP(botInfo), topInfo - botInfo + 1);
-    helpersP     = botInfo - 117 * 2;
-    localLabelsP = helpersP - (localLabelCnt + 1) * 2;
-    w381E        = localLabelsP - (localLabelCnt + 1);
-    w3822        = botInfo - 2;
-    while (w3822 >= w381E) {
-        *WordP(w3822) = 0;
-        w3822         = w3822 - 2;
-    }
-    if (w3822 == w381E - 1)
-        *WordP(w3822) &= 0xff;
-    w3822 = w381E - 2;
+    localLabels = xmalloc((localLabelCnt + 1) * sizeof(offset_t));
+    procIds     = xmalloc((localLabelCnt + 1) * sizeof(byte));
+    memset(localLabels, 0, (localLabelCnt + 1) * sizeof(offset_t));
+    memset(procIds, 0, (localLabelCnt + 1) * sizeof(byte));
 }
 
 static void Sub_7695() {
-    if ((b9B40 = OBJECT || PRINT) || IXREF)
-        vfRewind(&nmsf);
     vfRewind(&atf);
     csegSize = dsegSize = 0;
 }
 
 static void Sub_76D9() {
-    byte i;
     byte T2_Eof = T2_EOF;
 
-    if (b9B40 || IXREF)
-        vfRewind(&nmsf);
     vfRewind(&atf); /* used for string data */
     Wr2Byte(T2_EOF);
     vfRewind(&utf2);
-    for (i = 1; i <= procCnt; i++) {
-        procInfo[i] = procInfo[i] - botMem;
-    }
 }
 
 void Sub_6EE0() {
     Sub_7695();
-    DumpSymbols();
+    //   DumpSymbols();
     Sub_711F();
     Sub_719D();
     ProcAtFile();

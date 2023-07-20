@@ -36,7 +36,7 @@ int infoMode = 0;
 }
 void showInfo(offset_t off, FILE *fp)
 {
-    info_t *info;
+    ninfo_t *info;
     sym_t *sym;
     lit_t *lit;
     pstr_t *ps;

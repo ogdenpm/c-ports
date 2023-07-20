@@ -11,24 +11,18 @@
 #include "plm.h"
 
 
-offset_t topMem;
-offset_t botMem;
-offset_t botInfo;
-offset_t topInfo;
-offset_t topSymbol;
-offset_t botSymbol;
-offset_t curSymbolP;
-offset_t curInfoP;
+index_t curSym;
+index_t infoIdx;
 bool moreCmdLine = true;
 word LEFTMARGIN;
 word localLabelCnt;
 word srcFileIdx;
-offset_t hashChainsP; // offset is to pointer to array of offsets
+index_t hashTab[64]; // offset is to pointer to array of offsets
 word blockDepth;
-offset_t localLabelsP;
-offset_t w381E;
-offset_t helpersP;
-offset_t w3822;
+offset_t *localLabels;
+byte *procIds;
+offset_t helpers[117];
+word caseLabels[];
 word linesRead;
 word programErrCnt;
 word procCnt;
@@ -45,7 +39,6 @@ file_t conFile;
 vfile_t utf1;
 vfile_t utf2;
 vfile_t atf;
-vfile_t nmsf;
 vfile_t xrff;
 file_t ixiFile;
 word procChains[35];
@@ -100,7 +93,7 @@ word intVecLoc = 0;
 bool hasErrors = false;
 //byte overlay6[]  = ":F0:PLM80 ";
 //byte ov6[] = ".OV6 ";
-char version[] = "X000";
+char version[] = "V4.0";
 //byte pad3DA1;
 //byte invokeName[] = ":F0:PLM80 ";
 //byte ov0[] =  ".OV0 ";

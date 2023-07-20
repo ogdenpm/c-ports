@@ -10,6 +10,7 @@
 
 #include "plm.h"
 #include "os.h"
+#include <stdlib.h>
 
 /* plm4a.plm */
 static byte digits[] = " 123456789";
@@ -288,11 +289,11 @@ void EmitStatementNo() {
     lprintf("; STATEMENT # %d\n", stmtNo);
 }
 
-void EmitLabel() {
+void EmitLabel(char const *label) {
     if (codeOn) {
         EmitLinePrefix();
         TabLst(-26);
-        lprintf("%.*s:\n", locLabStr[0], locLabStr + 1);
+        lprintf("%s:\n", label);
     }
 }
 
@@ -317,10 +318,10 @@ void EmitError() {
             lprintf("STATEMENT #%d, ", errData.stmt);
         if (errData.info) {
             lstStr("NEAR '");
-            curInfoP   = errData.info + botInfo;
-            curSymbolP = GetSymbol();
-            if (curSymbolP != 0)
-                lstPstr(&SymbolP(curSymbolP)->name);
+            infoIdx   = errData.info;
+            curSym = GetSymbol();
+            if (curSym != 0)
+                lstStr(symtab[curSym].name->str);
             else
                 lstStr("<LONG CONSTANT>");
             lstStr("', ");
@@ -365,9 +366,10 @@ static byte GetSourceCh() {
         if (lstLineLen != 0)
             return '\n';
         if (srcFileIdx == 0) /* top level file */
-            PFatalError(ERR215);
+            FatalError_ov46(ERR215);
         if (fclose(srcFil.fp))
             IoError(srcFil.fNam, "Close error");
+        free((void *)srcFil.fNam);
         srcFil = srcFileTable[--srcFileIdx];
     }
 }

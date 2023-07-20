@@ -153,7 +153,7 @@ void ExprParse8()
             ResyncRParen();
         ExprPush2(I_NUMBER, 0);     // assume a 0
     } else {
-        ExprPush2(I_IDENTIFIER, curInfoP);  // record the variable
+        ExprPush2(I_IDENTIFIER, infoIdx);  // record the variable
         if (GetType() == PROC_T) {      // if proc then can't have (...) invocation
             if (MatchTx1Item(L_LPAREN)) {
                 WrTx2ExtError(ERR104);	/* ILLEGAL PROCEDURE INVOCATION WITH DOT OPERATOR */
@@ -170,7 +170,7 @@ void ExprParse8()
 // <data reference>
 void ExprParse9()
 {
-    PushParseWord(curInfoP);        // save name info
+    PushParseWord(infoIdx);        // save name info
     PushParseByte(10);              // <member specifier>
     if (MatchTx1Item(L_LPAREN)) {   // start of <subscript>
         if (!TestInfoFlag(F_ARRAY))
@@ -186,14 +186,14 @@ void ExprParse10()
     p = parseStack[parseSP];        // name info
     PopParseStack();
     if (MatchTx1Item(L_PERIOD)) {   // start of <member specifier>
-        curInfoP = p;
+        infoIdx = p;
         if (GetType() != STRUCT_T)
             WrTx2ExtError(ERR110);	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
         else if (NotMatchTx1Item(L_IDENTIFIER))
             WrTx2ExtError(ERR111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
         else {
             ChkStructureMember();
-            ExprPush2(I_IDENTIFIER, curInfoP);
+            ExprPush2(I_IDENTIFIER, infoIdx);
             PushParseWord(p);         // member info
             PushParseByte(14);        // make member node 
             if (MatchTx1Item(L_LPAREN))
@@ -225,7 +225,7 @@ void ExprParse11()
         }
     } else if (GetType() == PROC_T) {
         Sub_50D5();
-        ExprPush2(I_IDENTIFIER, curInfoP);
+        ExprPush2(I_IDENTIFIER, infoIdx);
         ChkTypedProcedure();
         PushParseWord(GetParamCnt());
         PushOperator(0);
@@ -240,8 +240,8 @@ void ExprParse11()
 
 void ExprParse12()
 {
-    ExprPush2(I_IDENTIFIER, curInfoP);
-    PushParseWord(curInfoP);
+    ExprPush2(I_IDENTIFIER, infoIdx);
+    PushParseWord(infoIdx);
     if (GetType() == LABEL_T)
         WrTx2ExtError(ERR132);	/* ILLEGAL USE OF label */
     PushParseByte(13);
@@ -260,7 +260,7 @@ void ExprParse13()
 {
     word p;
 
-    p = curInfoP = parseStack[parseSP];
+    p = infoIdx = parseStack[parseSP];
     PopParseStack();
     if (MatchTx1Item(L_PERIOD)) {
         if (GetType() != STRUCT_T)
@@ -269,7 +269,7 @@ void ExprParse13()
             WrTx2ExtError(ERR111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, not IDENTIFIER */
         else {
             ChkStructureMember();
-            ExprPush2(I_IDENTIFIER, curInfoP);
+            ExprPush2(I_IDENTIFIER, infoIdx);
             PushParseWord(p);
             PushParseByte(14);
             if (TestInfoFlag(F_ARRAY)) {

@@ -101,30 +101,27 @@ static void Token2Num()
 
 static void NestMacro()
 {
-    char *tmp;
-
-    tmp = (char *)off2Ptr(GetLitAddr() + 2);
     Wr1XrefUse();
     if (macroDepth == 10)
         Wr1TokenErrorAt(ERR7);	/* LIMIT EXCEEDED: MACROS NESTED TOO DEEPLY */
     else {
         SetType(MACRO_T);   // mark the type as  MACRO_T to spot recursive expansion
-        macroPtrs[macroDepth = macroDepth + 2] = inChrP;    // push the current location
-        macroPtrs[macroDepth + 1] = (char *)off2Ptr(curMacroInfoP); // and infoP
-        inChrP = tmp - 1;               // adjust for initial increment in GNxtCh()
-        curMacroInfoP = curInfoP;       // set up the new infoP
+        macroPtrs[++macroDepth].text = inChrP;    // push the current location
+        macroPtrs[macroDepth].macroIdx = macroIdx; // and infoP
+        inChrP        = (byte *)(GetLit()->str) - 1; // adjust for initial increment in GNxtCh()
+        macroIdx = infoIdx;       // set up the new infoP
     }
 } /* NestMacro() */
 
 static bool IsNotLit()
 {
     Lookup((pstr_t *)tokenStr);
-    markedSymbolP = curSymbolP;
-    if (High(SymbolP(curSymbolP)->infoP) == 0xFF)	/* simple key word */
-        tokenType = Low(SymbolP(curSymbolP)->infoP);
+    markedSymbolP = curSym;
+    if (High(symtab[curSym].infoIdx) == 0xFF)	/* simple key word */
+        tokenType = Low(symtab[curSym].infoIdx);
     else {
         FindInfo();
-        if (curInfoP != 0) {
+        if (infoIdx) {
             if (GetType() == LIT_T) {
                 NestMacro();
                 return false;
@@ -218,11 +215,11 @@ static void LocYylex()
             Token2Num();
             return;
         case 2:	/* letters */
-            tmp = curInfoP;
+            tmp = infoIdx;
             GetName(255);
             if (IsNotLit())     // will cause lit to expand
                 return;
-            curInfoP = tmp;
+            infoIdx = tmp;
             GNxtCh();           // carry on processing
             break;
         case 3:	/* -, +, *, (,), ,, ;, = */
@@ -428,7 +425,7 @@ static word savedCurInfo;
 static word basedInfo;
 static byte dclFlags[3];
 static byte dclType;
-static offset_t lastLit;
+static pstr_t const *lastLit;
 static word arrayDim;
 static offset_t structMembers[33];
 static word structMemDim[33];
@@ -449,7 +446,7 @@ static void DeclarationError(word errcode)
 
 static void ChkModuleLevel()
 {
-    if (*curScopeP != 0x100)
+    if (curScope != 0x100)
         Wr1TokenErrorAt(ERR73);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 }
 
@@ -482,10 +479,10 @@ static void CreateStructMemberInfo()
         return;
 
     for (i = 1; i <= structMCnt; i++) {
-        curSymbolP = structMembers[i];
+        curSym = structMembers[i];
         memType = structMemType[i];
         memDim = structMemDim[i];
-        CreateInfo(*curScopeP, memType);
+        CreateInfo(curScope, memType);
         Wr1XrefDef();
         SetInfoFlag(F_MEMBER);
         SetInfoFlag(F_LABEL);
@@ -502,9 +499,9 @@ static void ChkAndSetAttributes(word factoredIdx)
 {
     byte cFlags, i;
 
-    curSymbolP = declaringName;
-    FindScopedInfo(*curScopeP);
-    if (curInfoP != 0) {        // identifier alredy in scope  - only valid for parameter
+    curSym = declaringName;
+    FindScopedInfo(curScope);
+    if (infoIdx != 0) {        // identifier alredy in scope  - only valid for parameter
         Wr1XrefUse();
         if (TestInfoFlag(F_PARAMETER) && !TestInfoFlag(F_LABEL)) {
             cFlags = 0;                     /* check for existing flags */
@@ -525,15 +522,15 @@ static void ChkAndSetAttributes(word factoredIdx)
             return;
         }
     } else {
-        CreateInfo(*curScopeP, dclType);
+        CreateInfo(curScope, dclType);
         Wr1XrefDef();
         CpyFlags(dclFlags);
     }
-    savedCurInfo = curInfoP;
+    savedCurInfo = infoIdx;
     if (dclType == LIT_T) {
         if (declaringBase != 0)         // lits cannot be based
             DeclarationError(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
-        SetLitAddr(lastLit);
+        SetLit(lastLit);
         return;
     } else if (dclType == LABEL_T) {
         if (declaringBase != 0)
@@ -553,13 +550,13 @@ static void ChkAndSetAttributes(word factoredIdx)
         }
         SetDimension(arrayDim);
         SetBaseOffset(declaringBase);
-        curInfoP = curProcInfoP;
+        infoIdx = procIdx;
         if (TestInfoFlag(F_REENTRANT)) {
-            curInfoP = savedCurInfo;
+            infoIdx = savedCurInfo;
             if (!(TestInfoFlag(F_DATA) || TestInfoFlag(F_BASED) || TestInfoFlag(F_AT)))
                 SetInfoFlag(F_AUTOMATIC);
         }
-        curInfoP = savedCurInfo;
+        infoIdx = savedCurInfo;
     }
     if (TestInfoFlag(F_PARAMETER))
         factoredParamCnt++;
@@ -592,9 +589,9 @@ static void AttributeExpression(byte lexItem, byte locflag)
     if (YylexMatch(T_LPAREN)) {
         Wr1Byte(lexItem);
         if (isNewVar)
-            Wr1InfoOffset(topInfo + 1);
+            Wr1InfoOffset(infoCnt);
         else
-            Wr1InfoOffset(botInfo);
+            Wr1InfoOffset(0);
         SetFlag(dclFlags, locflag);
         WrNestedExpression();
     } else
@@ -694,14 +691,14 @@ static void ParseStructMemElement()
         Wr1TokenErrorAt(ERR66);	/* INVALID STRUCTURE MEMBER, NOT AN IDENTIFIER */
     else {
         for (mcnt = 1; mcnt <= structMCnt; mcnt++) {
-            if (curSymbolP == structMembers[mcnt])
+            if (curSym == structMembers[mcnt])
                 Wr1TokenErrorAt(ERR67);	/* DUPLICATE STRUCTURE MEMBER NAME */
         }
         if (structMCnt == 32)
             Wr1TokenErrorAt(ERR68);	/* LIMIT EXCEEDED: NUMBER OF STRUCTURE MEMBERS */
         else
             structMCnt++;
-        structMembers[structMCnt] = curSymbolP;
+        structMembers[structMCnt] = curSym;
         structMemType[structMCnt] = 0;
         structMemDim[structMCnt] = 0;
         ParseStructMDim();
@@ -792,7 +789,7 @@ static void ParseLiterally()
         tokenStr[0] = 1;        // give default of a single space
         tokenStr[1] = ' ';
     }
-    lastLit = CreateLit(tokenStr);
+    lastLit = CreateLit((pstr_t *)tokenStr);
     dclType = LIT_T;
 }
 
@@ -816,34 +813,34 @@ static void ParseBaseSpecifier()
     if (YylexNotMatch(T_IDENTIFIER))
         Wr1TokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES */
     else {
-        base1Name = curSymbolP;
+        base1Name = curSym;
         if (YylexMatch(T_PERIOD)) {
             if (YylexMatch(T_IDENTIFIER))
-                base2Name = curSymbolP;
+                base2Name = curSym;
             else {
                 Wr1TokenErrorAt(ERR53);	/* INVALID STRUCTURE MEMBER IN BASE */
                 return;
             }
         } else
             base2Name = 0;
-        curSymbolP = base1Name;
+        curSym = base1Name;
         FindInfo();
-        if (curInfoP == 0) {
+        if (infoIdx == 0) {
             Wr1TokenErrorAt(ERR54);	/* UNDECLARED BASE */
             return;
         }
         Wr1XrefUse();
         if (base2Name == 0)
-            basedInfo = curInfoP;
+            basedInfo = infoIdx;
         else {
-            curSymbolP = base2Name;
+            curSym = base2Name;
             FindMemberInfo();
-            if (curInfoP == 0) {
+            if (infoIdx == 0) {
                 Wr1TokenErrorAt(ERR55);	/* UNDECLARED STRUTURE MEMBER IN BASE */
                 return;
             }
             Wr1XrefUse();
-            basedInfo = curInfoP;
+            basedInfo = infoIdx;
         }
     }
 } /* ParseBaseSpecifier() */
@@ -859,23 +856,23 @@ static void ParseVariableNameSpecifier()
         else
             declNameCnt++;
 
-        declNames[declNameCnt] = curSymbolP;
+        declNames[declNameCnt] = curSym;
         declBasedNames[declNameCnt] = 0;
         if (!isNewVar) {
-            FindScopedInfo(*curScopeP);
-            if (curInfoP == 0)      // new var definition
+            FindScopedInfo(curScope);
+            if (infoIdx == 0)      // new var definition
                 isNewVar = true;
         }
         if (YylexMatch(T_BASED)) {  // check for BASED variant
             ParseBaseSpecifier();
             if (basedInfo != 0) {
-                curInfoP = basedInfo;
+                infoIdx = basedInfo;
                 // base var has to be basic address not a based var or array var
                 if (TestInfoFlag(F_BASED) || TestInfoFlag(F_ARRAY) || GetType() != ADDRESS_T) {
                     Wr1TokenErrorAt(ERR50);	/* INVALID ATTRIBUTES FOR BASE */
                     basedInfo = 0;
                 } else if (TestInfoFlag(F_MEMBER)) {    // for structure var base, structure cannot be array or based
-                    curInfoP = GetParentOffset();
+                    infoIdx = GetParentOffset();
                     if (TestInfoFlag(F_ARRAY) || TestInfoFlag(F_BASED)) {
                         Wr1TokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES */
                         basedInfo = 0;
@@ -994,7 +991,7 @@ static void SetInterruptNo()
 
 static void ParseProcAttrib()
 {
-    curInfoP = curProcInfoP;
+    infoIdx = procIdx;
 
     while (1) {
         if (YylexMatch(T_PUBLIC))
@@ -1012,7 +1009,7 @@ static void ParseProcAttrib()
 
 static void ParseRetType()
 {
-    curInfoP = curProcInfoP;
+    infoIdx = procIdx;
     if (YylexMatch(T_BYTE))
         SetDataType(BYTE_T);
     else if (YylexMatch(T_ADDRESS))
@@ -1023,10 +1020,10 @@ word paramCnt;
 
 static void AddParam()
 {
-    FindScopedInfo(*curScopeP);
-    if (curInfoP != 0)
+    FindScopedInfo(curScope);
+    if (infoIdx != 0)
         Wr1TokenErrorAt(ERR38);	/* DUPLICATE PARAMETER NAME */
-    CreateInfo(*curScopeP, BYTE_T); // for now assume byte
+    CreateInfo(curScope, BYTE_T); // for now assume byte
     Wr1XrefDef();
     SetInfoFlag(F_PARAMETER);
     paramCnt++;
@@ -1052,7 +1049,7 @@ static void ParseParams()
             RecoverToSemiOrRP();
             Yylex();
         }
-        curInfoP = curProcInfoP;    // note number of params. info's follow procInfo
+        infoIdx = procIdx;    // note number of params. info's follow procInfo
         SetParamCnt((byte)paramCnt);
     } else
         hasParams = false;
@@ -1065,41 +1062,40 @@ void ProcProcStmt()
 {
     word tmp;
 
-    tmp = curProcInfoP;
-    curSymbolP = stmtLabels[1];
-    FindScopedInfo(*curScopeP);   // look up procedure
-    if (curInfoP != 0)              // error if already exists
+    tmp = procIdx;
+    curSym = stmtLabels[1];
+    FindScopedInfo(curScope);   // look up procedure
+    if (infoIdx != 0)              // error if already exists
         Wr1SyntaxError(ERR34);	/* DUPLICATE procedure DECLARATION */
-    CreateInfo(*curScopeP, PROC_T);   // create a new procedure info block with current scope
+    CreateInfo(curScope, PROC_T);   // create a new procedure info block with current scope
     SetInfoFlag(F_LABEL);
     Wr1XrefDef();
     if (procCnt == 254)     // oops too many procedures
-        PFatalError(ERR35);	/* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
-    procInfo[++procCnt] = curInfoP;     // save procedure info
-    curScope[PROCID] = (byte)procCnt;   // set scope procedure id
-    curProcInfoP = curInfoP;
-    curScope[DOBLKCNT] = 0;     // reset do block count for this procedure
+        LexFatalError(ERR35);	/* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
+    procInfo[++procCnt] = infoIdx;     // save procedure info
+    curScope = procCnt << 8;   // set scope procedure id reset do block count for this procedure
+    procIdx = infoIdx; 
     doBlkCnt = 0;
-    PushBlock(*curScopeP);      // push current scope
+    PushBlock(curScope);      // push current scope
     ParseParams();
     ParseRetType();
     ParseProcAttrib();
     /* write info to tx1 stream */
-    curInfoP = curProcInfoP;            // accessors use curInfoP
+    infoIdx = procIdx;            // accessors use curInfoP
     if (!TestInfoFlag(F_EXTERNAL)) {    // not external
         Wr1Byte(L_PROCEDURE);
-        Wr1InfoOffset(curInfoP);
+        Wr1InfoOffset(infoIdx);
         Wr1Byte(L_SCOPE);
-        Wr1Word(*curScopeP);
+        Wr1Word(curScope);
     } else {
         Wr1Byte(L_EXTERNAL);
-        Wr1InfoOffset(curInfoP);
+        Wr1InfoOffset(infoIdx);
     }
-    SetProcId(curScope[PROCID]);
+    SetProcId(High(curScope));
     if (tmp != 0) { // had valid entry curInfoP
-        curInfoP = tmp;
+        infoIdx = tmp;
         if (TestInfoFlag(F_REENTRANT))  // were we in re-entrant proc?
             Wr1SyntaxError(ERR88);	/* INVALID procedure NESTING, ILLEGAL IN reentrant procedure */
-        curInfoP = curProcInfoP;    // set curInfoP to new proc's infoP
+        infoIdx = procIdx;    // set curInfoP to new proc's infoP
     }
 }

@@ -14,7 +14,7 @@
 
 word markedStSP;
 word t2CntForStmt;
-word curProcInfoP = { 0 };
+word procIdx = { 0 };
 word curStmtNum;
 var_t var;
 

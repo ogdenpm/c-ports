@@ -301,7 +301,7 @@ void OptWrXrf() {
     if (!XREF)
         return;
     vfWbyte(&xrff, 'A');
-    vfWword(&xrff, curInfoP - botInfo);
+    vfWword(&xrff, infoIdx);
     vfWword(&xrff, curStmtNum);
 }
 
@@ -405,8 +405,8 @@ void WrTx2Error(byte arg1b) {
 
 void WrTx2ExtError(byte arg1b) {
     hasErrors = true;
-    if (curInfoP != 0)
-        WrTx2Item2Arg(T2_TOKENERROR, arg1b, curInfoP - botInfo);
+    if (infoIdx != 0)
+        WrTx2Item2Arg(T2_TOKENERROR, arg1b, infoIdx);
     else
         WrTx2Item1Arg(T2_SYNTAXERROR, arg1b);
 }

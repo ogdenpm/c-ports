@@ -34,6 +34,7 @@ typedef byte *pointer;
 typedef word *wpointer;
 typedef word offset_t;
 typedef byte leword[2]; // to support writing of intel OMF words
+typedef uint16_t index_t;
 
 #define High(n)   ((n) >> 8)
 #define Low(n)    ((n)&0xff)
@@ -94,6 +95,7 @@ enum {
 };
 
 /* token info types */
+// 10, 12, 18, 18, 18, 22, 11, 10, 8, 9
 enum {
     LIT_T     = 0,
     LABEL_T   = 1,
@@ -723,75 +725,80 @@ enum { DO_PROC = 0, DO_LOOP = 1, DO_WHILE = 2, DO_CASE = 3 };
 
 /* standard structures */
 #pragma pack(push, 1)
-typedef union {
-    word w;
-    struct {
-        byte lb, hb;
-    };
-} word_t;
-
-typedef union {
-    word w;
-    struct {
-        byte lb, hb;
-    };
-    byte b[2];
-    byte *bp;
-    word *wp;
-} address;
 
 typedef struct {
     byte len;
     char str[0];
 } pstr_t;
 
-
 #define _pstr_t(name, size)                                                                        \
     struct {                                                                                       \
         byte len;                                                                                  \
-        char str[size];                                                                                 \
+        char str[size];                                                                            \
     } name
-
-
-typedef struct {
-    byte deviceId;
-    byte name[6];
-    byte ext[3];
-    byte deviceType;
-    byte driveType;
-} spath_t;
 
 typedef struct {
     FILE *fp;
     char const *sNam;
     char const *fNam;
-    pointer bufP;
-    word bsize;
-    word actual;
-    word curoff;
 } file_t;
 
 typedef struct {
-    byte len;
     byte type;
-    word sym;
+    index_t sym;
     word scope;
-    word ilink;
-    byte flag[3];
-    byte extId;
-    word dim;
-    word baseoff;
-    word parent;
-    byte dtype;
-    byte intno;
-    byte pcnt;
-    byte procId;
+    union {
+        index_t ilink;
+        word linkVal;
+    };
+    union {
+        pstr_t const *lit;  // converted to string;
+        struct {
+            union {
+                byte flag[3];
+                byte condFlag;
+                struct {
+                    byte builtinId;
+                    byte paramCnt;
+                    byte dataType;
+                };
+            };
+            byte extId;
+            word dim;
+            union {
+                index_t baseOff;
+                word baseVal;
+            };
+            word parent;
+            byte dtype;
+            byte intno;
+            byte pcnt;
+            byte procId;
+        };
+    };
+} ninfo_t;
+
+typedef struct {
+    byte len;     // 0
+    byte type;    // 1
+    word sym;     // 2
+    word scope;   // 4
+    word ilink;   // 6]
+    byte flag[3]; // 8]]]
+    byte extId;   // 11]
+    word dim;     // 12
+    word baseoff; // 14
+    word parent;  // 16]
+    byte dtype;   // 18
+    byte intno;   // 19
+    byte pcnt;    // 20
+    byte procId;  // 21
 } info_t;
 
 typedef struct {
-    offset_t link;
-    offset_t infoP;
-    pstr_t name;
+    index_t link;
+    index_t infoIdx;
+    pstr_t const *name;
 } sym_t;
 
 typedef struct {
@@ -804,19 +811,15 @@ typedef struct {
 } lit_t;
 
 typedef struct {
-    word blk;
-    word byt;
-} loc_t;
-
-typedef struct {
-    offset_t link;
-    pstr_t pstr;
-} cmd_t;
-
-typedef struct {
     pointer inChrP;
     pointer infoP;
 } mac_t;
+
+typedef struct {
+    index_t next;
+    word line;
+} xref_t;
+
 
 typedef struct {
     byte type;
@@ -859,6 +862,8 @@ typedef struct {
     byte val[1];
 } rec6_t;
 
+#define CONTENT_ADDR    4
+
 typedef struct {
     offset_t infoOffset;
     word arrayIndex, nestedArrayIndex, val;
@@ -871,33 +876,18 @@ typedef struct {
 } err_t;
 
 #pragma pack(pop)
-// helper functions for converting offsets to pointers
-pointer off2Ptr(offset_t off);
-offset_t ptr2Off(pointer addr);
 
-// useful macros to cast off2Ptr
-#define ByteP(off)    off2Ptr(off)
-#define CharP(off)    ((char *)off2Ptr(off))
-#define WordP(off)    ((wpointer)off2Ptr(off))
-#define InfoP(off)    ((info_t *)off2Ptr(off))
-#define LitP(off)     ((lit_t *)off2Ptr(off))
-#define SymbolP(off)  ((sym_t *)off2Ptr(off))
-#define CmdP(off)     ((cmd_t *)off2Ptr(off))
-#define PstrP(off)    ((pstr_t *)off2Ptr(off))
 
 // array sizes
 #define EXPRSTACKSIZE 100
 
 extern offset_t MEMORY;
-extern void initMem(); // used to create the info/symbol memory
 
 /* plm main */
 
 /* File(main.plm) */
 /* main.plm,plm0a.plm,plm1a.plm.plm6b.plm */
-void PFatalError(byte err);
-void FatalError_main(byte err);
-void Wr1FatalError(byte err);
+void LexFatalError(byte err);
 void FatalError_ov1(byte err);
 void FatalError_ov46(byte err);
 
@@ -938,12 +928,11 @@ void SetPageWidth(word width);
 /* plm0A.plm */
 extern byte cClass[];
 extern word curBlkCnt;
-extern byte curScope[2];
+extern word curScope;
 #define DOBLKCNT 0 // indexes
 #define PROCID   1
 
-extern offset_t curMacroInfoP;
-extern wpointer curScopeP;
+extern offset_t macroIdx;
 extern word curStmtCnt;
 extern word doBlkCnt;
 extern word ifDepth;
@@ -958,7 +947,12 @@ extern byte lineBuf[];
 #define MAXLINE 255
 extern bool lineInfoToWrite;
 extern word macroDepth;
-extern char *macroPtrs[];
+typedef struct  {
+    char *text;
+    index_t macroIdx;
+} macro_t;
+
+extern macro_t macroPtrs[6];
 extern offset_t markedSymbolP;
 extern bool skippingCOND;
 extern byte state;
@@ -996,9 +990,8 @@ int32_t Rd2Byte();
 int32_t Rd2Word();
 
 /* plm0A.plm,main1.plm */
-extern word curProcInfoP;
+extern word procIdx;
 extern linfo_t linfo;
-
 
 /* plm0A.plm,plm3a.plm,pdata4.plm */
 extern byte tx1Buf[];
@@ -1023,7 +1016,7 @@ extern bool endSeen;
 void ParseProgram();
 
 /* plm0g.plm */
-offset_t CreateLit(pointer pstr);
+pstr_t const *CreateLit(pstr_t const *pstr);
 
 /* File(plm0h.plm) */
 
@@ -1139,7 +1132,6 @@ void ExprParse8();
 void ExprParse9();
 
 /* plm1e.plm */
-word StmtParseMachine(word arg1w);
 byte Sub_5945();
 byte Sub_59D4();
 void Expression();
@@ -1215,7 +1207,6 @@ extern word wC096[];
 extern word wC1C3;
 extern word wC1C5;
 extern word wC1C7;
-extern word wC1CF;
 extern word wC1D6;
 extern word wC1DC[];
 
@@ -1224,7 +1215,7 @@ extern byte b3FCD[];
 extern byte b4029[];
 extern byte b4128[];
 extern byte b413B[];
-extern byte b418C[];
+extern byte b418C[][11];
 extern byte b425D[];
 extern byte b4273[];
 extern byte b42F9[];
@@ -1250,7 +1241,7 @@ extern byte b5221[];
 extern byte b5286[];
 extern byte b528D[];
 extern byte b52B5[];
-extern byte b52DD[];
+extern byte b52DD[][11];
 extern byte unused[];
 extern word w48DF[];
 extern word w493D[];
@@ -1358,9 +1349,9 @@ extern byte rec2[];
 extern byte rec6[];
 extern byte rec6_4[];
 extern word w7197;
-void Sub_4889();
+void FlushRecGrp();
 void RecAddName(pointer arg1w, byte arg2b, byte arg3b, char const *arg4bP);
-void Sub_4908(pointer arg1wP, word arg2w, byte arg3b);
+void ExtendChk(pointer arg1wP, word arg2w, byte arg3b);
 word Sub_4938();
 word Sub_4984();
 void Sub_49BC(word arg1w, word arg2w, word arg3w);
@@ -1394,8 +1385,8 @@ void lstStr(char const *str);
 void lstStrCh(char const *str, int endch);
 void lprintf(char const *fmt, ...);
 void lstPstr(pstr_t *ps);
-pstr_t const *hexfmt(byte digits, word val);  // note returned value is volatile
-    /* plm overlay 4 */
+pstr_t const *hexfmt(byte digits, word val); // note returned value is volatile
+/* plm overlay 4 */
 /* File(main4.plm) */
 /* main4.plm,main6.plm */
 
@@ -1426,7 +1417,7 @@ extern byte dstRec;
 extern byte helperId;
 // extern byte helperModId; now local var
 extern char helperStr[]; // pstr
-extern char line[];  // pstr
+extern char line[];      // pstr
 extern char locLabStr[];
 extern err_t errData;
 extern uint16_t lstLineLen;
@@ -1438,11 +1429,10 @@ extern byte opBytes[];
 // rec8_t rec8;
 extern word stmtNo;
 extern pstr_t *sValAry[];
-extern word w812F;
+extern word lineNo;
 extern pstr_t *ps969E;
-extern word w96D7;
+extern word locLabelNum;
 extern word wValAry[];
-
 
 /* pdata4.plm,pdata6.plm */
 extern bool codeOn;
@@ -1457,7 +1447,6 @@ extern byte b42D6[];
 extern byte b4029[];
 extern byte b4128[];
 extern byte b413B[];
-extern byte b418C[];
 extern byte b425D[];
 extern byte b4273[];
 extern byte b4602[];
@@ -1472,8 +1461,8 @@ extern byte opcodes[];
 extern byte regIdx[];
 extern byte regNo[];
 extern byte stackOrigin[];
-extern byte stkRegIdx[];
-extern byte stkRegNo[];
+extern byte regPairIdx[];
+extern byte regPairNo[];
 extern word w47C1[];
 extern word w4919[];
 extern word w506F[];
@@ -1481,7 +1470,7 @@ void Sub_54BA();
 
 /* plm4b.plm */
 void AddWrdDisp(pstr_t *pstr, word arg2w);
-void EmitLabel();
+void EmitLabel(char const *label);
 void EmitStatementNo();
 void FlushRecs();
 void EmitLinePrefix();
@@ -1504,12 +1493,10 @@ void Sub_668B();
 extern byte b3F0B;
 extern byte b66D8;
 extern offset_t dictionaryP;
-extern word dictSize;
+extern word dictCnt;
 extern offset_t dictTopP;
 extern byte maxSymLen;
-extern word w66D2;
-extern word w66D4;
-extern offset_t xrefItemP;
+extern offset_t xrefIdx;
 // dictionary      AS..dictionaryP
 // xrefItem        AS..xrefItemP
 
@@ -1528,15 +1515,13 @@ extern offset_t xrefItemP;
 /* pdata6.plm */
 extern bool b7AD9;
 extern bool b7AE4;
-extern word offCurCh;
-extern word offLastCh;
 extern word lineCnt;
 extern word blkCnt;
 extern word stmtNo;
 
 /* plm6a.plm */
 void Sub_42E7();
-void MiscControl(vfile_t *txFile); // merged with
+void MiscControl(vfile_t *txFile);
 /* plm6b.plm */
 void EmitLinePrefix();
 
@@ -1556,19 +1541,12 @@ void EmitLinePrefix();
 // litinfo         "LIT_ST"..curInfoP
 // cmd             "CMD_ST"..cmdLineP
 // inChr           B..inChrP
-//*curScopeP        A..curScopeP
+//curScope        A..curScopeP
 
 /* adninf.plm */
-void AdvNxtInfo();
+index_t AdvNxtInfo(index_t idx);
 
-/* Alloc.plm */
-void Alloc(word size1, word size2);
 
-/* allocs.plm */
-offset_t AllocSymbol(word spc);
-
-/* Backup.plm */
-void Backup(loc_t *locP, word cnt);
 
 /* Chain.plm */
 void Chain(pointer fNam);
@@ -1589,7 +1567,6 @@ void CpyFlags(pointer base);
 void CpyTill(char const *srcP, char *dstP, word cnt, byte endch);
 
 /* creati.plm */
-offset_t AllocInfo(word infosize);
 void CreateInfo(word scope, byte type);
 
 /* data.plm */
@@ -1599,31 +1576,22 @@ extern byte wrapMarkerCol;
 extern byte wrapMarker;
 extern byte wrapTextCol;
 extern byte skipCnt;
-extern word blk1Used;
-extern word blk2Used;
-extern word blkSize1;
-extern word blkSize2;
 extern word blockDepth;
-extern offset_t botInfo;
-extern offset_t botMem;
-extern offset_t botSymbol;
-extern offset_t cmdLineP;
 extern byte col;
 extern file_t conFile;
 extern byte controls[];
 extern word csegSize;
-extern word curInfoP; // individually cast
-extern offset_t curSymbolP;
+extern index_t infoIdx; // individually cast
+extern index_t curSym;
 extern char DATE[];
 extern word dsegSize;
 extern byte fatalErrorCode;
 extern bool hasErrors;
-extern offset_t hashChainsP;
+extern index_t hashTab[];
 extern bool haveModuleLevelUnit;
-extern offset_t helpersP;
+extern offset_t helpers[];
 extern word intVecLoc;
 extern byte intVecNum;
-extern address ISIS;
 extern file_t ixiFile;
 extern char *ixiFileName;
 
@@ -1632,12 +1600,11 @@ extern word LEFTMARGIN;
 extern word linesRead;
 extern byte linLft;
 extern word localLabelCnt;
-extern offset_t localLabelsP;
+extern offset_t *localLabels;
 extern file_t lstFile;
 extern char *lstFileName;
 extern bool isList;
 extern byte margin;
-extern vfile_t nmsf;
 extern word objBlk;
 extern word objByte;
 extern file_t objFile;
@@ -1661,15 +1628,12 @@ extern bool standAlone;
 extern offset_t startCmdLineP;
 extern char TITLE[];
 extern byte TITLELEN;
-extern offset_t topInfo;
-extern offset_t topMem;
-extern offset_t topSymbol;
 extern byte tWidth;
 extern vfile_t utf1;
 extern vfile_t utf2;
 extern bool afterEOF;
 extern char version[];
-extern offset_t w381E;
+extern byte *procIds;
 extern offset_t w3822;
 extern word cmdLineCaptured;
 extern offset_t ov1Boundary;
@@ -1704,7 +1668,6 @@ void FindMemberInfo();
 /* fiscop.plm */
 void FindScopedInfo(word scp);
 
-
 /* gibin.plm */
 byte GetBuiltinId();
 
@@ -1732,11 +1695,8 @@ byte GetExternId();
 /* giintn.plm */
 byte GetIntrNo();
 
-/* gilen.plm */
-byte GetLen();
-
 /* gilit.plm */
-offset_t GetLitAddr();
+pstr_t const *GetLit();
 
 /* gilnko.plm */
 offset_t GetLinkOffset();
@@ -1775,10 +1735,6 @@ void Lookup(pstr_t *pstr);
 void LstModuleInfo();
 
 
-/* memchk.asm */
-offset_t MemCk();
-
-
 /* OpenF.plm */
 void OpenF(file_t *fileP, char *access);
 
@@ -1788,10 +1744,8 @@ void PrintStr(char const *str, byte len);
 /* PutLst.asm */
 void lstc(byte ch);
 
-
 /* Rename.plm */
 void Rename(char const *oldP, char const *newP, wpointer statusP);
-
 
 /* setflg.plm */
 void SetFlag(pointer base, byte flag);
@@ -1823,11 +1777,8 @@ void SetInfoFlag(byte flag);
 /* siintn.plm */
 void SetIntrNo(byte intNo);
 
-/* silen.plm */
-void SetLen(byte len);
-
 /* silit.plm */
-void SetLitAddr(offset_t litaddr);
+void SetLit(pstr_t const *litaddr);
 
 /* silnko.plm */
 void SetLinkOffset(offset_t link);
@@ -1853,9 +1804,6 @@ void SetSymbol(offset_t symbol);
 /* sitype.plm */
 void SetType(byte type);
 
-/* strcmp.plm */
-byte Strncmp(char const *s1P, char const *s2P, byte cnt);
-
 /* tiflag.plm */
 byte TestInfoFlag(byte flag);
 
@@ -1876,4 +1824,31 @@ int32_t RdAtWord();
 pstr_t *pstrcpy(pstr_t *dst, pstr_t const *src);
 pstr_t *pstrcat(pstr_t *dst, pstr_t const *src);
 
-void ReloadSymbols();
+// void ReloadSymbols();
+
+index_t newSymbol(pstr_t const *ps);
+pstr_t const *pstrdup(pstr_t const *ps);
+bool pstrequ(pstr_t const *ps, pstr_t const *pt);
+
+extern index_t symCnt;
+extern sym_t *symtab;
+
+extern index_t infoCnt;
+extern ninfo_t *infotab;
+
+index_t newInfo(byte type);
+
+extern index_t dictCnt;
+extern index_t *dicttab;
+
+index_t newDict(index_t idx);
+
+extern index_t caseCnt;
+extern index_t *casetab;
+
+index_t newCase(word val);
+
+extern index_t xrefCnt;
+extern xref_t *xreftab;
+
+index_t newXref(index_t scope, word line);

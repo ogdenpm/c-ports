@@ -10,34 +10,25 @@
 
 #include "plm.h"
 
-void FindScopedInfo(word scope)
-{
-    word p, q;
-    offset_t next;
+void FindScopedInfo(word scope) {
+    word p;
     byte infoType;
 
-    curInfoP = SymbolP(curSymbolP)->infoP;
-    p = 0;
-    while (curInfoP != 0) {
+    infoIdx = symtab[curSym].infoIdx;
+    p       = 0;
+    while (infoIdx) {
         if (scope == GetScope()) {
             infoType = GetType();
-            if (infoType == LIT_T || infoType == MACRO_T)
-                ;
-            else if (TestInfoFlag(F_MEMBER))
-                goto nxt;
-            if (p != 0)	/* not at start of Chain() */
-            {
-                next = GetLinkOffset();	/* Move() to head of Chain() */
-                q = curInfoP;		/* save current */
-                curInfoP = p;		/* pick up previous */
-                SetLinkOffset(next);	/* set its link */
-                curInfoP = q;		/* restore current */
-                SetLinkOffset(SymbolP(curSymbolP)->infoP);	/* set its link to current head */
-                SymbolP(curSymbolP)->infoP = curInfoP;	/* set head to found info */
+            if (infoType == LIT_T || infoType == MACRO_T || !TestInfoFlag(F_MEMBER)) {
+                if (p) {                                   /* not at start of Chain() */
+                    infotab[p].ilink = GetLinkOffset();    /* Move() to head of Chain() */
+                    SetLinkOffset(symtab[curSym].infoIdx); /* set its link to current head */
+                    symtab[curSym].infoIdx = infoIdx;      /* set head to found info */
+                }
+                return;
             }
-            return;
         }
-    nxt:	p = curInfoP;
-        curInfoP = GetLinkOffset();
+        p       = infoIdx;
+        infoIdx = GetLinkOffset();
     }
 }

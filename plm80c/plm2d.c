@@ -104,11 +104,11 @@ static void Sub_73C5()
             break;
     }
     if (wC269 == wC26D)
-        curInfoP = 0;
+        infoIdx = 0;
     else if (wC26D == 0)
-        curInfoP = tx2op1[tx2op1[tx2qp]];
+        infoIdx = tx2op1[tx2op1[tx2qp]];
     else
-        curInfoP = tx2op1[tx2op2[tx2qp]];
+        infoIdx = tx2op1[tx2op2[tx2qp]];
 }
 
 void Sub_717B()
@@ -127,7 +127,7 @@ void Sub_717B()
             Sub_73C5();
             if (bC272 == 0 && bC273 == 8)
                 p = p & 0xFF;
-            Sub_5F4B(p, curInfoP, bC272, bC273);
+            Sub_5F4B(p, infoIdx, bC272, bC273);
             bC1D2 = b5124[curOp = tx2opc[tx2qp]];
         }
     }

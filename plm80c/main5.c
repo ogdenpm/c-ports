@@ -8,17 +8,13 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
+#include <stdlib.h>
 
 byte maxSymLen;
-word dictSize;
-word w66D2;
-word w66D4;
-offset_t xrefItemP;
+offset_t xrefIdx;
 byte b66D8 = 0;
-offset_t dictionaryP;
-offset_t dictTopP;
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 static char dots[]   = ". . . . . . . . . . . . . . . . . . . . ";
@@ -30,142 +26,30 @@ void warn(char const *str) {
 }
 
 void LoadDictionary() {
-    dictionaryP = dictTopP = botMem;
-    dictSize = maxSymLen = 0;
-    curInfoP             = botInfo + 2;
+    dictCnt = maxSymLen = 0;
 
-    while (1) {
+    for (infoIdx = AdvNxtInfo(0); infoIdx != 0; infoIdx = AdvNxtInfo(infoIdx)) {
         if (GetType() < MACRO_T && GetSymbol() != 0) {
-            dictTopP = dictTopP + 2;
-            if (dictTopP >= botSymbol) {
-                warn("INSUFFICIENT MEMORY FOR FULL DICTIONARY LISTING");
-                return;
-            }
-            dictSize         = dictSize + 1;
-            *WordP(dictTopP) = curInfoP;
+            newDict(infoIdx);
             SetScope(0); /* used for xref Chain() */
-            curSymbolP = GetSymbol();
-            if (PstrP(curSymbolP)->len > maxSymLen)
-                maxSymLen = PstrP(curSymbolP)->len;
+            curSym = GetSymbol();
+            if (symtab[curSym].name->len > maxSymLen)
+                maxSymLen = symtab[curSym].name->len;
         }
-        AdvNxtInfo();
-        if (curInfoP == 0)
-            return;
     }
 }
 
-byte CmpSym(offset_t dictItem1, offset_t dictItem2) {
-    pointer sym1, sym2;
-    pointer str1, str2;
-    byte i, j;
+int CmpSym(void const *a, void const *b) {
+    index_t ia = *(index_t *)a;
+    index_t ib = *(index_t *)b;
 
-    curInfoP = dictItem1;
-    sym1     = ByteP(GetSymbol());
-    str1     = sym1 + 1;
-    curInfoP = dictItem2;
-    sym2     = ByteP(GetSymbol());
-    str2     = sym2 + 1;
-    if (*sym1 < *sym2) {
-        i = *sym1;
-        j = 0;
-    } else if (*sym1 > *sym2) {
-        i = *sym2;
-        j = 2;
-    } else {
-        i = *sym1;
-        j = 1;
-    }
-
-    while (i != 0) {
-        if (*str1 < *str2)
-            return 0;
-        if (*str1 > *str2)
-            return 2;
-        str1++;
-        str2++;
-        i--;
-    }
-    return j;
+    int cmp = strcmp(symtab[infotab[ia].sym].name->str, symtab[infotab[ib].sym].name->str);
+    return cmp ? cmp : ia - ib;
 }
 
 void SortDictionary() {
-    word p, q, r, s, t, u, v;
-    offset_t w, x;
-    word y, z;
 
-    if (dictSize == 1)
-        return;
-    r = dictSize / 2;
-    s = r + 2;
-    t = 1;
-    p = 2;
-    q = r;
-    y = dictSize;
-    u = q;
-    w = WordP(dictionaryP)[u];
-
-    while (1) {
-        v = u * 2;
-        if (v > y) {
-            WordP(dictionaryP)[u] = w;
-            if (t == 2) {
-                x                     = WordP(dictionaryP)[1];
-                WordP(dictionaryP)[1] = WordP(dictionaryP)[q];
-                WordP(dictionaryP)[q] = x;
-                if (p >= dictSize)
-                    break;
-                else {
-                    p = p + 1;
-                    q = y = z - p;
-                    u     = 1;
-                }
-            } else if (p >= r) {
-                t = 2;
-                z = dictSize + 2;
-                p = 2;
-                q = y = dictSize;
-                u     = 1;
-            } else {
-                p = p + 1;
-                q = s - p;
-                y = dictSize;
-                u = q;
-            }
-            w = WordP(dictionaryP)[u];
-        } else {
-            if (v != y)
-                if (CmpSym(WordP(dictionaryP)[v + 1], WordP(dictionaryP)[v]) > 1)
-                    v = v + 1;
-            if (CmpSym(WordP(dictionaryP)[v], w) <= 1) {
-                WordP(dictionaryP)[u] = w;
-                if (t == 2) {
-                    x                     = WordP(dictionaryP)[1];
-                    WordP(dictionaryP)[1] = WordP(dictionaryP)[q];
-                    WordP(dictionaryP)[q] = x;
-                    if (p >= dictSize)
-                        break;
-                    p = p + 1;
-                    q = y = z - p;
-                    u     = 1;
-                } else if (p >= r) {
-                    t = 2;
-                    z = dictSize + 2;
-                    p = 2;
-                    q = y = dictSize;
-                    u     = 1;
-                } else {
-                    p = p + 1;
-                    q = s - p;
-                    y = dictSize;
-                    u = q;
-                }
-                w = WordP(dictionaryP)[u];
-            } else {
-                WordP(dictionaryP)[u] = WordP(dictionaryP)[v];
-                u                     = v;
-            }
-        }
-    }
+    qsort(dicttab, dictCnt, sizeof(index_t), CmpSym);
 }
 
 static void LoadXref() {
@@ -176,16 +60,9 @@ static void LoadXref() {
         word infoP = vfRword(&xrff);
         word stmt  = vfRword(&xrff);
         if (xrefType == 'B' || XREF) {
-            curInfoP  = infoP + botInfo;
-            xrefItemP = w66D4 + 1;
-            w66D4 += 4;
-            if (w66D4 > botSymbol) {
-                warn("INSUFFICIENT MEMORY FOR FULL XREF PROCESSING");
-                break;
-            }
-            WordP(xrefItemP)[0] = GetScope();
-            SetScope(xrefItemP);
-            WordP(xrefItemP)[1] = xrefType == 'B' ? -stmt : stmt; /* make defn line -ve */
+            infoIdx = infoP;
+            xrefIdx = newXref(GetScope(), xrefType == 'B' ? -stmt : stmt); /* make defn line -ve */
+            SetScope(xrefIdx);
         }
     }
     vfRewind(&xrff);
@@ -195,40 +72,33 @@ static void XrefDef2Head() {
     word p;
     offset_t q, r;
 
-    for (p = 1; p <= dictSize; p++) {
-        curInfoP  = WordP(dictionaryP)[p];
-        xrefItemP = GetScope();
-        if (xrefItemP != 0) {
+    for (p = 0; p < dictCnt; p++) {
+        infoIdx = dicttab[p];
+        xrefIdx = GetScope();
+        if (xrefIdx) {
             q = 0;
             SetScope(0);
-            while (xrefItemP != 0) {
-                r = WordP(xrefItemP)[0];
-                if ((WordP(xrefItemP)[1] & 0x8000) != 0)
-                    q = xrefItemP; /* definition */
+            while (xrefIdx) {
+                r = xreftab[xrefIdx].next;
+                if ((xreftab[xrefIdx].line & 0x8000))
+                    q = xrefIdx; /* definition */
                 else {
-                    WordP(xrefItemP)[0] = GetScope();
-                    SetScope(xrefItemP);
+                    xreftab[xrefIdx].next = GetScope();
+                    SetScope(xrefIdx);
                 }
-                xrefItemP = r;
+                xrefIdx = r;
             }
 
-            if (q != 0) { /* insert definition at head */
-                xrefItemP           = q;
-                WordP(xrefItemP)[0] = GetScope();
-                SetScope(xrefItemP);
+            if (q) { /* insert definition at head */
+                xrefIdx               = q;
+                xreftab[xrefIdx].next = GetScope();
+                SetScope(xrefIdx);
             }
         }
     }
 }
 
 void PrepXref() {
-
-    w66D2 = dictTopP + 2;
-    if (w66D2 >= botSymbol) {
-        warn("INSUFFICIENT MEMORY FOR ANY XREF PROCESSING");
-        return;
-    }
-    w66D4 = w66D2 - 1;
     LoadXref();
     XrefDef2Head();
 }
@@ -244,35 +114,35 @@ static void Sub_480A() {
         return;
     }
 
-    xrefItemP = GetScope();
-    if (xrefItemP == 0) {
+    xrefIdx = GetScope();
+    if (xrefIdx == 0) {
         NewLineLst();
         return;
     }
     lstStr(": ");
     p = 0;
 
-    while (xrefItemP != 0) {
-        if (p != WordP(xrefItemP)[1]) {
+    while (xrefIdx) {
+        if (p != xreftab[xrefIdx].line) {
             if (PWIDTH < col + 5) {
                 NewLineLst();
                 TabLst(-refContCol);
             }
             TabLst(1);
-            lprintf("%d", WordP(xrefItemP)[1]);
-            p = WordP(xrefItemP)[1];
+            lprintf("%d", xreftab[xrefIdx].line);
+            p = xreftab[xrefIdx].line;
         }
-        xrefItemP = WordP(xrefItemP)[0];
+        xrefIdx = xreftab[xrefIdx].next;
     }
     if (col)
         NewLineLst();
 }
 
 static void Sub_48A7() {
-    curSymbolP = GetSymbol();
+    curSym = GetSymbol();
     TabLst(-nameCol);
-    lprintf("%.*s%.*s", PstrP(curSymbolP)->len, PstrP(curSymbolP)->str, attribCol - col - 2,
-            &dots[PstrP(curSymbolP)->len]);
+    lstStr(symtab[curSym].name->str);
+    lprintf("%.*s", attribCol - col - 2, &dots[symtab[curSym].name->len]);
     TabLst(1);
 }
 
@@ -286,13 +156,13 @@ static void Sub_48E2(word arg1w, word arg2w) {
 }
 
 static void Sub_4921() {
-    xrefItemP = GetScope();
+    xrefIdx = GetScope();
     if (GetType() == BUILTIN_T)
         return;
-    if (xrefItemP != 0 && (WordP(xrefItemP)[1] & 0x8000) != 0) {
+    if (xrefIdx != 0 && (xreftab[xrefIdx].line & 0x8000) != 0) {
         TabLst(-defnCol);
-        lprintf("%5d", 0x10000 - WordP(xrefItemP)[1]); /* defn stored as -ve */
-        SetScope(WordP(xrefItemP)[0]);
+        lprintf("%5d", 0x10000 - xreftab[xrefIdx].line); /* defn stored as -ve */
+        SetScope(xreftab[xrefIdx].next);
     } else if (!TestInfoFlag(F_LABEL)) {
         TabLst(-defnCol);
         lstStr("-----");
@@ -306,36 +176,36 @@ static void Sub_499C() {
 static void Sub_49BB() {
     offset_t p, q, r;
 
-    p        = curInfoP;
-    curInfoP = GetBaseOffset();
+    p       = infoIdx;
+    infoIdx = GetBaseOffset();
     if (TestInfoFlag(F_MEMBER)) {
-        r        = GetSymbol();
-        curInfoP = GetParentOffset();
-        q        = GetSymbol();
+        r       = GetSymbol();
+        infoIdx = GetParentOffset();
+        q       = GetSymbol();
     } else {
         q = GetSymbol();
         r = 0;
     }
 
-    curSymbolP = q;
-    lprintf(" BASED(%.*s", PstrP(curSymbolP)->len, PstrP(curSymbolP)->str);
+    curSym = q;
+    lprintf(" BASED(%.*s", symtab[curSym].name->len, symtab[curSym].name->str);
     if (r) {
         lstc('.');
-        curSymbolP = r;
-        lprintf("%.*s", PstrP(curSymbolP)->len, PstrP(curSymbolP)->str);
+        curSym = r;
+        lprintf("%.*s", symtab[curSym].name->len, symtab[curSym].name->str);
     }
     lstc(')');
-    curInfoP = p;
+    infoIdx = p;
 }
 
 static void Sub_4A42() {
     offset_t p;
 
-    p        = curInfoP;
-    curInfoP = GetParentOffset();
-    curSymbolP = GetSymbol();
-    lprintf(" MEMBER(%.*s)", PstrP(curSymbolP)->len, PstrP(curSymbolP)->str);
-    curInfoP = p;
+    p       = infoIdx;
+    infoIdx = GetParentOffset();
+    curSym  = GetSymbol();
+    lprintf(" MEMBER(%.*s)", symtab[curSym].name->len, symtab[curSym].name->str);
+    infoIdx = p;
 }
 
 static void Sub_4A78(char const *str) {
@@ -422,10 +292,10 @@ static void Sub_4B4A(char const *str) {
 }
 
 static void Sub_4C84() {
-    curSymbolP = GetSymbol();
-    if (b66D8 != PstrP(curSymbolP)->str[0]) {
+    curSym = GetSymbol();
+    if (b66D8 != symtab[curSym].name->str[0]) {
         NewLineLst();
-        b66D8 = PstrP(curSymbolP)->str[0];
+        b66D8 = symtab[curSym].name->str[0];
     }
     if (GetType() < MACRO_T)
         switch (GetType()) {
@@ -472,7 +342,6 @@ void PrintRefs() {
         lstStr("SYMBOL LISTING\n"
                "--------------\n");
 
- 
     SetSkipLst(2);
     TabLst(-defnCol);
     lstStr(" DEFN");
@@ -491,13 +360,13 @@ void PrintRefs() {
     TabLst(-nameCol);
     lstStr("--------------------------------\n\n");
 
-    for (p = 1; p <= dictSize; p++) {
-            curInfoP = WordP(dictionaryP)[p];
-            if (GetType() == BUILTIN_T) {
-                if (GetScope() != 0)
-                    Sub_4C84();
-            } else
+    for (p = 0; p < dictCnt; p++) {
+        infoIdx = dicttab[p];
+        if (GetType() == BUILTIN_T) {
+            if (GetScope() != 0)
                 Sub_4C84();
+        } else
+            Sub_4C84();
     }
 } /* PrintRefs() */
 
@@ -518,10 +387,10 @@ static void WrIxiWord(word v) {
 void CreateIxrefFile() {
 
     OpenF(&ixiFile, "wb");
-    curInfoP   = botInfo + procInfo[1];
-    curSymbolP = GetSymbol();
-    if (curSymbolP) { /* Write() the module info */
-        pstr_t *pstr = PstrP(curSymbolP);
+    infoIdx = procInfo[1];
+    curSym  = GetSymbol();
+    if (curSym) { /* Write() the module info */
+        pstr_t const *pstr = symtab[curSym].name;
         WrIxiByte(b3F0B);
         WrIxiByte(22 + pstr->len);
         WrIxiByte(pstr->len);           /* module name len */
@@ -531,15 +400,15 @@ void CreateIxrefFile() {
     WrIxiBuf(basename(srcFileTable[0].fNam), 10); // form compatibility max 10 chars
     WrIxiBuf("---------", 9);
 
-    for (int p = 1; p <= dictSize; p++) {
-        curInfoP  = WordP(dictionaryP)[p];
+    for (int p = 0; p < dictCnt; p++) {
+        infoIdx   = dicttab[p];
         byte type = GetType();
         if (LABEL_T <= type && type <= PROC_T &&
             (TestInfoFlag(F_PUBLIC) || (TestInfoFlag(F_EXTERNAL) && !TestInfoFlag(F_AT)))) {
 
             WrIxiByte(TestInfoFlag(F_PUBLIC) ? 0 : 1);
-            curSymbolP   = GetSymbol();
-            pstr_t *pstr = PstrP(curSymbolP);
+            curSym             = GetSymbol();
+            pstr_t const *pstr = symtab[curSym].name;
             WrIxiByte(6 + pstr->len);
             WrIxiByte(pstr->len);           /* module name len */
             WrIxiBuf(pstr->str, pstr->len); /* module name */
@@ -565,9 +434,6 @@ void Sub_4EC5() {
 }
 
 word Start5() {
-    MEMORY = 0x6936;
-    botMem = MEMORY + 0x100;
-    topSymbol += 4;
 
     Sub_4EC5();
     if (PRINT)

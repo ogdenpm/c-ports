@@ -29,7 +29,6 @@ static void ParseCommandLine()
     if (moreCmdLine)
         ParseControlLine(cmdTextP);   // ParseControlLine will move to first char
     moreCmdLine = false;       // 0 if no more cmd line
-    curScopeP = (wpointer)curScope;
     inChrP = " \n"; // GNxtCh will see \n and get a non blank line
     blockDepth = 1;
     procChains[1] = 0;

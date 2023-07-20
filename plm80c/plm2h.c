@@ -68,7 +68,7 @@ void Sub_9D06()
     byte m;
 
     if (procCallDepth <= 10) {
-        curInfoP = tx2op3[tx2qp];
+        infoIdx = tx2op3[tx2qp];
         i = GetDataType();
         if (i == 3)
             wAF54[132] = 1;
@@ -79,7 +79,7 @@ void Sub_9D06()
         k = 0;
 
         while (j > 0) {
-            AdvNxtInfo();
+            infoIdx = AdvNxtInfo(infoIdx);
             j = j - 1;
             if (j < 2) {
                 *pbyt = (*pbyt << 4) & 0xf0;
@@ -118,7 +118,7 @@ void Sub_9DD7()
     if (procCallDepth <= 10) {
         i = (byte)tx2op3[tx2qp];
         if (tx2opc[i] == T2_IDENTIFIER) {
-            curInfoP = tx2op1[i];
+            infoIdx = tx2op1[i];
             if (TestInfoFlag(F_AUTOMATIC))
                 wAF54[133] = 3;
             else
@@ -153,7 +153,7 @@ void Sub_9EF8()
 void Sub_9F14()
 {
     if (EnterBlk())
-        blkCurInfo[blkSP] = wC1CF;
+        blkCurInfo[blkSP] = caseCnt;
 }
 
 
@@ -162,19 +162,19 @@ void Sub_9F2F()
     word p, q;
     p = q = (word)blkCurInfo[blkSP];
     if (ExitBlk()) {
-        while (p < wC1CF) {
+        while (p < caseCnt) {
             wC1DC[0] = 14;
-            wC1DC[1] = WordP(botMem)[p];
+            wC1DC[1] = casetab[p];
             EncodeFragData(CF_DW);
-            pc = pc + 2;
-            p = p + 1;  
+            pc += 2;
+            p++;  
         }
-        if (wC1CF == q) {
+        if (caseCnt == q) {
             Tx2SyntaxError(ERR201); /*  Invalid() do CASE block, */
                         /*  at least on case required */
             EmitTopItem();
         }
-        wC1CF = q;
+        caseCnt = q;
     }
 }
 
@@ -183,7 +183,7 @@ void Sub_9F2F()
 void Sub_9F9F()
 {
     if (ExitBlk()) {
-        curInfoP = blkCurInfo[procChainId];
+        infoIdx = blkCurInfo[procChainId];
         if (! boC1CC) {
             Sub_5EE8();
             EncodeFragData(CF_RET);
@@ -197,7 +197,7 @@ void Sub_9F9F()
         pc = wB488[procChainId = procChainNext[procChainId]];
         bC1E6 = 0;
         PutTx1Byte(0xa4);
-        PutTx1Word(blkCurInfo[procChainId] - botInfo);
+        PutTx1Word(blkCurInfo[procChainId]);
         PutTx1Word(pc);
         WrFragData();
         wC1C3 = wB4B0[procChainId];
@@ -210,7 +210,7 @@ void Sub_9F9F()
 void Sub_A072(byte arg1b)
 {
     word p;
-    curInfoP = tx2op1[tx2qp] + botInfo;
+    infoIdx = tx2op1[tx2qp];
     p = GetDimension() - arg1b;
     if (p < 0x100)
         Sub_5F4B(p, 0, 0, 8);
@@ -222,7 +222,7 @@ void Sub_A072(byte arg1b)
 void Sub_A0C4()
 {
     word p;
-    p = Sub_575E(tx2op1[tx2qp] + botInfo);
+    p = Sub_575E(tx2op1[tx2qp]);
     if (p < 0x100)
         Sub_5F4B(p, 0, 0, 8);
     else

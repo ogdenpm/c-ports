@@ -12,206 +12,165 @@
 
 byte GetBuiltinId() {
 
-    return InfoP(curInfoP)->flag[0];
+    return infotab[infoIdx].builtinId;
 }
 
 void SetBuiltinId(byte id) {
 
-    InfoP(curInfoP)->flag[0] = id;
+    infotab[infoIdx].builtinId = id;
 }
 
 offset_t GetBaseOffset() {
-    if (InfoP(curInfoP)->baseoff == 0)
-        return 0;
-    else
-        return InfoP(curInfoP)->baseoff + botInfo;
+    return infotab[infoIdx].baseOff;
 }
 
 void SetBaseOffset(offset_t baseP) {
-
-    if (baseP == 0)
-        InfoP(curInfoP)->baseoff = 0;
-    else
-        InfoP(curInfoP)->baseoff = baseP - botInfo;
+    infotab[infoIdx].baseOff = baseP;
 }
 
 word GetBaseVal() {
-    return InfoP(curInfoP)->baseoff;
+    return infotab[infoIdx].baseVal;
 }
 
 void SetBaseVal(word val) {
-    InfoP(curInfoP)->baseoff = val;
+    infotab[infoIdx].baseVal = val;
 }
 
 byte GetCondFlag() {
-    return InfoP(curInfoP)->flag[0];
+    return infotab[infoIdx].condFlag;
 }
 
 void SetCondFlag(byte flag) {
-    InfoP(curInfoP)->flag[0] = flag;
+    infotab[infoIdx].condFlag = flag;
 }
 
 word GetDimension() {
-    return InfoP(curInfoP)->dim;
+    return infotab[infoIdx].dim;
 }
 
 word GetDimension2() {
-    return InfoP(curInfoP)->dim;
+    return infotab[infoIdx].dim;
 }
 
 void SetDimension(word dim) {
-    InfoP(curInfoP)->dim = dim;
+    infotab[infoIdx].dim = dim;
 }
 
 byte GetDataType() {
-    if (InfoP(curInfoP)->type == PROC_T)
-        return InfoP(curInfoP)->dtype;
+    if (infotab[infoIdx].type == PROC_T)
+        return infotab[infoIdx].dtype;
     else
-        return InfoP(curInfoP)->flag[2];
+        return infotab[infoIdx].dataType;
 }
 
 void SetDataType(byte dtype) {
-    if (InfoP(curInfoP)->type == PROC_T)
-        InfoP(curInfoP)->dtype = dtype;
+    if (infotab[infoIdx].type == PROC_T)
+        infotab[infoIdx].dtype = dtype;
     else
-        InfoP(curInfoP)->flag[2] = dtype;
+        infotab[infoIdx].dataType = dtype;
 }
 
 byte GetExternId() {
-    return InfoP(curInfoP)->extId;
+    return infotab[infoIdx].extId;
 }
 
 void SetExternId(byte id) {
-    InfoP(curInfoP)->extId = id;
+    infotab[infoIdx].extId = id;
     ;
 }
 
 void SetInfoFlag(byte flag) {
-    SetFlag(InfoP(curInfoP)->flag, flag);
+    SetFlag(infotab[infoIdx].flag, flag);
 }
 
 byte GetIntrNo() {
-    return InfoP(curInfoP)->intno;
+    return infotab[infoIdx].intno;
 }
 
 void SetIntrNo(byte intNo) {
-    InfoP(curInfoP)->intno = intNo;
+    infotab[infoIdx].intno = intNo;
 }
 
-byte GetLen() {
-    return InfoP(curInfoP)->len;
+pstr_t const *GetLit() {
+    return infotab[infoIdx].lit;
 }
 
-void SetLen(byte len) {
-    InfoP(curInfoP)->len = len;
-}
-
-offset_t GetLitAddr() {
-    return LitP(curInfoP)->litAddr;
-}
-
-void SetLitAddr(offset_t litAddr) {
-    LitP(curInfoP)->litAddr = litAddr;
+void SetLit(pstr_t const *litAddr) {
+    infotab[infoIdx].lit = litAddr;
 }
 
 offset_t GetLinkOffset() {
-    if (InfoP(curInfoP)->ilink == 0)
-        return 0;
-    else
-        return botInfo + InfoP(curInfoP)->ilink;
+    return infotab[infoIdx].ilink;
 }
 
 void SetLinkOffset(offset_t link) {
-    if (link == 0)
-        InfoP(curInfoP)->ilink = 0;
-    else
-        InfoP(curInfoP)->ilink = link - botInfo;
+    infotab[infoIdx].ilink = link;
 }
 
 word GetLinkVal() {
-    info_t *p = InfoP(curInfoP);
-    return p->ilink;
+    return infotab[infoIdx].linkVal;
 }
 
 void SetLinkVal(word val) {
-    info_t *p              = InfoP(curInfoP);
-    p->ilink = val;
+    infotab[infoIdx].linkVal = val;
 }
 
 offset_t GetParentOffset() {
-    if (InfoP(curInfoP)->type == STRUCT_T)
-        return InfoP(curInfoP)->parent;
-    else if (InfoP(curInfoP)->parent == 0)
-        return 0;
-    else
-        return InfoP(curInfoP)->parent + botInfo;
+    return infotab[infoIdx].parent; // special handling of STRUCT_T no longer required
 }
 
 void SetParentOffset(offset_t parent) {
-    if (InfoP(curInfoP)->type == STRUCT_T) {
-        InfoP(curInfoP)->parent = parent;
-        return;
-    }
-    if (parent == 0)
-        InfoP(curInfoP)->parent = 0;
-    else
-        InfoP(curInfoP)->parent = parent - botInfo;
+    infotab[infoIdx].parent = parent;    // special handling of STRUCT_T no longer required
 }
 
 word GetParentVal() {
-    return InfoP(curInfoP)->parent;
+    return infotab[infoIdx].parent;
 }
 
 byte GetParamCnt() {
-    if (InfoP(curInfoP)->type == PROC_T)
-        return InfoP(curInfoP)->pcnt;
+    if (infotab[infoIdx].type == PROC_T)
+        return infotab[infoIdx].pcnt;
     else
-        return InfoP(curInfoP)->flag[1];
+        return infotab[infoIdx].paramCnt;
 }
 
 void SetParamCnt(byte cnt) {
-    if (InfoP(curInfoP)->type == PROC_T)
-        InfoP(curInfoP)->pcnt = cnt;
+    if (infotab[infoIdx].type == PROC_T)
+        infotab[infoIdx].pcnt = cnt;
     else
-        InfoP(curInfoP)->flag[1] = cnt;
+        infotab[infoIdx].paramCnt = cnt;
 }
 
 byte GetProcId() {
-    return InfoP(curInfoP)->procId;
+    return infotab[infoIdx].procId;
 }
 
 void SetProcId(byte id) {
-    InfoP(curInfoP)->procId = id;
+    infotab[infoIdx].procId = id;
 }
 
 word GetScope() {
-    return InfoP(curInfoP)->scope;
+    return infotab[infoIdx].scope;
 }
 
 void SetScope(word scope) {
-    InfoP(curInfoP)->scope = scope;
+    infotab[infoIdx].scope = scope;
 }
 
-offset_t GetSymbol() {
-    if (InfoP(curInfoP)->sym == 0)
-        return 0;
-    else
-        return topSymbol - InfoP(curInfoP)->sym;
+index_t GetSymbol() {
+    return infotab[infoIdx].sym;
 }
 
-void SetSymbol(offset_t symbol) {
-    if (symbol == 0)
-        InfoP(curInfoP)->sym = 0;
-    else
-        InfoP(curInfoP)->sym = topSymbol - symbol;
+void SetSymbol(index_t symbol) {
+    infotab[infoIdx].sym = symbol;
 }
 
 byte GetType() {
-    return InfoP(curInfoP)->type;
+    return infotab[infoIdx].type;
 }
 
 void SetType(byte type) {
-    InfoP(curInfoP)->type = type;
+    infotab[infoIdx].type = type;
 }
 
 // flag access functions
@@ -245,7 +204,7 @@ void CpyFlags(pointer base) {
     byte i;
 
     for (i = 0; i <= 2; i++) {
-        InfoP(curInfoP)->flag[i] = base[i];
+        infotab[infoIdx].flag[i] = base[i];
     }
 }
 
@@ -269,5 +228,5 @@ bool TestFlag(pointer base, byte flag) {
 } /* TestFlag() */
 
 byte TestInfoFlag(byte flag) {
-    return TestFlag(InfoP(curInfoP)->flag, flag);
+    return TestFlag(infotab[infoIdx].flag, flag);
 }

@@ -9,18 +9,17 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include "os.h"
 
-offset_t CreateLit(pointer pstr)
+pstr_t const *CreateLit(pstr_t const *pstr)
 {
-    word litLen;
-    offset_t litSymbol;
+    pstr_t *lit;
 
-    litLen = pstr[0] + 1;
-    litSymbol = AllocSymbol(litLen + 3);
-    memmove(ByteP(litSymbol + 1), pstr, litLen);
-    memmove(ByteP(litSymbol + litLen + 1), " \n", 2);
-    ByteP(litSymbol)[0] = 255;		/* put max size \n will terminate */
-    return litSymbol;
+    lit = xmalloc(pstr->len + 3);
+    memcpy(lit->str, pstr->str, pstr->len);
+    memcpy(lit->str + pstr->len, " \n", 2);
+    lit->len = 255;		/* put max size \n will terminate */
+    return lit;
 }
 
 

@@ -53,8 +53,6 @@ static void Error_6() {
 }
 
 void MiscControl(vfile_t *txFile) {
-    char name[1024];
-    int c, i;
 
     switch (cfCode) {
     case T2_LIST:
@@ -75,11 +73,13 @@ void MiscControl(vfile_t *txFile) {
         break;
     case T2_INCLUDE:
         EmitLinePrefix();
-        srcFileTable[srcFileIdx++] = srcFil;
-        for (i = 0; (c = vfRbyte(txFile)) && c != EOF; i++)
-            name[i] = c;
-        name[i] = '\0';
-        InitF(&srcFil, "SOURCE", xstrdup(name));
+        srcFileTable[srcFileIdx++] = srcFil;    // push current file
+        /* get file name (stored len (word) string */
+        word len                   = vfRword(txFile);
+        char *name                 = xmalloc(len + 1);
+        vfRbuf(txFile, name, len);
+        name[len] = '\0';
+        InitF(&srcFil, "SOURCE", name);
         OpenF(&srcFil, "rt");
         break;
     }
@@ -88,7 +88,7 @@ void MiscControl(vfile_t *txFile) {
 void Sub_42E7() {
 
     itemArgs[0] = itemArgs[1] = itemArgs[2] = 0;
-    Wr2Byte(cfCode);
+    cfCode = Rd2Byte();
 
     if (cfCode != T2_INCLUDE)
         for (int i = 0; i < (b5124[cfCode] & 3); i++)

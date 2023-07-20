@@ -37,7 +37,7 @@ static void ErrorSkip()
 static void PopStateWord(wpointer stateP)
 {
     if (stateIdx == 0)
-        PFatalError(ERR97);      /* COMPILER Error: PARSE STACK UNDERFLOW */
+        LexFatalError(ERR97);      /* COMPILER Error: PARSE STACK UNDERFLOW */
     *stateP = stateStack[stateIdx];
     stateIdx = stateIdx - 1;
 }
@@ -45,7 +45,6 @@ static void PopStateWord(wpointer stateP)
 // make sure that there will be space for case label info
 static void NewLocalLabel()
 {
-    Alloc(3, 3);
     localLabelCnt++;
 }
 
@@ -61,7 +60,7 @@ static void ParseStmtLabels()
 
     while (1) {
         stmtStartToken = tokenType;
-        stmtStartSymbol = curSymbolP;
+        stmtStartSymbol = curSym;
         if (tokenType != T_IDENTIFIER)
             return;
 
@@ -70,7 +69,7 @@ static void ParseStmtLabels()
                 Wr1TokenErrorAt(ERR30);    /* LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT */
             else
                 stmtLabelCnt++;
-            stmtLabels[stmtLabelCnt] = curSymbolP;
+            stmtLabels[stmtLabelCnt] = curSym;
         } else
             return;
         Yylex();
@@ -146,40 +145,40 @@ static void WrLabelDefs()
     word i;
     offset_t tmp;
 
-    tmp = curSymbolP;   // accessors use curSymbolP so save to restore at end
+    tmp = curSym;   // accessors use curSymbolP so save to restore at end
     if (stmtLabelCnt != 0) {
         for (i = 1; i <= stmtLabelCnt; i++) {   // check each label
-            curSymbolP = stmtLabels[i];
-            FindScopedInfo(*curScopeP);
-            if (curInfoP != 0) {    /* already seen at this scope */
+            curSym = stmtLabels[i];
+            FindScopedInfo(curScope);
+            if (infoIdx != 0) {    /* already seen at this scope */
                 if (TestInfoFlag(F_LABEL))
-                    Wr1TokenError(ERR33, curSymbolP);  /* DUPLICATE LABEL DECLARATION */
+                    Wr1TokenError(ERR33, curSym);  /* DUPLICATE LABEL DECLARATION */
                 else {
                     Wr1Byte(L_LABELDEF);         // log label def to lexical stream
-                    Wr1InfoOffset(curInfoP);
+                    Wr1InfoOffset(infoIdx);
                     SetInfoFlag(F_LABEL);       // mark as defined
                 }
                 Wr1XrefUse();                    // write xref
             } else {
-                CreateInfo(*curScopeP, LABEL_T);    // its new so create
+                CreateInfo(curScope, LABEL_T);    // its new so create
                 Wr1XrefDef();                    // write xref
                 Wr1Byte(L_LABELDEF);             
-                Wr1InfoOffset(curInfoP);
+                Wr1InfoOffset(infoIdx);
                 SetInfoFlag(F_LABEL);
             }
         }
-        if (*curScopeP == 0x100)
+        if (curScope == 0x100)
             Wr1Byte(L_MODULE);               // record at module level
     }
-    curSymbolP = tmp;
+    curSym = tmp;
 } /* WrLabelDefs() */
 
 // check for end module
 static bool IsEndOfModule()
 {
     if (YylexMatch(T_IDENTIFIER)) {
-        curInfoP = procInfo[1];
-        if (GetSymbol() != curSymbolP)
+        infoIdx = procInfo[1];
+        if (GetSymbol() != curSym)
             Wr1TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
     }
     ExpectSemiColon();
@@ -209,21 +208,21 @@ static void ProcEnding()
 
     PopBlock();
     if (YylexMatch(T_IDENTIFIER)) {    // if end name check names match
-        curInfoP = curProcInfoP;
-        if (GetSymbol() != curSymbolP)
+        infoIdx = procIdx;
+        if (GetSymbol() != curSym)
             Wr1TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
     }
-    curInfoP = curProcInfoP;
+    infoIdx = procIdx;
     v = GetParamCnt();
     for (i = 1; i <= v; i++) {      // scan any parameters (info after proc info)
-        AdvNxtInfo();
+        infoIdx = AdvNxtInfo(infoIdx);
         if (!TestInfoFlag(F_LABEL)) // not declared?
             Wr1TokenError(ERR25, GetSymbol());   /* UNDECLARED PARAMETER */
     }
     PopStateWord(&doBlkCnt);    // restore doBlkCnt & curProcInfoP to parent of proc
 
     PopStateWord(&tmp);
-    curProcInfoP = tmp;
+    procIdx = tmp;
     ExpectSemiColon();          // finish off statement
 }
 
@@ -232,7 +231,7 @@ static void PushStateWord(word v)
     if (stateIdx != 0x63)
         stateStack[++stateIdx] = v;
     else
-        PFatalError(ERR31);      /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+        LexFatalError(ERR31);      /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
 }
 
 
@@ -245,19 +244,19 @@ static void PushStateByte(byte state)
 static void CreateModuleInfo(offset_t symPtr)
 {
 
-    curSymbolP = symPtr;
+    curSym = symPtr;
     CreateInfo(0, PROC_T);
     SetInfoFlag(F_LABEL);
     Wr1XrefDef();
-    curProcInfoP = curInfoP;
+    procIdx = infoIdx;
     SetProcId(1);
     procCnt = 1;
-    procInfo[1] = curInfoP;
-    *curScopeP = 0x100;           /* proc = 1,  do level = 0 */
+    procInfo[1] = infoIdx;
+    curScope = 0x100;           /* proc = 1,  do level = 0 */
     Wr1Byte(L_DO);
     Wr1Byte(L_SCOPE);
-    Wr1Word(*curScopeP);
-    PushBlock(*curScopeP);
+    Wr1Word(curScope);
+    PushBlock(curScope);
 }
 
 /* parse <module name> : 'DO' ; */
@@ -268,14 +267,14 @@ static void State0()
     if (stmtStartCode != S_DO) {
         Wr1SyntaxError(ERR89);     /* MISSING 'do' FOR MODULE */
         Lookup((pstr_t *)"\x6MODULE");
-        CreateModuleInfo(curSymbolP);
+        CreateModuleInfo(curSym);
         PushStateByte(19);      // next parse <declaration> assuming 'do' provided
     } else {
         if (stmtLabelCnt == 0) {
             Wr1SyntaxError(ERR90); /* MISSING NAME FOR MODULE */
             Lookup((pstr_t *)"\x6MODULE");
             stmtLabelCnt = 1;
-            stmtLabels[1] = curSymbolP;
+            stmtLabels[1] = curSym;
         } else if (stmtLabelCnt > 1)
             Wr1SyntaxError(ERR18); /* INVALID MULTIPLE LABELS AS MODULE NAMES */
         CreateModuleInfo(stmtLabels[1]);
@@ -352,11 +351,11 @@ static void State4()
             Wr1TokenErrorAt(ERR22);    /* INVALID MULTIPLE LABELS AS PROCEDURE NAMES */
             stmtLabelCnt = 1;
         }
-        PushStateWord(curProcInfoP);    // save current procInfoP   
+        PushStateWord(procIdx);    // save current procInfoP   
         PushStateWord(doBlkCnt);        // and block count restored in PraseEnding
         ProcProcStmt();                 // parse optional parameters, return type and attributes
         ExpectSemiColon();              // finish with semicolon
-        curInfoP = curProcInfoP;        // test if external proc
+        infoIdx = procIdx;        // test if external proc
         if (TestInfoFlag(F_EXTERNAL))
             PushStateByte(5);           // next <declaration> <ending>
         else {
@@ -536,10 +535,10 @@ static void State12()
     else
         doBlkCnt++;
 
-    curScope[DOBLKCNT] = (byte)doBlkCnt;
-    PushBlock(*curScopeP);              // push new scope
+    curScope = (High(curScope) << 8) + doBlkCnt;
+    PushBlock(curScope);              // push new scope
     Wr1Byte(L_SCOPE);                    // and write to lex stream
-    Wr1Word(*curScopeP);
+    Wr1Word(curScope);
 }
 
 
@@ -552,7 +551,7 @@ static void State13()
     PopBlock();                     // restore scope to parent block
     PopStateWord(&labelPtr);        // get the do block label
     if (YylexMatch(T_IDENTIFIER))   // if we have "end identifier" do they match
-        if (curSymbolP != labelPtr)
+        if (curSym != labelPtr)
             Wr1TokenErrorAt(ERR20);    /* MISMATCHED IDENTIFIER AT END OF BLOCK */
     Wr1Byte(L_END);                  // write lex END token
     ExpectSemiColon();
@@ -585,7 +584,7 @@ static void State14()
         Wr1Word(stateWord);
         /* check end label if (present */
         if (YylexMatch(T_IDENTIFIER))
-            if (curSymbolP != labelPtr)
+            if (curSym != labelPtr)
                 Wr1SyntaxError(ERR20); /* MISMATCHED IDENTIFIER AT END OF BLOCK */
         ExpectSemiColon();
     }

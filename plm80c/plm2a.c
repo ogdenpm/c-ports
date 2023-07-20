@@ -45,245 +45,48 @@ byte b4029[] = { 0,    0,    0,    0,    0x26, 0x30, 0x30, 0x26, // was also b43
 byte b4128[] = { 0, 0,  1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, // was also b4431 in plm4a.c
                  9, 0xA };
 
-byte b413B[] = {
-    0,    2,    4,    6,    8,    0xA,  0xC,  0x10, 0x11, 0xE, 0x12, 0,    2, // was also b4444 in
-                                                                              // plm4a.c
-    4,    6,    8,    0xA,  0xC,  0x10, 0x11, 0xE,  0x12, 0,   2,    4,    6,   8,
-    0xA,  0xC,  0x10, 0x11, 0xE,  0x12, 0,    2,    4,    6,   8,    0xA,  0xC, 0x10,
-    0x11, 0xE,  0x12, 0,    2,    4,    6,    8,    0xA,  0xC, 0x10, 0x11, 0xE, 0x12,
-    0xC,  0x11, 0x12, 0xC,  0x11, 0x12, 2,    6,    0,    4,   6,    8,    0xA, 0xC,
-    0xE,  0x10, 0x11, 0x12, 0xD,  0xF,  7,    9,    0xB,  1,   5,    3
-};
+byte b413B[] = { 0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, // was also b4444 in
+                                                                       // plm4a.c
+                 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE,
+                 0x12, 0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, 4, 6, 8, 0xA, 0xC,
+                 0x10, 0x11, 0xE, 0x12, 0xC, 0x11, 0x12, 0xC, 0x11, 0x12, 2, 6, 0, 4, 6, 8, 0xA,
+                 0xC, 0xE, 0x10, 0x11, 0x12, 0xD, 0xF, 7, 9, 0xB, 1, 5, 3 };
 
-byte b418C[] = { /* 11 byte entries */ // was also b4495 in plm4a.c
-                 0x90,
-                 0x91,
-                 0x94,
-                 0x95,
-                 0x98,
-                 0x99,
-                 0x9A,
-                 0x9C,
-                 0xA0,
-                 0xA1,
-                 0x9D,
-                 0x6C,
-                 0x6D,
-                 0x70,
-                 0x71,
-                 0x74,
-                 0x75,
-                 0x76,
-                 0x78,
-                 0x7C,
-                 0x7D,
-                 0x79,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x64,
-                 0x65,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x68,
-                 0x69,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x58,
-                 0,
-                 0,
-                 0x59,
-                 0x5A,
-                 0x54,
-                 0x55,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x60,
-                 0,
-                 0,
-                 0x61,
-                 0x62,
-                 0x5C,
-                 0x5D,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x84,
-                 0,
-                 0,
-                 0x85,
-                 0x86,
-                 0x80,
-                 0x81,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x8C,
-                 0,
-                 0,
-                 0x8D,
-                 0x8E,
-                 0x88,
-                 0x89,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x10,
-                 0x11,
-                 0x12,
-                 0x14,
-                 0x15,
-                 0x16,
-                 0x17,
-                 0,
-                 1,
-                 4,
-                 5,
-                 8,
-                 9,
-                 0xA,
-                 0xC,
-                 0xD,
-                 0xE,
-                 0xF,
-                 0,
-                 0x30,
-                 0,
-                 0x31,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x28,
-                 0,
-                 0x29,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x18,
-                 0x19,
-                 0x1C,
-                 0x1D,
-                 0x20,
-                 0x21,
-                 0x22,
-                 0x24,
-                 0x25,
-                 0x26,
-                 0x27,
-                 0x44,
-                 0x45,
-                 0x48,
-                 0x49,
-                 0x4C,
-                 0x4D,
-                 0x4E,
-                 0x50,
-                 0x51,
-                 0x52,
-                 0x53,
-                 0xA8,
-                 0xA9,
-                 0xAC,
-                 0xAD,
-                 0xB0,
-                 0xB1,
-                 0xB2,
-                 0xB4,
-                 0xB5,
-                 0xB6,
-                 0xB7,
-                 0x34,
-                 0x36,
-                 0x35,
-                 0x38,
-                 0x39,
-                 0x3A,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x3C,
-                 0x3D,
-                 0x3E,
-                 0x40,
-                 0x41,
-                 0x42,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0x2C,
-                 0,
-                 0,
-                 0x2D,
-                 0x2E,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0xA4,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0,
-                 0 };
+byte b418C[][11] = { /* 11 byte entries */ // was also b4495 in plm4a.c
+                     { 0x90, 0x91, 0x94, 0x95, 0x98, 0x99, 0x9A, 0x9C, 0xA0, 0xA1, 0x9D },
+                     { 0x6C, 0x6D, 0x70, 0x71, 0x74, 0x75, 0x76, 0x78, 0x7C, 0x7D, 0x79 },
+                     { 0, 0, 0, 0, 0, 0, 0x64, 0x65, 0, 0, 0 },
+                     { 0, 0, 0, 0, 0, 0, 0x68, 0x69, 0, 0, 0 },
+                     { 0, 0x58, 0, 0, 0x59, 0x5A, 0x54, 0x55, 0, 0, 0 },
+                     { 0, 0x60, 0, 0, 0x61, 0x62, 0x5C, 0x5D, 0, 0, 0 },
+                     { 0, 0x84, 0, 0, 0x85, 0x86, 0x80, 0x81, 0, 0, 0 },
+                     { 0, 0x8C, 0, 0, 0x8D, 0x8E, 0x88, 0x89, 0, 0, 0 },
+                     { 0, 0, 0, 0, 0x10, 0x11, 0x12, 0x14, 0x15, 0x16, 0x17 },
+                     { 0, 1, 4, 5, 8, 9, 0xA, 0xC, 0xD, 0xE, 0xF },
+                     { 0, 0x30, 0, 0x31, 0, 0, 0, 0, 0, 0, 0 },
+                     { 0, 0x28, 0, 0x29, 0, 0, 0, 0, 0, 0, 0 },
+                     { 0x18, 0x19, 0x1C, 0x1D, 0x20, 0x21, 0x22, 0x24, 0x25, 0x26, 0x27 },
+                     { 0x44, 0x45, 0x48, 0x49, 0x4C, 0x4D, 0x4E, 0x50, 0x51, 0x52, 0x53 },
+                     { 0xA8, 0xA9, 0xAC, 0xAD, 0xB0, 0xB1, 0xB2, 0xB4, 0xB5, 0xB6, 0xB7 },
+                     { 0x34, 0x36, 0x35, 0x38, 0x39, 0x3A, 0, 0, 0, 0, 0 },
+                     { 0x3C, 0x3D, 0x3E, 0x40, 0x41, 0x42, 0, 0, 0, 0, 0 },
+                     { 0, 0x2C, 0, 0, 0x2D, 0x2E, 0, 0, 0, 0, 0 },
+                     { 0xA4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
 
 byte b425D[] = { 8,   0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA,  0xF,  0x10,
                  0xD, 9, // was also b4566 in plm4a.c
                  2,   3,    4,   5, 6,   7,    0, 0x1E, 0x12, 0xE };
 
-byte b4273[] = {
-    3,   3,   3,   3,    3,    3,    0xC,  0xD,  0xE, 0xF,  0x10, 0x11, 0, // was also b457C in
-                                                                           // plm4a.c
-    0,   0,   0,   0,    0,    0,    0,    0x12, 7,   4,    4,    2,    0xA,  0x15, 0,    0,
-    0,   0,   8,   9,    0,    0,    0,    0xB,  6,   0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 5,
-    1,   1,   1,   0x13, 0x13, 0x13, 1,    1,    1,   0x13, 0x13, 0x13, 0x14, 0,    0,    0,
-    0,   0,   0,   0,    0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    1,    1,
-    0xC, 0xC, 0xC, 0xC,  0xC,  0xC,  0xC,  0xC,  0xD, 0xD,  0xD,  0xD,  0xD,  0xD,  0xD,  0xD,
-    0,   0xE, 0xE, 0xE,  0xE,  0xF,  0xF,  0xF,  0xF, 0,    0xF,  0xF,  0xF,  0xF,  0xE,  0xE,
-    0xE, 0xE, 0,   0x10, 0x10, 0x10, 0x10, 0x10, 0,   0,    0,    0,    0,    0,    0,    0,
-    0,   0,   0,   1,    1,    0,    0,    0,    0
-};
+byte b4273[]     = { 3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0, // was also b457C in
+                                                                          // plm4a.c
+                     0, 0, 0, 0, 0, 0, 0, 0x12, 7, 4, 4, 2, 0xA, 0x15, 0, 0, 0, 0, 8, 9, 0, 0, 0, 0xB,
+                     6, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 5, 1, 1, 1, 0x13, 0x13, 0x13, 1, 1, 1, 0x13,
+                     0x13, 0x13, 0x14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0xC,
+                     0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0, 0xE,
+                     0xE, 0xE, 0xE, 0xF, 0xF, 0xF, 0xF, 0, 0xF, 0xF, 0xF, 0xF, 0xE, 0xE, 0xE, 0xE, 0,
+                     0x10, 0x10, 0x10, 0x10, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0 };
 
-byte b42F9[] = {
+byte b42F9[]     = {
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0x10, 0,    0,    0,    0,    0,    0,
     0,    0,    0x10, 0,    0x20, 0,    0,    0x13, 0,    0,    0,    0,    0,    0,    0,    0,
     0x50, 0,    0,    0,    0x10, 0x10, 0x20, 0x10, 0x10, 0x10, 0,    0x50, 0x50, 0,    0x50, 0x50,
@@ -590,16 +393,18 @@ byte b528D[] = { 0, 0, 0, 0, 0, 0, 2, 2,   2, 3, 3, 3, 1, 1, 1, 1, 1, 8, 4, 4,
 byte b52B5[] = { 0, 1, 2, 3, 4, 8, 1, 2, 3, 1,   2,   3, 1,   2, 3, 4,   8, 4,   1, 2,
                  3, 1, 2, 3, 1, 2, 3, 8, 8, 0xA, 0xA, 9, 0xA, 9, 9, 0xA, 9, 0xA, 9, 9 };
 
-byte b52DD[] = { 0,    1,    2,    3,    4,    0,    0,    0,    5,    0x26, 0x25, 0,    0xC,  0xD,
-                 0xE,  0xF,  0,    0,    0,    0x10, 0x21, 0x20, 0,    6,    7,    8,    0,    0,
-                 0,    0,    0,    0x24, 0x23, 0,    9,    0xA,  0xB,  0,    0,    0,    0,    0,
-                 0x1F, 0x1E, 0,    0x12, 0x13, 0x14, 0,    0,    0,    0,    0,    0,    0,    0,
-                 0x15, 0x16, 0x17, 0,    0,    0,    0,    0,    0,    0,    0,    0x18, 0x19, 0x1A,
-                 0,    0,    0,    0,    0,    0x22, 0,    0,    0,    0,    0,    0,    0,    0,
-                 0,    0,    0,    0,    0,    0,    0,    0,    0x11, 0,    0,    0,    0,    0,
-                 0x1D, 0,    0,    0,    0,    0,    0,    0,    0,    0x1C, 0,    0,    0,    0,
-                 0,    0,    0,    0,    0,    0,    0x1B, 0,    0,    0,    0,    0,    0,    0,
-                 0,    0,    0,    0,    0x27, 0 };
+byte b52DD[][11] = { { 0, 1, 2, 3, 4, 0, 0, 0, 5, 0x26, 0x25 },
+                     { 0, 0xC, 0xD, 0xE, 0xF, 0, 0, 0, 0x10, 0x21, 0x20 },
+                     { 0, 6, 7, 8, 0, 0, 0, 0, 0, 0x24, 0x23 },
+                     { 0, 9, 0xA, 0xB, 0, 0, 0, 0, 0, 0x1F, 0x1E },
+                     { 0, 0x12, 0x13, 0x14, 0, 0, 0, 0, 0, 0, 0 },
+                     { 0, 0x15, 0x16, 0x17, 0, 0, 0, 0, 0, 0, 0 },
+                     { 0, 0x18, 0x19, 0x1A, 0, 0, 0, 0, 0, 0x22, 0 },
+                     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+                     { 0, 0, 0, 0, 0x11, 0, 0, 0, 0, 0, 0x1D },
+                     { 0, 0, 0, 0, 0, 0, 0, 0, 0x1C, 0, 0 },
+                     { 0, 0, 0, 0, 0, 0, 0, 0, 0x1B, 0, 0 },
+                     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x27, 0 } };
 
 void WrFragData() {
     if (!(PRINT || OBJECT)) {
@@ -734,8 +539,8 @@ byte Sub_5748(byte arg1b) {
 word Sub_575E(offset_t arg1w) {
     byte i;
 
-    curInfoP = arg1w;
-    i        = GetType();
+    infoIdx = arg1w;
+    i       = GetType();
     if (i == BYTE_T)
         return 1;
     if (i == ADDRESS_T)
@@ -827,7 +632,7 @@ void Sub_58F5(byte arg1b) {
     while (blkSP > 0) {
         if (ExitBlk()) {
             if (procChainId > blkSP) {
-                curInfoP = blkCurInfo[procChainId];
+                infoIdx = blkCurInfo[procChainId];
                 SetDimension(pc);
                 SetBaseVal(wC1C5);
                 procChainId = procChainNext[procChainId];
@@ -1005,7 +810,7 @@ void Sub_5E66(byte arg1b) {
 void Sub_5EE8() {
     byte i;
     Sub_5795(wC1C7);
-    if ((curInfoP = blkCurInfo[procChainId]) != 0) {
+    if ((infoIdx = blkCurInfo[procChainId]) != 0) {
         if (TestInfoFlag(F_INTERRUPT)) {
             for (i = 0; i <= 3; i++) {
                 wC1DC[0] = i; /*  pop psw, pop b, pop d, pop h */
@@ -1033,13 +838,8 @@ void Sub_5FBF(byte arg1b, wpointer arg2wP, wpointer arg3wP) {
 
     if (tx2opc[arg1b] == T2_IDENTIFIER || tx2opc[arg1b] == T2_NUMBER) {
         *arg2wP = tx2op2[arg1b];
-        if ((curInfoP = tx2op1[arg1b]) == 0)
-            *arg3wP = 0;
-        else if (TestInfoFlag(F_MEMBER))
-            *arg3wP = 0;
-        else if (TestInfoFlag(F_BASED))
-            *arg3wP = 0;
-        else if (TestInfoFlag(F_ABSOLUTE))
+        infoIdx = tx2op1[arg1b];
+        if (!infoIdx || TestInfoFlag(F_MEMBER) || TestInfoFlag(F_BASED) || TestInfoFlag(F_ABSOLUTE))
             *arg3wP = 0;
         else if (TestInfoFlag(F_AUTOMATIC))
             *arg3wP = 0x100;
@@ -1068,7 +868,7 @@ void Sub_611A() {
     for (i = 0; i <= 1; i++) {
         j = bC0B7[i];
         if (j != 0) {
-            tx2Auxw[j] = tx2Auxw[j] - 1;
+            tx2Auxw[j]--;
             if (tx2Auxw[j] == 0) {
                 for (k = 0; k <= 3; k++) {
                     if (bC04E[k] == j)
@@ -1081,7 +881,7 @@ void Sub_611A() {
 }
 
 void Sub_61A9(byte arg1b) {
-    bC0C1[arg1b] = b52DD[11 * bC0B3[arg1b] + bC0B5[arg1b]];
+    bC0C1[arg1b] = b52DD[bC0B3[arg1b]][bC0B5[arg1b]];
 }
 
 void Sub_61E0(byte arg1b) {
@@ -1089,10 +889,10 @@ void Sub_61E0(byte arg1b) {
         wC1DC[bC1DB]     = 0xa;
         wC1DC[bC1DB + 1] = tx2op3[arg1b];
         wC1DC[bC1DB + 2] = (wC1C3 - tx2op3[arg1b]) * 2;
-        bC1DB            = bC1DB + 3;
+        bC1DB += 3;
     } else if (tx2op1[arg1b] != 0) {
-        curInfoP         = tx2op1[arg1b];
-        wC1DC[bC1DB + 2] = curInfoP - botInfo;
+        infoIdx          = tx2op1[arg1b];
+        wC1DC[bC1DB + 2] = infoIdx;
         wC1DC[bC1DB + 1] = tx2op2[arg1b] - GetLinkVal();
         if (TestInfoFlag(F_AUTOMATIC)) {
             wC1DC[bC1DB]     = 0xc;
@@ -1173,7 +973,7 @@ void GetTx2Item() {
 void Sub_652B() {
     if (curOp == T2_MODULE) {
         if (tx2opc[tx2qp - 1] == T2_LABELDEF) {
-            curInfoP = tx2op1[tx2qp - 1] + botInfo;
+            infoIdx = tx2op1[tx2qp - 1];
             if (!(TestInfoFlag(F_MODGOTO) || TestInfoFlag(F_PUBLIC)))
                 tx2qp = tx2qp - 1;
         }
@@ -1190,7 +990,6 @@ void Sub_652B() {
 }
 
 void FillTx2Q() {
-    bool i, j;
     byte k;
 
     tx2qp = 4;
@@ -1206,8 +1005,7 @@ void FillTx2Q() {
         tx2qp = k + 4;
         bC1BF = bC1BF + k;
     }
-    i = true;
-    j = false;
+    bool exceeded = false;
     while (tx2qp < 255 && !eofSeen) {
         GetTx2Item();
         curOp = tx2opc[tx2qp];
@@ -1217,20 +1015,18 @@ void FillTx2Q() {
                 tx2qp = tx2qp + 1;
             else if ((b5124[curOp] & 0x20) != 0)
                 EmitTopItem();
-            else if (i) {
-                i = false;
+            else if (!exceeded) {
+                exceeded = true;
                 Tx2SyntaxError(ERR200); /*  LIMIT EXCEEDED */
                                         /*  STATEMENT Size() */
                 EmitTopItem();
             }
         } else
-            tx2qp = tx2qp + 1;
+            tx2qp++;
 
-        if ((b5124[curOp] & 8) != 0)
-            j = true;
-        if (j)
-            if (curOp == T2_STMTCNT || curOp == T2_EOF || curOp == T2_LOCALLABEL)
-                break;
+        if ((b5124[curOp] & 8) &&
+            (curOp == T2_STMTCNT || curOp == T2_EOF || curOp == T2_LOCALLABEL))
+            break;
     }
     tx2qEnd = tx2qp;
 }

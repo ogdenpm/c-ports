@@ -231,7 +231,7 @@ static void Sub_8F35()
         wC1C3 = wC1C3 + 1;  
     } else if (curOp == T2_CALL) {
         Sub_5795(-(wB53C[procCallDepth] * 2));
-        curInfoP = tx2op3[tx2qp];
+        infoIdx = tx2op3[tx2qp];
         if (TestInfoFlag(F_EXTERNAL))
             p = (wB53C[procCallDepth] + 1) * 2;
         else
@@ -388,7 +388,7 @@ void Sub_9457()
         extProcId[procChainId] = curExtProcId;
         procChainNext[blkSP] = procChainId;
         procChainId = blkSP;
-        curInfoP = blkCurInfo[blkSP] = tx2op1[tx2qp] + botInfo;
+        infoIdx = blkCurInfo[blkSP] = tx2op1[tx2qp];
         curExtProcId = GetProcId();
         pc = 0;
         EmitTopItem();

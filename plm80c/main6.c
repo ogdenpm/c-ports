@@ -17,21 +17,14 @@ void Sub_3F96() {
     if (PRINT) {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMILATION OF MODULE ");
-        curInfoP   = botInfo + procInfo[1];
-        curSymbolP = GetSymbol();
-        sym_t *sym = SymbolP(curSymbolP);
-        if (curSymbolP)
-            lprintf("%.*s", sym->name.len, sym->name.str);
-        lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:", OBJECT ? "GENERATED" : "REQUESTED");
-        lstStr("COMPILER INVOKED by:  ");
+        infoIdx   = procInfo[1];
+        curSym = GetSymbol();
+        if (curSym)
+            lprintf("%s", symtab[curSym].name->str);
+        lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:  ", OBJECT ? "GENERATED" : "REQUESTED");
         // replace with PrintCmdLine code
-        cmdLineP = startCmdLineP;
-        while (cmdLineP != 0) {
-            TabLst(-23);
-            lstStrCh(CmdP(cmdLineP)->pstr.str, '\r');
-            cmdLineP = CmdP(cmdLineP)->link;
-        }
-        NewLineLst();
+        printCmdLine(lstFile.fp);
+        linLft--;
         SetSkipLst(3);
     }
 }
@@ -45,14 +38,12 @@ void Sub_404A() {
 
     vfReset(&utf1);
     vfRewind(&utf2);
-    if (b7AD9 || IXREF)
-        vfRewind(&nmsf);
     stmtNo = 0;
     if (PRINT) {
         srcFileIdx = 0;
         InitF(&srcFil, "SOURCE", srcFileTable[srcFileIdx].fNam);
     }
-    curInfoP = procInfo[1] + botInfo;
+    infoIdx = procInfo[1];
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
@@ -71,18 +62,15 @@ void Sub_41B6() {
     vfReset(&atf);
     vfReset(&utf2);
 
-    if (b7AD9 || IXREF)
-        vfReset(&nmsf);
-
     linesRead = lineCnt;
 }
 
 word Start6() {
     if (setjmp(exception) == 0) {
         Sub_404A();
-        if (b7AD9 || IXREF) {
-            ReloadSymbols();
-        }
+        //if (b7AD9 || IXREF) {
+        //    ReloadSymbols();
+        //}
         Sub_3F96();
         while (b7AE4) {
             Sub_42E7();

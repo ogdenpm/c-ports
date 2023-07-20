@@ -83,7 +83,6 @@ byte procCallDepth = 0;
 bool boC1CC = false;
 bool boC1CD;
 bool eofSeen = false;
-word wC1CF = 0;
 byte curOp;
 byte bC1D2;
 byte padC1D3;
@@ -108,23 +107,17 @@ byte copyRight[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 static void Sub_3F27()
 {
-    char emsg[] = "COMPILER ERROR: INSUFFICIENT MEMORY FOR CODE GENERATION";
-    MEMORY = 0xC3BD;  // to align with ov2
-
-    botMem = MEMORY + 256;
-    if (w3822 < botMem)
-        Fatal(emsg, Length(emsg));
     vfReset(&utf1);
     vfRewind(&utf2);
     memset(wC1DC, 0, 10);
-    blkCurInfo[0] = procInfo[1] + botInfo;
+    blkCurInfo[0] = procInfo[1];
     programErrCnt = 0;
 } /* Sub_3F27() */
 
 
 static void Sub_3F7D()
 {
-    curInfoP = procInfo[1] + botInfo;
+    infoIdx = procInfo[1];
     SetDimension(pc);
     SetBaseVal(wC1C5);
 } /* Sub_3F7D() */

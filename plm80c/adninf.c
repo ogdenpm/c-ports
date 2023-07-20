@@ -10,15 +10,13 @@
 
 #include "plm.h"
 
-void AdvNxtInfo()
+index_t AdvNxtInfo(index_t idx)
 {
     while (1) {
-        curInfoP += GetLen();
-        if (curInfoP >= topInfo) {
-            curInfoP = 0;
-            return;
-        } else if (GetType() != CONDVAR_T)
-            return;
+        if (++idx >= infoCnt)
+            return 0;
+        else if (GetType() != CONDVAR_T)
+            return idx;
     }
 }
 

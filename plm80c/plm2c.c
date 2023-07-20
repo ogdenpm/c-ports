@@ -69,13 +69,13 @@ static void Sub_6F20(byte arg1b)
         if (tx2opc[tx2op2[arg1b]] != T2_NUMBER)
             boC25D = true;
         else {
-            curInfoP = tx2op1[tx2op1[arg1b]];
+            infoIdx = tx2op1[tx2op1[arg1b]];
             if (tx2op2[tx2op2[arg1b]] >= GetDimension() || TestInfoFlag(F_AT))
             boC25D = true;
         }
     }
     else if (i == T2_IDENTIFIER) {
-        curInfoP = tx2op1[arg1b];
+        infoIdx = tx2op1[arg1b];
         if (TestInfoFlag(F_AT))
             boC25D = true;
     }
@@ -123,7 +123,7 @@ static bool sub_70BC(byte arg1b)
     if (boC25D)
         return true;
     if (tx2op1[arg1b] == 0xac) {
-        curInfoP = tx2op1[tx2op1[arg1b]];
+        infoIdx = tx2op1[tx2op1[arg1b]];
         if (TestInfoFlag(F_AUTOMATIC))
             return true;
     }
@@ -184,7 +184,7 @@ static void Sub_7111()
     else {
         tx2op3[tx2qp] = 0;
         if (curOp == T2_IDENTIFIER) {
-            curInfoP = tx2op1[tx2qp];
+            infoIdx = tx2op1[tx2qp];
             if (TestInfoFlag(F_AT))
                 Sub_6C73(bC259);
             else

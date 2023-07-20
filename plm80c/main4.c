@@ -23,10 +23,10 @@ static void Sub_3FC8() {
     if (PRINT) {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMPILATION OF MODULE ");
-        curInfoP   = botInfo + procInfo[1];
-        curSymbolP = GetSymbol();
-        if (curSymbolP != 0)
-            lstPstr(&SymbolP(curSymbolP)->name);
+        infoIdx   = procInfo[1];
+        curSym = GetSymbol();
+        if (curSym != 0)
+            lstStr(symtab[curSym].name->str);
         NewLineLst();
         if (OBJECT)
             lprintf("OBJECT MODULE PLACED IN %s\n", objFile.fNam);
@@ -45,9 +45,6 @@ static void Sub_3FC8() {
 void Sub_408B() {
 
     Sub_3FC8();
-    MEMORY = 0xA30A;
-    if (MEMORY + 256 > botMem)
-        Fatal("COMPILER ERROR: INSUFFICIENT MEMORY FOR FINAL ASSEMBLY", 54);
     stmtNo = 0;
     if (PRINT) {
         srcFileIdx = 0;
@@ -55,7 +52,7 @@ void Sub_408B() {
         OpenF(&srcFil, "rt");
     }
     vfRewind(&utf1);
-    curInfoP = procInfo[1] + botInfo;
+    infoIdx = procInfo[1];
     baseAddr = putWord(((rec6_t *)rec6_4)->addr, GetLinkVal());
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
@@ -80,8 +77,8 @@ void Sub_4162() {
         helperId    = b42D6[helperModId];
         endHelperId = helperId + b42A8[helperModId];
         while (helperId < endHelperId) {
-            if (WordP(helpersP)[helperId] != 0) {
-                baseAddr = WordP(helpersP)[helperId];
+            if (helpers[helperId] != 0) {
+                baseAddr = helpers[helperId];
                 b969C    = b4304[helperModId];
                 b969D    = b4273[b969C];
                 Sub_5FE7(w4919[helperId], b4A03[helperId]);
@@ -95,7 +92,7 @@ void Sub_4162() {
 void Sub_4208() {
     if (haveModuleLevelUnit) {
         ((rec4_t *)rec4)->subType = 1;
-        curInfoP                  = procInfo[1] + botInfo;
+        infoIdx                  = procInfo[1];
         putWord(((rec4_t *)rec4)->addr, GetLinkVal());
     } else {
         ((rec4_t *)rec4)->subType = 0;
@@ -105,7 +102,7 @@ void Sub_4208() {
 }
 
 void Sub_423C() {
-    linesRead = w812F;
+    linesRead = lineNo;
     Sub_4208();
     vfReset(&utf1);
 
@@ -126,6 +123,7 @@ word Start4() {
     ((rec_t *)rec24_2)->val[0] = 3; // stack seg
 
     dump(&utf1, "utf1_main4");
+    vfRewind(&utf1);
     if (setjmp(exception) == 0) {
         Sub_408B();
 

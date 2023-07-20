@@ -181,7 +181,7 @@
       </Message>
     </CustomBuildStep>
     <PreBuildEvent>
-      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -W</Command>
+      <Command>call $(SolutionDir)\Scripts\getVersion.cmd -w</Command>
       <Message>Get Version</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -280,18 +280,9 @@
   <ItemGroup>
     <ClCompile Include="accessors.c" />
     <ClCompile Include="adninf.c" />
-    <ClCompile Include="alloc.c" />
-    <ClCompile Include="allocs.c" />
-    <ClCompile Include="backup.c" />
     <ClCompile Include="cpytil.c" />
     <ClCompile Include="creati.c" />
     <ClCompile Include="data.c" />
-    <ClCompile Include="debug.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="endcom.c" />
     <ClCompile Include="fatal.c" />
     <ClCompile Include="fatlio.c" />
@@ -347,8 +338,7 @@
     <ClCompile Include="plmfile.c" />
     <ClCompile Include="prints.c" />
     <ClCompile Include="putlst.c" />
-    <ClCompile Include="strcmp.c" />
-    <ClCompile Include="util.c" />
+    <ClCompile Include="symtab.c" />
     <ClCompile Include="vfile.c" />
     <ClCompile Include="wrclst.c" />
   </ItemGroup>

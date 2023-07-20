@@ -44,7 +44,8 @@ byte tok2oprMap[] = { L_IDENTIFIER, L_NUMBER,  L_STRING,    L_PLUSSIGN,    L_MIN
                       L_INVALID,    L_INVALID, L_INVALID,   L_INVALID,     L_TO,        L_INVALID };
 
 /* public variables */
-char *macroPtrs[12]; /* six inChrP, infoP pairs stored as pointer not offset_t */
+macro_t macroPtrs[6];
+
 word macroDepth = 0;
 word tokenVal;
 byte *inChrP; /* has to be pointer as it accesses data outside info/symbol space */
@@ -56,7 +57,7 @@ word stmtLabelCnt;
 
 word curStmtCnt        = 0;
 word curBlkCnt         = 0;
-offset_t curMacroInfoP = 0;
+offset_t macroIdx = 0;
 offset_t markedSymbolP = 0;
 byte lineBuf[MAXLINE + 1];
 char inbuf[1280];
@@ -74,8 +75,7 @@ bool isNonCtrlLine   = false;
 bool yyAgain         = false;
 // linfo_t linfo = { 0, 0 }; in main1.c
 // byte  curDoBlkCnt, curProcId initial(0, 0);
-byte curScope[2] = { 0, 0 };
-wpointer curScopeP;
+word curScope;
 byte state;
 bool skippingCOND = false;
 word ifDepth      = 0;
@@ -117,7 +117,7 @@ void Wr1Buf(uint8_t const *buf, word len) {
 } /* WrBuf() */
 
 void Wr1InfoOffset(offset_t addr) {
-    Wr1Word(addr - botInfo);
+    Wr1Word(addr);
 } /* WrInfoOffset() */
 
 void Wr1SyntaxError(byte err) {
@@ -140,7 +140,7 @@ void Wr1TokenError(byte err, offset_t symP) {
     Wr1Word(symP);
 } /* TokenError() */
 
-void Wr1FatalError(byte err) {
+void LexFatalError(byte err) {
     hasErrors = true;
     if (state != 20) {
         if (err == ERR83) /* LIMIT EXCEEDED: DYNAMIC STORAGE */
@@ -154,7 +154,7 @@ void Wr1FatalError(byte err) {
 
 void PushBlock(word idAndLevel) {
     if (blockDepth == 34)
-        PFatalError(ERR84); /* LIMIT EXCEEDED: BLOCK NESTING */
+        LexFatalError(ERR84); /* LIMIT EXCEEDED: BLOCK NESTING */
     else {
         procChains[++blockDepth] = idAndLevel;
         curBlkCnt++;
@@ -163,10 +163,10 @@ void PushBlock(word idAndLevel) {
 
 void PopBlock() {
     if (blockDepth == 0)
-        PFatalError(ERR96); /* COMPILER ERROR: SCOPE STACK UNDERFLOW */
+        LexFatalError(ERR96); /* COMPILER ERROR: SCOPE STACK UNDERFLOW */
     else {
         curBlkCnt--;
-        *curScopeP = procChains[--blockDepth];
+        curScope = procChains[--blockDepth];
     }
 } /* PopBlock() */
 
@@ -177,7 +177,7 @@ void Wr1LexToken() {
     }
     Wr1Byte(tok2oprMap[tokenType]);
     if (tokenType == T_IDENTIFIER)
-        Wr1Word(curSymbolP);
+        Wr1Word(curSym);
     else if (tokenType == T_NUMBER)
         Wr1Word(tokenVal);
     else if (tokenType == T_STRING) {
@@ -189,13 +189,13 @@ void Wr1LexToken() {
 void Wr1XrefUse() {
     if (XREF) {
         Wr1Byte(L_XREFUSE);
-        Wr1InfoOffset(curInfoP);
+        Wr1InfoOffset(infoIdx);
     }
 }
 
 void Wr1XrefDef() {
     if (XREF || IXREF || SYMBOLS) {
         Wr1Byte(L_XREFDEF);
-        Wr1InfoOffset(curInfoP);
+        Wr1InfoOffset(infoIdx);
     }
 }

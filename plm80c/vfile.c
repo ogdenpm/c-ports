@@ -71,7 +71,8 @@ int32_t vfRword(vfile_t *vf) {
 
 void dump(vfile_t *vf, char const *fname) {
     FILE *fp = fopen(fname, "wb");
-    fwrite(vf->content, 1, vf->size, fp);
+    if (vf->size)
+        fwrite(vf->content, 1, vf->size, fp);
     fclose(fp);
 
 }

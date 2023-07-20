@@ -35,12 +35,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="allocs.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="backup.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="cpytil.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -51,9 +45,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="adninf.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="alloc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fi.c">
@@ -89,13 +80,7 @@
     <ClCompile Include="putlst.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="strcmp.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="wrclst.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="util.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main2.c">
@@ -221,13 +206,13 @@
     <ClCompile Include="main4.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="debug.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="vfile.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="os.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="symtab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

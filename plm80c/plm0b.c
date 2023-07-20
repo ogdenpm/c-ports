@@ -51,8 +51,8 @@ static struct {
     { 4, "COND", 0, 1, 0xFF, 22, 0 },       { 6, "NOCOND", 0, 1, 0xFF, 23, 0 }
 };
 
-static char ebadTail[]     = "ILLEGAL COMMAND TAIL SYNTAX OR VALUE";
-static char ebadcontrol[]  = "UNRECOGNIZED CONTROL IN COMMAND TAIL";
+static char ebadTail[]    = "ILLEGAL COMMAND TAIL SYNTAX OR VALUE";
+static char ebadcontrol[] = "UNRECOGNIZED CONTROL IN COMMAND TAIL";
 
 byte primaryCtrlSeen[14]; // C defaults to all false
 static struct {
@@ -95,8 +95,8 @@ static void NxtCh() {
         chrClass = CC_NEWLINE;
     else if ((chrClass = cClass[*curChP]) == CC_NONPRINT)
         *curChP = ' ';
-//    if (*curChP >= 'a')
-//        *curChP &= 0x5f;
+    //    if (*curChP >= 'a')
+    //        *curChP &= 0x5f;
 } /* NxtCh() */
 
 static void BadCmdTail(byte err) {
@@ -287,7 +287,7 @@ static void GetVar() {
     tmp = curChP - 1;
     ParseId(31);
     if (tknLen == 0) {
-        curInfoP = BADINFO;
+        infoIdx  = BADINFO;
         curChP   = tmp;
         chrClass = 0;
         NxtCh();
@@ -298,8 +298,8 @@ static void GetVar() {
         BadCmdTail(ERR184); /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
     }
     Lookup((pstr_t *)(optStrValP - 1));
-    if (High(SymbolP(curSymbolP)->infoP) == 0xFF) { /* special */
-        curInfoP = BADINFO;
+    if (High(symtab[curSym].infoIdx) == 0xFF) { /* special */
+        infoIdx  = BADINFO;
         curChP   = tmp;
         chrClass = 0;
         NxtCh();
@@ -316,12 +316,12 @@ static byte GetLogical() {
     if (tknLen == 0 && chrClass == CC_NEWLINE)
         return 0;
     if (tknLen == 2) {
-        if (Strncmp((char *)optStrValP, "OR", 2) == 0)
+        if (strncmp((char *)optStrValP, "OR", 2) == 0)
             return 1;
     } else if (tknLen == 3) {
-        if (Strncmp((char *)optStrValP, "AND", 3) == 0)
+        if (strncmp((char *)optStrValP, "AND", 3) == 0)
             return 2;
-        else if (Strncmp((char *)optStrValP, "XOR", 3) == 0)
+        else if (strncmp((char *)optStrValP, "XOR", 3) == 0)
             return 3;
     }
     BadCmdTail(ERR185); /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
@@ -364,7 +364,7 @@ static byte ChkNot() // checks for potentially multiple NOT prefixes
     while ((1)) {
         tmp = curChP - 1;
         ParseId(3);
-        if (tknLen != 3 || Strncmp((char *)optStrValP, "NOT", 3) != 0) {
+        if (tknLen != 3 || strncmp((char *)optStrValP, "NOT", 3) != 0) {
             curChP = tmp;
             return notStatus;
         }
@@ -386,11 +386,11 @@ static word GetIfVal() {
         return Low(val);
     } else {
         GetVar(); // variable
-        if (curInfoP == BADINFO) {
+        if (infoIdx == BADINFO) {
             BadCmdTail(ERR180); /* MISSING OF INVALID CONDITIONAL COMPILATION PARAMETER */
             SkipToRPARorEOL();
             return 256; // error value
-        } else if (curInfoP == 0)
+        } else if (infoIdx == 0)
             return 0; // default to false if name not defined
         else
             return GetCondFlag(); // else return current value
@@ -574,7 +574,9 @@ static void OptInclude() {
         InitF(&srcFil, "SOURCE", optStrValP);
         OpenF(&srcFil, "rt");
         Wr1Byte(L_INCLUDE);
-        Wr1Buf(optStrValP, (word)(strlen(optStrValP) + 1)); // write out name and trailing \0
+        word len = (word)strlen(optStrValP);
+        Wr1Word(len);               // write length (word) and string
+        Wr1Buf(optStrValP, len);
     }
     SkipWhite();
     if (*curChP != '\r' && *curChP != '\n')
@@ -590,7 +592,7 @@ static void OptPrint() {
         lstFileName = optStrValP;
         isList      = true;
     }
-    PRINT = true;
+    PRINT    = true;
     lstGiven = true;
 }
 
@@ -712,12 +714,12 @@ static void OptSetReset(bool isSet) {
         while ((1)) {
             NxtCh();
             GetVar();
-            if (curInfoP == BADINFO) {
+            if (infoIdx == BADINFO) {
                 BadCmdTail(ERR180); /* MISSING or INVALID CONDITIONAL COMPILATION PARAMETER */
                 SkipToRPARorEOL();
                 return;
             }
-            if (curInfoP == 0)
+            if (infoIdx == 0)
                 CreateInfo(1, CONDVAR_T);
             SkipWhite();
             if (*curChP == '=' && isSet) {
@@ -852,7 +854,8 @@ static void ParseControlExtra() {
 
 static void FindOption() {
     for (int i = 0; i < sizeof(optTable) / sizeof(optTable[0]); i++) {
-        if (optTable[i].optLen == tknLen && strnicmp(optStrValP, optTable[i].optName, tknLen) == 0) {
+        if (optTable[i].optLen == tknLen &&
+            strnicmp(optStrValP, optTable[i].optName, tknLen) == 0) {
             tknFlagsP = &optTable[i];
             return;
         }
@@ -933,16 +936,16 @@ static void ChkEndSkipping(byte *pch) {
         NxtCh();
         SkipWhite();
         GetToken();
-        if (tknLen == 2 && Strncmp((char *)optStrValP, "IF", 2) == 0) // nested IF
+        if (tknLen == 2 && strncmp((char *)optStrValP, "IF", 2) == 0) // nested IF
             ifDepth++;
-        else if (tknLen == 5 && Strncmp((char *)optStrValP, "ENDIF", 5) == 0) {
+        else if (tknLen == 5 && strncmp((char *)optStrValP, "ENDIF", 5) == 0) {
             if (--ifDepth < skippingIfDepth) // end of skipping
                 skippingCOND = false;
         } else if (skippingIfDepth == ifDepth &&
                    inIFpart) { // else/elseif at same level as initial IF
-            if (tknLen == 4 && Strncmp((char *)optStrValP, "ELSE", 4) == 0)
+            if (tknLen == 4 && strncmp((char *)optStrValP, "ELSE", 4) == 0)
                 skippingCOND = false; // else so now not skipping
-            else if (tknLen == 6 && Strncmp((char *)optStrValP, "ELSEIF", 6) == 0)
+            else if (tknLen == 6 && strncmp((char *)optStrValP, "ELSEIF", 6) == 0)
                 skippingCOND = !ParseIfCond(); // still skipping if condition false
         }
         if (!skippingCOND) // no longer skipping so record any change of listing status
@@ -998,8 +1001,8 @@ static void GetSrcLine() {
     trunc = false; // reset truncation flag
     RSrcLn();      // get line
     *inChrP++ = '\r';
-    *inChrP = '\n';
-    inChrP  = lineBuf;                   // point to start
+    *inChrP   = '\n';
+    inChrP    = lineBuf;                 // point to start
     linfo.lineCnt++;                     // account for new line
     linfo.stmtCnt = linfo.blkCnt = 0;    // no stmt or blkcnt for this line yet
     lineInfoToWrite              = true; // note linfo needs to be written
@@ -1039,23 +1042,18 @@ static void GetCodeLine() {
                                                 // closed and EOF
             return;
         } else {
-            CloseF(&srcFil); // close nested file & reload caller file at saved position
+            CloseF(&srcFil); // close nested file
+            free((void*)srcFil.fNam);
             srcFil = srcFileTable[--srcFileIdx];
         }
     }
 }
 
 static void GetLin() {
-    word tmp;
-
-    if (macroDepth != 0) { // last line was a nested lit expansion
-        tmp      = curInfoP;
-        curInfoP = curMacroInfoP;
-        SetType(LIT_T); // reset info entry to LIT_T from MACRO_T
-        curMacroInfoP = ptr2Off((pointer)macroPtrs[macroDepth + 1]); // get the caller lit's infoP
-        inChrP        = (pointer)macroPtrs[macroDepth]; // get the curent loc in the expansion
-        macroDepth -= 2;                                // prep for next line
-        curInfoP = tmp;
+    if (macroDepth != 0) {              // last line was a nested lit expansion
+        infotab[macroIdx].type = LIT_T; // reset info entry to LIT_T from MACRO_T
+        macroIdx = macroPtrs[macroDepth].macroIdx;
+        inChrP   = macroPtrs[macroDepth--].text; // get the curent loc in the expansion
     } else
         GetCodeLine();
 }
