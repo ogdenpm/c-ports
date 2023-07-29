@@ -18,7 +18,7 @@ void vfReset(vfile_t *vf) {
 
 
 
-void vfWbuf(vfile_t *vf, uint8_t const *buf, uint32_t len) {
+void vfWbuf(vfile_t *vf, void const *buf, uint32_t len) {
     if (vf->pos + len >= vf->capacity)
         vfExpand(vf, vf->pos + len);
     memcpy(vf->content + vf->pos, buf, len);
@@ -48,7 +48,7 @@ void vfRewind(vfile_t *vf) {
     vf->pos = 0;
 }
 
-uint32_t vfRbuf(vfile_t *vf, uint8_t *buf, uint32_t len) {
+uint32_t vfRbuf(vfile_t *vf, void *buf, uint16_t len) {
     if (vf->pos + len >= vf->size)
         len = vf->size - vf->pos;
     memcpy(buf, vf->content + vf->pos, len);

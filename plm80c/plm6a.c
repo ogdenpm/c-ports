@@ -74,13 +74,7 @@ void MiscControl(vfile_t *txFile) {
     case T2_INCLUDE:
         EmitLinePrefix();
         srcFileTable[srcFileIdx++] = srcFil;    // push current file
-        /* get file name (stored len (word) string */
-        word len                   = vfRword(txFile);
-        char *name                 = xmalloc(len + 1);
-        vfRbuf(txFile, name, len);
-        name[len] = '\0';
-        InitF(&srcFil, "SOURCE", name);
-        OpenF(&srcFil, "rt");
+        OpenF(&srcFil, "SOURCE", includes[vfRword(txFile)], "rt");
         break;
     }
 }
@@ -91,8 +85,7 @@ void Sub_42E7() {
     cfCode = Rd2Byte();
 
     if (cfCode != T2_INCLUDE)
-        for (int i = 0; i < (b5124[cfCode] & 3); i++)
-            itemArgs[i] = Rd2Word();
+        Rd2Buf(&itemArgs, (b5124[cfCode] & 3) * sizeof(itemArgs[0]));
     if (cfCode == T2_LINEINFO)
         UpdateLineInfo();
     else if (cfCode == T2_STMTCNT)

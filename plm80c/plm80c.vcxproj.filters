@@ -35,34 +35,16 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cpytil.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="creati.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="data.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="adninf.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="fi.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="findmi.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fiscop.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="endcom.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fatal.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fatlio.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="lookup.c">
@@ -192,9 +174,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pdata6.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="io.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main5.c">

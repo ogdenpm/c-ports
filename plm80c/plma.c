@@ -13,18 +13,9 @@
 #include "os.h"
 extern char *cmdP;      // command line current position
 
-static char noMemMsg[] = "NOT ENOUGH MEMORY FOR A COMPILATION";
-static char aIxi[] = ".IXI";
-static char aObj[] = ".OBJ";
-static char aLst[] = ".LST";
-static char aInvocationComm[] = "INVOCATION COMMAND DOES NOT END WITH <CR><LF>";
-static char aIncorrectDevice[] = "INCORRECT DEVICE SPEC";
-static char aSourceFileNotDisk[] = "SOURCE FILE NOT A DISKETTE FILE";
-static char aSourceFileName[] = "SOURCE FILE NAME INCORRECT";
-static char aSourceFileBadExt[] = "SOURCE FILE EXTENSION INCORRECT";
+
 static char aIllegalCommand[] = "ILLEGAL COMMAND TAIL SYNTAX";
 
-static byte  ioBuffer[128];     // only 128 bytes read so 2048 was overkill
 char *cmdTextP;
 
 
@@ -34,32 +25,6 @@ static void SkipSpace()
         cmdTextP++;
         }
 } /* SkipSpace() */
-
-#if 0
-static bool TestToken(char *str, byte len)
-{
-    char *p;
-
-    p = cmdTextP;
-    while (len-- != 0) {
-        if ((*cmdTextP++ & 0x5F) != *str++) {
-            cmdTextP = p;
-            return false;
-        }
-    }
-    return true;
-} /* TestToken() */
-#endif
-
-
-static void SkipAlphaNum()
-{
-    while (('A' <= *cmdTextP && *cmdTextP <= 'Z') || ('a' <= *cmdTextP && *cmdTextP <= 'z')
-                || ('0' <= *cmdTextP && *cmdTextP <= '9'))
-        cmdTextP++;
-} /* SkipAlphaNum() */
-
-
 
     
 static void ParseSrcFileName()
@@ -147,8 +112,6 @@ static void InitFilesAndDefaults()
 
 void SignOnAndGetSourceName()
 {
-    InitF(&conFile, "CONSOL", "stdin");
-    conFile.fp = stdin;
     puts("\nISIS-II PL/M-80 COMPILER " VERSION);
     cmdTextP = cmdP;
     ParseSrcFileName();

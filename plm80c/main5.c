@@ -17,9 +17,7 @@ offset_t xrefIdx;
 byte b66D8 = 0;
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
-static char dots[]   = ". . . . . . . . . . . . . . . . . . . . ";
-static char dashes[] = "------------------------------------";
-byte b3F0B           = 0xFF; /* ixi module header */
+
 
 void warn(char const *str) {
     lprintf("\n-- WARNING -- %s\n", str);
@@ -142,8 +140,8 @@ static void Sub_48A7() {
     curSym = GetSymbol();
     TabLst(-nameCol);
     lstStr(symtab[curSym].name->str);
-    lprintf("%.*s", attribCol - col - 2, &dots[symtab[curSym].name->len]);
-    TabLst(1);
+    DotLst(attribCol - 2);
+    lstc(' ');
 }
 
 static void Sub_48E2(word arg1w, word arg2w) {
@@ -371,7 +369,7 @@ void PrintRefs() {
 } /* PrintRefs() */
 
 // lifted
-static void WrIxiBuf(uint8_t const *buf, word cnt) {
+static void WrIxiBuf(void const *buf, word cnt) {
     fwrite(buf, 1, cnt, ixiFile.fp);
 }
 
@@ -385,20 +383,27 @@ static void WrIxiWord(word v) {
 }
 
 void CreateIxrefFile() {
-
-    OpenF(&ixiFile, "wb");
     infoIdx = procInfo[1];
     curSym  = GetSymbol();
     if (curSym) { /* Write() the module info */
         pstr_t const *pstr = symtab[curSym].name;
-        WrIxiByte(b3F0B);
+        WrIxiByte(0xff);    // module header
         WrIxiByte(22 + pstr->len);
         WrIxiByte(pstr->len);           /* module name len */
-        WrIxiBuf(pstr->str, pstr->len); /* module name */
+        WrIxiBuf((uint8_t *)pstr->str, pstr->len); /* module name */
     }
+    // as name may be more than 10 characters and diskette name is always dashes
+    // as an extension if the name is > 10 chars allow up to 19, overwriting
+    // the diskette name
+    // note only the file name and not the directory are used
+    char const *name = basename(srcFileTable[0].fNam);
+    int nameLen = (int)strlen(name);
+    if (nameLen > 19)
+        nameLen = 19;
+    char ixname[] = "          ---------";
+    memcpy(ixname, name, nameLen);
+    WrIxiBuf((uint8_t *)ixname, 19);
 
-    WrIxiBuf(basename(srcFileTable[0].fNam), 10); // form compatibility max 10 chars
-    WrIxiBuf("---------", 9);
 
     for (int p = 0; p < dictCnt; p++) {
         infoIdx   = dicttab[p];

@@ -52,24 +52,11 @@ static word GetVarSize() {
         return GetElementSize();
 }
 
-static void RevMemMov(pointer srcp, pointer dstp, word cnt) {
-
-    srcp = srcp + cnt - 2;
-    dstp = dstp + cnt - 2;
-    while (cnt > 1) {
-        *(wpointer)dstp = *(wpointer)srcp;
-        cnt             = cnt - 2;
-        dstp            = dstp - 2;
-        srcp            = srcp - 2;
-    }
-    if (cnt == 1)
-        *(wpointer)dstp = (*(wpointer)dstp & 0xff) | (*(wpointer)srcp & 0xff00);
-}
 
 static index_t AdvNextDataInfo(index_t idx) {
     while (1) {
         idx = AdvNxtInfo(idx);
-        if (idx == 0 || infotab[idx].type >= BYTE_T && infotab[idx].type <= STRUCT_T)
+        if (idx == 0 || (infotab[idx].type >= BYTE_T && infotab[idx].type <= STRUCT_T))
             return idx;
     }
 }
@@ -95,23 +82,20 @@ static void Sub_711F() {
     }
 }
 
-static void AllocVarAddress(wpointer arg1wP) {
+static word AllocVar(word addr) {
 
-    SetLinkVal(*arg1wP);     /* allocate this var's address */
-    *arg1wP += GetVarSize(); /* reserve it's space */
-    if (*arg1wP < GetVarSize())
+    SetLinkVal(addr);     /* allocate this var's address */
+    addr += GetVarSize(); /* reserve it's space */
+    if (addr < GetVarSize())
         Sub_6EF6(ERR207); /* LIMIT EXCEEDED: SEGMENT Size() */
+    return addr;
 }
 
 static void Sub_7323() {
-    word p;
-    wpointer q;
+    word idx;
 
-    p        = infoIdx;
-    infoIdx = procInfo[High(GetScope())];
-    q        = &infotab[infoIdx].parent; /* varsize union with parent */
-    infoIdx = p;
-    AllocVarAddress(q);
+    idx = procInfo[High(GetScope())];
+    infotab[idx].parent = AllocVar(infotab[idx].parent);    
 }
 
 static void Sub_719D() {
@@ -127,7 +111,7 @@ static void Sub_719D() {
             GetType() == LABEL_T) {
             if (TestInfoFlag(F_EXTERNAL)) {
                 SetExternId(externalsCnt);
-                externalsCnt = externalsCnt + 1;
+                externalsCnt++;
                 if (externalsCnt == 0)
                     Sub_6EF6(ERR219); /* LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255 */
                 SetLinkVal(0);
@@ -153,13 +137,13 @@ static void Sub_719D() {
             else if (TestInfoFlag(F_BASED))
                 SetLinkVal(0); /* based var has 0 offset */
             else if (TestInfoFlag(F_DATA))
-                AllocVarAddress(&csegSize); /* allocate initialised data var */
+                csegSize = AllocVar(csegSize); /* allocate initialised data var */
             else if (TestInfoFlag(F_MEMORY))
                 ;                               /* memory is predefined */
             else if (TestInfoFlag(F_AUTOMATIC)) /* allocate stack var */
                 Sub_7323();
             else
-                AllocVarAddress(&dsegSize); /* allocate uninitalised data */
+                dsegSize = AllocVar(dsegSize); /* allocate uninitalised data */
         }
     }
 }
@@ -310,8 +294,6 @@ static void Sub_7695() {
 }
 
 static void Sub_76D9() {
-    byte T2_Eof = T2_EOF;
-
     vfRewind(&atf); /* used for string data */
     Wr2Byte(T2_EOF);
     vfRewind(&utf2);
@@ -319,7 +301,6 @@ static void Sub_76D9() {
 
 void Sub_6EE0() {
     Sub_7695();
-    //   DumpSymbols();
     Sub_711F();
     Sub_719D();
     ProcAtFile();

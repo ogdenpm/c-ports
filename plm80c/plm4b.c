@@ -13,7 +13,6 @@
 #include <stdlib.h>
 
 /* plm4a.plm */
-static byte digits[] = " 123456789";
 static struct {
     uint16_t errCode;
     char const *errStr;
@@ -239,7 +238,7 @@ void FlushRecs() {
     WriteRec(rec24_2, 2);
     WriteRec(rec24_3, 2);
     WriteRec(rec20, 1);
-    putWord(((rec6_t *)rec6_4)->addr, baseAddr);
+    putWord(&rec6_4[CONTENT_OFF], baseAddr);
 }
 
 void AddWrdDisp(pstr_t *pstr, word arg2w) {
@@ -339,19 +338,17 @@ void FatalError_ov46(byte arg1b) {
 }
 
 void ListCodeBytes() {
-    byte i;
     if (codeOn) {
         if (opByteCnt > 0) {
             TabLst(-12);
             lprintf("%04X", baseAddr);
-            i = 0;
             TabLst(-18);
             for (int i = 0; i < opByteCnt; i++)
                 lprintf("%02X", opBytes[i]);
         }
         TabLst(-26);
         SetStartAndTabW(26, 8);
-        lstPstr((pstr_t *)line);
+        lstPstr((pstr_t *)&line);
         NewLineLst();
     }
 }
@@ -367,9 +364,7 @@ static byte GetSourceCh() {
             return '\n';
         if (srcFileIdx == 0) /* top level file */
             FatalError_ov46(ERR215);
-        if (fclose(srcFil.fp))
-            IoError(srcFil.fNam, "Close error");
-        free((void *)srcFil.fNam);
+        CloseF(&srcFil);
         srcFil = srcFileTable[--srcFileIdx];
     }
 }

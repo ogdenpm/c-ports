@@ -29,11 +29,9 @@ byte rec16_3[304] = { 0x16, 0, 0, 2 };
 byte rec16_4[304] = { 0x16, 0, 0, 4 };
 byte rec12[1024]  = { 0x12, 0, 0, 1 };
 byte rec6[306]    = { 6, 0, 0, 0 };
-// byte rec22[154] = { 0x22, 0, 0, 3 }; // use the larger array from pdata4.c
-// byte rec24_1[154] = { 0x24, 0, 0, 1, 3 }; // use the larger array from pdata4.c
 byte rec24_2[154] = { 0x24, 0, 0, 2, 3 };
 byte rec24_3[154] = { 0x24, 0, 0, 4, 3 };
-// byte rec20[153] = { 0x20, 0, 0, 3 }; // use the larger array from pdata4.c
+
 
 void FlushRecGrp() {
     WriteRec(rec6, 3);
@@ -53,7 +51,7 @@ void RecAddName(pointer recP, byte offset, byte len, char const *str) {
 void ExtendChk(pointer arg1wP, word arg2w, byte arg3b) {
     if (getWord(arg1wP + 1) + arg3b >= arg2w) {
         FlushRecGrp();
-        putWord(&rec6[CONTENT_ADDR], w7197);
+        putWord(&rec6[CONTENT_OFF], w7197);
     }
 }
 
@@ -229,7 +227,7 @@ static void Sub_4DA8() {
                 i = 2;
             }
 
-            if (i == ((rec6_t *)rec6)->seg) {
+            if (i == rec6[CONTENT_SEG]) {
                 q = rec22;
                 j = 1;
             } else
@@ -265,15 +263,15 @@ static void Sub_4A31() {
     infoIdx       = (w811E = atFData.infoP);
     w8119 = w811B = w8115 = w8117 = 0;
     if (TestInfoFlag(F_DATA))
-        ((rec6_t *)rec6)->seg = 1;
+        rec6[CONTENT_SEG] = 1;
     else if (TestInfoFlag(F_MEMORY))
-        ((rec6_t *)rec6)->seg = 4;
+        rec6[CONTENT_SEG] = 4;
     else if (TestInfoFlag(F_ABSOLUTE))
-        ((rec6_t *)rec6)->seg = 0;
+        rec6[CONTENT_SEG] = 0;
     else
-        ((rec6_t *)rec6)->seg = 2;
+        rec6[CONTENT_SEG] = 2;
 
-    w7197 = putWord(&rec6[CONTENT_ADDR], GetLinkVal());
+    w7197 = putWord(&rec6[CONTENT_OFF], GetLinkVal());
     if (infoIdx == 0)
         b811D = false;
     else if (TestInfoFlag(F_EXTERNAL)) {

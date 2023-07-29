@@ -8,31 +8,21 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
+#include <stdlib.h>
 
-void CloseF(file_t *fileP)
-{
+void CloseF(file_t *fileP) {
 
-    if (fclose(fileP->fp))
-        IoError(fileP->fNam, "Close error");
+    if (fileP->fp) {
+        if (fclose(fileP->fp))
+            IoError(fileP->fNam, "Close error");
+        fileP->fp = NULL;
+    }
 }
-
-void InitF(file_t *fileP, char const *sNam, char const *fNam)
-{
-    fileP->fp = NULL;
-    fileP->sNam = sNam;     // all instances are fixed so ok
-    fileP->fNam  = fNam;     // all allocations are malloced
-
-} /* InitF() */
-
-
-void OpenF(file_t *fileP, char *access)
-{
-
-    if (!(fileP->fp = Fopen(fileP->fNam, access)))
-        IoError(fileP->fNam, "Cannot %s", *access == 'w' ? "create" : "open");
-
+void OpenF(file_t *fileP, char const *sNam, char const *fNam, char *access) {
+    fileP->sNam = sNam;
+    fileP->fNam = fNam;
+    if (!(fileP->fp = Fopen(fNam, access)))
+        IoError(fNam, "Cannot %s", *access == 'w' ? "create" : "open");
 }
-
-

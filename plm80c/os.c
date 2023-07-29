@@ -101,12 +101,12 @@ char const *basename(char const *path) {
 */
 static char *MapFile(char *osName, const char *isisPath) {
     char *s;
-    static char dev[5] = { ":Fx:" };
+    static char dev[7] = { "ISIS_Fx" };
 
     if (isisPath[0] == ':' && toupper(isisPath[1]) == 'F' && isdigit(isisPath[2]) &&
         isisPath[3] == ':') {
         int i  = isisPath[2] - '0';
-        dev[2] = isisPath[2];
+        dev[6] = isisPath[2];
         if (!deviceMap[i] && !(deviceMap[i] = getenv(dev)))
             deviceMap[i] = ".";                                          // give a minimal default
         if (strlen(deviceMap[i]) + strlen(isisPath + 4) + 1 > _MAX_PATH) // will it fit
@@ -133,9 +133,9 @@ FILE *Fopen(char const *pathP, char *access) {
     /* if a file exists and is opened for write in windows
        the filename case remains as per the original. Although
        this doesn't impact execution on windows it looks odd.
-       so make sure the file is removed before opening
+       so remove any old file before opening
     */
-    if (*access == 'w' && stricmp(name, "con") && unlink(name))
+    if (*access == 'w' && unlink(name))
         errno = 0;
 #endif
     return fopen(name, access);

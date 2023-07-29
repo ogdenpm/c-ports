@@ -11,7 +11,7 @@
 #include "plm.h"
 
 // <expression>
-void ExprParse0()
+static void ExprParse0()
 {
     PushOperator(0);                // put end marker
     if (MatchTx1Item(L_IDENTIFIER)) {   // startes with identifier
@@ -24,7 +24,7 @@ void ExprParse0()
     }
 }
 
-void ExprParse1()
+static void ExprParse1()
 {
     if (MatchTx1Item(L_COLONEQUALS)) {
         if (Sub_512E(exSP)) {
@@ -44,13 +44,13 @@ void ExprParse1()
     }
 }
 
-void ExprParse2()
+static void ExprParse2()
 {
     ExprMakeNode(I_COLONEQUALS, 2);
 }
 
 
-void ExprParse3()
+static void ExprParse3()
 {
     if (MatchTx2AuxFlag(64)) {
         while (b4172[tx1Aux1] <= b4172[operatorStack[operatorSP]]) {
@@ -69,7 +69,7 @@ void ExprParse3()
 }
 
 
-void ExprParse4()
+static void ExprParse4()
 {
     if (MatchTx1Item(L_MINUSSIGN))      // starts with - so convert to unary minus
         PushOperator(I_UNARYMINUS);
@@ -79,7 +79,7 @@ void ExprParse4()
 }
 
 // <primary>
-void ExprParse5()
+static void ExprParse5()
 {
     word p;
 
@@ -131,19 +131,19 @@ void ExprParse5()
 
 
 // closing ')' of <subexpression>
-void ExprParse6()
+static void ExprParse6()
 {
     ExpectRParen(ERR103);	/* MISSING ') ' AT END OF SUBEXPRESSION */
 }
 
 // <location reference> make address of node
-void ExprParse7()
+static void ExprParse7()
 {
     ExprMakeNode(I_ADDRESSOF, 1);
 }
 
 // <variable reference>
-void ExprParse8()
+static void ExprParse8()
 {
     ChkIdentifier();
     if (GetType() == BUILTIN_T) {   // can't be a bulitin
@@ -168,7 +168,7 @@ void ExprParse8()
 }
 
 // <data reference>
-void ExprParse9()
+static void ExprParse9()
 {
     PushParseWord(infoIdx);        // save name info
     PushParseByte(10);              // <member specifier>
@@ -180,7 +180,7 @@ void ExprParse9()
 }
 
 // <member specifier>
-void ExprParse10()
+static void ExprParse10()
 {
     offset_t p;
     p = parseStack[parseSP];        // name info
@@ -203,7 +203,7 @@ void ExprParse10()
         FixupBased(p);
 }
 
-void ExprParse11()
+static void ExprParse11()
 {
     word p;
     if (GetType() == BUILTIN_T) {
@@ -238,7 +238,7 @@ void ExprParse11()
         PushParseByte(12);
 }
 
-void ExprParse12()
+static void ExprParse12()
 {
     ExprPush2(I_IDENTIFIER, infoIdx);
     PushParseWord(infoIdx);
@@ -256,7 +256,7 @@ void ExprParse12()
     }
 }
 
-void ExprParse13()
+static void ExprParse13()
 {
     word p;
 
@@ -288,7 +288,7 @@ void ExprParse13()
 }
 
 // make member node
-void ExprParse14()
+static void ExprParse14()
 {
     offset_t p;
     p = parseStack[parseSP];        // get member info
@@ -298,7 +298,7 @@ void ExprParse14()
 }
 
 
-void ExprParse15()
+static void ExprParse15()
 {
     operatorStack[operatorSP] = operatorStack[operatorSP] + 1;
     if (MatchTx1Item(L_COMMA)) {
@@ -309,13 +309,13 @@ void ExprParse15()
 }
 
 
-void ExprParse16()
+static void ExprParse16()
 {
     ExprMakeNode(I_CALL, GetCallArgCnt() + 1);
 }
 
 
-void ExprParse17()
+static void ExprParse17()
 {
     byte i, j;
     j = GetCallArgCnt();
@@ -325,14 +325,14 @@ void ExprParse17()
 }
 
 
-void ExprParse18()
+static void ExprParse18()
 {
     ExprMakeNode(I_CALLVAR, operatorStack[operatorSP] + 1);
     PopOperatorStack();
 }
 
 // <subscript>
-void ExprParse19()
+static void ExprParse19()
 {
     PushParseByte(20);      // end of <subscript>
     PushParseByte(0);       // <expression>
@@ -340,7 +340,7 @@ void ExprParse19()
 
 
 // end of <subscript>
-void ExprParse20()
+static void ExprParse20()
 {
     if (MatchTx1Item(L_COMMA)) {
         WrTx2ExtError(ERR114);	/* INVALID SUBSCRIPT, MULTIPLE SUBSCRIPTS ILLEGAL */

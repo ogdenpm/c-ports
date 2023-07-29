@@ -8,10 +8,10 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
 
-//static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+// static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 word putWord(pointer buf, word val) {
     buf[0] = val & 0xff;
     buf[1] = val >> 8;
@@ -26,17 +26,14 @@ static void Sub_3F3C() {
     b7199 = PRINT | OBJECT;
 
     vfReset(&utf2);
+    //   vfReset(&utf1);
     vfRewind(&atf);
-    if (OBJECT) {
-        OpenF(&objFile, "rb+");
+    if (OBJECT)
         fseek(objFile.fp, 0, SEEK_END);
-    }
     w7197 = csegSize;
 }
 
-
-static void Sub_3FE2()
-{
+static void Sub_3FE2() {
     word p;
     for (p = 1; p <= procCnt; p++) {
         infoIdx = procInfo[p];
@@ -47,9 +44,7 @@ static void Sub_3FE2()
     }
 }
 
-
-static void Sub_402F()
-{
+static void Sub_402F() {
 
     for (infoIdx = AdvNxtInfo(0); infoIdx != 0; infoIdx = AdvNxtInfo(infoIdx)) {
         if (GetType() == LABEL_T) {
@@ -61,8 +56,7 @@ static void Sub_402F()
     }
 }
 
-static void Sub_40B6()
-{
+static void Sub_40B6() {
     word p;
 
     for (p = 1; p <= localLabelCnt; p++) {
@@ -71,11 +65,7 @@ static void Sub_40B6()
     }
 }
 
-
-
-
-static void Sub_4105()
-{
+static void Sub_4105() {
     byte i, j, k;
     bool m;
     word p;
@@ -86,7 +76,7 @@ static void Sub_4105()
     Wr1Word(procInfo[1]);
 
     infoIdx = procInfo[1];
-    p = w7197 - GetLinkVal();
+    p       = w7197 - GetLinkVal();
     Wr1Word(p);
     for (i = 0; i <= 45; i++) {
         k = b42D6[i];
@@ -95,22 +85,20 @@ static void Sub_4105()
         while (k < j) {
             if (m) {
                 helpers[k] = w7197;
-                w7197 = w7197 + b4813[k];
+                w7197 += b4813[k];
             } else if (helpers[k] != 0) {
-                m = true;
+                m          = true;
                 helpers[k] = w7197;
-                w7197 = w7197 + b4813[k];
+                w7197 += b4813[k];
             }
             k = k + 1;
         }
     }
 }
 
-
-static void Sub_426E()
-{
+static void Sub_426E() {
     infoIdx = procInfo[1];
-    curSym = GetSymbol();
+    curSym  = GetSymbol();
     if (curSym == 0)
         RecAddByte(rec2, 0, 0);
     else
@@ -132,64 +120,65 @@ static void Sub_426E()
     WriteRec(rec2, 0);
 }
 
-
-static void Sub_436C()
-{
-    pointer p;
-    word q, r, s;
-    byte i, j, k;
+static void Sub_436C() {
+    pointer rec;
+    word curRecLen, r, s;
+    byte seg, k;
 
     s = 0;
     for (infoIdx = AdvNxtInfo(0); infoIdx != 0; infoIdx = AdvNxtInfo(infoIdx)) {
         curSym = GetSymbol();
         if (LABEL_T <= GetType() && GetType() <= PROC_T && curSym != 0) {
             if (TestInfoFlag(F_EXTERNAL) && !TestInfoFlag(F_AT)) {
-                if (getWord(((rec_t *)rec18)->len) + symtab[curSym].name->len + 2 >= 299)
+                if (getWord(&rec18[REC_LEN]) + symtab[curSym].name->len + 2 >= 299)
                     WriteRec(rec18, 0);
-                s = s + 1;
+                s++;
                 RecAddName(rec18, 0, symtab[curSym].name->len, symtab[curSym].name->str);
                 RecAddByte(rec18, 0, 0);
-            } else if (!(TestInfoFlag(F_AUTOMATIC) || TestInfoFlag(F_BASED) || TestInfoFlag(F_MEMBER))) {
+            } else if (!(TestInfoFlag(F_AUTOMATIC) || TestInfoFlag(F_BASED) ||
+                         TestInfoFlag(F_MEMBER))) {
                 if (TestInfoFlag(F_DATA) || GetType() == LABEL_T || GetType() == PROC_T) {
-                    p = rec16_2;
-                    q = getWord(((rec_t *)rec16_2)->len);
-                    i = 1;
+                    rec       = rec16_2;
+                    curRecLen = getWord(&rec16_2[REC_LEN]);
+                    seg       = 1;
                 } else if (TestInfoFlag(F_MEMORY)) {
-                    p = rec16_4;
-                    q = getWord(((rec_t *)rec16_4)->len);
-                    i = 4;
+                    rec       = rec16_4;
+                    curRecLen = getWord(&rec16_4[REC_LEN]);
+                    seg       = 4;
                 } else if (TestInfoFlag(F_ABSOLUTE)) {
-                    p = rec16_1;
-                    q = getWord(((rec_t *)rec16_1)->len);
-                    i = 0;
+                    rec       = rec16_1;
+                    curRecLen = getWord(&rec16_1[REC_LEN]);
+                    seg       = 0;
                 } else {
-                    p = rec16_3;
-                    q = getWord(((rec_t *)rec16_3)->len);
-                    i = 2;
+                    rec       = rec16_3;
+                    curRecLen = getWord(&rec16_3[REC_LEN]);
+                    seg       = 2;
                 }
 
                 if (TestInfoFlag(F_PUBLIC)) {
-                    if (q + symtab[curSym].name->len + 4 >= 299)
-                        WriteRec(p, 1);
-                    RecAddWord(p, 1, GetLinkVal());
-                    RecAddName(p, 1, symtab[curSym].name->len, symtab[curSym].name->str);
-                    RecAddByte(p, 1, 0);
+                    if (curRecLen + symtab[curSym].name->len + 4 >= 299)
+                        WriteRec(rec, 1);
+                    RecAddWord(rec, 1, GetLinkVal());
+                    RecAddName(rec, 1, symtab[curSym].name->len, symtab[curSym].name->str);
+                    RecAddByte(rec, 1, 0);
                 }
+                bool isExtern;
                 if (DEBUG) {
                     if (infoIdx == procInfo[1])
-                        j = true;
+                        isExtern = true;
                     else if (!TestInfoFlag(F_PARAMETER))
-                        j = TestInfoFlag(F_EXTERNAL);
+                        isExtern = TestInfoFlag(F_EXTERNAL);
                     else {
-                        r = infoIdx;
-                        infoIdx = procInfo[High(GetScope())];
-                        j = TestInfoFlag(F_EXTERNAL);
-                        infoIdx = r;
+                        r        = infoIdx;
+                        infoIdx  = procInfo[High(GetScope())];
+                        isExtern = TestInfoFlag(F_EXTERNAL);
+                        infoIdx  = r;
                     }
-                    if (!j) {
-                        if (i != ((rec_t *)rec12)->val[0] || getWord(((rec_t *)rec12)->len) + symtab[curSym].name->len + 4 >= 1019)
+                    if (!isExtern) {
+                        if (seg != rec12[REC_DATA] ||
+                            getWord(&rec12[REC_LEN]) + symtab[curSym].name->len + 4 >= 1019)
                             WriteRec(rec12, 1);
-                        ((rec_t *)rec12)->val[0] = i;
+                        rec12[REC_DATA] = seg;
                         RecAddWord(rec12, 1, GetLinkVal());
                         RecAddName(rec12, 1, symtab[curSym].name->len, symtab[curSym].name->str);
                         RecAddByte(rec12, 1, 0);
@@ -203,7 +192,7 @@ static void Sub_436C()
         for (k = 0; k < 117; k++) {
             if (helpers[k]) {
                 helpers[k] = s++;
-                if (getWord(((rec_t *)rec18)->len) + 8 >= 299)
+                if (getWord(&rec18[REC_LEN]) + 8 >= 299)
                     WriteRec(rec18, 0);
                 char t[7];
                 sprintf(t, "@P%04d", k);
@@ -220,10 +209,7 @@ static void Sub_436C()
     WriteRec(rec12, 1);
 }
 
-
-
-static void Sub_46B7()
-{
+static void Sub_46B7() {
     word p;
 
     if (intVecNum == 0)
@@ -231,20 +217,17 @@ static void Sub_46B7()
     for (p = 1; p <= procCnt; p++) {
         infoIdx = procInfo[p];
         if (TestInfoFlag(F_INTERRUPT)) {
-            putWord(((rec6_t *)rec6)->addr, intVecLoc + intVecNum * GetIntrNo());
+            putWord(&rec6[CONTENT_OFF], intVecLoc + intVecNum * GetIntrNo());
             RecAddByte(rec6, 3, 0xC3);
             RecAddWord(rec6, 3, GetLinkVal());
             WriteRec(rec6, 3);
-            RecAddWord(rec24_1, 2, getWord(((rec6_t *)rec6)->addr) + 1);
+            RecAddWord(rec24_1, 2, getWord(&rec6[CONTENT_OFF]) + 1);
             WriteRec(rec24_1, 2);
         }
     }
 }
 
-
-
-static void Sub_4746()
-{
+static void Sub_4746() {
     if (b7199 || IXREF) {
         Wr1Byte(0x9c);
         vfRewind(&utf1);
@@ -252,8 +235,7 @@ static void Sub_4746()
     vfReset(&atf);
 }
 
-word Start3()
-{
+word Start3() {
     dump(&atf, "atf_main3");
     vfRewind(&atf);
 
@@ -265,8 +247,6 @@ word Start3()
         Sub_40B6();
         Sub_4105();
         csegSize = w7197;
- //       ReloadSymbols();
-
     }
     if (OBJECT) {
         Sub_426E();

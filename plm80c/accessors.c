@@ -174,7 +174,11 @@ void SetType(byte type) {
 }
 
 // flag access functions
-
+/* F_PUBLIC = 0, F_EXTERNAL = 1, F_BASED = 2, (F_INITIAL = 3, F_REENTRANT = 4), (F_DATA = 5,
+              F_INTERRUPT = 6), F_AT = 7, F_ARRAY = 8, F_STARDIM = 9, F_PARAMETER = 10,
+              F_MEMBER = 11, F_LABEL = 12, F_AUTOMATIC = 13, F_PACKED = 14, F_ABSOLUTE = 15,
+              F_MEMORY = 16, F_DECLARED = 17, F_DEFINED = 18,
+              F_MODGOTO = 19 */
 static byte tblOffsets[]  = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2 };
 static byte tblBitFlags[] = { 0x80, 0x40, 0x20, 0x10, 0x10, 8, 8, 4, 2,    1,
                               0x80, 0x40, 0x20, 0x10, 8,    4, 2, 1, 0x80, 0x40 };

@@ -83,7 +83,7 @@ static void Token2Num()
     if (cClass[ch = tokenStr[tokenLen = tokenStr[0]]] <= CC_DECDIGIT)
         Str2num(10, decValidate);
     else {
-        tokenLen = tokenLen - 1;
+        tokenLen--;
         if (ch == 'H')
             Str2num(16, hexValidate);
         else if (ch == 'Q' || ch == 'O')

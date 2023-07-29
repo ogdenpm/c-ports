@@ -117,7 +117,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
@@ -279,20 +279,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="accessors.c" />
-    <ClCompile Include="adninf.c" />
-    <ClCompile Include="cpytil.c" />
-    <ClCompile Include="creati.c" />
     <ClCompile Include="data.c" />
     <ClCompile Include="endcom.c" />
     <ClCompile Include="fatal.c" />
-    <ClCompile Include="fatlio.c" />
     <ClCompile Include="fi.c" />
-    <ClCompile Include="findmi.c" />
-    <ClCompile Include="fiscop.c" />
-    <ClCompile Include="io.c">
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_MBCS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
     <ClCompile Include="lookup.c" />
     <ClCompile Include="lstinf.c" />
     <ClCompile Include="lstsup.c" />
@@ -320,7 +310,9 @@
     <ClCompile Include="plm1e.c" />
     <ClCompile Include="plm1f.c" />
     <ClCompile Include="plm2a.c" />
-    <ClCompile Include="plm2b.c" />
+    <ClCompile Include="plm2b.c">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
+    </ClCompile>
     <ClCompile Include="plm2c.c" />
     <ClCompile Include="plm2d.c" />
     <ClCompile Include="plm2e.c" />
@@ -332,14 +324,18 @@
     <ClCompile Include="plm4a.c" />
     <ClCompile Include="plm4b.c" />
     <ClCompile Include="plm4c.c" />
-    <ClCompile Include="plm6a.c" />
+    <ClCompile Include="plm6a.c">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
+    </ClCompile>
     <ClCompile Include="plma.c" />
     <ClCompile Include="plmb.c" />
     <ClCompile Include="plmfile.c" />
     <ClCompile Include="prints.c" />
     <ClCompile Include="putlst.c" />
     <ClCompile Include="symtab.c" />
-    <ClCompile Include="vfile.c" />
+    <ClCompile Include="vfile.c">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Custom</Optimization>
+    </ClCompile>
     <ClCompile Include="wrclst.c" />
   </ItemGroup>
   <ItemGroup>

@@ -19,14 +19,15 @@ bool pstrequ(pstr_t const *ps, pstr_t const *pt) {
 }
 
 index_t newSymbol(pstr_t const *ps) {
-    if (symCnt >= symtabSize)
+    if (symCnt >= symtabSize) {
         if (symtabSize + STCHUNK >= 0x10000)
             FatalError("Out of symbol space");
         else
             symtab = xrealloc(symtab, (symtabSize += STCHUNK) * sizeof(sym_t));
-    symtab[symCnt].link  = 0;
+    }
+    symtab[symCnt].link    = 0;
     symtab[symCnt].infoIdx = 0;
-    symtab[symCnt].name  = pstrdup(ps);
+    symtab[symCnt].name    = pstrdup(ps);
 
     return symCnt++;
 }
@@ -34,20 +35,20 @@ index_t newSymbol(pstr_t const *ps) {
 #define INCHUNK 2048
 index_t infotabSize;
 index_t infoCnt = 1;
-ninfo_t *infotab;
+info_t *infotab;
 
 index_t newInfo(byte type) {
-    if (infoCnt >= infotabSize)
+    if (infoCnt >= infotabSize) {
         if (infotabSize + INCHUNK >= 0x10000)
             FatalError("Out of info space");
         else
-            infotab = xrealloc(infotab, (infotabSize += INCHUNK) * sizeof(ninfo_t));
-    memset(&infotab[infoCnt], 0, sizeof(ninfo_t));
+            infotab = xrealloc(infotab, (infotabSize += INCHUNK) * sizeof(info_t));
+    }
+    memset(&infotab[infoCnt], 0, sizeof(info_t));
     infotab[infoCnt].type = type;
 
     return infoCnt++;
 }
-
 
 #define DICHUNK 1024
 index_t dictSize;
@@ -55,11 +56,12 @@ index_t dictCnt;
 index_t *dicttab;
 
 index_t newDict(index_t idx) {
-    if (dictCnt >= dictSize)
+    if (dictCnt >= dictSize) {
         if (dictSize + DICHUNK >= 0x10000)
             FatalError("Out of dictionary space");
         else
             dicttab = xrealloc(dicttab, (dictSize += DICHUNK) * sizeof(index_t));
+    }
     dicttab[dictCnt] = idx;
 
     return dictCnt++;
@@ -71,11 +73,12 @@ index_t caseCnt;
 index_t *casetab;
 
 index_t newCase(word val) {
-    if (caseCnt >= caseSize)
+    if (caseCnt >= caseSize) {
         if (caseSize + DICHUNK >= 0x10000)
             FatalError("Too many case statements");
         else
             casetab = xrealloc(casetab, (caseSize += DICHUNK) * sizeof(word));
+    }
     casetab[caseCnt] = val;
 
     return caseCnt++;
@@ -87,13 +90,14 @@ index_t xrefCnt = 1;
 xref_t *xreftab;
 
 index_t newXref(index_t scope, word line) {
-    if (xrefCnt >= xrefSize)
+    if (xrefCnt >= xrefSize) {
         if (xrefSize + XRCHUNK >= 0x10000)
             FatalError("Out of xref space");
         else
             xreftab = xrealloc(xreftab, (xrefSize += XRCHUNK) * sizeof(xref_t));
+    }
     xreftab[xrefCnt].next = scope;
-    xreftab[xrefCnt].line  = line;
+    xreftab[xrefCnt].line = line;
 
     return xrefCnt++;
 }

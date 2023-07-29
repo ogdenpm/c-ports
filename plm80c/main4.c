@@ -42,18 +42,12 @@ static void Sub_3FC8() {
     }
 }
 
-void Sub_408B() {
+static void Sub_408B() {
 
     Sub_3FC8();
     stmtNo = 0;
-    if (PRINT) {
-        srcFileIdx = 0;
-        InitF(&srcFil, "SOURCE", srcFileTable[srcFileIdx].fNam);
-        OpenF(&srcFil, "rt");
-    }
-    vfRewind(&utf1);
     infoIdx = procInfo[1];
-    baseAddr = putWord(((rec6_t *)rec6_4)->addr, GetLinkVal());
+    baseAddr = putWord(&rec6_4[CONTENT_OFF], GetLinkVal());
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
@@ -68,7 +62,7 @@ void Sub_408B() {
     programErrCnt = linesRead = 0;
 }
 
-void Sub_4162() {
+static void Sub_4162() {
     byte helperModId, endHelperId;
 
     if (!standAlone)
@@ -89,19 +83,19 @@ void Sub_4162() {
     }
 } /* Sub_4162() */
 
-void Sub_4208() {
+static void Sub_4208() {
     if (haveModuleLevelUnit) {
-        ((rec4_t *)rec4)->subType = 1;
+        rec4[MODEND_TYPE] = 1;
         infoIdx                  = procInfo[1];
-        putWord(((rec4_t *)rec4)->addr, GetLinkVal());
+        putWord(&rec4[MODEND_OFF], GetLinkVal());
     } else {
-        ((rec4_t *)rec4)->subType = 0;
-        putWord(((rec4_t *)rec4)->addr, 0);
+        rec4[MODEND_TYPE] = 0;
+        putWord(&rec4[MODEND_OFF], 0);
     }
     WriteRec(rec4, 0);
 }
 
-void Sub_423C() {
+static void Sub_423C() {
     linesRead = lineNo;
     Sub_4208();
     vfReset(&utf1);
@@ -109,27 +103,22 @@ void Sub_423C() {
     if (OBJECT) {
         if (fwrite(objEOF, 1, 4, objFile.fp) != 4)
             IoError(objFile.fNam, "Write error");
-        fclose(objFile.fp);
-    }
-
-    if (PRINT) {
-        ;
+        CloseF(&objFile);
     }
 } /* Sub_423C() */
 
 word Start4() {
     // rec24_2 is has different seg c.f. plm3a.c
-    ((rec_t *)rec24_1)->val[0] = 2; // data seg
-    ((rec_t *)rec24_2)->val[0] = 3; // stack seg
+    rec24_1[REC_DATA] = 2; // data seg
+    rec24_2[REC_DATA] = 3; // stack seg
 
     dump(&utf1, "utf1_main4");
     vfRewind(&utf1);
     if (setjmp(exception) == 0) {
         Sub_408B();
 
-        while (bo812B) {
+        while (bo812B)
             Sub_54BA();
-        }
         Sub_4162();
         FlushRecs();
         EmitLinePrefix();

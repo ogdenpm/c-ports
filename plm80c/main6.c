@@ -13,7 +13,7 @@
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
-void Sub_3F96() {
+static void Sub_3F96() {
     if (PRINT) {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMILATION OF MODULE ");
@@ -29,20 +29,14 @@ void Sub_3F96() {
     }
 }
 
-
-
-byte lstBuf_6[2048];
-
-void Sub_404A() {
+static void Sub_404A() {
     b7AD9 = PRINT | OBJECT;
 
     vfReset(&utf1);
     vfRewind(&utf2);
     stmtNo = 0;
-    if (PRINT) {
-        srcFileIdx = 0;
-        InitF(&srcFil, "SOURCE", srcFileTable[srcFileIdx].fNam);
-    }
+    if (PRINT)
+        unwindInclude();    // probably not needed
     infoIdx = procInfo[1];
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
@@ -58,7 +52,7 @@ void Sub_404A() {
     programErrCnt = linesRead = csegSize = 0;
 }
 
-void Sub_41B6() {
+static void Sub_41B6() {
     vfReset(&atf);
     vfReset(&utf2);
 

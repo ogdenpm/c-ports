@@ -17,6 +17,8 @@
 
 #ifdef __GNUC__
 #define trunc _trunc
+#define stricmp strcasecmp
+#define strnicmp    strncasecmp
 #endif
 
 #ifdef _MSC_VER
@@ -711,20 +713,7 @@ enum { DO_PROC = 0, DO_LOOP = 1, DO_WHILE = 2, DO_CASE = 3 };
 #define ERR219      219 /* LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255 */
 #define IOERR_254   254 /* ATTEMPT TO READ PAS EOF */
 
-/* file open modes */
-#define READ_MODE   1
-#define WRITE_MODE  2
-#define UPDATE_MODE 3
-
-/* seek modes */
-#define SEEKTELL    0
-#define SEEKBACK    1
-#define SEEKABS     2
-#define SEEKFWD     3
-#define SEEKEND     4
-
 /* standard structures */
-#pragma pack(push, 1)
 
 typedef struct {
     byte len;
@@ -743,6 +732,13 @@ typedef struct {
     char const *fNam;
 } file_t;
 
+/*
+    Unlike the original PL/M info items are allocated the same storage space
+    this allows an dynamic array to be used. As this version also uses native OS
+    memory allocation, the array also avoids the hidden information that would be
+    used per malloc, which for 64 bit architecture would have bumped the memory used for
+    small items considerably.
+*/
 typedef struct {
     byte type;
     index_t sym;
@@ -776,23 +772,6 @@ typedef struct {
             byte procId;
         };
     };
-} ninfo_t;
-
-typedef struct {
-    byte len;     // 0
-    byte type;    // 1
-    word sym;     // 2
-    word scope;   // 4
-    word ilink;   // 6]
-    byte flag[3]; // 8]]]
-    byte extId;   // 11]
-    word dim;     // 12
-    word baseoff; // 14
-    word parent;  // 16]
-    byte dtype;   // 18
-    byte intno;   // 19
-    byte pcnt;    // 20
-    byte procId;  // 21
 } info_t;
 
 typedef struct {
@@ -801,19 +780,6 @@ typedef struct {
     pstr_t const *name;
 } sym_t;
 
-typedef struct {
-    byte len;
-    byte type;
-    word sym;
-    word scope;
-    word ilink;
-    offset_t litAddr;
-} lit_t;
-
-typedef struct {
-    pointer inChrP;
-    pointer infoP;
-} mac_t;
 
 typedef struct {
     index_t next;
@@ -823,9 +789,11 @@ typedef struct {
 
 typedef struct {
     byte type;
-    word lineCnt;
-    word stmtCnt;
-    word blkCnt;
+    struct _linfo {     // allows type to be read and keep alignment
+        word lineCnt;
+        word stmtCnt;
+        word blkCnt;
+    };
 } linfo_t;
 
 typedef struct {
@@ -839,30 +807,21 @@ typedef struct {
     };
 } tx1item_t;
 
-typedef struct { // generic record header
-    byte type;
-    leword len;
-    byte val[1];
-} rec_t;
+// record offsets
+// common
+#define REC_TYPE    0
+#define REC_LEN     1
+#define REC_DATA    3
 
-typedef struct {
-    byte type;
-    leword len;
-    byte subType;
-    byte seg;
-    leword addr;
-    byte crc;
-} rec4_t;
+// MODEND (4)
+#define MODEND_TYPE 3
+#define MODEND_SEG  4
+#define MODEND_OFF  5
 
-typedef struct {
-    byte type;
-    leword len;
-    byte seg;
-    leword addr;
-    byte val[1];
-} rec6_t;
-
-#define CONTENT_ADDR    4
+// CONTENT (6)
+#define CONTENT_SEG 3
+#define CONTENT_OFF 4
+#define CONTENT_DATA   6
 
 typedef struct {
     offset_t infoOffset;
@@ -874,9 +833,7 @@ typedef struct {
     offset_t info;
     word stmt;
 } err_t;
-
-#pragma pack(pop)
-
+char *cmdTextP;
 
 // array sizes
 #define EXPRSTACKSIZE 100
@@ -887,43 +844,14 @@ extern offset_t MEMORY;
 
 /* File(main.plm) */
 /* main.plm,plm0a.plm,plm1a.plm.plm6b.plm */
-void LexFatalError(byte err);
-void FatalError_ov1(byte err);
-void FatalError_ov46(byte err);
+
 
 // the longjmp buffer
 extern jmp_buf exception;
 
-word Start0();
-word Start1();
-word Start2();
-word Start3();
-word Start4();
-word Start5();
-word Start6();
-
-/* plmA.plm */
-extern char *cmdTextP;
-void SignOnAndGetSourceName();
-
-/* plmb.plm */
-void InitKeywordsAndBuiltins();
-
 /* plmc.plm */
 extern byte verNo[];
 
-/* plmd.plm */
-void SetMarginAndTabW(byte startCol, byte width);
-void SetPageNo(word v);
-void SetTitle(char *str, byte len);
-
-/* plmd.plm,lstsp4.plm,lstsp5.plm,lstsp6.plm */
-void SetMarkerInfo(byte markerCol, byte marker, byte textCol);
-
-/* plmd.plm,plm0h.plm */
-void SetDate(char *str, byte len);
-void SetPageLen(word len);
-void SetPageWidth(word width);
 
 /* plm0A.plm */
 extern byte cClass[];
@@ -948,7 +876,7 @@ extern byte lineBuf[];
 extern bool lineInfoToWrite;
 extern word macroDepth;
 typedef struct  {
-    char *text;
+    byte *text;
     index_t macroIdx;
 } macro_t;
 
@@ -966,28 +894,7 @@ extern byte tokenStr[];
 extern byte tokenType;
 extern word tokenVal;
 extern bool yyAgain;
-void PopBlock();
-void PushBlock(word idAndLevel);
-void RewindTx1();
-void Wr1SyntaxError(byte err);
-void Wr1TokenError(byte err, offset_t symP);
-void Wr1TokenErrorAt(byte err);
-void Wr1Buf(void const *buf, word len);
-void Wr1Byte(byte v);
-void Wr1LineInfo();
-void Wr1InfoOffset(offset_t addr);
-void Wr1LexToken();
-void Wr1Word(word v);
-void Wr1XrefDef();
-void Wr1XrefUse();
 
-int32_t Rd1Byte();
-int32_t Rd1Word();
-
-void Wr2Byte(byte v);
-void Wr2Word(word v);
-int32_t Rd2Byte();
-int32_t Rd2Word();
 
 /* plm0A.plm,main1.plm */
 extern word procIdx;
@@ -997,26 +904,15 @@ extern linfo_t linfo;
 extern byte tx1Buf[];
 
 /* plm0b.plm, plm0c.asm*/
-void ParseControlLine(byte *pch);
-void GNxtCh();
+
 extern bool trunc;
 
 /* plm0e.plm */
-void ParseDeclareElementList();
-void ParseExpresion(byte endTok);
-void ProcProcStmt();
-void SetYyAgain();
-void Yylex();
-bool YylexMatch(byte token);
-bool YylexNotMatch(byte token);
+
 
 /* plm0f.plm */
 extern word curState;
 extern bool endSeen;
-void ParseProgram();
-
-/* plm0g.plm */
-pstr_t const *CreateLit(pstr_t const *pstr);
 
 /* File(plm0h.plm) */
 
@@ -1054,91 +950,7 @@ extern byte st1Stack[];
 extern byte st2Stack[];
 extern word st3Stack[];
 extern word stSP;
-void MapLToT2();
-void OptWrXrf();
-void RdTx1Item();
-void SetRegetTx1Item();
-word Sub_42EF(word arg1w);
-void WrTx2Error(byte arg1b);
-void WrTx2ExtError(byte arg1b);
-void Wr2OptLineInfo();
-word WrTx2Item(byte arg1b);
-word WrTx2Item1Arg(byte arg1b, word arg2w);
-word WrTx2Item2Arg(byte arg1b, word arg2w, word arg3w);
-word WrTx2Item3Arg(byte arg1b, word arg2w, word arg3w, word arg4w);
 
-/* plm1b.pl3 */
-void ExpectRParen(byte arg1b);
-void GetTx1Item();
-bool MatchTx2AuxFlag(byte arg1b);
-bool MatchTx1Item(byte arg1b);
-bool NotMatchTx1Item(byte arg1b);
-void ResyncRParen();
-void RecoverRPOrEndExpr();
-void ChkIdentifier();
-void ChkStructureMember();
-void GetVariable();
-void WrAtBuf(pointer buf, word cnt);
-void WrAtByte(byte arg1b);
-void WrAtWord(word arg1w);
-
-/* plm1c.plm */
-void AcceptOpAndArgs();
-void ExprMakeNode(byte arg1b, byte arg2b);
-void ExprPop();
-void ExprPush2(byte arg1b, word arg2w);
-byte GetCallArgCnt();
-void RestrictedExpression();
-void MkIndexNode();
-void MoveExpr2Stmt();
-word InitialValueList(offset_t arg1w);
-void ParsePortNum(byte arg1b);
-void PopOperatorStack();
-void PopParseStack();
-void PushOperator(byte arg1b);
-void PushParseByte(byte arg1b);
-void PushParseWord(word arg1w);
-void ResetStacks();
-void FixupBased(offset_t arg1w);
-void Sub_4D2C();
-void ChkTypedProcedure();
-void Sub_4DCF(byte arg1b);
-void Sub_50D5();
-byte Sub_512E(word arg1w);
-void ConstantList();
-
-/* plm1d.plm */
-void ExpressionStateMachine();
-void ExprParse0();
-void ExprParse1();
-void ExprParse10();
-void ExprParse11();
-void ExprParse12();
-void ExprParse13();
-void ExprParse14();
-void ExprParse15();
-void ExprParse16();
-void ExprParse17();
-void ExprParse18();
-void ExprParse19();
-void ExprParse2();
-void ExprParse20();
-void ExprParse3();
-void ExprParse4();
-void ExprParse5();
-void ExprParse6();
-void ExprParse7();
-void ExprParse8();
-void ExprParse9();
-
-/* plm1e.plm */
-byte Sub_5945();
-byte Sub_59D4();
-void Expression();
-void ParseLexItems();
-
-/* plm1f.plm */
-void Sub_6EE0();
 
 /* plm overlay 2 */
 /* main2.plm */
@@ -1246,93 +1058,9 @@ extern byte unused[];
 extern word w48DF[];
 extern word w493D[];
 extern word w502A[];
-void EmitTopItem();
-void EncodeFragData(byte arg1b);
-bool EnterBlk();
-bool ExitBlk();
-void FillTx2Q();
-void GetTx2Item();
-void PutTx1Byte(byte arg1b);
-void PutTx1Word(word arg1w);
-byte Sub_5679(byte arg1b);
-void Sub_56A0(byte arg1b, byte arg2b);
-byte Sub_5748(byte arg1b);
-word Sub_575E(offset_t arg1w);
-void Sub_5795(word arg1w);
-void Sub_58F5(byte arg1b);
-void Sub_597E();
-void Sub_5B96(byte arg1b, byte arg2b);
-void Sub_5C1D(byte arg1b);
-void Sub_5C97(byte arg1b);
-void Sub_5D27(byte arg1b);
-void Sub_5D6B(byte arg1b);
-void Sub_5E66(byte arg1b);
-void Sub_5EE8();
-void Sub_5F4B(word arg1w, word arg2w, byte arg3b, byte arg4b);
-void Sub_5FBF(byte arg1b, wpointer arg2wP, wpointer arg3wP);
-void Sub_611A();
-void Sub_61A9(byte arg1b);
-void Sub_61E0(byte arg1b);
-void Sub_636A(byte arg1b);
-void Sub_63AC(byte arg1b);
-void Sub_6416(byte arg1b);
-void Sub_652B();
-void Sub_67A9();
-void Tx2SyntaxError(byte arg1b);
-void WrFragData();
 
-/* plm2b.pl3 */
-void Sub_689E();
 
-/* plm2c.plm */
-void Sub_6BD6();
 
-/* plm2d.plm */
-void Sub_717B();
-void Sub_7550();
-
-/* plm2e.plm */
-void Sub_7A85();
-void Sub_7DA9();
-void Sub_84ED();
-
-/* plm2f.plm */
-void Sub_87CB();
-void Sub_9457();
-
-/* plm2g.pl3 */
-void FindParamInfo(byte arg1b);
-void Inxh();
-void MovDem();
-void OpB(byte arg1b);
-void OpD(byte arg1b);
-void Sub_9514();
-void Sub_9560();
-void Sub_9624(word arg1w);
-void Sub_9646(word arg1w);
-void Sub_9706();
-void Sub_975F();
-void Sub_978E();
-void Sub_981C();
-void Sub_994D();
-
-/* plm2h.plm */
-void Sub_9BB0();
-void Sub_9D06();
-void Sub_9DD7();
-void Sub_9EF8();
-void Sub_9F14();
-void Sub_9F2F();
-void Sub_9F9F();
-void Sub_A072(byte arg1b);
-void Sub_A0C4();
-void Sub_A10A();
-void Sub_A153();
-
-/* plm overlay 3 */
-/* File(main3.plm) no externals */
-word putWord(pointer buf, word val);
-word getWord(pointer buf);
 
 /* plm3a.plm */
 extern byte b42A8[];
@@ -1349,13 +1077,7 @@ extern byte rec2[];
 extern byte rec6[];
 extern byte rec6_4[];
 extern word w7197;
-void FlushRecGrp();
-void RecAddName(pointer arg1w, byte arg2b, byte arg3b, char const *arg4bP);
-void ExtendChk(pointer arg1wP, word arg2w, byte arg3b);
-word Sub_4938();
-word Sub_4984();
-void Sub_49BC(word arg1w, word arg2w, word arg3w);
-void Sub_49F9();
+
 
 /* plm3a.plm,pdata4.plm */
 extern byte objBuf[];
@@ -1367,35 +1089,8 @@ extern byte rec24_3[];
 extern byte rec8[];
 extern byte rec4[];
 //
-/* plm3b.plm,wrec.plm */
-void RecAddByte(pointer recP, byte arg2b, byte arg3b);
-void RecAddWord(pointer arg1w, byte arg2b, word arg3w);
-void WriteRec(pointer recP, byte arg2b);
 
-/* File(lstsp4.plm) */
-/* lstsp4.plm,lstsp6.plm */
-void SetStartAndTabW(byte arg1b, byte arg2b);
 
-/* lstsp4.plm,lstsp5.plm,lstsp6.plm */
-void NewLineLst();
-void EjectNext();
-void SetSkipLst(byte arg1b);
-void TabLst(byte arg1b);
-void lstStr(char const *str);
-void lstStrCh(char const *str, int endch);
-void lprintf(char const *fmt, ...);
-void lstPstr(pstr_t *ps);
-pstr_t const *hexfmt(byte digits, word val); // note returned value is volatile
-/* plm overlay 4 */
-/* File(main4.plm) */
-/* main4.plm,main6.plm */
-
-/* File(page.plm) */
-/* page.plm,page1.plm */
-void NewPgl();
-
-/* page.plm,page2.plm */
-void NlLead();
 
 /* pdata4.plm */
 extern byte b9692;
@@ -1417,16 +1112,18 @@ extern byte dstRec;
 extern byte helperId;
 // extern byte helperModId; now local var
 extern char helperStr[]; // pstr
-extern char line[];      // pstr
+typedef struct {
+    byte len;
+    char str[81];
+} line_t;
+extern line_t line;
 extern char locLabStr[];
 extern err_t errData;
 extern uint16_t lstLineLen;
 extern char lstLine[];
 extern byte opByteCnt;
 extern byte opBytes[];
-// rec4_t rec4;
-// rec6_t rec6_4;
-// rec8_t rec8;
+
 extern word stmtNo;
 extern pstr_t *sValAry[];
 extern word lineNo;
@@ -1466,51 +1163,15 @@ extern byte regPairNo[];
 extern word w47C1[];
 extern word w4919[];
 extern word w506F[];
-void Sub_54BA();
 
-/* plm4b.plm */
-void AddWrdDisp(pstr_t *pstr, word arg2w);
-void EmitLabel(char const *label);
-void EmitStatementNo();
-void FlushRecs();
-void EmitLinePrefix();
-void ListCodeBytes();
-
-/* plm4b.plm,plm6b.plm */
-void EmitError();
-
-void GetSourceLine();
-
-/* plm4c.plm */
-void Sub_5FE7(word arg1w, byte arg2b);
-void Sub_668B();
-
-/* File(wrec.plm) */
-
-/* File(lstsp5.plm) */
 
 /* main5.plm */
-extern byte b3F0B;
 extern byte b66D8;
 extern offset_t dictionaryP;
 extern word dictCnt;
 extern offset_t dictTopP;
 extern byte maxSymLen;
 extern offset_t xrefIdx;
-// dictionary      AS..dictionaryP
-// xrefItem        AS..xrefItemP
-
-/* File(page1.plm) */
-
-/* File(page2.plm) */
-
-/* plm5a.plm */
-
-/* File(lstsp6.plm) */
-
-/* File(main6.plm) */
-
-/* File(page.plm) */
 
 /* pdata6.plm */
 extern bool b7AD9;
@@ -1518,12 +1179,6 @@ extern bool b7AE4;
 extern word lineCnt;
 extern word blkCnt;
 extern word stmtNo;
-
-/* plm6a.plm */
-void Sub_42E7();
-void MiscControl(vfile_t *txFile);
-/* plm6b.plm */
-void EmitLinePrefix();
 
 /* files in common dir */
 /* friendly names for the controls */
@@ -1536,49 +1191,15 @@ void EmitLinePrefix();
 #define OPTIMIZE controls[6]
 #define IXREF    controls[7]
 
-// cursym          "SYM_ST"..curSymbolP
-// info            "INFO_ST"..curInfoP
-// litinfo         "LIT_ST"..curInfoP
-// cmd             "CMD_ST"..cmdLineP
-// inChr           B..inChrP
-//curScope        A..curScopeP
-
-/* adninf.plm */
-index_t AdvNxtInfo(index_t idx);
-
-
-
-/* Chain.plm */
-void Chain(pointer fNam);
-
-/* ciflag.plm */
-void ClrInfoFlag(byte flag);
-
-/* CloseF.plm */
-void CloseF(file_t *fileP);
-
-/* clrflg.plm */
-void ClrFlag(pointer base, byte flag);
-
-/* cpyflg.plm */
-void CpyFlags(pointer base);
-
-/* cpytil.plm */
-void CpyTill(char const *srcP, char *dstP, word cnt, byte endch);
-
-/* creati.plm */
-void CreateInfo(word scope, byte type);
 
 /* data.plm */
 extern vfile_t atf;
-extern byte b3CF2;
 extern byte wrapMarkerCol;
 extern byte wrapMarker;
 extern byte wrapTextCol;
 extern byte skipCnt;
 extern word blockDepth;
 extern byte col;
-extern file_t conFile;
 extern byte controls[];
 extern word csegSize;
 extern index_t infoIdx; // individually cast
@@ -1589,24 +1210,21 @@ extern byte fatalErrorCode;
 extern bool hasErrors;
 extern index_t hashTab[];
 extern bool haveModuleLevelUnit;
-extern offset_t helpers[];
+extern word helpers[];
 extern word intVecLoc;
 extern byte intVecNum;
 extern file_t ixiFile;
 extern char *ixiFileName;
 
-extern word lChCnt;
 extern word LEFTMARGIN;
 extern word linesRead;
 extern byte linLft;
 extern word localLabelCnt;
-extern offset_t *localLabels;
+extern word *localLabels;
 extern file_t lstFile;
 extern char *lstFileName;
 extern bool isList;
 extern byte margin;
-extern word objBlk;
-extern word objByte;
 extern file_t objFile;
 extern char *objFileName;
 extern bool moreCmdLine;
@@ -1618,7 +1236,6 @@ extern word procCnt;
 extern word procInfo[];
 extern word programErrCnt;
 extern byte PWIDTH;
-extern word REBOOTVECTOR;
 extern file_t srcFil;
 extern word srcFileIdx;
 extern file_t srcFileTable[]; /* 6 * (8 words fNam, blkNum, bytNum) */
@@ -1636,219 +1253,444 @@ extern char version[];
 extern byte *procIds;
 extern offset_t w3822;
 extern word cmdLineCaptured;
-extern offset_t ov1Boundary;
-extern offset_t ov0Boundary;
 extern vfile_t xrff;
 
-/* Delete.plm */
-int Delete(char const *pathP);
-
-/* endcom.plm */
-void EndCompile();
-
-/* error.plm */
-void Error(word ErrorNum);
-
-/* Fatal.plm */
-void Fatal(char const *str, byte len);
-
-/* FatlIO.plm */
-void FatlIO(file_t *fileP, word errNum);
-
-/* fi.plm */
-void FindInfo();
-
-/* fill.asm */
-// void Fill(word cnt, pointer dst, byte val); // use memset
-// void Fillx(address cnt,address dst,address val);
-
-/* findmi.plm */
-void FindMemberInfo();
-
-/* fiscop.plm */
-void FindScopedInfo(word scp);
-
-/* gibin.plm */
-byte GetBuiltinId();
-
-/* gibseo.plm */
-offset_t GetBaseOffset();
-
-/* gibsev.plm */
-word GetBaseVal();
-
-/* gicond.plm */
-byte GetCondFlag();
-
-/* gidim.plm */
-word GetDimension();
-
-/* gidim2.plm */
-word GetDimension2();
-
-/* gidtyp.plm */
-byte GetDataType();
-
-/* gieid.plm */
-byte GetExternId();
-
-/* giintn.plm */
-byte GetIntrNo();
-
-/* gilit.plm */
-pstr_t const *GetLit();
-
-/* gilnko.plm */
-offset_t GetLinkOffset();
-
-/* gilnkv.plm */
-word GetLinkVal();
-
-/* giparo.plm */
-word GetParentOffset();
-
-/* giparv.plm */
-word GetParentVal();
-
-/* gipcnt.plm */
-byte GetParamCnt();
-
-/* gipid.plm */
-byte GetProcId();
-
-/* giscop.plm */
-word GetScope();
-
-/* gisym.plm */
-offset_t GetSymbol();
-
-/* gitype.plm */
-byte GetType();
-
-/* InitF.plm */
-void InitF(file_t *fileP, char const *sNam, char const *fNam);
-
-/* Lookup.plm */
-void Lookup(pstr_t *pstr);
-
-/* lstinf.plm */
-void LstModuleInfo();
-
-
-/* OpenF.plm */
-void OpenF(file_t *fileP, char *access);
-
-/* prints.plm */
-void PrintStr(char const *str, byte len);
-
-/* PutLst.asm */
-void lstc(byte ch);
-
-/* Rename.plm */
-void Rename(char const *oldP, char const *newP, wpointer statusP);
-
-/* setflg.plm */
-void SetFlag(pointer base, byte flag);
-
-/* sibin.plm */
-void SetBuiltinId(byte id);
-
-/* sibseo.plm */
-void SetBaseOffset(offset_t baseP);
-
-/* sibsev.plm */
-void SetBaseVal(word val);
-
-/* sicond.plm */
-void SetCondFlag(byte flag);
-
-/* sidim.plm */
-void SetDimension(word dim);
-
-/* sidtyp.plm */
-void SetDataType(byte dtype);
-
-/* sieid.plm */
-void SetExternId(byte id);
-
-/* siflag.plm */
-void SetInfoFlag(byte flag);
-
-/* siintn.plm */
-void SetIntrNo(byte intNo);
-
-/* silit.plm */
-void SetLit(pstr_t const *litaddr);
-
-/* silnko.plm */
-void SetLinkOffset(offset_t link);
-
-/* silnkv.plm */
-void SetLinkVal(word val);
-
-/* siparo.plm */
-void SetParentOffset(word parent);
-
-/* sipcnt.plm */
-void SetParamCnt(byte cnt);
-
-/* sipid.plm */
-void SetProcId(byte id);
-
-/* siscop.plm */
-void SetScope(word scope);
-
-/* sisym.plm */
-void SetSymbol(offset_t symbol);
-
-/* sitype.plm */
-void SetType(byte type);
-
-/* tiflag.plm */
-byte TestInfoFlag(byte flag);
-
-/* tstflg.plm */
-bool TestFlag(pointer base, byte flag);
-
-/* wrclst.asm */
-void WrLstC(char ch);
-
-/* zerflg.plm */
-void ClrFlags(pointer base);
-
-void RdAtHdr();
-void RdAtData();
-int32_t RdAtByte();
-int32_t RdAtWord();
-
-pstr_t *pstrcpy(pstr_t *dst, pstr_t const *src);
-pstr_t *pstrcat(pstr_t *dst, pstr_t const *src);
-
-// void ReloadSymbols();
-
-index_t newSymbol(pstr_t const *ps);
-pstr_t const *pstrdup(pstr_t const *ps);
-bool pstrequ(pstr_t const *ps, pstr_t const *pt);
 
 extern index_t symCnt;
 extern sym_t *symtab;
 
 extern index_t infoCnt;
-extern ninfo_t *infotab;
+extern info_t *infotab;
 
-index_t newInfo(byte type);
 
 extern index_t dictCnt;
 extern index_t *dicttab;
 
-index_t newDict(index_t idx);
 
 extern index_t caseCnt;
 extern index_t *casetab;
 
-index_t newCase(word val);
+
 
 extern index_t xrefCnt;
 extern xref_t *xreftab;
 
+
+extern char const *includes[];
+extern uint16_t includeCnt;
+
+
+/* accessors.c */
+byte GetBuiltinId(void);
+void SetBuiltinId(byte id);
+offset_t GetBaseOffset(void);
+void SetBaseOffset(offset_t baseP);
+word GetBaseVal(void);
+void SetBaseVal(word val);
+byte GetCondFlag(void);
+void SetCondFlag(byte flag);
+word GetDimension(void);
+word GetDimension2(void);
+void SetDimension(word dim);
+byte GetDataType(void);
+void SetDataType(byte dtype);
+byte GetExternId(void);
+void SetExternId(byte id);
+void SetInfoFlag(byte flag);
+byte GetIntrNo(void);
+void SetIntrNo(byte intNo);
+pstr_t const *GetLit(void);
+void SetLit(pstr_t const *litAddr);
+offset_t GetLinkOffset(void);
+void SetLinkOffset(offset_t link);
+word GetLinkVal(void);
+void SetLinkVal(word val);
+offset_t GetParentOffset(void);
+void SetParentOffset(offset_t parent);
+word GetParentVal(void);
+byte GetParamCnt(void);
+void SetParamCnt(byte cnt);
+byte GetProcId(void);
+void SetProcId(byte id);
+word GetScope(void);
+void SetScope(word scope);
+index_t GetSymbol(void);
+void SetSymbol(index_t symbol);
+byte GetType(void);
+void SetType(byte type);
+void ClrFlag(pointer base, byte flag);
+void ClrFlags(pointer base);
+void CpyFlags(pointer base);
+void SetFlag(pointer base, byte flag);
+bool TestFlag(pointer base, byte flag);
+byte TestInfoFlag(byte flag);
+
+/* creati.c */
+void CreateInfo(word scope, byte type);
+
+/* endcom.c */
+void EndCompile(void);
+
+/* fatal.c */
+void Fatal(char const *str, byte len);
+
+/* fi.c */
+void FindInfo(void);
+index_t AdvNxtInfo(index_t idx);
+void FindMemberInfo(void);
+void FindScopedInfo(word scope);
+
+/* io.c */
+void Error(word ErrorNum);
+
+/* lookup.c */
+byte Hash(pstr_t *pstr);
+void Lookup(pstr_t *pstr);
+
+/* lstinf.c */
+void LstModuleInfo(void);
+
+/* lstsup.c */
+void NewLineLst(void);
+void TabLst(byte tabTo);
+void DotLst(byte tabTo);
+void EjectNext(void);
+void SetMarkerInfo(byte markerCol, byte marker, byte textCol);
+void SetStartAndTabW(byte startCol, byte width);
+void SetSkipLst(byte cnt);
+void lstStr(char const *str);
+void lstStrCh(char const *str, int endch);
+void lprintf(char const *fmt, ...);
+void lstPstr(pstr_t *ps);
+pstr_t const *hexfmt(byte digits, word val);
+
+/* main.c */
+void Start(void);
+void usage(void);
+
+/* main0.c */
+void unwindInclude(void);
+word Start0(void);
+
+/* main1.c */
+word Start1(void);
+
+/* main2.c */
+word Start2(void);
+
+/* main3.c */
+word putWord(pointer buf, word val);
+word getWord(pointer buf);
+word Start3(void);
+
+/* main4.c */
+word Start4(void);
+
+/* main5.c */
+void warn(char const *str);
+void LoadDictionary(void);
+int CmpSym(void const *a, void const *b);
+void SortDictionary(void);
+void PrepXref(void);
+void PrintRefs(void);
+void CreateIxrefFile(void);
+void Sub_4EC5(void);
+word Start5(void);
+
+/* main6.c */
+word Start6(void);
+
+/* page.c */
+void NewPgl(void);
+void NlLead(void);
+
+/* plm0a.c */
+void Wr1LineInfo(void);
+void Wr1Buf(void const *buf, word len);
+void Wr1Byte(uint8_t v);
+void Wr1Word(uint16_t v);
+void Rd1Buf(void *buf, uint16_t len);
+uint8_t Rd1Byte(void);
+uint16_t Rd1Word(void);
+void Wr1InfoOffset(offset_t addr);
+void Wr1SyntaxError(byte err);
+void Wr1TokenErrorAt(byte err);
+void Wr1TokenError(byte err, offset_t symP);
+void LexFatalError(byte err);
+void PushBlock(word idAndLevel);
+void PopBlock(void);
+void Wr1LexToken(void);
+void Wr1XrefUse(void);
+void Wr1XrefDef(void);
+
+/* plm0b.c */
+void ParseControlLine(char *pch);
+void GNxtCh(void);
+
+/* plm0e.c */
+void Yylex(void);
+void SetYyAgain(void);
+bool YylexMatch(byte token);
+bool YylexNotMatch(byte token);
+void ParseExpresion(byte endTok);
+void ParseDeclareNames(void);
+void ParseDeclareElementList(void);
+void ProcProcStmt(void);
+
+/* plm0f.c */
+void ParseProgram(void);
+
+/* plm0g.c */
+pstr_t const *CreateLit(pstr_t const *pstr);
+
+/* plm1a.c */
+void FatalError_ov1(byte err);
+void OptWrXrf(void);
+void Wr2Buf(void *buf, word len);
+void Wr2Byte(uint8_t v);
+void Wr2Word(uint16_t v);
+void Rd2Buf(void *buf, uint16_t len);
+uint8_t Rd2Byte(void);
+uint16_t Rd2Word(void);
+void Wr2LineInfo(void);
+void Wr2Item(uint8_t type, void *buf, uint16_t len);
+word WrTx2Item(byte type);
+word WrTx2Item1Arg(byte type, word arg2w);
+word WrTx2Item2Arg(byte type, word arg2w, word arg3w);
+word WrTx2Item3Arg(byte type, word arg2w, word arg3w, word arg4w);
+word Sub_42EF(word arg1w);
+void MapLToT2(void);
+void WrTx2Error(byte arg1b);
+void WrTx2ExtError(byte arg1b);
+void SetRegetTx1Item(void);
+void RdTx1Item(void);
+
+/* plm1b.c */
+void GetTx1Item(void);
+bool MatchTx1Item(byte arg1b);
+bool NotMatchTx1Item(byte arg1b);
+bool MatchTx2AuxFlag(byte arg1b);
+void RecoverRPOrEndExpr(void);
+void ResyncRParen(void);
+void ExpectRParen(byte arg1b);
+void ChkIdentifier(void);
+void ChkStructureMember(void);
+void GetVariable(void);
+void WrAtBuf(void const *buf, word cnt);
+void WrAtByte(byte arg1b);
+void WrAtWord(word arg1w);
+
+/* plm1c.c */
+void RestrictedExpression(void);
+word InitialValueList(offset_t infoOffset);
+void ResetStacks(void);
+void PushParseWord(word arg1w);
+void PopParseStack(void);
+void PushParseByte(byte arg1b);
+void ExprPop(void);
+void ExprPush2(byte icode, word val);
+void MoveExpr2Stmt(void);
+void PushOperator(byte arg1b);
+void PopOperatorStack(void);
+void ExprMakeNode(byte icode, byte argCnt);
+void AcceptOpAndArgs(void);
+void FixupBased(offset_t arg1w);
+void Sub_4D2C(void);
+void ChkTypedProcedure(void);
+byte GetCallArgCnt(void);
+void Sub_4DCF(byte arg1b);
+void MkIndexNode(void);
+void ParsePortNum(byte arg1b);
+void Sub_50D5(void);
+byte Sub_512E(word arg1w);
+void ConstantList(void);
+
+/* plm1d.c */
+
+void ExpressionStateMachine(void);
+
+/* plm1e.c */
+byte Sub_5945(void);
+byte Sub_59D4(void);
+void Expression(void);
+word SerialiseParse(word arg1w);
+void Initialization(void);
+void ParseLexItems(void);
+
+/* plm1f.c */
+int32_t RdAtByte(void);
+int32_t RdAtWord(void);
+void RdAtHdr(void);
+void RdAtData(void);
+void Sub_6EE0(void);
+
+/* plm2a.c */
+void WrFragData(void);
+void PutTx1Byte(byte arg1b);
+void PutTx1Word(word arg1w);
+void EncodeFragData(byte arg1b);
+void EmitTopItem(void);
+void Tx2SyntaxError(byte arg1b);
+byte Sub_5679(byte arg1b);
+void Sub_56A0(byte arg1b, byte arg2b);
+byte Sub_5748(byte arg1b);
+word Sub_575E(offset_t arg1w);
+void Sub_5795(word arg1w);
+bool EnterBlk(void);
+bool ExitBlk(void);
+void Sub_58F5(byte arg1b);
+void Sub_597E(void);
+void Sub_5B96(byte arg1b, byte arg2b);
+void Sub_5C1D(byte arg1b);
+void Sub_5C97(byte arg1b);
+void Sub_5D27(byte arg1b);
+void Sub_5D6B(byte arg1b);
+void Sub_5E66(byte arg1b);
+void Sub_5EE8(void);
+void Sub_5F4B(word arg1w, word arg2w, byte arg3b, byte arg4b);
+void Sub_5FBF(byte arg1b, wpointer arg2wP, wpointer arg3wP);
+void Sub_611A(void);
+void Sub_61A9(byte arg1b);
+void Sub_61E0(byte arg1b);
+void Sub_636A(byte arg1b);
+void Sub_63AC(byte arg1b);
+void Sub_6416(byte arg1b);
+void GetTx2Item(void);
+void Sub_652B(void);
+void FillTx2Q(void);
+void Sub_67A9(void);
+
+/* plm2b.c */
+void Sub_689E(void);
+
+/* plm2c.c */
+void Sub_7055(void);
+void Sub_6BD6(void);
+
+/* plm2d.c */
+void Sub_717B(void);
+void Sub_7550(void);
+
+/* plm2e.c */
+void Sub_7A85(void);
+void Sub_7DA9(void);
+void Sub_84ED(void);
+
+/* plm2f.c */
+void Sub_87CB(void);
+void Sub_9457(void);
+
+/* plm2g.c */
+void FindParamInfo(byte arg1b);
+void Sub_9514(void);
+void Sub_9560(void);
+void Sub_9624(word arg1w);
+void Sub_9646(word arg1w);
+void Inxh(void);
+void OpB(byte arg1b);
+void OpD(byte arg1b);
+void Sub_9706(void);
+void MovDem(void);
+void Sub_975F(void);
+void Sub_978E(void);
+void Sub_981C(void);
+void Sub_994D(void);
+
+/* plm2h.c */
+void Sub_9BB0(void);
+void Sub_9D06(void);
+void Sub_9DD7(void);
+void Sub_9EF8(void);
+void Sub_9F14(void);
+void Sub_9F2F(void);
+void Sub_9F9F(void);
+void Sub_A072(byte arg1b);
+void Sub_A0C4(void);
+void Sub_A10A(void);
+void Sub_A153(void);
+
+/* plm3a.c */
+void FlushRecGrp(void);
+void RecAddName(pointer recP, byte offset, byte len, char const *str);
+void ExtendChk(pointer arg1wP, word arg2w, byte arg3b);
+word Sub_4938(void);
+word Sub_4984(void);
+void Sub_49BC(word arg1w, word arg2w, word arg3w);
+void Sub_49F9(void);
+
+/* plm3b.c */
+void WriteRec(pointer rec, byte fixed);
+void RecAddByte(pointer rec, byte offset, byte val);
+void RecAddWord(pointer rec, byte offset, word val);
+
+/* plm4a.c */
+void Sub_54BA(void);
+
+/* plm4b.c */
+void FlushRecs(void);
+void AddWrdDisp(pstr_t *pstr, word arg2w);
+void EmitLinePrefix(void);
+void EmitStatementNo(void);
+void EmitLabel(char const *label);
+char const *FindErrStr(void);
+void EmitError(void);
+void FatalError_ov46(byte arg1b);
+void ListCodeBytes(void);
+void GetSourceLine(void);
+
+/* plm4c.c */
+pstr_t *pstrcpy(pstr_t *dst, pstr_t const *src);
+pstr_t *pstrcat(pstr_t *dst, pstr_t const *src);
+void Sub_5FE7(word arg1w, byte arg2b);
+void Sub_66F1(void);
+void Sub_6720(void);
+void Sub_668B(void);
+
+/* plm6a.c */
+void MiscControl(vfile_t *txFile);
+void Sub_42E7(void);
+
+/* plma.c */
+void SignOnAndGetSourceName(void);
+
+/* plmb.c */
+void InitKeywordsAndBuiltins(void);
+void SetDate(char *str, byte len);
+void SetPageLen(word len);
+void SetPageNo(word v);
+void SetMarginAndTabW(byte startCol, byte width);
+void SetTitle(char *str, byte len);
+void SetPageWidth(word width);
+
+/* plmfile.c */
+void CloseF(file_t *fileP);
+void OpenF(file_t *fileP, char const *sNam, char const *fNam, char *access);
+
+/* prints.c */
+void PrintStr(char const *str, byte len);
+
+/* putlst.c */
+void lstc(byte ch);
+
+/* symtab.c */
+pstr_t const *pstrdup(pstr_t const *ps);
+bool pstrequ(pstr_t const *ps, pstr_t const *pt);
+index_t newSymbol(pstr_t const *ps);
+index_t newInfo(byte type);
+index_t newDict(index_t idx);
+index_t newCase(word val);
 index_t newXref(index_t scope, word line);
+
+/* vfile.c */
+void vfReset(vfile_t *vf);
+void vfWbuf(vfile_t *vf, void const *buf, uint32_t len);
+void vfWbyte(vfile_t *vf, uint8_t val);
+void vfWword(vfile_t *vf, uint16_t val);
+void vfRewind(vfile_t *vf);
+uint32_t vfRbuf(vfile_t *vf, void *buf, uint16_t len);
+int32_t vfRbyte(vfile_t *vf);
+int32_t vfRword(vfile_t *vf);
+void dump(vfile_t *vf, char const *fname);
+
+/* wrclst.c */
+void WrLstC(char ch);

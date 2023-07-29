@@ -9,48 +9,50 @@
  ****************************************************************************/
 
 #include "plm.h"
-//static byte copyright[] = "[C] 1976, 1977, 1982 INTEL CORP";
+// static byte copyright[] = "[C] 1976, 1977, 1982 INTEL CORP";
 
 jmp_buf exception;
 
-static void FinishLexPass()
-{
+void unwindInclude() {
+    if (srcFileIdx) {
+        while (srcFileIdx)
+            CloseF(&srcFileTable[srcFileIdx--]);
+        srcFil = srcFileTable[0];
+    }
+    rewind(srcFil.fp);
+}
+
+static void FinishLexPass() {
     if (afterEOF)
-        Wr1SyntaxError(ERR87);	/* MISSING 'end' , end-OF-FILE ENCOUNTERED */
+        Wr1SyntaxError(ERR87); /* MISSING 'end' , end-OF-FILE ENCOUNTERED */
     Wr1LineInfo();
     Wr1Byte(L_EOF);
     vfRewind(&utf1);
-    CloseF(&srcFil);
+    unwindInclude();
 } /* FinishLexPass() */
 
-
-static void ParseCommandLine()
-{
+static void ParseCommandLine() {
     if (moreCmdLine)
         ParseControlLine(cmdTextP);   // ParseControlLine will move to first char
-    moreCmdLine = false;       // 0 if no more cmd line
-    inChrP = " \n"; // GNxtCh will see \n and get a non blank line
-    blockDepth = 1;
+    moreCmdLine   = false;            // 0 if no more cmd line
+    inChrP        = (uint8_t *)" \n"; // GNxtCh will see \n and get a non blank line
+    blockDepth    = 1;
     procChains[1] = 0;
 
 } /* ParseCommandLine() */
 
-static void LexPass()
-{
+static void LexPass() {
     ParseCommandLine();
-    InitF(&srcFil, "SOURCE", srcFileTable[0].fNam);
-    OpenF(&srcFil, "rt");
+    OpenF(&srcFil, "SOURCE", srcFileTable[0].fNam, "rt");
     GNxtCh(); // get the first char
     ParseProgram();
 } /* LexPass() */
 
-
-word Start0()
-{
+word Start0() {
     if (setjmp(exception) == 0) {
-        state = 20;	/* 9B46 */
+        state = 20; /* 9B46 */
         LexPass();
     }
-    FinishLexPass();		/* exception goes to here */
-    return 1; // Chain(overlay[1]);
+    FinishLexPass(); /* exception goes to here */
+    return 1;        // Chain(overlay[1]);
 }

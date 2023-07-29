@@ -35,8 +35,8 @@ void GetTx1Item()
             vfWword(&xrff, tx1Item.dataw[1]);          
         } else if (tx1Item.type == L_LINEINFO) {
             if (tx2LinfoPending)                                // write any pending lInfo
-                Wr2OptLineInfo();
-            memcpy(&linfo.lineCnt, tx1Item.dataw, 3 * sizeof(word));
+               Wr2Item(linfo.type, &linfo.lineCnt, sizeof(struct _linfo));
+            memcpy(&linfo.lineCnt, tx1Item.dataw, sizeof(struct _linfo));
             linfo.type = T2_LINEINFO;                           // update T2 code
             tx2LinfoPending = true;                             // flag as pending
         } else if ((tx1Aux2 & 0x20) != 0)                       // pass through
@@ -151,7 +151,7 @@ void GetVariable()
     }
 }
 
-void WrAtBuf(pointer buf, word cnt)
+void WrAtBuf(void const *buf, word cnt)
 {
     vfWbuf(&atf, buf, cnt);
 }

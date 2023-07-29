@@ -198,66 +198,24 @@ byte lexHandlerIdxTable[] = {
 
 byte tx1ItemLengths[] = {
     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-       6, 2, 4, 0, 0, 0, 0, 0, 6, 2, 2, 2, 2, 2, 2, 2,
-       0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-       0, 2, 2, 2, 2, 2,255,0, 0, 0, 0, 0, 0, 0, 0, 0,
-       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-       0, 2, 2, 2
+    6, 2, 4, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2,   0, 0, 0, 0, 0, 2, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 255, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 2, 2, 2
 };
 
-byte icodeToTx2Map[] = { 0,
-                         T2_IDENTIFIER,
-                         T2_NUMBER,
-                         T2_PLUSSIGN,
-                         T2_MINUSSIGN,
-                         T2_PLUS,
-                         T2_MINUS,
-                         T2_STAR, // I_STRING ...
-                         T2_SLASH,
-                         T2_MOD,
-                         T2_AND,
-                         T2_OR,
-                         T2_XOR,
-                         T2_NOT,
-                         T2_LT,
-                         T2_LE,
-                         T2_EQ,
-                         T2_NE,
-                         T2_GE,
-                         T2_GT,
-                         T2_ADDRESSOF,
-                         T2_UNARYMINUS,
-                         T2_STACKPTR,
-                         T2_INPUT,
-                         T2_OUTPUT,
-                         T2_CALL,
-                         T2_CALLVAR,
-                         T2_BYTEINDEX,
-                         T2_WORDINDEX,
-                         T2_COLONEQUALS,
-                         T2_MEMBER,
-                         T2_BASED,
-                         T2_CARRY,
-                         T2_DEC,
-                         T2_DOUBLE,
-                         T2_HIGH,
-                         T2_LAST,
-                         T2_LENGTH,
-                         T2_LOW,
-                         T2_MOVE,
-                         T2_PARITY,
-                         T2_ROL,
-                         T2_ROR,
-                         T2_SCL,
-                         T2_SCR,
-                         T2_SHL,
-                         T2_SHR,
-                         T2_SIGN,
-                         T2_SIZE,
-                         T2_TIME,
-                         T2_ZERO };
+byte icodeToTx2Map[] = {
+    0,         T2_IDENTIFIER, T2_NUMBER,    T2_PLUSSIGN,   T2_MINUSSIGN, T2_PLUS,
+    T2_MINUS,  T2_STAR,       T2_SLASH,     T2_MOD,        T2_AND,       T2_OR,
+    T2_XOR,    T2_NOT,        T2_LT,        T2_LE,         T2_EQ,        T2_NE,
+    T2_GE,     T2_GT,         T2_ADDRESSOF, T2_UNARYMINUS, T2_STACKPTR,  T2_INPUT,
+    T2_OUTPUT, T2_CALL,       T2_CALLVAR,   T2_BYTEINDEX,  T2_WORDINDEX, T2_COLONEQUALS,
+    T2_MEMBER, T2_BASED,      T2_CARRY,     T2_DEC,        T2_DOUBLE,    T2_HIGH,
+    T2_LAST,   T2_LENGTH,     T2_LOW,       T2_MOVE,       T2_PARITY,    T2_ROL,
+    T2_ROR,    T2_SCL,        T2_SCR,       T2_SHL,        T2_SHR,       T2_SIGN,
+    T2_SIZE,   T2_TIME,       T2_ZERO
+};
 
-byte b4172[]         = {
+byte b4172[] = {
     /* I_STRING, I_IDENTIFIER, I_NUMBER, I_PLUSSIGN, I_MINUSSIGN, I_PLUS, I_MINUS, I_STAR */
     10, 0, 0, 60, 60, 60, 60, 70,
     /* I_SLASH, I_MOD, I_AND, I_OR, I_XOR, I_NOT, I_LT, I_LE */
@@ -305,82 +263,79 @@ void OptWrXrf() {
     vfWword(&xrff, curStmtNum);
 }
 
-void Wr2Byte(byte v) {
-    vfWbyte(&utf2, v);
-} /* WrByte() */
-
-void Wr2Word(word v) {
-    vfWword(&utf2, v);
-} /* WrWord() */
-
-int32_t Rd2Byte() {
-    return vfRbyte(&utf2);
+void Wr2Buf(void *buf, word len) {
+    vfWbuf(&utf2, buf, len);
 }
 
-int32_t Rd2Word() {
-    return vfRword(&utf2);
+void Wr2Byte(uint8_t v) {
+    Wr2Buf(&v, sizeof(v));
+} /* WrByte() */
+
+void Wr2Word(uint16_t v) {
+    Wr2Buf(&v, sizeof(v));
+}
+
+void Rd2Buf(void *buf, uint16_t len) {
+    vfRbuf(&utf2, buf, len);
+}
+
+uint8_t Rd2Byte() {
+    uint8_t v;
+    Rd2Buf(&v, sizeof(v));
+    return v;
+}
+
+uint16_t Rd2Word() {
+    uint16_t v;
+    Rd2Buf(&v, sizeof(v));
+    return v;
 }
 
 void Wr2LineInfo() {
     Wr2Byte(linfo.type);
-    Wr2Word(linfo.lineCnt);
-    Wr2Word(linfo.stmtCnt);
-    Wr2Word(linfo.blkCnt);
+    Wr2Buf(&linfo.lineCnt, sizeof(struct _linfo));
+
 } /* WriteLineInfo() */
 
-void Wr2OptLineInfo() {
+void Wr2Item(uint8_t type, void *buf, uint16_t len) {
     t2CntForStmt++;
-    if (!hasErrors || (T2_STMTCNT <= linfo.type && linfo.type <= T2_ERROR))
-        Wr2LineInfo();
+    if (!hasErrors || (T2_STMTCNT <= linfo.type && linfo.type <= T2_ERROR)) {
+        Wr2Byte(type);
+        if (len)
+            Wr2Buf(buf, len);
+    }
 }
 
 // modified to return true if write of buffer is needed
-static bool Sub_4251(uint8_t type) {
+static void Sub_4251(uint8_t type, void *buf, uint16_t len) {
     if (tx2LinfoPending && type == T2_STMTCNT) {
-        Wr2LineInfo();
-        t2CntForStmt++;
+        Wr2Item(linfo.type, &linfo.lineCnt, sizeof(struct _linfo));
         tx2LinfoPending = false;
         if (tx1Item.dataw[0] == 0)
-            return false;
+            return;
     }
-    return true;
+    Wr2Item(type, buf, len);
 }
 
-word WrTx2Item(byte arg1b) {
-    if (Sub_4251(arg1b)) {
-        Wr2Byte(arg1b);
-        t2CntForStmt++;
-    }
+word WrTx2Item(byte type) {
+    Sub_4251(type, NULL, 0);
     return t2CntForStmt;
 }
 
-word WrTx2Item1Arg(byte arg1b, word arg2w) {
-    if (Sub_4251(arg1b)) {
-        Wr2Byte(arg1b);
-        Wr2Word(arg2w);
-        t2CntForStmt++;
-    }
+word WrTx2Item1Arg(byte type, word arg2w) {
+    Sub_4251(type, &arg2w, sizeof(arg2w));
     return t2CntForStmt;
 }
 
-word WrTx2Item2Arg(byte arg1b, word arg2w, word arg3w) {
-    if (Sub_4251(arg1b)) {
-        Wr2Byte(arg1b);
-        Wr2Word(arg2w);
-        Wr2Word(arg3w);
-        t2CntForStmt++;
-    }
+word WrTx2Item2Arg(byte type, word arg2w, word arg3w) {
+    uint16_t args[] = { arg2w, arg3w };
+    Sub_4251(type, &args, sizeof(args));
     return t2CntForStmt;
 }
 
-word WrTx2Item3Arg(byte arg1b, word arg2w, word arg3w, word arg4w) {
-    if (Sub_4251(arg1b)) {
-        Wr2Byte(arg1b);
-        Wr2Word(arg2w);
-        Wr2Word(arg3w);
-        Wr2Word(arg4w);
-        t2CntForStmt++;
-    }
+word WrTx2Item3Arg(byte type, word arg2w, word arg3w, word arg4w) {
+    uint16_t args[] = { arg2w, arg3w, arg4w };
+    Sub_4251(type, &args, sizeof(args));
     return t2CntForStmt;
 }
 
@@ -389,13 +344,12 @@ word Sub_42EF(word arg1w) {
 }
 
 void MapLToT2() {
-    byte argCnt  = tx1ItemLengths[tx1Item.type] / 2;    // assumes String handled elsewhere
+    byte arglen  = tx1ItemLengths[tx1Item.type]; // assumes String handled elsewhere
     tx1Item.type = tx1ToTx2Map[tx1Item.type];
-    if (Sub_4251(tx1Item.type)) {
-        Wr2Byte(tx1Item.type);
-        for (int i = 0; i < argCnt; i++)
-            Wr2Word(tx1Item.dataw[i]);
-    }
+    if (arglen == 255)
+        Sub_4251(tx1Item.type, tx1Item.str, tx1Item.len);
+    else
+        Sub_4251(tx1Item.type, tx1Item.dataw, arglen);
 }
 
 void WrTx2Error(byte arg1b) {
@@ -421,9 +375,9 @@ void RdTx1Item() {
     tx1ItemLen   = tx1ItemLengths[tx1Item.type]; // get the size supplementary information
     if (tx1ItemLen) {
         if (tx1ItemLen != 255)                        /* i.e. not a string */
-            vfRbuf(&utf1, (uint8_t *)tx1Item.dataw, tx1ItemLen); // read the words of data
+            vfRbuf(&utf1, tx1Item.dataw, tx1ItemLen); // read the words of data
         else {
-            tx1Item.len = Rd1Word();                   // read the length of string
+            tx1Item.len = Rd1Word();                 // read the length of string
             vfRbuf(&utf1, tx1Item.str, tx1Item.len); // read the string itself
         }
     }

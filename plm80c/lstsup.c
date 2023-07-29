@@ -32,6 +32,12 @@ void TabLst(byte tabTo) {
         lstc(' ');
 }
 
+void DotLst(byte tabTo) {
+    while (col < tabTo)
+        lstc(col & 1 ? '.' : ' ');
+
+}
+
 void EjectNext() {
     linLft = 0;
 }
@@ -78,6 +84,8 @@ void lstPstr(pstr_t *ps) {
 
 pstr_t const *hexfmt(byte digits, word val) {
     static char str[8];
+    if (digits > 4)
+        digits = 4;
     str[0] = sprintf(str + 1, "0%0*XH", digits, val);
     if (str[2] > '9')
         return (pstr_t *)str;

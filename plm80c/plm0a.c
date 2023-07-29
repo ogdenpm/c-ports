@@ -80,41 +80,42 @@ byte state;
 bool skippingCOND = false;
 word ifDepth      = 0;
 
-
-
-void Wr1Byte(byte v) {
-    Wr1LineInfo();
-    vfWbyte(&utf1, v);
-} /* WrByte() */
-
-void Wr1Word(word v) {
-    Wr1LineInfo();
-    vfWword(&utf1, v);
-} /* WrWord() */
-
-int32_t Rd1Byte() {
-    return vfRbyte(&utf1);
-}
-
-int32_t Rd1Word() {
-    return vfRword(&utf1);
-}
-
-
 void Wr1LineInfo() {
     if (lineInfoToWrite) {
-        vfWbyte(&utf1,linfo.type);
-        vfWword(&utf1,linfo.lineCnt);
-        vfWword(&utf1,linfo.stmtCnt);
-        vfWword(&utf1,linfo.blkCnt);
+        vfWbyte(&utf1, linfo.type);
+        vfWbuf(&utf1, &linfo.lineCnt, sizeof(struct _linfo));
         lineInfoToWrite = false;
     }
 } /* WriteLineInfo() */
 
-void Wr1Buf(uint8_t const *buf, word len) {
+void Wr1Buf(void const *buf, word len) {
     Wr1LineInfo();
     vfWbuf(&utf1, buf, len);
-} /* WrBuf() */
+}
+
+void Wr1Byte(uint8_t v) {
+    Wr1Buf(&v, sizeof(v));
+}
+
+void Wr1Word(uint16_t v) {
+    Wr1Buf(&v, sizeof(v));
+}
+
+void Rd1Buf(void *buf, uint16_t len) {
+    vfRbuf(&utf1, buf, len);
+}
+
+uint8_t Rd1Byte() {
+    uint8_t v;
+    Rd1Buf(&v, sizeof(v));
+    return v;
+}
+
+uint16_t Rd1Word() {
+    uint16_t v;
+    Rd1Buf(&v, sizeof(v));
+    return v;
+}
 
 void Wr1InfoOffset(offset_t addr) {
     Wr1Word(addr);

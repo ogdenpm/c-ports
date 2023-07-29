@@ -12,88 +12,78 @@
 
 static byte bC252; // lifted to file scope
 
-static void Sub_69EB(byte arg1b, wpointer arg2wP)
-{
+static void Sub_69EB(byte arg1b, word *pw) {
     word p;
 
-    if (*arg2wP != 0) {
+    if (*pw) {
         if (arg1b > bC252)
-            *arg2wP = 0;
+            *pw = 0;
         else {
-            p = *arg2wP;
-            *arg2wP = tx2qp;
+            p   = *pw;
+            *pw = tx2qp;
 
-            while (p != 0) {
-                p = p - 1;  
-                *arg2wP = *arg2wP - 1;
-                if (tx2opc[*arg2wP] == T2_LINEINFO)
-                    if (tx2op2[*arg2wP] == 0)
-                        if (tx2op3[*arg2wP] != 0)
-                            p = p - (tx2op3[*arg2wP] - tx2op1[*arg2wP]);
+            while (p--) {
+                --*pw;
+                if (tx2opc[*pw] == T2_LINEINFO && tx2op2[*pw] == 0 && tx2op3[*pw] != 0)
+                    p -= (tx2op3[*pw] - tx2op1[*pw]);
             }
         }
     }
 } /* sub69EB */
 
-
-static void Sub_68E8()
-{
+static void Sub_68E8() {
     byte i;
 
     bC252 = bC1D2 & 3;
     if ((bC1D2 & 4) != 0) {
-        tx2op2[1] = tx2op1[tx2qp];
+        tx2op2[1]     = tx2op1[tx2qp];
         tx2op1[tx2qp] = 1;
     } else
         Sub_69EB(1, &tx2op1[tx2qp]);
-
+ 
     Sub_69EB(2, &tx2op2[tx2qp]);
     if (bC252 == 3) {
         if (curOp == T2_CALL)
             tx2op3[tx2qp] = tx2op3[tx2qp];
         else if (curOp == T2_BYTEINDEX || curOp == T2_WORDINDEX) {
-            i = (byte)tx2op1[tx2qp];
+            i         = (byte)tx2op1[tx2qp];
             tx2op2[i] = tx2op2[i] + tx2op3[tx2qp] * Sub_575E(tx2op1[i]);
-        }
-        else
+        } else
             Sub_69EB(3, &tx2op3[tx2qp]);
     }
     tx2Aux1b[tx2qp] = 0xc;
     tx2Aux2b[tx2qp] = 9;
 }
 
-static void Sub_6AA4()
-{
+static void Sub_6AA4() {
     if (curOp == T2_IDENTIFIER) {
         tx2op1[tx2qp] = infoIdx = tx2op1[tx2qp];
         if (TestInfoFlag(F_MEMBER)) {
-            infoIdx = GetParentOffset();
+            infoIdx         = GetParentOffset();
             tx2Aux2b[tx2qp] = 4;
-        }
-        else if (TestInfoFlag(F_AUTOMATIC))
+        } else if (TestInfoFlag(F_AUTOMATIC))
             tx2Aux2b[tx2qp] = 0xa;
         else
             tx2Aux2b[tx2qp] = 4;
-        infoIdx = tx2op1[tx2qp];
-        tx2op2[tx2qp] = GetLinkVal();
+        infoIdx         = tx2op1[tx2qp];
+        tx2op2[tx2qp]   = GetLinkVal();
         tx2Aux1b[tx2qp] = b5286[GetType()];
     } else if (curOp <= T2_BIGNUMBER) {
-        tx2op2[tx2qp] = tx2op1[tx2qp];
+        tx2op2[tx2qp]   = tx2op1[tx2qp];
         tx2Aux2b[tx2qp] = 8;
-        tx2op1[tx2qp] = 0;
+        tx2op1[tx2qp]   = 0;
         if (curOp == T2_BIGNUMBER) {
             tx2Aux1b[tx2qp] = 1;
-            tx2opc[tx2qp] = T2_NUMBER;
+            tx2opc[tx2qp]   = T2_NUMBER;
         } else
             tx2Aux1b[tx2qp] = 0;
     } else {
         tx2Aux1b[tx2qp] = 0;
-        tx2op2[tx2qp] = 0;
+        tx2op2[tx2qp]   = 0;
     }
 }
 
-void Sub_689E()
-{
+void Sub_689E() {
     for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
         curOp = tx2opc[tx2qp];
         bC1D2 = b5124[curOp];
@@ -103,4 +93,3 @@ void Sub_689E()
             Sub_6AA4();
     }
 }
-

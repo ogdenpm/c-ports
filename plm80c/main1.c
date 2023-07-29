@@ -29,32 +29,20 @@ byte tx1Aux1;
 byte b91C0;
 
 static void PrepFiles() {
-    vfRewind(&utf1);
-    vfReset(&utf2);
-
-    if (XREF || IXREF || SYMBOLS)
-        vfReset(&xrff);
-    vfReset(&atf);
     blockDepth    = 1;
     procChains[1] = 0;
     /* the opening of all output files has been moved here */
-    if (IXREF) {
-        InitF(&ixiFile, "IXREF", ixiFileName);
-        OpenF(&ixiFile, "wb");
-    }
-    if (OBJECT) {
-        InitF(&objFile, "IXREF", objFileName);
-        OpenF(&objFile, "wb+");
-    }
-    if (PRINT) {
-        InitF(&lstFile, isList ? "LIST" : "PRINT", lstFileName);
-        OpenF(&lstFile, "wt");
-    }
+    if (IXREF)
+        OpenF(&ixiFile, "IXREF", ixiFileName, "wb+");
+    if (OBJECT)
+        OpenF(&objFile, "OBJECT", objFileName, "wb+");
+    if (PRINT)
+        OpenF(&lstFile, isList ? "LIST" : "PRINT", lstFileName, "wt");
 }
 
 static void Sub_3F8B() {
     if (tx2LinfoPending)
-        Wr2OptLineInfo();
+        Wr2Item(linfo.type, &linfo.lineCnt, sizeof(struct _linfo));
     vfReset(&utf1);
     if (XREF || IXREF || SYMBOLS) {
         vfWbyte(&xrff, '\0');

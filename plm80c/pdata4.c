@@ -15,7 +15,8 @@
 bool listing;
 bool listOff;
 bool codeOn;
-char line[82];
+line_t line;
+
 char locLabStr[33]; /* used to hold symbol name + '\0' */
 err_t errData;
 bool bo812B = true;
@@ -39,7 +40,7 @@ byte rec24_1[1022] = {0x24, 0, 0, 1, 3};    // initialise for ov3 (code seg), ma
 // byte rec24_3[104] = {0x24, 0, 0, 4, 3};  // use the larger array from plm3a.c
 byte rec20[1022] = {0x20, 0, 0, 3};
 byte rec8[1024] = {8, 0, 0, 1};
-byte rec4[sizeof(rec4_t)] = {4, 4, 0, 0, 1};
+byte rec4[8] = {4, 4, 0, 0, 1};
 byte b9692;
 byte helperId;
 char helperStr[] = "\0@P    :";

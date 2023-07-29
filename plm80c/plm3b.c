@@ -11,44 +11,40 @@
 #include "plm.h"
 #include "os.h"
 
-void WriteRec(pointer recP, byte arg2b)
+void WriteRec(pointer rec, byte fixed)
 {
-    word p;
-    pointer lenP;
     byte crc;
     word cnt;
 
-    lenP = ((rec_t *)recP)->len;
-    if (getWord(lenP) > 0 && OBJECT ) {
+    word len = getWord(&rec[REC_LEN]);
+    if (len > 0 && OBJECT ) {
         crc = 0;
-        p = 0;
-        putWord(lenP, getWord(lenP) + arg2b + 1);
-        cnt = getWord(lenP) + 2;
-        while (p < cnt)
-            crc -= recP[p++];
+        len += fixed + 1;
+        putWord(&rec[REC_LEN], len);    // final record length
+        cnt = len + 2;                  // allow for type, len but not crc byte
+        for (int p = 0; p < cnt; p++)   // calculate the crc
+            crc -= rec[p];
 
-        recP[cnt] = crc;	/* insert checksum */
-        if (fwrite(recP, 1, cnt + 1, objFile.fp) != cnt + 1)
+        rec[cnt] = crc;	/* insert checksum */
+        if (fwrite(rec, 1, cnt + 1, objFile.fp) != cnt + 1)
             IoError(objFile.fNam, "Write error");
     }
-    putWord(lenP, 0);
+    putWord(&rec[REC_LEN], 0);
 }
 
 
 
-void RecAddByte(pointer recP, byte offset, byte val)
+void RecAddByte(pointer rec, byte offset, byte val)
 {
-    pointer lenP;
-
-    lenP = ((rec_t *)recP)->len;
-    ((rec_t *)recP)->val[getWord(lenP) + offset] = val;
-    putWord(lenP, getWord(lenP) + 1);
+    word len                                     = getWord(&rec[REC_LEN]);
+    rec[REC_DATA + len + offset]  = val;
+    putWord(&rec[REC_LEN], len + 1);
 }
 
 
 
-void RecAddWord(pointer arg1w, byte arg2b, word arg3w)
+void RecAddWord(pointer rec, byte offset, word val)
 {
-    RecAddByte(arg1w, arg2b, Low(arg3w));
-    RecAddByte(arg1w, arg2b, High(arg3w));
+    RecAddByte(rec, offset, Low(val));
+    RecAddByte(rec, offset, High(val));
 }

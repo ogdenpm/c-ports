@@ -15,8 +15,6 @@ static byte bC2D1;
 static byte bC2D2, bC2D3;
 static word wC2D4;
 
-#define MAXCASE 2048
-word caseLabels[MAXCASE];
 
 
 void FindParamInfo(byte arg1b) {

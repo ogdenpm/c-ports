@@ -1292,7 +1292,7 @@ static void NewStatementNo() {
     if (stmtNo == 0)
         return;
     if (DEBUG) {
-        if (getWord(((rec_t *)rec8)->len) + 4 >= 1020)
+        if (getWord(&rec8[REC_LEN]) + 4 >= 1020)
             WriteRec(rec8, 1);
         RecAddWord(rec8, 1, baseAddr);
         RecAddWord(rec8, 1, stmtNo);
@@ -1348,7 +1348,7 @@ void Sub_54BA() {
     if (cfCode == T2_LINEINFO)
         EmitSource();
     else if (cfCode == 0x86)
-        Rd1Word(stmtNo);
+        stmtNo = Rd1Word();
     else if (cfCode == T2_STMTCNT)
         NewStatementNo();
     else if (cfCode == T2_LOCALLABEL || cfCode == T2_CASELABEL)

@@ -44,7 +44,7 @@ pstr_t *pstrcat(pstr_t *dst, pstr_t const *src) {
 
 static void PstrCat2Line(pstr_t *strP) {
     if (strP)
-        pstrcat((pstr_t *)line, strP);
+        pstrcat((pstr_t *)&line, strP);
 }
 
 static void Sub_6175() {
@@ -122,7 +122,7 @@ static void AddSmallNum() {
     /* extend to word on opBytes if not 0x84 */
     if (bA190)
         opBytes[opByteCnt++] = 0;
-    line[0] += sprintf(&line[line[0] + 1], "%d", i);
+    line.len += sprintf(&line.str[line.len], "%d", i);
 }
 
 static void AddStackOrigin() {
@@ -157,8 +157,8 @@ static void AddPCRel() {
         q = q | 0xff00;
     *pw = baseAddr + q;
     opByteCnt += 2;
-    line[++line[0]] = '$';
-    AddWrdDisp((pstr_t *)line, q);
+    line.str[line.len++] = '$';
+    AddWrdDisp((pstr_t *)&line, q);
 }
 
 static void AddCcCode() {
@@ -205,13 +205,13 @@ static void Sub_603C() {
     }
 
     dstRec  = 0;
-    line[0] = 0;
+    line.len = 0;
 
     while (1) {
         wA18D = wA18D + 1;
         bA18F = b4A78[wA18D];
         if (bA18F < 0x80) {
-            line[++line[0]] = bA18F;
+            line.str[line.len++] = bA18F;
         } else if (bA18F >= 0xc0)
             Sub_6175();
         else {
@@ -263,34 +263,34 @@ static void Sub_654F() {
 
     if (opByteCnt == 0 || !OBJECT)
         return;
-    if (getWord(((rec_t *)rec6_4)->len) + opByteCnt >= 1018)
+    if (getWord(&rec6_4[REC_LEN]) + opByteCnt >= 1018)
         FlushRecs();
     p = baseAddr + opByteCnt - 2;
     switch (dstRec) {
     case 0:
         break;
     case 1:
-        if (getWord(((rec_t *)rec22)->len) + 2 >= 1018)
+        if (getWord(&rec22[REC_LEN]) + 2 >= 1018)
             FlushRecs();
         RecAddWord(rec22, 1, p);
         break;
     case 2:
-        if (getWord(((rec_t *)rec24_1)->len) + 2 >= 1017)
+        if (getWord(&rec24_1[REC_LEN]) + 2 >= 1017)
             FlushRecs();
         RecAddWord(rec24_1, 2, p);
         break;
     case 3:
-        if (getWord(((rec_t *)rec24_2)->len) + 2 >= 99)
+        if (getWord(&rec24_2[REC_LEN]) + 2 >= 99)
             FlushRecs();
         RecAddWord(rec24_2, 2, p);
         break;
     case 4:
-        if (getWord(((rec_t *)rec24_3)->len) + 2 >= 99)
+        if (getWord(&rec24_3[REC_LEN]) + 2 >= 99)
             FlushRecs();
         RecAddWord(rec24_3, 2, p);
         break;
     case 5:
-        if (getWord(((rec_t *)rec20)->len) + 4 >= 1018)
+        if (getWord(&rec20[REC_LEN]) + 4 >= 1018)
             FlushRecs();
         RecAddWord(rec20, 1, curExtId);
         RecAddWord(rec20, 1, p);
@@ -373,13 +373,11 @@ static void Sub_6982(byte slot) {
 
 static void Sub_69E1(word disp, byte slot) {
     infoIdx    = Rd1Word();
-    infoIdx    = infoIdx;
     wValAry[slot] = GetLinkVal() + disp;
     curSym     = GetSymbol();
-    if (curSym != 0) {
-        ps96B0[0] = symtab[curSym].name->len;
-        memmove(&ps96B0[1], symtab[curSym].name->str, ps96B0[0]);
-    } else {
+    if (curSym)
+        pstrcpy((pstr_t *)ps96B0, symtab[curSym].name);
+    else {
         ps96B0[0] = 1;
         ps96B0[1] = '$';
         disp      = wValAry[slot] - baseAddr;
@@ -413,7 +411,7 @@ static void Sub_6B0E(byte slot) {
     sValAry[slot]    = pstrcpy((pstr_t *)ps96B0, hexfmt(0, wValAry[slot]));
     ps969E        = (pstr_t *)commentStr;
     curSym        = GetSymbol();
-    commentStr[0] = sprintf("; %s", symtab[curSym].name->str);
+    commentStr[0] = sprintf(commentStr + 1, "; %s", symtab[curSym].name->str);
     AddWrdDisp(ps969E, disp);
 }
 
@@ -437,7 +435,7 @@ static void Sub_6B9B(byte arg1b, byte slot) {
     }
 }
 
-static void Sub_67AD(byte reg, byte i) {
+static void Sub_67AD(byte reg, byte slot) {
     // copy for nested procedures
     // below we can use arg1b, arg2b directly as they are not modified
     reg = reg;
@@ -446,26 +444,26 @@ static void Sub_67AD(byte reg, byte i) {
     case 0:
         return;
     case 1:
-        setReg(i, regNo[reg], (pstr_t *)&opcodes[regIdx[reg]]);
-        setReg(i + 2, regNo[4 + reg], (pstr_t *)&opcodes[regIdx[4 + reg]]);
+        setReg(slot, regNo[reg], (pstr_t *)&opcodes[regIdx[reg]]);
+        setReg(slot + 2, regNo[4 + reg], (pstr_t *)&opcodes[regIdx[4 + reg]]);
         break;
     case 2:
-        setReg(i, regPairNo[reg], (pstr_t *)&opcodes[regPairIdx[reg]]);
+        setReg(slot, regPairNo[reg], (pstr_t *)&opcodes[regPairIdx[reg]]);
         break;
     case 3:
-        Sub_6B9B(reg, i);
+        Sub_6B9B(reg, slot);
         break;
     case 4:
-        RdBVal(i);
+        RdBVal(slot);
         break;
     case 5:
-        RdWVal(i);
+        RdWVal(slot);
         break;
     case 6:
-        RdLocLab(i);
+        RdLocLab(slot);
         break;
     case 7:
-        Sub_69E1(0, i);
+        Sub_69E1(0, slot);
         break;
     }
 } /* Sub_67AD() */
@@ -496,9 +494,9 @@ void Sub_668B() {
     if (cfCode == 0x87) {
         baseAddr = GetLinkVal();
         if (DEBUG) {
-            putWord(((rec_t *)rec8)->len, getWord(((rec_t *)rec8)->len) - 4);
+            putWord(&rec8[REC_LEN], getWord(&rec8[REC_LEN]) - 4);
             RecAddWord(rec8, 1, baseAddr);
-            putWord(((rec_t *)rec8)->len, getWord(((rec_t *)rec8)->len) + 2);
+            putWord(&rec8[REC_LEN], getWord(&rec8[REC_LEN]) + 2);
         }
         FlushRecs();
     }

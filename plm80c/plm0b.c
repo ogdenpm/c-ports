@@ -11,6 +11,7 @@
 #include "os.h"
 #include "plm.h"
 #include <stdlib.h>
+#include <ctype.h>
 
 #define BADINFO 0xffff
 
@@ -66,14 +67,12 @@ static byte saveDepth;
 static bool CODE = false;
 static bool LIST = true;
 static bool COND = true;
-static byte *curChP;
+static char *curChP;
 static byte chrClass;
 static byte tknLen;
 static char *optStrValP;
 static word optNumValue;
 static char *optFileName; // modified to allow long filenames
-static bool ixiGiven;
-static bool objGiven;
 static bool lstGiven;
 static bool inIFpart;
 static word skippingIfDepth;
@@ -90,10 +89,9 @@ static void NxtCh() {
     if (chrClass == CC_NEWLINE)
         return;
     curChP++;
-    if (*curChP == CR ||
-        (moreCmdLine != 0 && *curChP == '&')) // end of line or & on the command line
+    if (*curChP == '\r')
         chrClass = CC_NEWLINE;
-    else if ((chrClass = cClass[*curChP]) == CC_NONPRINT)
+    else if ((chrClass = cClass[*(uint8_t *)curChP]) == CC_NONPRINT)
         *curChP = ' ';
     //    if (*curChP >= 'a')
     //        *curChP &= 0x5f;
@@ -116,7 +114,7 @@ static void UnknownCtrl() {
 
 static void SkipWhite() // also skips non print characters
 {
-    while (*curChP == ' ' || *curChP == '\r') // space and cmdline continuation
+    while (*curChP == ' ' || (moreCmdLine && *curChP == '\r')) // space and cmdline continuation
         NxtCh();
 }
 
@@ -178,8 +176,8 @@ static void AcceptFileName() {
         tknLen      = (byte)(s - optStrValP);
         optFileName = xmalloc(tknLen + 1);
         memcpy(optFileName, optStrValP, tknLen);
-        optFileName[tknLen++] = '\0';
-        optStrValP            = optFileName;
+        optFileName[tknLen] = '\0';
+        optStrValP          = optFileName;
         AcceptRP();
     }
 }
@@ -212,10 +210,10 @@ static word Asc2Num(char *firstChP, char *lastChP, byte radix) {
     return num;
 }
 
-static byte ChkRadix(byte **pLastCh) {
+static byte ChkRadix(char **pLastCh) {
     byte *p;
 
-    p = *pLastCh;
+    p = (byte *)*pLastCh;
     if (cClass[*p] <= CC_DECDIGIT)
         return 10;
     *pLastCh = *pLastCh - 1;
@@ -232,7 +230,7 @@ static byte ChkRadix(byte **pLastCh) {
 }
 
 static word ParseNum() {
-    byte *firstCh, *nextCh;
+    char *firstCh, *nextCh;
     byte radix;
 
     NxtCh();
@@ -243,7 +241,7 @@ static word ParseNum() {
     nextCh = curChP - 1;
     SkipWhite();
     radix = ChkRadix(&nextCh);
-    return Asc2Num((char *)firstCh, (char *)nextCh, radix);
+    return Asc2Num(firstCh, nextCh, radix);
 }
 
 static void GetOptNumVal() {
@@ -266,7 +264,7 @@ static void GetToken() {
 }
 
 static void ParseId(byte maxLen) {
-    static byte pstr[33];
+    static char pstr[33];
 
     optStrValP = pstr + 1;
     tknLen     = 0;
@@ -274,7 +272,7 @@ static void ParseId(byte maxLen) {
     if (chrClass == CC_HEXCHAR || chrClass == CC_ALPHA)         // A-Z
         while (chrClass <= CC_ALPHA || chrClass == CC_DOLLAR) { // 0-9 A-Z $
             if (chrClass != CC_DOLLAR && tknLen <= maxLen) {
-                pstr[tknLen + 1] = *curChP;
+                pstr[tknLen + 1] = toupper(*(uint8_t *)curChP);
                 tknLen++;
             }
             NxtCh();
@@ -283,7 +281,7 @@ static void ParseId(byte maxLen) {
 }
 
 static void GetVar() {
-    byte *tmp;
+    char *tmp;
     tmp = curChP - 1;
     ParseId(31);
     if (tknLen == 0) {
@@ -357,7 +355,7 @@ static byte GetTest() {
 static byte ChkNot() // checks for potentially multiple NOT prefixes
 {
     byte notStatus;
-    byte *tmp;
+    char *tmp;
 
     notStatus = 0;
 
@@ -556,7 +554,6 @@ static void OptObject() {
         free(objFileName);
         objFileName = optStrValP;
     }
-    objBlk = objByte = 0;
     OBJECT           = true;
 }
 
@@ -570,13 +567,11 @@ static void OptInclude() {
     if (srcFileIdx >= 5)
         Wr1SyntaxError(ERR13); /* LIMIT EXCEEDED: INCLUDE NESTING */
     else {
-        srcFileTable[++srcFileIdx] = srcFil;
-        InitF(&srcFil, "SOURCE", optStrValP);
-        OpenF(&srcFil, "rt");
+        srcFileTable[srcFileIdx++] = srcFil;
+        OpenF(&srcFil, "SOURCE", optStrValP, "rt");
+        includes[includeCnt] = optStrValP;
         Wr1Byte(L_INCLUDE);
-        word len = (word)strlen(optStrValP);
-        Wr1Word(len);               // write length (word) and string
-        Wr1Buf(optStrValP, len);
+        Wr1Word(includeCnt++);
     }
     SkipWhite();
     if (*curChP != '\r' && *curChP != '\n')
@@ -745,9 +740,8 @@ static void OptIf() {
         skippingCOND    = true;
         inIFpart        = true;
         skippingIfDepth = ifDepth; // record depth for unwind
-        if (!COND)                 // if COND false and currently listing - surpress listing
-            if (LIST)
-                Wr1Byte(L_NOLIST);
+        if (!COND && LIST)         // if COND false and currently listing - surpress listing
+            Wr1Byte(L_NOLIST);
     }
 }
 
@@ -917,7 +911,7 @@ static void ParseControl() {
     }
 }
 
-void ParseControlLine(byte *pch) {
+void ParseControlLine(char *pch) {
     curChP   = pch;
     chrClass = 0;
 
@@ -930,22 +924,22 @@ void ParseControlLine(byte *pch) {
 }
 
 static void ChkEndSkipping(byte *pch) {
-    curChP = pch;
+    curChP = (char *)pch;
     if (*curChP == '$') {
         chrClass = 0;
         NxtCh();
         SkipWhite();
         GetToken();
-        if (tknLen == 2 && strncmp((char *)optStrValP, "IF", 2) == 0) // nested IF
+        if (tknLen == 2 && strnicmp(optStrValP, "IF", 2) == 0) // nested IF
             ifDepth++;
-        else if (tknLen == 5 && strncmp((char *)optStrValP, "ENDIF", 5) == 0) {
+        else if (tknLen == 5 && strnicmp(optStrValP, "ENDIF", 5) == 0) {
             if (--ifDepth < skippingIfDepth) // end of skipping
                 skippingCOND = false;
         } else if (skippingIfDepth == ifDepth &&
                    inIFpart) { // else/elseif at same level as initial IF
-            if (tknLen == 4 && strncmp((char *)optStrValP, "ELSE", 4) == 0)
+            if (tknLen == 4 && strnicmp(optStrValP, "ELSE", 4) == 0)
                 skippingCOND = false; // else so now not skipping
-            else if (tknLen == 6 && strncmp((char *)optStrValP, "ELSEIF", 6) == 0)
+            else if (tknLen == 6 && strnicmp(optStrValP, "ELSEIF", 6) == 0)
                 skippingCOND = !ParseIfCond(); // still skipping if condition false
         }
         if (!skippingCOND) // no longer skipping so record any change of listing status
@@ -1029,21 +1023,20 @@ static void GetCodeLine() {
                     Wr1SyntaxError(ERR86); /* LIMIT EXCEEDED: SOURCE LINE LENGTH */
                     trunc = false;
                 }
-                ParseControlLine(inChrP + 1); // process controls
+                ParseControlLine((char *)inChrP + 1); // process controls
             } else {
                 // first none control line (even a comment) stops primary controls
                 isNonCtrlLine = true;
                 return; // we have a line
             }
         } else if (srcFileIdx == 0) {   // EOF at end of main file
-            if (ifDepth != 0)           // oops we are nested (error code seems to be incorrect)
+            if (ifDepth)                // oops we are nested (error code seems to be incorrect)
                 Wr1SyntaxError(ERR188); /* MISPLACED RESTORE OPTION */
             inChrP = (pointer) "/*'/**/EOF   "; // string to make sure any comments, strings are
                                                 // closed and EOF
             return;
         } else {
             CloseF(&srcFil); // close nested file
-            free((void*)srcFil.fNam);
             srcFil = srcFileTable[--srcFileIdx];
         }
     }
@@ -1052,8 +1045,8 @@ static void GetCodeLine() {
 static void GetLin() {
     if (macroDepth != 0) {              // last line was a nested lit expansion
         infotab[macroIdx].type = LIT_T; // reset info entry to LIT_T from MACRO_T
-        macroIdx = macroPtrs[macroDepth].macroIdx;
-        inChrP   = macroPtrs[macroDepth--].text; // get the curent loc in the expansion
+        macroIdx               = macroPtrs[macroDepth].macroIdx;
+        inChrP = macroPtrs[macroDepth--].text; // get the curent loc in the expansion
     } else
         GetCodeLine();
 }
