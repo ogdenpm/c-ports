@@ -10,9 +10,7 @@
 
 #include "plm.h"
 
-void EndCompile()
-{
-    printf("PL/M-80 COMPILATION COMPLETE.  %-5d PROGRAM ERROR%s\n\n", programErrCnt, programErrCnt == 1 ? "" : "S");
-
-}	
-
+void EndCompile() {
+    printf("PL/M-80 COMPILATION COMPLETE.  %-5d PROGRAM ERROR%s\n\n", programErrCnt,
+           programErrCnt == 1 ? "" : "S");
+}

@@ -40,14 +40,14 @@ static void Sub_68E8() {
         tx2op1[tx2qp] = 1;
     } else
         Sub_69EB(1, &tx2op1[tx2qp]);
- 
+
     Sub_69EB(2, &tx2op2[tx2qp]);
     if (bC252 == 3) {
         if (curOp == T2_CALL)
             tx2op3[tx2qp] = tx2op3[tx2qp];
         else if (curOp == T2_BYTEINDEX || curOp == T2_WORDINDEX) {
             i         = (byte)tx2op1[tx2qp];
-            tx2op2[i] = tx2op2[i] + tx2op3[tx2qp] * Sub_575E(tx2op1[i]);
+            tx2op2[i] += tx2op3[tx2qp] * Sub_575E(tx2op1[i]);
         } else
             Sub_69EB(3, &tx2op3[tx2qp]);
     }
@@ -57,17 +57,17 @@ static void Sub_68E8() {
 
 static void Sub_6AA4() {
     if (curOp == T2_IDENTIFIER) {
-        tx2op1[tx2qp] = infoIdx = tx2op1[tx2qp];
-        if (TestInfoFlag(F_MEMBER)) {
-            infoIdx         = GetParentOffset();
+        SetInfo(tx2op1[tx2qp]);
+        if ((info->flag & F_MEMBER)) {
+            SetInfo(info->parent);
             tx2Aux2b[tx2qp] = 4;
-        } else if (TestInfoFlag(F_AUTOMATIC))
+        } else if ((info->flag & F_AUTOMATIC))
             tx2Aux2b[tx2qp] = 0xa;
         else
             tx2Aux2b[tx2qp] = 4;
-        infoIdx         = tx2op1[tx2qp];
-        tx2op2[tx2qp]   = GetLinkVal();
-        tx2Aux1b[tx2qp] = b5286[GetType()];
+        SetInfo(tx2op1[tx2qp]);
+        tx2op2[tx2qp]   = info->linkVal;
+        tx2Aux1b[tx2qp] = b5286[info->type];
     } else if (curOp <= T2_BIGNUMBER) {
         tx2op2[tx2qp]   = tx2op1[tx2qp];
         tx2Aux2b[tx2qp] = 8;

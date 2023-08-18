@@ -10,8 +10,8 @@
 
 #include "os.h"
 #include "plm.h"
-#include <stdlib.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #define BADINFO 0xffff
 
@@ -49,11 +49,9 @@ static struct {
     { 3, "SET", 0, 1, 0xFF, 17, 0 },        { 5, "RESET", 0, 1, 0xFF, 18, 0 },
     { 2, "IF", 0, 1, 0xFF, 19, 0 },         { 6, "ELSEIF", 0, 1, 0xFF, 20, 0 },
     { 4, "ELSE", 0, 1, 0xFF, 20, 0 },       { 5, "ENDIF", 0, 1, 0xFF, 21, 0 },
-    { 4, "COND", 0, 1, 0xFF, 22, 0 },       { 6, "NOCOND", 0, 1, 0xFF, 23, 0 }
-};
+    { 4, "COND", 0, 1, 0xFF, 22, 0 },       { 6, "NOCOND", 0, 1, 0xFF, 23, 0 },
+    { 10, "MAKEDEPEND", 0, 0, 0xFF, 24, 0 } };
 
-static char ebadTail[]    = "ILLEGAL COMMAND TAIL SYNTAX OR VALUE";
-static char ebadcontrol[] = "UNRECOGNIZED CONTROL IN COMMAND TAIL";
 
 byte primaryCtrlSeen[14]; // C defaults to all false
 static struct {
@@ -69,10 +67,12 @@ static bool LIST = true;
 static bool COND = true;
 static char *curChP;
 static byte chrClass;
-static byte tknLen;
-static char *optStrValP;
+static struct {
+    word len; // allow long filenames on command line.
+    char *str;
+} optVal;
+
 static word optNumValue;
-static char *optFileName; // modified to allow long filenames
 static bool lstGiven;
 static bool inIFpart;
 static word skippingIfDepth;
@@ -99,15 +99,14 @@ static void NxtCh() {
 
 static void BadCmdTail(byte err) {
     if (moreCmdLine != 0) // processing command line
-        Fatal(ebadTail, Length(ebadTail));
+        Fatal("ILLEGAL COMMAND TAIL SYNTAX OR VALUE");
     else
         Wr1SyntaxError(err);
 }
 
 static void UnknownCtrl() {
-
     if (moreCmdLine != 0) // processing command line
-        Fatal(ebadcontrol, Length(ebadcontrol));
+        Fatal("UNRECOGNIZED CONTROL IN COMMAND TAIL");
     else
         Wr1SyntaxError(ERR9); /* INVALID CONTROL */
 }
@@ -139,10 +138,10 @@ static void AcceptOptStrVal() {
 
     SkipWhite();
     if (*curChP != '(')
-        tknLen = 0;
+        optVal.len = 0;
     else {
         NxtCh();
-        optStrValP = curChP;
+        optVal.str = curChP;
         for (;;) {
             if (chrClass == CC_NEWLINE || *curChP == '\'')
                 break;
@@ -154,30 +153,30 @@ static void AcceptOptStrVal() {
             }
             NxtCh();
         }
-        tknLen = (byte)(curChP - optStrValP);
+        optVal.len = (word)(curChP - optVal.str);
         AcceptRP();
     }
-
 } /* AcceptOptStrVal() */
 
 static void AcceptFileName() {
     SkipWhite();
     if (*curChP != '(')
-        tknLen = 0;
+        optVal.len = 0;
     else {
         NxtCh();
         SkipWhite();
-        optStrValP = curChP;
+        optVal.str = curChP;
         while (*curChP != ')' && chrClass != CC_NEWLINE) // doesn't allow tab
             NxtCh();
         char *s = curChP;
-        while (s > optStrValP && s[-1] == ' ') // trim trailing space
+        while (s > optVal.str && s[-1] == ' ') // trim trailing space
             s--;
-        tknLen      = (byte)(s - optStrValP);
-        optFileName = xmalloc(tknLen + 1);
-        memcpy(optFileName, optStrValP, tknLen);
-        optFileName[tknLen] = '\0';
-        optStrValP          = optFileName;
+        optVal.len = (word)(s - optVal.str);
+        char *cstr = xmalloc(optVal.len + 1);
+        memcpy(cstr, optVal.str, optVal.len);
+        cstr[optVal.len] = '\0';
+
+        optVal.str       = cstr;
         AcceptRP();
     }
 }
@@ -204,8 +203,8 @@ static word Asc2Num(char *firstChP, char *lastChP, byte radix) {
         //        / radix != num)
         if ((trial = num * radix + digit) > 0xffff)
             return 0xffff;
-        num      = (word)trial;
-        firstChP = firstChP + 1;
+        num = (word)trial;
+        firstChP++;
     }
     return num;
 }
@@ -216,7 +215,7 @@ static byte ChkRadix(char **pLastCh) {
     p = (byte *)*pLastCh;
     if (cClass[*p] <= CC_DECDIGIT)
         return 10;
-    *pLastCh = *pLastCh - 1;
+    --*pLastCh;
     if (*p == 'B')
         return 2;
     if (*p == 'Q' || *p == 'O')
@@ -230,7 +229,7 @@ static byte ChkRadix(char **pLastCh) {
 }
 
 static word ParseNum() {
-    char *firstCh, *nextCh;
+    char *firstCh, *lastCh;
     byte radix;
 
     NxtCh();
@@ -238,10 +237,10 @@ static word ParseNum() {
     firstCh = curChP;
     while (chrClass <= CC_ALPHA)
         NxtCh();
-    nextCh = curChP - 1;
+    lastCh = curChP - 1;
     SkipWhite();
-    radix = ChkRadix(&nextCh);
-    return Asc2Num(firstCh, nextCh, radix);
+    radix = ChkRadix(&lastCh);
+    return Asc2Num(firstCh, lastCh, radix);
 }
 
 static void GetOptNumVal() {
@@ -255,49 +254,51 @@ static void GetOptNumVal() {
     }
 }
 
-static void GetToken() {
-    optStrValP = curChP;
+static void GetOptStr() {
+    optVal.str = curChP;
     while (*curChP != ' ' && *curChP != '(' && chrClass != CC_NEWLINE &&
            *curChP != '\r') // \r is cmdline continuation
         NxtCh();
-    tknLen = (byte)(curChP - optStrValP);
+    optVal.len = (byte)(curChP - optVal.str);
 }
 
 static void ParseId(byte maxLen) {
     static char pstr[33];
 
-    optStrValP = pstr + 1;
-    tknLen     = 0;
+    optVal.str = pstr + 1;
+    optVal.len = 0;
     SkipWhite();
     if (chrClass == CC_HEXCHAR || chrClass == CC_ALPHA)         // A-Z
         while (chrClass <= CC_ALPHA || chrClass == CC_DOLLAR) { // 0-9 A-Z $
-            if (chrClass != CC_DOLLAR && tknLen <= maxLen) {
-                pstr[tknLen + 1] = toupper(*(uint8_t *)curChP);
-                tknLen++;
+            if (chrClass != CC_DOLLAR && optVal.len <= maxLen) {
+                pstr[optVal.len + 1] = toupper(*(uint8_t *)curChP);
+                optVal.len++;
             }
             NxtCh();
         }
-    pstr[0] = tknLen > maxLen ? maxLen : tknLen;
+    pstr[0] = optVal.len > maxLen ? maxLen : optVal.len;
 }
 
 static void GetVar() {
     char *tmp;
     tmp = curChP - 1;
     ParseId(31);
-    if (tknLen == 0) {
+    if (optVal.len == 0) {
         infoIdx  = BADINFO;
+        info     = NULL;
         curChP   = tmp;
         chrClass = 0;
         NxtCh();
         return;
     }
-    if (tknLen > 31) {
-        tknLen = tknLen - 1;
+    if (optVal.len > 31) {
+        optVal.len--;
         BadCmdTail(ERR184); /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
     }
-    Lookup((pstr_t *)(optStrValP - 1));
+    Lookup((pstr_t *)(optVal.str - 1));
     if (High(symtab[curSym].infoIdx) == 0xFF) { /* special */
         infoIdx  = BADINFO;
+        info     = NULL;
         curChP   = tmp;
         chrClass = 0;
         NxtCh();
@@ -311,15 +312,15 @@ static void GetVar() {
 // none (0), OR (1), AND (2), XOR (3), bad (4)
 static byte GetLogical() {
     ParseId(3);
-    if (tknLen == 0 && chrClass == CC_NEWLINE)
+    if (optVal.len == 0 && chrClass == CC_NEWLINE)
         return 0;
-    if (tknLen == 2) {
-        if (strncmp((char *)optStrValP, "OR", 2) == 0)
+    if (optVal.len == 2) {
+        if (strncmp((char *)optVal.str, "OR", 2) == 0)
             return 1;
-    } else if (tknLen == 3) {
-        if (strncmp((char *)optStrValP, "AND", 3) == 0)
+    } else if (optVal.len == 3) {
+        if (strncmp((char *)optVal.str, "AND", 3) == 0)
             return 2;
-        else if (strncmp((char *)optStrValP, "XOR", 3) == 0)
+        else if (strncmp((char *)optVal.str, "XOR", 3) == 0)
             return 3;
     }
     BadCmdTail(ERR185); /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
@@ -347,7 +348,7 @@ static byte GetTest() {
     }
     if (*curChP == '=') {
         NxtCh();
-        test = test + 1;
+        test++;
     }
     return test;
 }
@@ -362,7 +363,7 @@ static byte ChkNot() // checks for potentially multiple NOT prefixes
     while ((1)) {
         tmp = curChP - 1;
         ParseId(3);
-        if (tknLen != 3 || strncmp((char *)optStrValP, "NOT", 3) != 0) {
+        if (optVal.len != 3 || strncmp((char *)optVal.str, "NOT", 3) != 0) {
             curChP = tmp;
             return notStatus;
         }
@@ -377,8 +378,8 @@ static word GetIfVal() {
     NxtCh();
     SkipWhite();
     if (chrClass < CC_HEXCHAR) { // starts with a digit
-        curChP = curChP - 1;
-        val    = ParseNum();
+        curChP--;
+        val = ParseNum();
         if (val > 255)
             BadCmdTail(ERR186); /* INVALID CONDITIONAL COMPILATION CONSTANT, TOO LARGE */
         return Low(val);
@@ -391,7 +392,7 @@ static word GetIfVal() {
         } else if (infoIdx == 0)
             return 0; // default to false if name not defined
         else
-            return GetCondFlag(); // else return current value
+            return info->condFlag; // else return current value
     }
 }
 
@@ -478,7 +479,7 @@ static void OptPageWidth() {
 
 static void OptDate() {
     AcceptOptStrVal();
-    SetDate((char *)optStrValP, tknLen);
+    SetDate(optVal.str, (byte)optVal.len);
 }
 
 // promoted to file level
@@ -516,7 +517,6 @@ static bool LocalSetTitle() {
 }
 
 static void OptTitle() {
-
     SkipWhite();
     if (*curChP != '(')
         BadCmdTail(ERR11); /* MISSING CONTROL PARAMETER */
@@ -540,26 +540,35 @@ static void OptLeftMargin() {
 
 static void OptIXRef() {
     AcceptFileName();
-    if (tknLen) {
+    if (optVal.len) {
         free(ixiFileName);
-        ixiFileName = optStrValP;
+        ixiFileName = optVal.str;
     }
 
     IXREF = true;
 }
 
+static void OptMakeDepend() {
+    AcceptFileName();
+    if (optVal.len) {
+        free(depFileName);
+        depFileName = optVal.str;
+    }
+    DEPEND = true;
+}
+
 static void OptObject() {
     AcceptFileName();
-    if (tknLen) {
+    if (optVal.len) {
         free(objFileName);
-        objFileName = optStrValP;
+        objFileName = optVal.str;
     }
-    OBJECT           = true;
+    OBJECT = true;
 }
 
 static void OptInclude() {
     AcceptFileName();
-    if (tknLen == 0) {
+    if (optVal.len == 0) {
         BadCmdTail(ERR15); /* MISSING INCLUDE CONTROL PARAMETER */
         return;
     }
@@ -567,11 +576,13 @@ static void OptInclude() {
     if (srcFileIdx >= 5)
         Wr1SyntaxError(ERR13); /* LIMIT EXCEEDED: INCLUDE NESTING */
     else {
+        int includeIdx = newInclude(optVal.str);
+        if (includes[includeIdx] != optVal.str)
+            free(optVal.str);
         srcFileTable[srcFileIdx++] = srcFil;
-        OpenF(&srcFil, "SOURCE", optStrValP, "rt");
-        includes[includeCnt] = optStrValP;
+        OpenF(&srcFil, "SOURCE", includes[includeIdx], "rt");
         Wr1Byte(L_INCLUDE);
-        Wr1Word(includeCnt++);
+        Wr1Word(includeIdx);
     }
     SkipWhite();
     if (*curChP != '\r' && *curChP != '\n')
@@ -582,9 +593,9 @@ static void OptPrint() {
     AcceptFileName();
     if (lstGiven)
         BadCmdTail(ERR16); /* ILLEGAL PRINT CONTROL */
-    else if (tknLen) {
+    else if (optVal.len) {
         free(lstFileName);
-        lstFileName = optStrValP;
+        lstFileName = optVal.str;
         isList      = true;
     }
     PRINT    = true;
@@ -715,7 +726,7 @@ static void OptSetReset(bool isSet) {
                 return;
             }
             if (infoIdx == 0)
-                CreateInfo(1, CONDVAR_T);
+                CreateInfo(1, CONDVAR_T, curSym);
             SkipWhite();
             if (*curChP == '=' && isSet) {
                 val = ParseNum();
@@ -724,9 +735,9 @@ static void OptSetReset(bool isSet) {
                     SkipToRPARorEOL();
                     return;
                 }
-                SetCondFlag((byte)val);
+                info->condFlag = (byte)val;
             } else
-                SetCondFlag(isSet);
+                info->condFlag = isSet;
             if (*curChP != ',') {
                 AcceptRP();
                 return;
@@ -769,7 +780,6 @@ static void OptEndIf() {
 }
 
 static void ParseControlExtra() {
-
     switch (tknFlagsP->controlVal) {
     case 0:
         OptPageLen();
@@ -843,13 +853,17 @@ static void ParseControlExtra() {
     case 23:
         COND = false;
         break;
+    case 24:    // MAKEDEPEND
+        OptMakeDepend();
+        break;
+
     }
 }
 
 static void FindOption() {
     for (int i = 0; i < sizeof(optTable) / sizeof(optTable[0]); i++) {
-        if (optTable[i].optLen == tknLen &&
-            strnicmp(optStrValP, optTable[i].optName, tknLen) == 0) {
+        if (optTable[i].optLen == optVal.len &&
+            strnicmp(optVal.str, optTable[i].optName, optVal.len) == 0) {
             tknFlagsP = &optTable[i];
             return;
         }
@@ -866,8 +880,8 @@ static void SkipControlParam() {
 }
 
 static void ParseControl() {
-    GetToken();
-    if (tknLen == 0) {
+    GetOptStr();
+    if (optVal.len == 0) {
         BadCmdTail(ERR8); /* INVALID CONTROL FORMAT */
         SkipControlParam();
     } else {
@@ -929,17 +943,17 @@ static void ChkEndSkipping(byte *pch) {
         chrClass = 0;
         NxtCh();
         SkipWhite();
-        GetToken();
-        if (tknLen == 2 && strnicmp(optStrValP, "IF", 2) == 0) // nested IF
+        GetOptStr();
+        if (optVal.len == 2 && strnicmp(optVal.str, "IF", 2) == 0) // nested IF
             ifDepth++;
-        else if (tknLen == 5 && strnicmp(optStrValP, "ENDIF", 5) == 0) {
+        else if (optVal.len == 5 && strnicmp(optVal.str, "ENDIF", 5) == 0) {
             if (--ifDepth < skippingIfDepth) // end of skipping
                 skippingCOND = false;
         } else if (skippingIfDepth == ifDepth &&
                    inIFpart) { // else/elseif at same level as initial IF
-            if (tknLen == 4 && strnicmp(optStrValP, "ELSE", 4) == 0)
+            if (optVal.len == 4 && strnicmp(optVal.str, "ELSE", 4) == 0)
                 skippingCOND = false; // else so now not skipping
-            else if (tknLen == 6 && strnicmp(optStrValP, "ELSEIF", 6) == 0)
+            else if (optVal.len == 6 && strnicmp(optVal.str, "ELSEIF", 6) == 0)
                 skippingCOND = !ParseIfCond(); // still skipping if condition false
         }
         if (!skippingCOND) // no longer skipping so record any change of listing status

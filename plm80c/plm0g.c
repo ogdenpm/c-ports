@@ -8,18 +8,15 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
 
-pstr_t const *CreateLit(pstr_t const *pstr)
-{
+pstr_t const *CreateLit(pstr_t const *pstr) {
     pstr_t *lit;
 
     lit = xmalloc(pstr->len + 3);
     memcpy(lit->str, pstr->str, pstr->len);
     memcpy(lit->str + pstr->len, " \n", 2);
-    lit->len = 255;		/* put max size \n will terminate */
+    lit->len = 255; /* put max size \n will terminate */
     return lit;
 }
-
-

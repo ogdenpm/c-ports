@@ -10,12 +10,12 @@
 
 #include "plm.h"
 
-void FindInfo()
-{
+void FindInfo() {
     word i;
 
     if (!symtab[curSym].infoIdx) {
         infoIdx = 0;
+        info    = NULL;
         return;
     }
     i = blockDepth;
@@ -26,59 +26,53 @@ void FindInfo()
     }
 }
 
-index_t AdvNxtInfo(index_t idx) {
-    while (1) {
-        if (++idx >= infoCnt)
-            return 0;
-        else if (infotab[idx].type != CONDVAR_T)
-            return idx;
+void AdvNxtInfo() {
+    while (++infoIdx < infoCnt) {
+        if (infotab[infoIdx].type != CONDVAR_T) {
+            info = &infotab[infoIdx];
+            return;
+        }
     }
+    info = NULL;
+    infoIdx = 0;
+    return;
 }
 
 void FindMemberInfo() {
-    word tmp;
+    offset_t parent;
 
-    tmp     = infoIdx;
-    infoIdx = symtab[curSym].infoIdx;
-    while (infoIdx != 0) {
-        if (TestInfoFlag(F_MEMBER))
-            if (tmp == GetParentOffset())
-                return;
-        infoIdx = GetLinkOffset();
-    }
+    parent = infoIdx;
+    for (infoIdx = symtab[curSym].infoIdx; infoIdx; infoIdx = infotab[infoIdx].ilink)
+        if ((infotab[infoIdx].flag & F_MEMBER) && parent == infotab[infoIdx].parent) {
+            info = &infotab[infoIdx];
+            return;
+        }
+    info = NULL;
 }
 
-
 void FindScopedInfo(word scope) {
-    word p;
-    byte infoType;
-
-    infoIdx = symtab[curSym].infoIdx;
-    p       = 0;
-    while (infoIdx) {
-        if (scope == GetScope()) {
-            infoType = GetType();
-            if (infoType == LIT_T || infoType == MACRO_T || !TestInfoFlag(F_MEMBER)) {
-                if (p) {                                   /* not at start of Chain() */
-                    infotab[p].ilink = GetLinkOffset();    /* Move() to head of Chain() */
-                    SetLinkOffset(symtab[curSym].infoIdx); /* set its link to current head */
-                    symtab[curSym].infoIdx = infoIdx;      /* set head to found info */
+    offset_t p = 0;
+    for (infoIdx = symtab[curSym].infoIdx; infoIdx; p = infoIdx, infoIdx = infotab[infoIdx].ilink) {
+        info = &infotab[infoIdx];
+        if (scope == info->scope) {
+            if (info->type == LIT_T || info->type == MACRO_T || !(info->flag & F_MEMBER)) {
+                if (p) {                                       /* not at start of Chain() */
+                    infotab[p].ilink = info->ilink;            /* Move() to head of Chain() */
+                    info->ilink      = symtab[curSym].infoIdx; /* set its link to current head */
+                    symtab[curSym].infoIdx = infoIdx;          /* set head to found info */
                 }
                 return;
             }
         }
-        p       = infoIdx;
-        infoIdx = GetLinkOffset();
     }
 }
 
-
-void CreateInfo(word scope, byte type) {
-    infoIdx = newInfo(type);
-    if (curSym) {
-        SetLinkOffset(symtab[curSym].infoIdx);
-        symtab[curSym].infoIdx = infoIdx;
+void CreateInfo(word scope, byte type, index_t sym) {
+    newInfo(type);
+    if (sym) {
+        info->ilink         = symtab[sym].infoIdx;
+        symtab[sym].infoIdx = infoIdx;
     }
-    SetScope(scope);
-    SetSymbol(curSym);
+    info->scope = scope;
+    info->sym   = sym;
 } /* CreateInfo() */

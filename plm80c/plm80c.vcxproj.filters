@@ -18,9 +18,6 @@
     <ClInclude Include="plm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="error.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="_appinfo.h">
       <Filter>Header Files</Filter>
     </ClInclude>

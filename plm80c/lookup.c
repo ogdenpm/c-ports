@@ -20,30 +20,21 @@ byte Hash(pstr_t *pstr) {
 } /* Hash() */
 
 void Lookup(pstr_t *pstr) {
-    index_t p, q, r;
-    word hval;
+    byte hval = Hash(pstr);
 
-    hval   = Hash(pstr);
-    curSym = hashTab[hval];
-    p      = 0;
-    while (curSym != 0) {
+    curSym    = hashTab[hval]; // find start of list in hash table
+    for (index_t prevSym = 0; curSym; prevSym = curSym, curSym = symtab[curSym].link) {
         if (pstrequ(symtab[curSym].name, pstr)) {
-            if (p) {
-                q                     = symtab[curSym].link;
-                r                     = curSym;
-                curSym                = p;
-                symtab[curSym].link   = q;
-                curSym                = r;
-                symtab[curSym].link   = hashTab[hval];
-                hashTab[hval]         = curSym;
+            if (prevSym) {
+                // move to front of list if not there already
+                symtab[prevSym].link = symtab[curSym].link;
+                symtab[curSym].link  = hashTab[hval];
+                hashTab[hval]        = curSym;
             }
             return;
         }
-
-        p      = curSym;
-        curSym = symtab[curSym].link;
     }
-    curSym = newSymbol(pstr);
+    curSym              = newSymbol(pstr);
     symtab[curSym].link = hashTab[hval];
-    hashTab[hval]  = curSym;
+    hashTab[hval]       = curSym;
 } /* Lookup() */

@@ -8,8 +8,8 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
 
 // static char copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 static byte objEOF[] = { 0xe, 1, 0, 0xf1 };
@@ -23,8 +23,8 @@ static void Sub_3FC8() {
     if (PRINT) {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMPILATION OF MODULE ");
-        infoIdx   = procInfo[1];
-        curSym = GetSymbol();
+        SetInfo(procInfo[1]);
+        curSym  = info->sym;
         if (curSym != 0)
             lstStr(symtab[curSym].name->str);
         NewLineLst();
@@ -34,20 +34,18 @@ static void Sub_3FC8() {
             lstStr("NO OBJECT MODULE REQUESTED\n");
 
         if (cmdLineCaptured == 1) {
-            lstStr("COMPILER INVOKED BY:  ");
-            printCmdLine(lstFile.fp); // modify to include TabLst(-23)
-            linLft--;
+            lstStr("COMPILER INVOKED BY:\n");
+            linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH); // TODO modify to include TabLst(-23)
             col = 0;
         }
     }
 }
 
 static void Sub_408B() {
-
     Sub_3FC8();
-    stmtNo = 0;
-    infoIdx = procInfo[1];
-    baseAddr = putWord(&rec6_4[CONTENT_OFF], GetLinkVal());
+    stmtNo   = 0;
+    info = &infotab[infoIdx  = procInfo[1]];
+    baseAddr = putWord(&rec6_4[CONTENT_OFF], info->linkVal);
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
@@ -78,7 +76,7 @@ static void Sub_4162() {
                 Sub_5FE7(w4919[helperId], b4A03[helperId]);
                 break;
             }
-            helperId = helperId + 1;
+            helperId++;
         }
     }
 } /* Sub_4162() */
@@ -86,8 +84,8 @@ static void Sub_4162() {
 static void Sub_4208() {
     if (haveModuleLevelUnit) {
         rec4[MODEND_TYPE] = 1;
-        infoIdx                  = procInfo[1];
-        putWord(&rec4[MODEND_OFF], GetLinkVal());
+        SetInfo(procInfo[1]);
+        putWord(&rec4[MODEND_OFF], info->linkVal);
     } else {
         rec4[MODEND_TYPE] = 0;
         putWord(&rec4[MODEND_OFF], 0);

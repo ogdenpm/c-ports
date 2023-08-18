@@ -8,8 +8,8 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
 #include <stdlib.h>
 
 /* plm4a.plm */
@@ -242,7 +242,6 @@ void FlushRecs() {
 }
 
 void AddWrdDisp(pstr_t *pstr, word arg2w) {
-
     if (arg2w != 0) {
         if (arg2w > 0x8000) {
             pstr->str[pstr->len] = '-';
@@ -306,7 +305,6 @@ char const *FindErrStr() {
 }
 
 void EmitError() {
-
     programErrCnt++;
     if (PRINT) {
         linePrefixChecked = linePrefixEmitted;
@@ -317,8 +315,8 @@ void EmitError() {
             lprintf("STATEMENT #%d, ", errData.stmt);
         if (errData.info) {
             lstStr("NEAR '");
-            infoIdx   = errData.info;
-            curSym = GetSymbol();
+            SetInfo(errData.info);
+            curSym  = info->sym;
             if (curSym != 0)
                 lstStr(symtab[curSym].name->str);
             else

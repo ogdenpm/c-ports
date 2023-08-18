@@ -8,8 +8,8 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
@@ -17,14 +17,15 @@ static void Sub_3F96() {
     if (PRINT) {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMILATION OF MODULE ");
-        infoIdx   = procInfo[1];
-        curSym = GetSymbol();
+        SetInfo(procInfo[1]);
+        curSym  = info->sym;
         if (curSym)
             lprintf("%s", symtab[curSym].name->str);
-        lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:  ", OBJECT ? "GENERATED" : "REQUESTED");
+        lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:\n",
+                OBJECT ? "GENERATED" : "REQUESTED");
         // replace with PrintCmdLine code
-        printCmdLine(lstFile.fp);
-        linLft--;
+        linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH);
+        col = 0;
         SetSkipLst(3);
     }
 }
@@ -36,13 +37,14 @@ static void Sub_404A() {
     vfRewind(&utf2);
     stmtNo = 0;
     if (PRINT)
-        unwindInclude();    // probably not needed
-    infoIdx = procInfo[1];
+        unwindInclude(); // probably not needed
+    SetInfo(procInfo[1]);
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
-        errData.stmt = errData.info = 0;
-        errData.num                 = fatalErrorCode;
+        errData.stmt = 0;
+        errData.info = 0;
+        errData.num  = fatalErrorCode;
         EmitError();
         SetSkipLst(2);
     }
@@ -62,9 +64,9 @@ static void Sub_41B6() {
 word Start6() {
     if (setjmp(exception) == 0) {
         Sub_404A();
-        //if (b7AD9 || IXREF) {
-        //    ReloadSymbols();
-        //}
+        // if (b7AD9 || IXREF) {
+        //     ReloadSymbols();
+        // }
         Sub_3F96();
         while (b7AE4) {
             Sub_42E7();

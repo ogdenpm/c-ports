@@ -27,7 +27,6 @@ static byte ccCodes[] = "\x2"
                         "NC";
 
 // lifted to file scope for nested procedures
-static word l_arg1w;
 static word wA18D;
 static byte bA18F, bA190;
 
@@ -79,65 +78,57 @@ static void Sub_6175() {
 }
 
 static void AddWord() {
-    wpointer pw;
 
-    dstRec = b96D6;
-    pw     = (wpointer)&opBytes[opByteCnt];
-    *pw    = wValAry[bA190];
-    opByteCnt += 2;
+    dstRec               = b96D6;
+    opBytes[opByteCnt++] = wValAry[bA190] % 256;
+    opBytes[opByteCnt++] = wValAry[bA190] / 256;
     PstrCat2Line(sValAry[bA190]);
 }
 
 static void AddHelper() {
-    wpointer pw;
-    word q;
-    byte i, j;
+    word helperId;
 
-    pw = (wpointer)&opBytes[opByteCnt];
     if (bA190 == 1)
-        q = 0x69;
+        helperId = 105;
     else {
-        i = b425D[b969D];
-        j = b418C[i][b9692];
-        q = b42D6[(j >> 2)] + (j & 3);
+        byte i   = b425D[b969D];
+        byte j   = b418C[i][b9692];
+        helperId = b42D6[(j >> 2)] + (j & 3);
     }
-    helperStr[0] = sprintf(helperStr + 1, "@P%04d", q);
+    helperStr[0] = sprintf(helperStr + 1, "@P%04d", helperId);
     PstrCat2Line((pstr_t *)helperStr);
     if (standAlone) {
-        *pw    = helpers[q];
-        dstRec = 1;
+        opBytes[opByteCnt++] = helpers[helperId] % 256;
+        opBytes[opByteCnt++] = helpers[helperId] / 256;
+        dstRec               = 1;
     } else {
-        *pw      = 0;
-        dstRec   = 5;
-        curExtId = (byte)helpers[q];
+        opBytes[opByteCnt++] = 0;
+        opBytes[opByteCnt++] = 0;
+        dstRec               = 5;
+        curExtId             = (byte)helpers[helperId];
     }
-    opByteCnt += 2;
 }
 
 static void AddSmallNum() {
-    byte i;
-
-    i                    = b4A78[++wA18D];
-    opBytes[opByteCnt++] = i;
+    byte num             = b4A78[++wA18D];
+    opBytes[opByteCnt++] = num;
     /* extend to word on opBytes if not 0x84 */
     if (bA190)
         opBytes[opByteCnt++] = 0;
-    line.len += sprintf(&line.str[line.len], "%d", i);
+    line.len += (byte)sprintf(&line.str[line.len], "%d", num);
 }
 
 static void AddStackOrigin() {
-    dstRec                 = 3;
-    opBytes[opByteCnt]     = 0;
-    opBytes[opByteCnt + 1] = 0;
-    opByteCnt += 2;
+    dstRec               = 3;
+    opBytes[opByteCnt++] = 0;
+    opBytes[opByteCnt++] = 0;
     PstrCat2Line((pstr_t *)stackOrigin);
 }
 
 static void AddByte() {
     pstr_t *pstr;
 
-    opBytes[opByteCnt] = (byte)wValAry[bA190];
-    opByteCnt++;
+    opBytes[opByteCnt++] = (byte)wValAry[bA190];
     if (wValAry[bA190] > 255) { /* reformat number to byte Size() */
         pstr = sValAry[bA190];
         pstrcpy(pstr, hexfmt(0, Low(wValAry[bA190])));
@@ -146,17 +137,12 @@ static void AddByte() {
 }
 
 static void AddPCRel() {
-    wpointer pw;
-    word q;
-
     dstRec = 1;
-    pw     = (wpointer)&opBytes[opByteCnt];
-    wA18D  = wA18D + 1;
-    q      = b4A78[wA18D];
+    word q      = b4A78[++wA18D];
     if (q > 127) /* Sign() extend */
         q = q | 0xff00;
-    *pw = baseAddr + q;
-    opByteCnt += 2;
+    opBytes[opByteCnt++] = (baseAddr + q) % 256;
+    opBytes[opByteCnt++] = (baseAddr + q) / 256;
     line.str[line.len++] = '$';
     AddWrdDisp((pstr_t *)&line, q);
 }
@@ -195,8 +181,8 @@ static void Sub_64CF() {
     PstrCat2Line((pstr_t *)&opcodes[b47A0[i]]);
 }
 
-static void Sub_603C() {
-    wA18D = w506F[l_arg1w];
+static void Sub_603C(word arg1w) {
+    wA18D = w506F[arg1w];
     if (b4A78[wA18D] == 0)
         opByteCnt = 0;
     else {
@@ -204,12 +190,11 @@ static void Sub_603C() {
         opByteCnt  = 1;
     }
 
-    dstRec  = 0;
+    dstRec   = 0;
     line.len = 0;
 
     while (1) {
-        wA18D = wA18D + 1;
-        bA18F = b4A78[wA18D];
+        bA18F = b4A78[++wA18D];
         if (bA18F < 0x80) {
             line.str[line.len++] = bA18F;
         } else if (bA18F >= 0xc0)
@@ -304,13 +289,11 @@ static void Sub_654F() {
 void Sub_5FE7(word arg1w, byte arg2b) {
     word p;
 
-    l_arg1w = arg1w; // local copy to support nested proceedures
-
     while (arg2b > 0) {
-        Sub_603C();
+        Sub_603C(arg1w);
         Sub_654F();
         ListCodeBytes();
-        l_arg1w++;
+        arg1w++;
         arg2b--;
         p = baseAddr + opByteCnt;
         if (baseAddr > p) {
@@ -322,20 +305,17 @@ void Sub_5FE7(word arg1w, byte arg2b) {
     }
 }
 
-static byte i;
 static byte bA1AB;
 
 void Sub_66F1() {
-
-    if (cfCode >= 0xAE) {
-        i      = cfCode - 0xAE;
+    if (cfCode >= CF_174) {
+        byte i = cfCode - CF_174;
         cfCode = b4602[i];
         i      = b413B[i];
         b9692  = b4128[i];
     }
 }
 
-static byte i;
 
 static void setReg(byte slot, byte regNo, pstr_t *regStr) {
     wValAry[slot] = regNo;
@@ -353,12 +333,11 @@ static void RdWVal(byte slot) {
 }
 
 static void RdLocLab(byte slot) {
-
-    locLabelNum        = Rd1Word();
-    wValAry[slot]   = localLabels[locLabelNum];
-    locLabStr[0] = sprintf(locLabStr + 1, "@%d", locLabelNum);
-    sValAry[slot]   = (pstr_t *)locLabStr;
-    b96D6        = 1;
+    locLabelNum   = Rd1Word();
+    wValAry[slot] = localLabels[locLabelNum];
+    locLabStr[0]  = sprintf(locLabStr + 1, "@%d", locLabelNum);
+    sValAry[slot] = (pstr_t *)locLabStr;
+    b96D6         = 1;
 }
 
 static void Sub_6982(byte slot) {
@@ -366,15 +345,15 @@ static void Sub_6982(byte slot) {
     word p        = Rd1Word();
     ps969E        = (pstr_t *)commentStr;
     commentStr[0] = sprintf(commentStr + 1, "; %d", i);
-    wValAry[slot]    = p;
+    wValAry[slot] = p;
     ps96B0[0]     = sprintf(ps96B0 + 1, "%d", p);
-    sValAry[slot]    = (pstr_t *)ps96B0;
+    sValAry[slot] = (pstr_t *)ps96B0;
 }
 
 static void Sub_69E1(word disp, byte slot) {
-    infoIdx    = Rd1Word();
-    wValAry[slot] = GetLinkVal() + disp;
-    curSym     = GetSymbol();
+    SetInfo(Rd1Word());
+    wValAry[slot] = info->linkVal + disp;
+    curSym        = info->sym;
     if (curSym)
         pstrcpy((pstr_t *)ps96B0, symtab[curSym].name);
     else {
@@ -384,33 +363,29 @@ static void Sub_69E1(word disp, byte slot) {
     }
     sValAry[slot] = (pstr_t *)ps96B0;
     AddWrdDisp(sValAry[slot], disp);
-    if (TestInfoFlag(F_EXTERNAL)) {
+    if ((info->flag & F_EXTERNAL)) {
         b96D6    = 5;
-        curExtId = GetExternId();
-    } else if (GetType() == PROC_T)
+        curExtId = info->extId;
+    } else if (info->type == PROC_T || info->type == LABEL_T)
         b96D6 = 1;
-    else if (GetType() == LABEL_T)
-        b96D6 = 1;
-    else if (TestInfoFlag(F_MEMBER))
+    else if ((info->flag & F_MEMBER) || (info->flag & F_BASED))
         ;
-    else if (TestInfoFlag(F_BASED))
-        ;
-    else if (TestInfoFlag(F_DATA))
+    else if ((info->flag & F_DATA))
         b96D6 = 1;
-    else if (TestInfoFlag(F_MEMORY))
+    else if ((info->flag & F_MEMORY))
         b96D6 = 4;
-    else if (!TestInfoFlag(F_ABSOLUTE))
+    else if (!(info->flag & F_ABSOLUTE))
         b96D6 = 2;
 }
 
 static void Sub_6B0E(byte slot) {
     word disp     = Rd1Word();
 
-    infoIdx       = Rd1Word();
-    wValAry[slot]    = Rd1Word();
-    sValAry[slot]    = pstrcpy((pstr_t *)ps96B0, hexfmt(0, wValAry[slot]));
+    SetInfo(Rd1Word());
+    wValAry[slot] = Rd1Word();
+    sValAry[slot] = pstrcpy((pstr_t *)ps96B0, hexfmt(0, wValAry[slot]));
     ps969E        = (pstr_t *)commentStr;
-    curSym        = GetSymbol();
+    curSym        = info->sym;
     commentStr[0] = sprintf(commentStr + 1, "; %s", symtab[curSym].name->str);
     AddWrdDisp(ps969E, disp);
 }
@@ -488,11 +463,10 @@ void Sub_6720() {
 } /* Sub_6720() */
 
 void Sub_668B() {
-
     Sub_66F1();
     Sub_6720();
     if (cfCode == 0x87) {
-        baseAddr = GetLinkVal();
+        baseAddr = info->linkVal;
         if (DEBUG) {
             putWord(&rec8[REC_LEN], getWord(&rec8[REC_LEN]) - 4);
             RecAddWord(rec8, 1, baseAddr);

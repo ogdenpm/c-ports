@@ -10,135 +10,125 @@
 
 #include "plm.h"
 
-// plmc.c
-//static byte vtext[] = "program_version_number=";
-byte verNo[] = "V4.0";
+byte verNo[] = VERSION;
 
 // plmf.c
 // the builtins each entry is
 // name (pstr), id  (byte), paramCnt (byte), dataType (byte)
-static byte builtins[] = {
-    "\x5" "CARRY\0\0\x2"
-    "\x3" "DEC\x1\x1\x2"
-    "\x6" "DOUBLE\x2\x1\x3"
-    "\x4HIGH\x3\x1\x2"
-    "\x5INPUT\x4\x1\x2"
-    "\x4LAST\x5\x1\x3"
-    "\x6LENGTH\x6\x1\x3"
-    "\x3LOW\x7\x1\x2"
-    "\x4MOVE\x8\x3\0"
-    "\x6OUTPUT\x9\x1\0"
-    "\x6PARITY\xA\0\x2"
-    "\x3ROL\xB\x2\x2"
-    "\x3ROR\xC\x2\x2"
-    "\x3SCL\xD\x2\x2"
-    "\x3SCR\xE\x2\x2"
-    "\x3SHL\xF\x2\x2"
-    "\x3SHR\x10\x2\x2"
-    "\x4SIGN\x11\0\x2"
-    "\x4SIZE\x12\x1\x2"
-    "\x8STACKPTR\x13\0\x3"
-    "\x4TIME\x14\x1\0"
-    "\x4ZERO\x15\0\x2" };
-
+static struct {
+    pstr_t *name;
+    byte id;
+    byte paramCnt;
+    byte dataType;
+} builtins[] = {
+    // clang-format off
+    {(pstr_t *)("\x5""CARRY"),  0,  0, 2},
+    {(pstr_t *)("\x3""DEC"),    1,  1, 2},
+    {(pstr_t *)("\x6""DOUBLE"), 2,  1, 3},
+    {(pstr_t *)("\x4HIGH"),     3,  1, 2},
+    {(pstr_t *)("\x5INPUT"),    4,  1, 2},
+    {(pstr_t *)("\x4LAST"),     5,  1, 3},
+    {(pstr_t *)("\x6LENGTH"),   6,  1, 3},
+    {(pstr_t *)("\x3LOW"),      7,  1, 2},
+    {(pstr_t *)("\x4MOVE"),     8,  3, 0},
+    {(pstr_t *)("\x6OUTPUT"),   9,  1, 0},
+    {(pstr_t *)("\x6PARITY"),   10, 0, 2},
+    {(pstr_t *)("\x3ROL"),      11, 2, 2},
+    {(pstr_t *)("\x3ROR"),      12, 2, 2},
+    {(pstr_t *)("\x3SCL"),      13, 2, 2},
+    {(pstr_t *)("\x3SCR"),      14, 2, 2},
+    {(pstr_t *)("\x3SHL"),      15, 2, 2},
+    {(pstr_t *)("\x3SHR"),      16, 2, 2},
+    {(pstr_t *)("\x4SIGN"),     17, 0, 2},
+    {(pstr_t *)("\x4SIZE"),     18, 1, 2},
+    {(pstr_t *)("\x8STACKPTR"), 19, 0, 3},
+    {(pstr_t *)("\x4TIME"),     20, 1, 0},
+    {(pstr_t *)("\x4ZERO"),     21, 0, 2}
+};
 
 // the plm reserved keywords - format
 // name (pstr), keywordId (byte) see intermediate tokens in plm.h
 // in the symbols area the infoP value is set to 0xff00 + the keywordId
-static byte keywords[] = {
-    "\x7" "ADDRESS\x28"
-    "\x3" "AND\xA"
-    "\x2" "AT\x29"
-    "\x5" "BASED\x2A"
-    "\x2" "BY\x35"
-    "\x4" "BYTE\x2B"
-    "\x4" "CALL\x1C"
-    "\x4" "CASE\x36"
-    "\x4" "DATA\x2C"
-    "\x7" "DECLARE\x1D"
-    "\x7" "DISABLE\x1E"
-    "\x2" "DO\x1F"
-    "\x4" "ELSE\x37"
-    "\x6" "ENABLE\x20"
-    "\x3" "END\x21"
-    "\x3" "EOF\x38"
-    "\x8" "EXTERNAL\x2D"
-    "\x2GO\x22"
-    "\x4GOTO\x23"
-    "\x4HALT\x24"
-    "\x2IF\x25"
-    "\x7INITIAL\x2E"
-    "\x9INTERRUPT\x2F"
-    "\x5LABEL\x30"
-    "\x9LITERALLY\x31"
-    "\x5MINUS\x9"
-    "\x3MOD\x7"
-    "\x3NOT\xD"
-    "\x2OR\xB"
-    "\x4PLUS\x8"
-    "\x9PROCEDURE\x26"
-    "\x6PUBLIC\x32"
-    "\x9REENTRANT\x33"
-    "\x6RETURN\x27"
-    "\x9STRUCTURE\x34"
-    "\x4THEN\x39"
-    "\x2TO\x3A"
-    "\x5WHILE\x3B"
-    "\x3XOR\xC" };
+static struct {
+    pstr_t *name;
+    byte id;
+} keywords[] = {
+    {(pstr_t *)("\x7""ADDRESS"),  T_ADDRESS},
+    {(pstr_t *)("\x3""AND"),      T_AND},
+    {(pstr_t *)("\x2""AT"),       T_AT},
+    {(pstr_t *)("\x5""BASED"),    T_BASED},
+    {(pstr_t *)("\x2""BY"),       T_BY},
+    {(pstr_t *)("\x4""BYTE"),     T_BYTE},
+    {(pstr_t *)("\x4""CALL"),     T_CALL},
+    {(pstr_t *)("\x4""CASE"),     T_CASE},
+    {(pstr_t *)("\x4""DATA"),     T_DATA},
+    {(pstr_t *)("\x7""DECLARE"),  T_DECLARE},
+    {(pstr_t *)("\x7""DISABLE"),  T_DISABLE},
+    {(pstr_t *)("\x2""DO"),       T_DO},
+    {(pstr_t *)("\x4""ELSE"),     T_ELSE},
+    {(pstr_t *)("\x6""ENABLE"),   T_ENABLE},
+    {(pstr_t *)("\x3""END"),      T_END},
+    {(pstr_t *)("\x3""EOF"),      T_EOF},
+    {(pstr_t *)("\x8""EXTERNAL"), T_EXTERNAL},
+    {(pstr_t *)("\x2GO"),         T_GO},
+    {(pstr_t *)("\x4GOTO"),       T_GOTO},
+    {(pstr_t *)("\x4HALT"),       T_HALT},
+    {(pstr_t *)("\x2IF"),         T_IF},
+    {(pstr_t *)("\x7INITIAL"),    T_INITIAL},
+    {(pstr_t *)("\x9INTERRUPT"),  T_INTERRUPT},
+    {(pstr_t *)("\x5LABEL"),      T_LABEL},
+    {(pstr_t *)("\x9LITERALLY"),  T_LITERALLY},
+    {(pstr_t *)("\x5MINUS"),      T_MINUS},
+    {(pstr_t *)("\x3MOD"),        T_MOD},
+    {(pstr_t *)("\x3NOT"),        T_NOT},
+    {(pstr_t *)("\x2OR"),         T_OR},
+    {(pstr_t *)("\x4PLUS"),       T_PLUS},
+    {(pstr_t *)("\x9PROCEDURE"),  T_PROCEDURE},
+    {(pstr_t *)("\x6PUBLIC"),     T_PUBLIC},
+    {(pstr_t *)("\x9REENTRANT"),  T_REENTRANT},
+    {(pstr_t *)("\x6RETURN"),     T_RETURN},
+    {(pstr_t *)("\x9STRUCTURE"),  T_STRUCTURE},
+    {(pstr_t *)("\x4THEN"),       T_THEN},
+    {(pstr_t *)("\x2TO"),         T_TO},
+    {(pstr_t *)("\x5WHILE"),      T_WHILE},
+    {(pstr_t *)("\x3XOR"),        T_XOR}};
 
+// clang-format on
 
-
-static void InstallBuiltins()
-{
-    pointer p;
-
-    p = builtins;
-    while (*p != 0) {
-        Lookup((pstr_t *)p);
-        CreateInfo(0, BUILTIN_T);
-        SetBuiltinId(p[*p + 1]);
-        SetParamCnt(p[*p + 2]);
-        SetDataType(p[*p + 3]);
-        p += *p + 4;
+static void InstallBuiltins() {
+    for (int i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
+        Lookup(builtins[i].name);
+        CreateInfo(0, BUILTIN_T, curSym);
+        info->builtinId = builtins[i].id;
+        SetParamCnt(builtins[i].paramCnt);
+        SetDataType(builtins[i].dataType);
     }
     Lookup((pstr_t *)"\x6MEMORY");
-    CreateInfo(0, BYTE_T);
-    SetInfoFlag(F_LABEL);
-    SetInfoFlag(F_MEMORY);
-    SetInfoFlag(F_ARRAY);
+    CreateInfo(0, BYTE_T, curSym);
+    info->flag |= F_LABEL | F_MEMORY | F_ARRAY;
 } /* InstallBuiltins() */
 
-
-static void InstallKeywords()
-{
-    pointer p;
-
-    p = keywords;
-    while (*p != 0) {
-        Lookup((pstr_t *)p);
-        symtab[curSym].infoIdx = 0xFF00 | p[*p + 1];
-        p += *p + 2;
+static void InstallKeywords() {
+    for (int i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
+        Lookup(keywords[i].name);
+        symtab[curSym].infoIdx = 0xFF00 | keywords[i].id;
     }
 } /* InstallKeywords() */
 
-
-static void InitInfoAndSym()
-{
+static void InitInfoAndSym() {
     SetPageNo(1);
     localLabelCnt = 0;
     cmdLineCaptured++;
     procChains[0] = procChains[1] = blockDepth = 0;
 } /* InitInfoAndSym() */
 
-void InitKeywordsAndBuiltins()
-{
+void InitKeywordsAndBuiltins() {
     InitInfoAndSym();
     InstallKeywords();
     InstallBuiltins();
 } /* InitKeywordsAndBuiltins() */
 
-void SetDate(char *str, byte len)
-{
+void SetDate(char *str, byte len) {
     if (len > 9)
         len = 9;
     memset(DATE, ' ', 9);
@@ -146,38 +136,26 @@ void SetDate(char *str, byte len)
     DATE[9] = '\0';
 } /* SetDate() */
 
-
-void SetPageLen(word len)
-{
+void SetPageLen(word len) {
     PAGELEN = (byte)len;
 } /* SetPageLen() */
 
-
-void SetPageNo(word v)
-{
+void SetPageNo(word v) {
     pageNo = v - 1;
 }
 
-
-void SetMarginAndTabW(byte startCol, byte width)
-{
+void SetMarginAndTabW(byte startCol, byte width) {
     margin = startCol - 1;
     tWidth = width;
 }
 
-
-void SetTitle(char *str, byte len)
-{
+void SetTitle(char *str, byte len) {
     if (len > 60)
         len = 60;
     memmove(TITLE, str, len);
     TITLELEN = len;
 } /* SetTitle() */
 
-
-void SetPageWidth(word width)
-{
+void SetPageWidth(word width) {
     PWIDTH = (byte)width;
 } /* SetPageWidth() */
-
-

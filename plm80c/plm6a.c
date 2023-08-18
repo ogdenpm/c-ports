@@ -8,8 +8,8 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
 
 // lifted to file scope
 static word itemArgs[4];
@@ -53,7 +53,6 @@ static void Error_6() {
 }
 
 void MiscControl(vfile_t *txFile) {
-
     switch (cfCode) {
     case T2_LIST:
         listOff = false;
@@ -73,16 +72,15 @@ void MiscControl(vfile_t *txFile) {
         break;
     case T2_INCLUDE:
         EmitLinePrefix();
-        srcFileTable[srcFileIdx++] = srcFil;    // push current file
+        srcFileTable[srcFileIdx++] = srcFil; // push current file
         OpenF(&srcFil, "SOURCE", includes[vfRword(txFile)], "rt");
         break;
     }
 }
 
 void Sub_42E7() {
-
     itemArgs[0] = itemArgs[1] = itemArgs[2] = 0;
-    cfCode = Rd2Byte();
+    cfCode                                  = Rd2Byte();
 
     if (cfCode != T2_INCLUDE)
         Rd2Buf(&itemArgs, (b5124[cfCode] & 3) * sizeof(itemArgs[0]));

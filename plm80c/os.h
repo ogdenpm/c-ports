@@ -5,10 +5,10 @@
 void usage();
 void Start();
 
-
 // io.c routines
 void setTrap(void (*trap)(void));
 char const *basename(char const *path);
+char *MapFile(char *osName, const char *isisPath);
 FILE *Fopen(char const *pathP, char *access);
 int Delete(char const *ipath);
 int Access(char const *ipath, int mode);
@@ -21,14 +21,15 @@ _Noreturn void FatalError(char const *fmt, ...);
 _Noreturn void IoError(char const *path, char const *fmt, ...);
 
 // cmd line variables and support functions
-extern char *cmdP;        // current location on command line
-extern char const *invokeName;  // sanitised invoking command
+extern char *cmdP;             // current location on command line
+extern char const *invokeName; // sanitised invoking command
 
 char *getCmdLine(int argc, char **argv);
-//char *GetToken(void);
+// char *GetToken(void);
 char *GetText(void);
-uint16_t GetNumber(void);
-void printCmdLine(FILE *fp);
+char *GetNSToken(void);
+    uint16_t GetNumber(void);
+int printCmdLine(FILE *fp, int width);
 void printDriveMap(FILE *fp);
 
 void *xmalloc(size_t size);

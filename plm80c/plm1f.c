@@ -31,121 +31,107 @@ int32_t RdAtWord() {
 }
 
 static word GetElementSize() {
-    byte i;
-    i = GetType() - 2;
-
-    switch (i) {
-    case 0:
+    switch (info->type) {
+    case BYTE_T:
         return 1; /* byte */
-    case 1:
+    case ADDRESS_T:
         return 2; /* address */
-    case 2:
-        return GetParentOffset(); /* structure. Returns() val not offeset for struct */
+    case STRUCT_T:
+        return info->totalSize;
     }
     return 0;
 }
 
 static word GetVarSize() {
-    if (TestInfoFlag(F_ARRAY))
-        return GetDimension() * GetElementSize();
-    else
-        return GetElementSize();
+    return info->flag & F_ARRAY ? info->dim * GetElementSize() : GetElementSize();
 }
 
-
-static index_t AdvNextDataInfo(index_t idx) {
-    while (1) {
-        idx = AdvNxtInfo(idx);
-        if (idx == 0 || (infotab[idx].type >= BYTE_T && infotab[idx].type <= STRUCT_T))
-            return idx;
-    }
+static void AdvNextDataInfo() {
+    do {
+        AdvNxtInfo();
+    } while (infoIdx && (info->type < BYTE_T || STRUCT_T < info->type));
 }
 
-
-static void Sub_711F() {
-    word p, q, r, s;
-
-    for (infoIdx = AdvNextDataInfo(0); infoIdx != 0; infoIdx = AdvNextDataInfo(infoIdx)) {
-        if (GetType() == STRUCT_T) {
-            SetParentOffset(0); /* struct Size() is 0 */
-        } else if (TestInfoFlag(F_MEMBER)) {
-            r        = GetVarSize();
-            p        = infoIdx;
-            infoIdx = GetParentOffset(); /* get structure info */
-            q        = GetParentOffset(); /* this gets Size() so far */
-            if ((s = q + r) < r)          /* add in the new element */
-                Sub_6EF6(ERR208);         /* LIMIT EXCEEDED: structure Size() */
-            SetParentOffset(s);           /* store the running Size() */
-            infoIdx = p;
-            SetLinkVal(q); /* use link value for offset of this memeber */
+/* determine structure sizes and member offsets */
+static void StructSizes() {
+    word oldSize, varSize, newSize;
+    info_t *parent;
+    infoIdx = 0;
+    AdvNextDataInfo();
+    while (infoIdx) {
+        if (info->type == STRUCT_T) {
+            info->totalSize = 0; /* struct Size() is 0 */
+        } else if ((info->flag & F_MEMBER)) {
+            varSize = GetVarSize();
+            parent  = &infotab[info->parent];
+            oldSize = parent->totalSize;                /* this gets Size() so far */
+            if ((newSize = oldSize + varSize) < varSize) /* add in the new element */
+                Sub_6EF6(ERR208);                        /* LIMIT EXCEEDED: structure Size() */
+            parent->totalSize = newSize;                /* store the running Size() */
+            info->linkVal      = oldSize; /* use link value for offset of this member */
         }
+        AdvNextDataInfo();
     }
 }
 
 static word AllocVar(word addr) {
-
-    SetLinkVal(addr);     /* allocate this var's address */
+    info->linkVal = addr; /* allocate this var's address */
     addr += GetVarSize(); /* reserve it's space */
     if (addr < GetVarSize())
         Sub_6EF6(ERR207); /* LIMIT EXCEEDED: SEGMENT Size() */
     return addr;
 }
 
-static void Sub_7323() {
+static void AllocStkVar() {
     word idx;
 
-    idx = procInfo[High(GetScope())];
-    infotab[idx].parent = AllocVar(infotab[idx].parent);    
+    idx                 = procInfo[High(info->scope)];
+    infotab[idx].parent = AllocVar(infotab[idx].parent);
 }
 
-static void Sub_719D() {
-    byte i;
-    word p;
-
+static void DataAllocation() {
     /* allocate external data ids */
 
     standAlone = haveModuleLevelUnit;
-
-    for (infoIdx = AdvNxtInfo(0); infoIdx != 0; infoIdx = AdvNxtInfo(infoIdx)) {
-        if ((GetType() >= BYTE_T && GetType() <= STRUCT_T) || GetType() == PROC_T ||
-            GetType() == LABEL_T) {
-            if (TestInfoFlag(F_EXTERNAL)) {
-                SetExternId(externalsCnt);
+    infoIdx    = 0;
+    AdvNxtInfo();
+    while (infoIdx) {
+        if ((info->type >= BYTE_T && info->type <= STRUCT_T) || info->type == PROC_T ||
+            info->type == LABEL_T) {
+            if ((info->flag & F_EXTERNAL)) {
+                info->extId = externalsCnt;
                 externalsCnt++;
                 if (externalsCnt == 0)
                     Sub_6EF6(ERR219); /* LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255 */
-                SetLinkVal(0);
-                standAlone = false;
-            } else if (TestInfoFlag(F_PUBLIC))
+                info->linkVal = 0;
+                standAlone    = false;
+            } else if ((info->flag & F_PUBLIC))
                 standAlone = false;
         }
+        AdvNxtInfo();
     }
 
     /* allocate data variables */
-
-    for (infoIdx = AdvNextDataInfo(0); infoIdx != 0; infoIdx = AdvNextDataInfo(infoIdx)) {
-        if (!(TestInfoFlag(F_MEMBER) || TestInfoFlag(F_AT) || TestInfoFlag(F_EXTERNAL))) {
-            if (TestInfoFlag(F_PARAMETER)) {
-                p        = infoIdx;
-                infoIdx = procInfo[High(GetScope())];
-                i        = TestInfoFlag(F_EXTERNAL); /* only allocate parameter if (! external */
-                infoIdx = p;
-            } else
-                i = false;
-            if (i)
-                SetLinkVal(0); /* external parameter has 0 offset */
-            else if (TestInfoFlag(F_BASED))
-                SetLinkVal(0); /* based var has 0 offset */
-            else if (TestInfoFlag(F_DATA))
+    infoIdx = 0;
+    AdvNextDataInfo();
+    while (infoIdx) {
+        if (!(info->flag & (F_MEMBER | F_AT | F_EXTERNAL))) {
+            if (((info->flag & F_PARAMETER) &&
+                 (infotab[procInfo[High(info->scope)]].flag & F_EXTERNAL)) ||
+                (info->flag & F_BASED))
+                info->linkVal = 0; /* external parameter and based var have 0 offset */
+            else if ((info->flag & F_DATA))
                 csegSize = AllocVar(csegSize); /* allocate initialised data var */
-            else if (TestInfoFlag(F_MEMORY))
-                ;                               /* memory is predefined */
-            else if (TestInfoFlag(F_AUTOMATIC)) /* allocate stack var */
-                Sub_7323();
+            else if ((info->flag & F_MEMORY))
+                ;                                /* memory is predefined */
+            else if ((info->flag & F_AUTOMATIC)) /* allocate stack var */
+                AllocStkVar();
             else
                 dsegSize = AllocVar(dsegSize); /* allocate uninitalised data */
         }
+        AdvNextDataInfo();
     }
+    info = NULL; // just in case
 }
 
 union {
@@ -156,7 +142,6 @@ union {
         word stmt;
         var_t var;
     };
-
 } atFData;
 
 word atOffset;
@@ -168,66 +153,65 @@ void RdAtData() {
     vfRbuf(&atf, (uint8_t *)&atFData.var, sizeof(var_t));
 }
 static void Sub_7486() {
-    byte i, j;
+    byte atType;
     if (atFData.var.infoOffset == 0)
-        i = 0;
-    else if (GetType() > STRUCT_T || GetType() < BYTE_T) {
-        i = 0;
+        atType = 0;
+    else if (info->type > STRUCT_T || info->type < BYTE_T) {
+        atType = 0;
         Sub_6EF6(ERR211); /* INVALID IDENTIFIER IN 'at' RESTRICTED REFERENCE */
-    } else if (TestInfoFlag(F_EXTERNAL)) {
-        i = 1;
-        j = GetExternId();
-    } else if (TestInfoFlag(F_DATA))
-        i = 2;
-    else if (TestInfoFlag(F_AUTOMATIC))
-        i = 3;
-    else if (TestInfoFlag(F_MEMORY))
-        i = 4;
-    else if (TestInfoFlag(F_BASED)) {
-        i = 0;
+    } else if ((info->flag & F_EXTERNAL))
+        atType = 1;
+    else if ((info->flag & F_DATA))
+        atType = 2;
+    else if ((info->flag & F_AUTOMATIC))
+        atType = 3;
+    else if ((info->flag & F_MEMORY))
+        atType = 4;
+    else if ((info->flag & F_BASED)) {
+        atType = 0;
         Sub_6EF6(ERR212); /* INVALID RESTRICTED REFERENCE IN 'at' , BASE ILLEGAL */
-    } else if (TestInfoFlag(F_ABSOLUTE))
-        i = 0;
+    } else if ((info->flag & F_ABSOLUTE))
+        atType = 0;
     else
-        i = 5;
-    infoIdx = atFData.infoP;
+        atType = 5;
 
-    while (1) {
-        if (!TestInfoFlag(F_MEMBER)) {
-            if (TestInfoFlag(F_DATA)) {
-                ClrFlag(infotab[infoIdx].flag, F_DATA);
-                SetInfoFlag(F_INITIAL);
+    info_t *savInfo = info; // incase external
+    SetInfo(atFData.infoP);
+
+    do {
+        if (!(info->flag & F_MEMBER)) {
+            if ((info->flag & F_DATA)) {
+                info->flag &= ~F_DATA;
+                info->flag |= F_INITIAL;
             }
-            SetLinkVal(atOffset);
-            atOffset = atOffset + GetVarSize();
-            switch (i) {
+            info->linkVal = atOffset;
+            atOffset += GetVarSize();
+            switch (atType) {
             case 0:
-                SetInfoFlag(F_ABSOLUTE);
+                info->flag |= F_ABSOLUTE;
                 break;
             case 1:
-                if (TestInfoFlag(F_PUBLIC))
+                if ((info->flag & F_PUBLIC))
                     Sub_6EF6(ERR178); /* INVALID 'at' RESTRICTED REFERENCE, external
                                 ATTRIBUTE CONFLICTS WITH public ATTRIBUTE */
-                SetInfoFlag(F_EXTERNAL);
-                SetExternId(j);
+                info->flag |= F_EXTERNAL;
+                info->extId = savInfo->extId;
                 break;
             case 2:
-                SetInfoFlag(F_DATA);
+                info->flag |= F_DATA;
                 break;
             case 3:
-                SetInfoFlag(F_AUTOMATIC);
+                info->flag |= F_AUTOMATIC;
                 break;
             case 4:
-                SetInfoFlag(F_MEMORY);
+                info->flag |= F_MEMORY;
                 break;
             case 5:
                 break;
             }
         }
-        infoIdx = AdvNextDataInfo(infoIdx);
-        if (infoIdx == 0 || !(TestInfoFlag(F_PACKED) || TestInfoFlag(F_MEMBER)))
-            return;
-    }
+        AdvNextDataInfo();
+    } while (infoIdx && (info->flag & (F_PACKED | F_MEMBER)));
 }
 static void Sub_73DC() {
     RdAtHdr();
@@ -238,13 +222,13 @@ static void Sub_73DC() {
     atStmtNum     = atFData.stmt;
     atOffset      = atFData.var.val;
     if (atFData.var.infoOffset != 0) {
-        infoIdx = atFData.var.infoOffset;
-        if (TestInfoFlag(F_MEMBER)) {
-            atOffset = GetElementSize() * atFData.var.nestedArrayIndex + atOffset + GetLinkVal();
-            infoIdx = GetParentOffset();
+        SetInfo(atFData.var.infoOffset);
+        if ((info->flag & F_MEMBER)) {
+            atOffset = GetElementSize() * atFData.var.nestedArrayIndex + atOffset + info->linkVal;
+            SetInfo(info->parent);
         }
-        atOffset = GetLinkVal() + GetElementSize() * atFData.var.arrayIndex + atOffset;
-        if (TestInfoFlag(F_AT))
+        atOffset = info->linkVal + GetElementSize() * atFData.var.arrayIndex + atOffset;
+        if ((info->flag & F_AT))
             if (infoIdx >= atFData.infoP)
                 Sub_6EF6(ERR213); /* UNDEFINED RESTRICTED REFERENCE IN 'at' */
     }
@@ -252,7 +236,6 @@ static void Sub_73DC() {
 }
 
 static void ProcAtFile() {
-
     while (1) {
         atFData.type = RdAtByte();
         switch (atFData.type) {
@@ -301,8 +284,8 @@ static void Sub_76D9() {
 
 void Sub_6EE0() {
     Sub_7695();
-    Sub_711F();
-    Sub_719D();
+    StructSizes();
+    DataAllocation();
     ProcAtFile();
     Sub_75F7();
     Sub_76D9();

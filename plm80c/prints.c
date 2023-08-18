@@ -10,8 +10,6 @@
 
 #include "plm.h"
 
-void PrintStr(char const *str, byte len)
-{
+void PrintStr(char const *str, byte len) {
     printf("%.*s", len, str);
 } /* PrintStr() */
-

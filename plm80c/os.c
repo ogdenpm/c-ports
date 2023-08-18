@@ -1,4 +1,3 @@
-
 /****************************************************************************
  *  io.c: part of the C port of Intel's ISIS-II plm80                       *
  *  The original ISIS-II application is Copyright Intel                     *
@@ -11,20 +10,22 @@
 
 // vim:ts=4:shiftwidth=4:expandtab:
 // #include "loc.h"
-//#include "omf.h"
+// #include "omf.h"
 #include "os.h"
 #include <ctype.h>
 #include <errno.h>
 #include <showVersion.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
+#include <direct.h>
 // "lst.h"
 
 #ifdef _WIN32
 #include <io.h>
+#define mkdir(dir, access) _mkdir(dir)
 #define DIRSEP "/\\"
 #else
 #include <errno.h>
@@ -76,10 +77,10 @@ int main(int argc, char **argv) {
 _Noreturn void Exit(int retCode) {
     if (fcloseall() < 0)
         fprintf(stderr, "Warning: Problem closing open files\n");
-//    if (retCode && omfOutName && Delete(omfOutName))
-//        fprintf(stderr, "Warning: Couldn't delete %s\n", omfOutName);
+    //    if (retCode && omfOutName && Delete(omfOutName))
+    //        fprintf(stderr, "Warning: Couldn't delete %s\n", omfOutName);
     if (trap) {
-//        omfOutName = NULL;
+        //        omfOutName = NULL;
         trap();
     }
     exit(retCode);
@@ -99,9 +100,9 @@ char const *basename(char const *path) {
 /*
     map a filename of the form [:Fx:]path to host OS format
 */
-static char *MapFile(char *osName, const char *isisPath) {
+char *MapFile(char *osName, const char *isisPath) {
     char *s;
-    static char dev[7] = { "ISIS_Fx" };
+    static char dev[] = { "ISIS_Fx" };
 
     if (isisPath[0] == ':' && toupper(isisPath[1]) == 'F' && isdigit(isisPath[2]) &&
         isisPath[3] == ':') {
@@ -286,7 +287,7 @@ static char *ScanToken(char const *delims) {
             FatalCmdLineErr("Missing terminating )");
     }
     if (*p == '\'')
-        cmdP = p + 1;
+        cmdP++;
     else if (*delims != '\'') { // trim unless started with '
         while (p > cmdP && p[-1] == ' ')
             p--;
@@ -309,6 +310,10 @@ char *GetToken(void) {
 
 char *GetText(void) {
     return ScanToken(")\n\r");
+}
+
+char *GetNSToken(void) {
+    return ScanToken(" \n\r");
 }
 
 uint16_t GetNumber(void) {
@@ -347,18 +352,20 @@ uint16_t GetNumber(void) {
 }
 
 // print the command line, splitting long lines
-void printCmdLine(FILE *fp) {
-    int col = 0;
-    char *s = commandLine;
+int printCmdLine(FILE *fp, int width) {
+    int col   = 0;
+    char *s   = commandLine;
+    int nlCnt = 0;
     while (*s) {
         char *brk = strpbrk(s, ", '\n\r");
         if (*brk == '\'')
             brk = strpbrk(brk + 1, "'\n\r"); // for quoted token include it
         if (!brk)
             brk = strchr(s, '\0'); // if no break do whole string
-        if (col + (brk + 1 - s) >= 120) {
+        if (col + (brk + 1 - s) >= width - 1) {
             fputs("\\\n    ", fp);
             col = 4;
+            nlCnt++;
         }
         col += fprintf(fp, "%.*s", (int)(brk - s), s);
         if (!*brk || *brk == '\n')
@@ -366,19 +373,23 @@ void printCmdLine(FILE *fp) {
         if (*brk == '\r') {
             fputs("&\n**", fp);
             col = 2;
+            nlCnt++;
         } else
             fputc(*brk, fp);
         s = brk + 1;
     }
-    if (col)
+    if (col) {
         fputc('\n', fp);
+        nlCnt++;
+    }
+    return nlCnt;
 }
 
 // common error handlers
 _Noreturn void FatalCmdLineErr(char const *errMsg) {
     strcpy(endToken, "#\n");
     fprintf(stderr, "Command line error near #: %s\n", errMsg);
-    printCmdLine(stderr);
+    printCmdLine(stderr, 120);
     Exit(1);
 }
 
@@ -429,4 +440,19 @@ char *xstrdup(char const *str) {
     if (!s)
         FatalError("Out of memory");
     return s;
+}
+
+void mkpath(char *file) {
+    char dir[_MAX_PATH + 1];
+    char *s = dir;
+    while (1) {
+        while (*file && *file != '/' && *file != '\\')
+            *s++ = *file++;
+        if (*file == 0)
+            return;
+        *s = 0;
+        if (access(dir, 0) < 0 && mkdir(dir, 0777) != 0 && errno != EEXIST)
+            IoError(dir, "Cannot create directory", dir);
+        *s++ = *file++;
+    }
 }

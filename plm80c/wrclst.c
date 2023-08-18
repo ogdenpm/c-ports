@@ -13,4 +13,3 @@
 void WrLstC(char ch) {
     fputc(ch, lstFile.fp);
 }
-

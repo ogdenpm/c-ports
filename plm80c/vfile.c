@@ -10,13 +10,10 @@ static void vfExpand(vfile_t *vf, uint32_t minSize) {
     vf->content = xrealloc(vf->content, vf->capacity);
 }
 
-
 void vfReset(vfile_t *vf) {
     vf->size = 0;
-    vf->pos = 0;
+    vf->pos  = 0;
 }
-
-
 
 void vfWbuf(vfile_t *vf, void const *buf, uint32_t len) {
     if (vf->pos + len >= vf->capacity)
@@ -70,9 +67,10 @@ int32_t vfRword(vfile_t *vf) {
 }
 
 void dump(vfile_t *vf, char const *fname) {
+#ifdef _DEBUG
     FILE *fp = fopen(fname, "wb");
     if (vf->size)
         fwrite(vf->content, 1, vf->size, fp);
     fclose(fp);
-
+#endif
 }

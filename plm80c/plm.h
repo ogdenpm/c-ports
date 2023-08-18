@@ -8,7 +8,6 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "error.h"
 #include "vfile.h"
 #include <setjmp.h>
 #include <stdbool.h>
@@ -16,18 +15,12 @@
 #include <string.h>
 
 #ifdef __GNUC__
-#define trunc _trunc
-#define stricmp strcasecmp
-#define strnicmp    strncasecmp
+#define trunc    _trunc
+#define stricmp  strcasecmp
+#define strnicmp strncasecmp
 #endif
 
-#ifdef _MSC_VER
-#define NORETURN(func) __declspec(noreturn) void func
-#elif __GNUC__
-#define NORETURN(func) __attribute__((noreturn)) void func
-#else
-#define NORETURN(func) void func
-#endif
+
 #define VERSION "V4.0"
 
 typedef unsigned char byte;
@@ -45,26 +38,8 @@ typedef uint16_t index_t;
 #define Move(s, d, c) memcpy(d, s, c)
 #define Length(str)   (sizeof(str) - 1)
 
-/* isis command codes */
-enum {
-    IOPEN   = 0,
-    ICLOSE  = 1,
-    IDELETE = 2,
-    IREAD   = 3,
-    IWRITE  = 4,
-    ISEEK   = 5,
-    ILOAD   = 6,
-    IRENAME = 7,
-    ICONSOL = 8,
-    IEXIT   = 9,
-    IATTRIB = 10,
-    IRESCAN = 11,
-    IERROR  = 12,
-    IWHOCON = 13,
-    ISPATH  = 14
-};
 
-#define FILE_NAME_LEN 15
+#define SetInfo(v)    info = &infotab[infoIdx = v]
 
 #define TAB           9
 #define CR            '\r'
@@ -74,26 +49,26 @@ enum {
 
 /* flags */
 enum {
-    F_PUBLIC    = 0,
-    F_EXTERNAL  = 1,
-    F_BASED     = 2,
-    F_INITIAL   = 3,
-    F_REENTRANT = 4,
-    F_DATA      = 5,
-    F_INTERRUPT = 6,
-    F_AT        = 7,
-    F_ARRAY     = 8,
-    F_STARDIM   = 9,
-    F_PARAMETER = 10,
-    F_MEMBER    = 11,
-    F_LABEL     = 12,
-    F_AUTOMATIC = 13,
-    F_PACKED    = 14,
-    F_ABSOLUTE  = 15,
-    F_MEMORY    = 16,
-    F_DECLARED  = 17,
-    F_DEFINED   = 18,
-    F_MODGOTO   = 19
+    F_PUBLIC    = (1 << 0),
+    F_EXTERNAL  = (1 << 1),
+    F_BASED     = (1 << 2),
+    F_INITIAL   = (1 << 3),
+    F_REENTRANT = (1 << 4),
+    F_DATA      = (1 << 5),
+    F_INTERRUPT = (1 << 6),
+    F_AT        = (1 << 7),
+    F_ARRAY     = (1 << 8),
+    F_STARDIM   = (1 << 9),
+    F_PARAMETER = (1 << 10),
+    F_MEMBER    = (1 << 11),
+    F_LABEL     = (1 << 12),
+    F_AUTOMATIC = (1 << 13),
+    F_PACKED    = (1 << 14),
+    F_ABSOLUTE  = (1 << 15),
+    F_MEMORY    = (1 << 16),
+    F_DECLARED  = (1 << 17),
+    F_DEFINED   = (1 << 18),
+    F_MODGOTO   = (1 << 19)
 };
 
 /* token info types */
@@ -680,44 +655,44 @@ enum { DO_PROC = 0, DO_LOOP = 1, DO_WHILE = 2, DO_CASE = 3 };
 #define ERR178                                                                                     \
     178 /* INVALID 'AT' RESTRICTED REFERENCE, EXTERNAL ATTRIBUTE CONFLICTS WITH PUBLIC ATTRIBUTE   \
          */
-#define ERR179      179 /* OUTER 'IF' MAY NOT HAVE AN 'ELSE' PART */
-#define ERR180      180 /* MISSING OR INVALID CONDITIONAL COMPILATION PARAMETER */
-#define ERR181      181 /* MISSING OR INVALID CONDITIONAL COMPILATION CONSTANT */
-#define ERR182      182 /* MISPLACED ELSE OR ELSEIF OPTION */
-#define ERR183      183 /* MISPLACED ENDIF OPTION */
-#define ERR184      184 /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
-#define ERR185      185 /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
-#define ERR186      186 /* INVALID CONDITIONAL COMPILATION CONSTANT, TOO LARGE */
-#define ERR187      187 /* LIMIT EXCEEDED: NUMBER OF SAVE LEVELS > 5 */
-#define ERR188      188 /* MISPLACED RESTORE OPTION */
-#define ERR189      189 /* NULL STRING NOT ALLOWED */
-#define ERR200      200 /* LIMIT EXCEEDED: STATEMENT SIZE */
-#define ERR201      201 /* INVALID DO CASE BLOCK, AT LEAST ONE CASE REQUIRED */
-#define ERR202      202 /* LIMIT EXCEEDED: NUMBER OF ACTIVE CASES */
-#define ERR203      203 /* LIMIT EXCEEDED: NESTING OF TYPED PROCEDURE CALLS */
-#define ERR204      204 /* LIMIT EXCEEDED: NUMBER OF ACTIVE PROCEDURES AND DO CASE GROUPS */
-#define ERR205      205 /* ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED */
-#define ERR206      206 /* LIMIT EXCEEDED: CODE SEGMENT SIZE */
-#define ERR207      207 /* LIMIT EXCEEDED: SEGMENT SIZE */
-#define ERR208      208 /* LIMIT EXCEEDED: STRUCTURE SIZE */
-#define ERR209      209 /* ILLEGAL INITIALIZATION OF MORE SPACE THAN DECLARED */
-#define ERR210      210 /* ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255 */
-#define ERR211      211 /* INVALID IDENTIFIER IN 'AT' RESTRICTED REFERENCE */
-#define ERR212      212 /* INVALID RESTRICTED REFERENCE IN 'AT' , BASE ILLEGAL */
-#define ERR213      213 /* UNDEFINED RESTRICTED REFERENCE IN 'AT' */
-#define ERR214      214 /* COMPILER ERROR: OPERAND CANNOT BE TRANSFORMED */
-#define ERR215      215 /* COMPILER ERROR: EOF READ IN FINAL ASSEMBLY */
-#define ERR216      216 /* COMPILER ERROR: BAD LABEL ADDRESS */
-#define ERR217      217 /* ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE */
-#define ERR218      218 /* ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS */
-#define ERR219      219 /* LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255 */
-#define IOERR_254   254 /* ATTEMPT TO READ PAS EOF */
+#define ERR179    179 /* OUTER 'IF' MAY NOT HAVE AN 'ELSE' PART */
+#define ERR180    180 /* MISSING OR INVALID CONDITIONAL COMPILATION PARAMETER */
+#define ERR181    181 /* MISSING OR INVALID CONDITIONAL COMPILATION CONSTANT */
+#define ERR182    182 /* MISPLACED ELSE OR ELSEIF OPTION */
+#define ERR183    183 /* MISPLACED ENDIF OPTION */
+#define ERR184    184 /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
+#define ERR185    185 /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
+#define ERR186    186 /* INVALID CONDITIONAL COMPILATION CONSTANT, TOO LARGE */
+#define ERR187    187 /* LIMIT EXCEEDED: NUMBER OF SAVE LEVELS > 5 */
+#define ERR188    188 /* MISPLACED RESTORE OPTION */
+#define ERR189    189 /* NULL STRING NOT ALLOWED */
+#define ERR200    200 /* LIMIT EXCEEDED: STATEMENT SIZE */
+#define ERR201    201 /* INVALID DO CASE BLOCK, AT LEAST ONE CASE REQUIRED */
+#define ERR202    202 /* LIMIT EXCEEDED: NUMBER OF ACTIVE CASES */
+#define ERR203    203 /* LIMIT EXCEEDED: NESTING OF TYPED PROCEDURE CALLS */
+#define ERR204    204 /* LIMIT EXCEEDED: NUMBER OF ACTIVE PROCEDURES AND DO CASE GROUPS */
+#define ERR205    205 /* ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED */
+#define ERR206    206 /* LIMIT EXCEEDED: CODE SEGMENT SIZE */
+#define ERR207    207 /* LIMIT EXCEEDED: SEGMENT SIZE */
+#define ERR208    208 /* LIMIT EXCEEDED: STRUCTURE SIZE */
+#define ERR209    209 /* ILLEGAL INITIALIZATION OF MORE SPACE THAN DECLARED */
+#define ERR210    210 /* ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255 */
+#define ERR211    211 /* INVALID IDENTIFIER IN 'AT' RESTRICTED REFERENCE */
+#define ERR212    212 /* INVALID RESTRICTED REFERENCE IN 'AT' , BASE ILLEGAL */
+#define ERR213    213 /* UNDEFINED RESTRICTED REFERENCE IN 'AT' */
+#define ERR214    214 /* COMPILER ERROR: OPERAND CANNOT BE TRANSFORMED */
+#define ERR215    215 /* COMPILER ERROR: EOF READ IN FINAL ASSEMBLY */
+#define ERR216    216 /* COMPILER ERROR: BAD LABEL ADDRESS */
+#define ERR217    217 /* ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE */
+#define ERR218    218 /* ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS */
+#define ERR219    219 /* LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255 */
+#define IOERR_254 254 /* ATTEMPT TO READ PAS EOF */
 
 /* standard structures */
 
 typedef struct {
     byte len;
-    char str[0];
+    char str[1];
 } pstr_t;
 
 #define _pstr_t(name, size)                                                                        \
@@ -748,10 +723,10 @@ typedef struct {
         word linkVal;
     };
     union {
-        pstr_t const *lit;  // converted to string;
+        pstr_t const *lit; // converted to string;
         struct {
             union {
-                byte flag[3];
+                uint32_t flag;
                 byte condFlag;
                 struct {
                     byte builtinId;
@@ -765,7 +740,10 @@ typedef struct {
                 index_t baseOff;
                 word baseVal;
             };
-            word parent;
+            union {
+                word parent;
+                word totalSize;
+            };
             byte dtype;
             byte intno;
             byte pcnt;
@@ -780,16 +758,14 @@ typedef struct {
     pstr_t const *name;
 } sym_t;
 
-
 typedef struct {
     index_t next;
     word line;
 } xref_t;
 
-
 typedef struct {
     byte type;
-    struct _linfo {     // allows type to be read and keep alignment
+    struct _linfo { // allows type to be read and keep alignment
         word lineCnt;
         word stmtCnt;
         word blkCnt;
@@ -807,21 +783,27 @@ typedef struct {
     };
 } tx1item_t;
 
+typedef struct {
+    byte op1;
+    byte op2;
+    word info;
+} eStack_t;
+
 // record offsets
 // common
-#define REC_TYPE    0
-#define REC_LEN     1
-#define REC_DATA    3
+#define REC_TYPE     0
+#define REC_LEN      1
+#define REC_DATA     3
 
 // MODEND (4)
-#define MODEND_TYPE 3
-#define MODEND_SEG  4
-#define MODEND_OFF  5
+#define MODEND_TYPE  3
+#define MODEND_SEG   4
+#define MODEND_OFF   5
 
 // CONTENT (6)
-#define CONTENT_SEG 3
-#define CONTENT_OFF 4
-#define CONTENT_DATA   6
+#define CONTENT_SEG  3
+#define CONTENT_OFF  4
+#define CONTENT_DATA 6
 
 typedef struct {
     offset_t infoOffset;
@@ -845,13 +827,11 @@ extern offset_t MEMORY;
 /* File(main.plm) */
 /* main.plm,plm0a.plm,plm1a.plm.plm6b.plm */
 
-
 // the longjmp buffer
 extern jmp_buf exception;
 
 /* plmc.plm */
 extern byte verNo[];
-
 
 /* plm0A.plm */
 extern byte cClass[];
@@ -875,7 +855,7 @@ extern byte lineBuf[];
 #define MAXLINE 255
 extern bool lineInfoToWrite;
 extern word macroDepth;
-typedef struct  {
+typedef struct {
     byte *text;
     index_t macroIdx;
 } macro_t;
@@ -895,7 +875,6 @@ extern byte tokenType;
 extern word tokenVal;
 extern bool yyAgain;
 
-
 /* plm0A.plm,main1.plm */
 extern word procIdx;
 extern linfo_t linfo;
@@ -908,7 +887,6 @@ extern byte tx1Buf[];
 extern bool trunc;
 
 /* plm0e.plm */
-
 
 /* plm0f.plm */
 extern word curState;
@@ -938,19 +916,15 @@ extern byte lexHandlerIdxTable[];
 extern byte icodeToTx2Map[];
 extern byte b4172[];
 extern byte builtinsMap[];
-extern byte ex1Stack[];
-extern byte ex2Stack[];
-extern word ex3Stack[];
+extern eStack_t eStack[];
+
 extern word exSP;
 extern word operatorSP;
 extern word operatorStack[];
 extern word parseSP;
 extern word parseStack[];
-extern byte st1Stack[];
-extern byte st2Stack[];
-extern word st3Stack[];
+extern eStack_t sStack[];
 extern word stSP;
-
 
 /* plm overlay 2 */
 /* main2.plm */
@@ -974,7 +948,7 @@ extern byte bC1BF;
 extern byte bC1D2;
 extern byte bC1D9;
 extern byte bC1DB;
-extern byte bC1E6;
+extern byte fragLen;
 extern byte bC209[];
 extern offset_t blkCurInfo[];
 extern byte blkOverCnt;
@@ -988,7 +962,7 @@ extern bool boC1CC;
 extern bool boC1CD;
 extern bool boC1D8;
 extern bool boC20F;
-extern byte buf_C1E7[];
+extern byte fragment[];
 extern byte cfrag1;
 extern byte curExtProcId;
 extern byte curOp;
@@ -1020,7 +994,7 @@ extern word wC1C3;
 extern word wC1C5;
 extern word wC1C7;
 extern word wC1D6;
-extern word wC1DC[];
+extern word wC1DC[5];
 
 /* plm2a.plm */
 extern byte b3FCD[];
@@ -1059,9 +1033,6 @@ extern word w48DF[];
 extern word w493D[];
 extern word w502A[];
 
-
-
-
 /* plm3a.plm */
 extern byte b42A8[];
 extern byte b42D6[];
@@ -1078,7 +1049,6 @@ extern byte rec6[];
 extern byte rec6_4[];
 extern word w7197;
 
-
 /* plm3a.plm,pdata4.plm */
 extern byte objBuf[];
 extern byte rec20[];
@@ -1089,8 +1059,6 @@ extern byte rec24_3[];
 extern byte rec8[];
 extern byte rec4[];
 //
-
-
 
 /* pdata4.plm */
 extern byte b9692;
@@ -1164,7 +1132,6 @@ extern word w47C1[];
 extern word w4919[];
 extern word w506F[];
 
-
 /* main5.plm */
 extern byte b66D8;
 extern offset_t dictionaryP;
@@ -1190,7 +1157,7 @@ extern word stmtNo;
 #define OBJECT   controls[5]
 #define OPTIMIZE controls[6]
 #define IXREF    controls[7]
-
+#define DEPEND   controls[8]
 
 /* data.plm */
 extern vfile_t atf;
@@ -1203,6 +1170,7 @@ extern byte col;
 extern byte controls[];
 extern word csegSize;
 extern index_t infoIdx; // individually cast
+extern info_t *info;
 extern index_t curSym;
 extern char DATE[];
 extern word dsegSize;
@@ -1215,6 +1183,7 @@ extern word intVecLoc;
 extern byte intVecNum;
 extern file_t ixiFile;
 extern char *ixiFileName;
+extern char *depFileName;
 
 extern word LEFTMARGIN;
 extern word linesRead;
@@ -1255,88 +1224,42 @@ extern offset_t w3822;
 extern word cmdLineCaptured;
 extern vfile_t xrff;
 
-
 extern index_t symCnt;
 extern sym_t *symtab;
 
 extern index_t infoCnt;
 extern info_t *infotab;
 
-
 extern index_t dictCnt;
 extern index_t *dicttab;
-
 
 extern index_t caseCnt;
 extern index_t *casetab;
 
-
-
 extern index_t xrefCnt;
 extern xref_t *xreftab;
 
-
-extern char const *includes[];
+extern char const **includes;
 extern uint16_t includeCnt;
 
-
 /* accessors.c */
-byte GetBuiltinId(void);
-void SetBuiltinId(byte id);
-offset_t GetBaseOffset(void);
-void SetBaseOffset(offset_t baseP);
-word GetBaseVal(void);
-void SetBaseVal(word val);
-byte GetCondFlag(void);
-void SetCondFlag(byte flag);
-word GetDimension(void);
-word GetDimension2(void);
-void SetDimension(word dim);
 byte GetDataType(void);
 void SetDataType(byte dtype);
-byte GetExternId(void);
-void SetExternId(byte id);
-void SetInfoFlag(byte flag);
-byte GetIntrNo(void);
-void SetIntrNo(byte intNo);
-pstr_t const *GetLit(void);
-void SetLit(pstr_t const *litAddr);
-offset_t GetLinkOffset(void);
-void SetLinkOffset(offset_t link);
-word GetLinkVal(void);
-void SetLinkVal(word val);
-offset_t GetParentOffset(void);
-void SetParentOffset(offset_t parent);
-word GetParentVal(void);
 byte GetParamCnt(void);
 void SetParamCnt(byte cnt);
-byte GetProcId(void);
-void SetProcId(byte id);
-word GetScope(void);
-void SetScope(word scope);
-index_t GetSymbol(void);
-void SetSymbol(index_t symbol);
-byte GetType(void);
-void SetType(byte type);
-void ClrFlag(pointer base, byte flag);
-void ClrFlags(pointer base);
-void CpyFlags(pointer base);
-void SetFlag(pointer base, byte flag);
-bool TestFlag(pointer base, byte flag);
-byte TestInfoFlag(byte flag);
 
 /* creati.c */
-void CreateInfo(word scope, byte type);
+void CreateInfo(word scope, byte type, index_t sym);
 
 /* endcom.c */
 void EndCompile(void);
 
 /* fatal.c */
-void Fatal(char const *str, byte len);
+void Fatal(char const *str);
 
 /* fi.c */
 void FindInfo(void);
-index_t AdvNxtInfo(index_t idx);
+void AdvNxtInfo(void);
 void FindMemberInfo(void);
 void FindScopedInfo(word scope);
 
@@ -1416,7 +1339,7 @@ void Wr1InfoOffset(offset_t addr);
 void Wr1SyntaxError(byte err);
 void Wr1TokenErrorAt(byte err);
 void Wr1TokenError(byte err, offset_t symP);
-void LexFatalError(byte err);
+_Noreturn void LexFatalError(byte err);
 void PushBlock(word idAndLevel);
 void PopBlock(void);
 void Wr1LexToken(void);
@@ -1548,7 +1471,7 @@ void Sub_5D6B(byte arg1b);
 void Sub_5E66(byte arg1b);
 void Sub_5EE8(void);
 void Sub_5F4B(word arg1w, word arg2w, byte arg3b, byte arg4b);
-void Sub_5FBF(byte arg1b, wpointer arg2wP, wpointer arg3wP);
+void GetVal(byte arg1b, wpointer arg2wP, wpointer arg3wP);
 void Sub_611A(void);
 void Sub_61A9(byte arg1b);
 void Sub_61E0(byte arg1b);
@@ -1582,7 +1505,6 @@ void Sub_9457(void);
 
 /* plm2g.c */
 void FindParamInfo(byte arg1b);
-void Sub_9514(void);
 void Sub_9560(void);
 void Sub_9624(word arg1w);
 void Sub_9646(word arg1w);
@@ -1676,10 +1598,11 @@ void lstc(byte ch);
 pstr_t const *pstrdup(pstr_t const *ps);
 bool pstrequ(pstr_t const *ps, pstr_t const *pt);
 index_t newSymbol(pstr_t const *ps);
-index_t newInfo(byte type);
+void newInfo(byte type);
 index_t newDict(index_t idx);
 index_t newCase(word val);
 index_t newXref(index_t scope, word line);
+int newInclude(char const *fname);
 
 /* vfile.c */
 void vfReset(vfile_t *vf);

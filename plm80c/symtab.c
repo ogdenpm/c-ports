@@ -37,17 +37,17 @@ index_t infotabSize;
 index_t infoCnt = 1;
 info_t *infotab;
 
-index_t newInfo(byte type) {
+void newInfo(byte type) {
     if (infoCnt >= infotabSize) {
         if (infotabSize + INCHUNK >= 0x10000)
             FatalError("Out of info space");
         else
             infotab = xrealloc(infotab, (infotabSize += INCHUNK) * sizeof(info_t));
     }
-    memset(&infotab[infoCnt], 0, sizeof(info_t));
-    infotab[infoCnt].type = type;
+    SetInfo(infoCnt++);
+    memset(info, 0, sizeof(info_t));
+    info->type = type;
 
-    return infoCnt++;
 }
 
 #define DICHUNK 1024
@@ -100,4 +100,19 @@ index_t newXref(index_t scope, word line) {
     xreftab[xrefCnt].line = line;
 
     return xrefCnt++;
+}
+
+#define ICHUNK  20
+int newInclude(char const *fname) {
+    for (int i = 0; i < includeCnt; i++) {
+        if (strcmp(includes[i], fname) == 0)
+            return i;
+    
+    }
+    if (includeCnt % ICHUNK == 0)
+        includes = xrealloc(includes, (includeCnt + ICHUNK) * sizeof(char *));
+    includes[includeCnt] = fname;
+    return includeCnt++;
+    
+
 }

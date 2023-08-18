@@ -241,13 +241,9 @@ word parseStack[100];
 word operatorSP;
 word operatorStack[50];
 word exSP;
-byte ex1Stack[EXPRSTACKSIZE];
-byte ex2Stack[EXPRSTACKSIZE];
-word ex3Stack[EXPRSTACKSIZE];
+eStack_t eStack[EXPRSTACKSIZE];
 word stSP;
-byte st1Stack[300];
-byte st2Stack[300];
-word st3Stack[300];
+eStack_t sStack[300];
 
 void FatalError_ov1(byte err) {
     hasErrors = true;
@@ -294,7 +290,6 @@ uint16_t Rd2Word() {
 void Wr2LineInfo() {
     Wr2Byte(linfo.type);
     Wr2Buf(&linfo.lineCnt, sizeof(struct _linfo));
-
 } /* WriteLineInfo() */
 
 void Wr2Item(uint8_t type, void *buf, uint16_t len) {

@@ -10,20 +10,18 @@
 
 #include "plm.h"
 
-void NewPgl()
-{
-    if (! PAGING)
+void NewPgl() {
+    if (!PAGING)
         return;
-    linLft = PAGELEN;
+    linLft         = PAGELEN;
     int titleWidth = PWIDTH - 41;
     int titlelen   = TITLELEN <= titleWidth ? TITLELEN : titleWidth;
-    fprintf(lstFile.fp, "\fPL/M-80 COMPILER    %*.*s  %s  PAGE %3d\n\n\n", titleWidth, titlelen, TITLE, DATE, ++pageNo);
+    fprintf(lstFile.fp, "\fPL/M-80 COMPILER    %*.*s  %s  PAGE %3d\n\n\n", titleWidth, titlelen,
+            TITLE, DATE, ++pageNo);
     skipCnt = 0;
 }
 
-
-void NlLead()
-{
+void NlLead() {
     WrLstC('\n');
     col = 0;
 

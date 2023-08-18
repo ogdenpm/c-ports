@@ -55,7 +55,6 @@ static void Sub_3F8B() {
 }
 
 word Start1() {
-
     if (setjmp(exception) == 0) {
         PrepFiles(); /* create files and preload tx1 */
         dump(&utf1, "uft1_main1");

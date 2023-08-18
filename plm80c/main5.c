@@ -18,22 +18,23 @@ byte b66D8 = 0;
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
-
 void warn(char const *str) {
     lprintf("\n-- WARNING -- %s\n", str);
 }
 
 void LoadDictionary() {
     dictCnt = maxSymLen = 0;
-
-    for (infoIdx = AdvNxtInfo(0); infoIdx != 0; infoIdx = AdvNxtInfo(infoIdx)) {
-        if (GetType() < MACRO_T && GetSymbol() != 0) {
+    infoIdx             = 0;
+    AdvNxtInfo();
+    while (infoIdx) {
+        if (info->type < MACRO_T && info->sym != 0) {
             newDict(infoIdx);
-            SetScope(0); /* used for xref Chain() */
-            curSym = GetSymbol();
+            info->scope = 0; /* used for xref Chain() */
+            curSym = info->sym;
             if (symtab[curSym].name->len > maxSymLen)
                 maxSymLen = symtab[curSym].name->len;
         }
+        AdvNxtInfo();
     }
 }
 
@@ -41,12 +42,11 @@ int CmpSym(void const *a, void const *b) {
     index_t ia = *(index_t *)a;
     index_t ib = *(index_t *)b;
 
-    int cmp = strcmp(symtab[infotab[ia].sym].name->str, symtab[infotab[ib].sym].name->str);
+    int cmp    = strcmp(symtab[infotab[ia].sym].name->str, symtab[infotab[ib].sym].name->str);
     return cmp ? cmp : ia - ib;
 }
 
 void SortDictionary() {
-
     qsort(dicttab, dictCnt, sizeof(index_t), CmpSym);
 }
 
@@ -55,12 +55,12 @@ static void LoadXref() {
 
     vfRewind(&xrff);
     while ((xrefType = vfRbyte(&xrff))) {
-        word infoP = vfRword(&xrff);
+        word xrInfo = vfRword(&xrff);
         word stmt  = vfRword(&xrff);
         if (xrefType == 'B' || XREF) {
-            infoIdx = infoP;
-            xrefIdx = newXref(GetScope(), xrefType == 'B' ? -stmt : stmt); /* make defn line -ve */
-            SetScope(xrefIdx);
+            SetInfo(xrInfo);
+            xrefIdx = newXref(info->scope, xrefType == 'B' ? -stmt : stmt); /* make defn line -ve */
+            info->scope = xrefIdx;
         }
     }
     vfRewind(&xrff);
@@ -71,26 +71,26 @@ static void XrefDef2Head() {
     offset_t q, r;
 
     for (p = 0; p < dictCnt; p++) {
-        infoIdx = dicttab[p];
-        xrefIdx = GetScope();
+        SetInfo(dicttab[p]);
+        xrefIdx = info->scope;
         if (xrefIdx) {
             q = 0;
-            SetScope(0);
+            info->scope= 0;
             while (xrefIdx) {
                 r = xreftab[xrefIdx].next;
                 if ((xreftab[xrefIdx].line & 0x8000))
                     q = xrefIdx; /* definition */
                 else {
-                    xreftab[xrefIdx].next = GetScope();
-                    SetScope(xrefIdx);
+                    xreftab[xrefIdx].next = info->scope;
+                    info->scope = xrefIdx;
                 }
                 xrefIdx = r;
             }
 
             if (q) { /* insert definition at head */
                 xrefIdx               = q;
-                xreftab[xrefIdx].next = GetScope();
-                SetScope(xrefIdx);
+                xreftab[xrefIdx].next = info->scope;
+                info->scope = xrefIdx;
             }
         }
     }
@@ -112,7 +112,7 @@ static void Sub_480A() {
         return;
     }
 
-    xrefIdx = GetScope();
+    xrefIdx = info->scope;
     if (xrefIdx == 0) {
         NewLineLst();
         return;
@@ -137,7 +137,7 @@ static void Sub_480A() {
 }
 
 static void Sub_48A7() {
-    curSym = GetSymbol();
+    curSym = info->sym;
     TabLst(-nameCol);
     lstStr(symtab[curSym].name->str);
     DotLst(attribCol - 2);
@@ -154,56 +154,50 @@ static void Sub_48E2(word arg1w, word arg2w) {
 }
 
 static void Sub_4921() {
-    xrefIdx = GetScope();
-    if (GetType() == BUILTIN_T)
+    xrefIdx = info->scope;
+    if (info->type == BUILTIN_T)
         return;
     if (xrefIdx != 0 && (xreftab[xrefIdx].line & 0x8000) != 0) {
         TabLst(-defnCol);
         lprintf("%5d", 0x10000 - xreftab[xrefIdx].line); /* defn stored as -ve */
-        SetScope(xreftab[xrefIdx].next);
-    } else if (!TestInfoFlag(F_LABEL)) {
+        info->scope = xreftab[xrefIdx].next;
+    } else if (!(info->flag & F_LABEL)) {
         TabLst(-defnCol);
         lstStr("-----");
     }
 }
 
 static void Sub_499C() {
-    lprintf(" EXTERNAL(%d)", GetExternId());
+    lprintf(" EXTERNAL(%d)", info->extId);
 }
 
 static void Sub_49BB() {
-    offset_t p, q, r;
+    offset_t baseSym, member;
+    info_t *baseInfo;
 
-    p       = infoIdx;
-    infoIdx = GetBaseOffset();
-    if (TestInfoFlag(F_MEMBER)) {
-        r       = GetSymbol();
-        infoIdx = GetParentOffset();
-        q       = GetSymbol();
+    baseInfo = &infotab[info->baseOff];
+    if ((baseInfo->flag & F_MEMBER)) {
+        member       = baseInfo->sym;
+        baseSym       = infotab[baseInfo->parent].sym;
     } else {
-        q = GetSymbol();
-        r = 0;
+        baseSym = baseInfo->sym;
+        member = 0;
     }
 
-    curSym = q;
+    curSym = baseSym;
     lprintf(" BASED(%.*s", symtab[curSym].name->len, symtab[curSym].name->str);
-    if (r) {
+    if (member) {
         lstc('.');
-        curSym = r;
+        curSym = member;
         lprintf("%.*s", symtab[curSym].name->len, symtab[curSym].name->str);
     }
     lstc(')');
-    infoIdx = p;
 }
 
 static void Sub_4A42() {
-    offset_t p;
-
-    p       = infoIdx;
-    infoIdx = GetParentOffset();
-    curSym  = GetSymbol();
+    curSym  = infotab[info->parent].sym;
     lprintf(" MEMBER(%.*s)", symtab[curSym].name->len, symtab[curSym].name->str);
-    infoIdx = p;
+
 }
 
 static void Sub_4A78(char const *str) {
@@ -215,24 +209,24 @@ static void Sub_4A78(char const *str) {
 
 static void Sub_4A92() {
     Sub_4921();
-    Sub_48E2(GetLinkVal(), GetDimension2());
+    Sub_48E2(info->linkVal, info->dim);
     Sub_48A7();
     lstStr("PROCEDURE");
     if (GetDataType() != 0)
         lstStr(GetDataType() == 2 ? " BYTE" : " ADDRESS");
-    if (TestInfoFlag(F_PUBLIC))
+    if ((info->flag & F_PUBLIC))
         lstStr(" PUBLIC");
 
-    if (TestInfoFlag(F_EXTERNAL))
+    if ((info->flag & F_EXTERNAL))
         Sub_499C();
 
-    if (TestInfoFlag(F_REENTRANT))
+    if ((info->flag & F_REENTRANT))
         lstStr(" REENTRANT");
 
-    if (TestInfoFlag(F_INTERRUPT))
-        lprintf(" INTERRUPT(%d)", GetIntrNo());
-    if (!TestInfoFlag(F_EXTERNAL))
-        lprintf(" STACK=%s", hexfmt(4, GetBaseVal())->str);
+    if ((info->flag & F_INTERRUPT))
+        lprintf(" INTERRUPT(%d)", info->intno);
+    if (!(info->flag & F_EXTERNAL))
+        lprintf(" STACK=%s", hexfmt(4, info->baseVal)->str);
 
     Sub_480A();
 }
@@ -241,7 +235,7 @@ static void Sub_4B4A(char const *str) {
     word size;
 
     Sub_4921();
-    byte type = GetType();
+    byte type = info->type;
     if (type == BYTE_T)
         size = 1;
     else if (type == ADDRESS_T)
@@ -249,54 +243,54 @@ static void Sub_4B4A(char const *str) {
     else if (type == LABEL_T)
         size = 0;
     else
-        size = GetParentOffset();
+        size = info->totalSize;
 
-    if (TestInfoFlag(F_ARRAY))
-        size *= GetDimension();
-    Sub_48E2(GetLinkVal(), size);
+    if ((info->flag & F_ARRAY))
+        size *= info->dim;
+    Sub_48E2(info->linkVal, size);
     Sub_48A7();
     lstStr(str);
-    if (TestInfoFlag(F_BASED))
+    if ((info->flag & F_BASED))
         Sub_49BB();
-    if (TestInfoFlag(F_ARRAY))
-        lprintf(" ARRAY(%d)", GetDimension());
+    if ((info->flag & F_ARRAY))
+        lprintf(" ARRAY(%d)", info->dim);
 
-    if (TestInfoFlag(F_PUBLIC))
+    if ((info->flag & F_PUBLIC))
         lstStr(" PUBLIC");
 
-    if (TestInfoFlag(F_EXTERNAL))
+    if ((info->flag & F_EXTERNAL))
         Sub_499C();
 
-    if (TestInfoFlag(F_AT))
+    if ((info->flag & F_AT))
         lstStr(" AT");
-    if (TestInfoFlag(F_DATA))
+    if ((info->flag & F_DATA))
         lstStr(" DATA");
-    if (TestInfoFlag(F_INITIAL))
+    if ((info->flag & F_INITIAL))
         lstStr(" INITIAL");
 
-    if (TestInfoFlag(F_MEMBER))
+    if ((info->flag & F_MEMBER))
         Sub_4A42();
 
-    if (TestInfoFlag(F_PARAMETER))
+    if ((info->flag & F_PARAMETER))
         lstStr(" PARAMETER");
 
-    if (TestInfoFlag(F_AUTOMATIC))
+    if ((info->flag & F_AUTOMATIC))
         lstStr(" AUTOMATIC");
 
-    if (TestInfoFlag(F_ABSOLUTE))
+    if ((info->flag & F_ABSOLUTE))
         lstStr(" ABSOLUTE");
 
     Sub_480A();
 }
 
 static void Sub_4C84() {
-    curSym = GetSymbol();
+    curSym = info->sym;
     if (b66D8 != symtab[curSym].name->str[0]) {
         NewLineLst();
         b66D8 = symtab[curSym].name->str[0];
     }
-    if (GetType() < MACRO_T)
-        switch (GetType()) {
+    if (info->type < MACRO_T)
+        switch (info->type) {
         case 0:
             Sub_4A78("LITERALLY");
             break;
@@ -359,9 +353,9 @@ void PrintRefs() {
     lstStr("--------------------------------\n\n");
 
     for (p = 0; p < dictCnt; p++) {
-        infoIdx = dicttab[p];
-        if (GetType() == BUILTIN_T) {
-            if (GetScope() != 0)
+        SetInfo(dicttab[p]);
+        if (info->type == BUILTIN_T) {
+            if (info->scope != 0)
                 Sub_4C84();
         } else
             Sub_4C84();
@@ -383,13 +377,13 @@ static void WrIxiWord(word v) {
 }
 
 void CreateIxrefFile() {
-    infoIdx = procInfo[1];
-    curSym  = GetSymbol();
+    info   = &infotab[infoIdx = procInfo[1]];
+    curSym  = info->sym;
     if (curSym) { /* Write() the module info */
         pstr_t const *pstr = symtab[curSym].name;
-        WrIxiByte(0xff);    // module header
+        WrIxiByte(0xff); // module header
         WrIxiByte(22 + pstr->len);
-        WrIxiByte(pstr->len);           /* module name len */
+        WrIxiByte(pstr->len);                      /* module name len */
         WrIxiBuf((uint8_t *)pstr->str, pstr->len); /* module name */
     }
     // as name may be more than 10 characters and diskette name is always dashes
@@ -397,32 +391,31 @@ void CreateIxrefFile() {
     // the diskette name
     // note only the file name and not the directory are used
     char const *name = basename(srcFileTable[0].fNam);
-    int nameLen = (int)strlen(name);
+    int nameLen      = (int)strlen(name);
     if (nameLen > 19)
         nameLen = 19;
     char ixname[] = "          ---------";
     memcpy(ixname, name, nameLen);
     WrIxiBuf((uint8_t *)ixname, 19);
 
-
     for (int p = 0; p < dictCnt; p++) {
-        infoIdx   = dicttab[p];
-        byte type = GetType();
+        info = &infotab[infoIdx   = dicttab[p]];
+        byte type = info->type;
         if (LABEL_T <= type && type <= PROC_T &&
-            (TestInfoFlag(F_PUBLIC) || (TestInfoFlag(F_EXTERNAL) && !TestInfoFlag(F_AT)))) {
-
-            WrIxiByte(TestInfoFlag(F_PUBLIC) ? 0 : 1);
-            curSym             = GetSymbol();
+            ((info->flag & (F_PUBLIC | F_EXTERNAL)) &&
+             !(info->flag & F_AT))) {
+            WrIxiByte((info->flag & F_PUBLIC) ? 0 : 1);
+            curSym             = info->sym;
             pstr_t const *pstr = symtab[curSym].name;
             WrIxiByte(6 + pstr->len);
             WrIxiByte(pstr->len);           /* module name len */
             WrIxiBuf(pstr->str, pstr->len); /* module name */
 
             WrIxiByte(type);
-            if (GetType() == PROC_T)
+            if (info->type == PROC_T)
                 WrIxiWord(GetDataType());
             else
-                WrIxiWord(TestInfoFlag(F_ARRAY) ? GetDimension() : 0);
+                WrIxiWord((info->flag & F_ARRAY) ? info->dim : 0);
         }
     }
     CloseF(&ixiFile);
@@ -439,7 +432,6 @@ void Sub_4EC5() {
 }
 
 word Start5() {
-
     Sub_4EC5();
     if (PRINT)
         LstModuleInfo();

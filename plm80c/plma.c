@@ -8,97 +8,54 @@
  *                                                                          *
  ****************************************************************************/
 
+#include "os.h"
 #include "plm.h"
 #include <ctype.h>
-#include "os.h"
-extern char *cmdP;      // command line current position
-
-
-static char aIllegalCommand[] = "ILLEGAL COMMAND TAIL SYNTAX";
+extern char *cmdP; // command line current position
 
 char *cmdTextP;
 
-
-static void SkipSpace()
-{
-    while (*cmdTextP == ' ' || *cmdTextP == '\r') {
-        cmdTextP++;
-        }
-} /* SkipSpace() */
-
-    
-static void ParseSrcFileName()
-{
-    char *fileName;
-    word nameLen;
-
-    while (*cmdTextP != ' ' && *cmdTextP != '\r')   // skip invoke name
-        cmdTextP++;
-    SkipSpace();
-    char *endChrs = " \r\n";
-    if (*cmdTextP == '\'') {
-        endChrs = "\'\r\n";
-        cmdTextP++;
-    }
-    fileName = cmdTextP;
-    cmdTextP            = strpbrk(fileName, endChrs);
-    if (!cmdTextP)
-        cmdTextP = strchr(fileName, '\0');
-    nameLen = (word)(cmdTextP - fileName);
-    if (*endChrs == '\'') {
-        if (*cmdTextP != '\'')
-            Fatal("Missing quote at end of file name", (byte)strlen("Missing quote at end of file name"));
-        cmdTextP++;
-        nameLen--;
-    }
-    if (nameLen == 0)
-        Fatal("No source file", (byte)strlen("No source file"));
-    char *fNam           = xmalloc(nameLen + 1);
-    memcpy(fNam, fileName, nameLen);
-    fNam[nameLen]        = '\0';
-    srcFileTable[0].fNam = fNam;
-    SkipSpace();
-    if (*cmdTextP == '$')
-        Fatal(aIllegalCommand, Length(aIllegalCommand));
-    moreCmdLine = *cmdTextP != '\n';
-} /* ParseSrcFileName() */
-
-static void InitFilesAndDefaults()
-{
-    LEFTMARGIN = 1;
-    char const *src  = srcFileTable[0].fNam;
-    char *s    = (char *)basename(src);
-    char *t    = strrchr(s, '.');
+static void InitFilesAndDefaults() {
+    LEFTMARGIN      = 1;
+    char const *src = srcFileTable[0].fNam;
+    char *s         = (char *)basename(src);
+    char *t         = strrchr(s, '.');
     if (!t || t == s)
         t = strchr(s, '\0');
-    int stemLen = (int)(t - src);
+    int prefixLen = (int)(t - s);
     bool uc     = true;
     for (char *r = s; *r && uc; r++)
         if (islower(*r))
             uc = false;
 
-    ixiFileName  = xmalloc(stemLen + 5);    //allow for .xxx\0
-    memcpy(ixiFileName, src, stemLen);
-    strcpy(ixiFileName + stemLen, uc ? ".IXI" : ".ixi");
+    ixiFileName = xmalloc(prefixLen + 5); // allow for .xxx\0
+    memcpy(ixiFileName, s, prefixLen);
+    strcpy(ixiFileName + prefixLen, uc ? ".IXI" : ".ixi");
 
-    lstFileName = xmalloc(stemLen + 5); // allow for .xxx\0
-    memcpy(lstFileName, src, stemLen);
-    strcpy(lstFileName + stemLen, uc ? ".LST" : ".lst");
+    lstFileName = xmalloc(prefixLen + 5); // allow for .xxx\0
+    memcpy(lstFileName, s, prefixLen);
+    strcpy(lstFileName + prefixLen, uc ? ".LST" : ".lst");
 
-    objFileName = xmalloc(stemLen + 5); // allow for .xxx\0
-    memcpy(objFileName, src, stemLen);
-    strcpy(objFileName + stemLen, uc ? ".OBJ" : ".obj");
+    objFileName = xmalloc(prefixLen + 5); // allow for .xxx\0
+    memcpy(objFileName, s, prefixLen);
+    strcpy(objFileName + prefixLen, uc ? ".OBJ" : ".obj");
 
 
-    IXREF = false;
-  
-    PRINT = true;
+    depFileName = xmalloc(prefixLen + 9);   // .deps/ {prefix} .d\0;
+    strcpy(depFileName, ".deps/");
+    memcpy(depFileName + 6, s, prefixLen);
+    strcpy(depFileName + 6 + prefixLen, ".d");
 
-    XREF = false;
-    SYMBOLS = false;
-    DEBUG = false;
-    PAGING = true;
-    OBJECT = true;
+    IXREF    = false;
+
+    PRINT    = true;
+
+    XREF     = false;
+    SYMBOLS  = false;
+    DEBUG    = false;
+    PAGING   = true;
+    OBJECT   = true;
+    DEPEND   = false;
 
     OPTIMIZE = true;
     SetDate(" ", 1);
@@ -110,10 +67,13 @@ static void InitFilesAndDefaults()
     SetPageWidth(120);
 } /* InitFilesAndDefaults() */
 
-void SignOnAndGetSourceName()
-{
+void SignOnAndGetSourceName() {
     puts("\nISIS-II PL/M-80 COMPILER " VERSION);
+    GetNSToken();
+    srcFileTable[0].fNam = GetNSToken();
+    if (!*srcFileTable[0].fNam)
+        FatalCmdLineErr("No file to compile");
     cmdTextP = cmdP;
-    ParseSrcFileName();
+    moreCmdLine = *cmdTextP != '\n';
     InitFilesAndDefaults();
 } /* SignOnAndGetSourceName() */

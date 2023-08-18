@@ -44,5 +44,4 @@ void lstc(byte ch) {
             col++;
         }
     }
-
 }

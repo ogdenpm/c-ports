@@ -1309,9 +1309,9 @@ static void EmitLocalLabel() {
 }
 
 static void EmitSymLabel() {
-    infoIdx = Rd1Word();
-    curSym  = GetSymbol();
-    AddrCheck(GetLinkVal());
+    SetInfo(Rd1Word());
+    curSym  = info->sym;
+    AddrCheck(info->linkVal);
     EmitLabel(symtab[curSym].name->str);
 }
 
@@ -1337,9 +1337,9 @@ static void EmitFullError() {
 }
 
 static void SetNewAddr() {
-    infoIdx  = Rd1Word();
+    SetInfo(Rd1Word());
     baseAddr = Rd1Word();
-    baseAddr += GetLinkVal();
+    baseAddr += info->linkVal;
     FlushRecs();
 }
 

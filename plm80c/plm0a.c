@@ -53,11 +53,10 @@ word stateStack[100];
 word stateIdx;
 offset_t stmtLabels[10];
 word stmtLabelCnt;
-// word curProcInfoP;    in main1.c
 
 word curStmtCnt        = 0;
 word curBlkCnt         = 0;
-offset_t macroIdx = 0;
+offset_t macroIdx      = 0;
 offset_t markedSymbolP = 0;
 byte lineBuf[MAXLINE + 1];
 char inbuf[1280];
@@ -73,8 +72,6 @@ offset_t stmtStartSymbol;
 bool lineInfoToWrite = false;
 bool isNonCtrlLine   = false;
 bool yyAgain         = false;
-// linfo_t linfo = { 0, 0 }; in main1.c
-// byte  curDoBlkCnt, curProcId initial(0, 0);
 word curScope;
 byte state;
 bool skippingCOND = false;
@@ -141,12 +138,12 @@ void Wr1TokenError(byte err, offset_t symP) {
     Wr1Word(symP);
 } /* TokenError() */
 
-void LexFatalError(byte err) {
+_Noreturn void LexFatalError(byte err) {
     hasErrors = true;
     if (state != 20) {
         if (err == ERR83) /* LIMIT EXCEEDED: DYNAMIC STORAGE */
-            Fatal("DYNAMIC STORAGE OVERFLOW", 24);
-        Fatal("UNKNOWN FATAL ERROR", 19);
+            Fatal("DYNAMIC STORAGE OVERFLOW");
+        Fatal("UNKNOWN FATAL ERROR");
     }
     Wr1TokenErrorAt(err);
     fatalErrorCode = err;

@@ -11,10 +11,10 @@
 #include "os.h"
 #include "plm.h"
 
-void Fatal(char const *str, byte len) {
+void Fatal(char const *str) {
     printf("\n\nPL/M-80 FATAL ERROR --\n\n"
-           "%.*s\n"
+           "%s\n"
            "\nCOMPILATION TERMINATED\n\n",
-           len, str);
+           str);
     Exit(1);
 } /* Fatal() */

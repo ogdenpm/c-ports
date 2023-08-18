@@ -9,11 +9,38 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include "os.h"
+#include <stdio.h>
+#include <stdlib.h>
+#ifndef _MAX_PATH
+#define _MAX_PATH 4096
+#endif
+
 // static byte copyright[] = "[C] 1976, 1977, 1982 INTEL CORP";
 
 jmp_buf exception;
 
-void unwindInclude() {
+
+static void savedepend() {
+    FILE *fp = stdout;
+    char oname[_MAX_PATH + 1];
+    int col = 0;
+
+    col += fprintf(fp, "%s:", MapFile(oname, objFileName));
+    col += fprintf(fp, " %s", MapFile(oname, srcFileTable[0].fNam));
+    for (int i = 0; i < includeCnt; i++) {
+        if (col + strlen(MapFile(oname, includes[i])) > 120) {
+            fputs(" \\\n    ", fp);
+            col = 4;
+        }
+        col += fprintf(fp, " %s", oname);
+    }
+    putc('\n', fp);
+    for (int i = 0; i < includeCnt; i++)
+        fprintf(fp, "%s:\n", MapFile(oname, includes[i]));
+}
+
+void unwindInclude() {  // cleanup any open include files
     if (srcFileIdx) {
         while (srcFileIdx)
             CloseF(&srcFileTable[srcFileIdx--]);
@@ -29,6 +56,7 @@ static void FinishLexPass() {
     Wr1Byte(L_EOF);
     vfRewind(&utf1);
     unwindInclude();
+    savedepend();
 } /* FinishLexPass() */
 
 static void ParseCommandLine() {
@@ -38,7 +66,6 @@ static void ParseCommandLine() {
     inChrP        = (uint8_t *)" \n"; // GNxtCh will see \n and get a non blank line
     blockDepth    = 1;
     procChains[1] = 0;
-
 } /* ParseCommandLine() */
 
 static void LexPass() {

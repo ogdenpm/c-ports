@@ -12,7 +12,6 @@
 #include <stdarg.h>
 /* common source for lstsp[456].plm */
 
-
 void NewLineLst() {
     if (col == 0 && linLft == 0)
         NewPgl();
@@ -26,7 +25,7 @@ void TabLst(byte tabTo) {
         tabTo = -tabTo;
         if (col >= tabTo)
             NewLineLst();
-        tabTo -= col + 1;
+        tabTo = tabTo - col + 1;
     }
     while (tabTo-- != 0)
         lstc(' ');
@@ -35,7 +34,6 @@ void TabLst(byte tabTo) {
 void DotLst(byte tabTo) {
     while (col < tabTo)
         lstc(col & 1 ? '.' : ' ');
-
 }
 
 void EjectNext() {
@@ -65,9 +63,7 @@ void lstStr(char const *str) {
 void lstStrCh(char const *str, int endch) {
     while (*str && *str != endch)
         lstc(*str++);
-    
 }
-
 
 void lprintf(char const *fmt, ...) {
     va_list args;
@@ -91,5 +87,4 @@ pstr_t const *hexfmt(byte digits, word val) {
         return (pstr_t *)str;
     str[1] = str[0] - 1;
     return (pstr_t *)(str + 1);
-
 }

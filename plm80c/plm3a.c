@@ -32,7 +32,6 @@ byte rec6[306]    = { 6, 0, 0, 0 };
 byte rec24_2[154] = { 0x24, 0, 0, 2, 3 };
 byte rec24_3[154] = { 0x24, 0, 0, 4, 3 };
 
-
 void FlushRecGrp() {
     WriteRec(rec6, 3);
     WriteRec(rec22, 1);
@@ -59,28 +58,23 @@ word Sub_4938() {
     word p, q;
     q = 0;
     for (p = 1; p <= procCnt; p++) {
-        infoIdx = procInfo[p];
-        if (q < GetBaseVal())
-            q = GetBaseVal();
+        SetInfo(procInfo[p]);
+        if (q < info->baseVal)
+            q = info->baseVal;
     }
     return q;
 }
 
 word Sub_4984() {
-    byte i;
-
-    i = GetType() - 2;
-    if (i > 2)
-        return 0;
-    switch (i) {
-    case 0:
-        return 1; /* BYTE_T */
-    case 1:
-        return 2; /* ADDRESS_T */
-    case 2:
-        return GetParentOffset(); /* STRUCT_T */
+    switch (info->type) {
+    case BYTE_T:
+        return 1;
+    case ADDRESS_T:
+        return 2;
+    case STRUCT_T:
+        return info->totalSize;
     }
-    return 0; // inserted to avoid compiler warning
+    return 0;
 }
 
 void Sub_49BC(word arg1w, word arg2w, word arg3w) {
@@ -89,7 +83,6 @@ void Sub_49BC(word arg1w, word arg2w, word arg3w) {
         Wr1Word(arg1w);
         Wr1Word(arg2w);
         Wr1Word(arg3w);
-
     } else
         programErrCnt++;
 }
@@ -111,26 +104,26 @@ static bool b811D;
 static word w811E;
 
 static void Sub_4B6C() {
-    if (infoIdx == 0 || !TestInfoFlag(F_MEMBER)) {
+    if (infoIdx == 0 || !(info->flag & F_MEMBER)) {
         if (w8119 > 1) {
             w8119--;
-            infoIdx = atFData.infoP;
+            SetInfo(atFData.infoP);
         } else if (infoIdx == 0) {
             b811D = false;
             return;
         } else {
-            if (!TestInfoFlag(F_PACKED))
+            if (!(info->flag & F_PACKED))
                 b811D = false;
-            if (GetType() == STRUCT_T) {
-                if (TestInfoFlag(F_ARRAY))
-                    w8119 = GetDimension();
-                infoIdx       = AdvNxtInfo(infoIdx);
+            if (info->type == STRUCT_T) {
+                if ((info->flag & F_ARRAY))
+                    w8119 = info->dim;
+                AdvNxtInfo();
                 atFData.infoP = infoIdx;
             }
         }
     }
-    if (TestInfoFlag(F_ARRAY))
-        w811B = GetDimension();
+    if ((info->flag & F_ARRAY))
+        w811B = info->dim;
 }
 
 static void Sub_4BF4() {
@@ -155,7 +148,7 @@ static void Sub_4BF4() {
 }
 
 static void Sub_4CAC() {
-    if (GetType() == BYTE_T) {
+    if (info->type == BYTE_T) {
         ExtendChk(rec6, 0x12c, 1);
         RecAddByte(rec6, 3, (byte)atFData.var.val);
         w7197++;
@@ -172,15 +165,14 @@ static void Sub_4CF9() {
 }
 
 static void Sub_4D13() {
-
     atFData.var.val = dat[w8117++];
-    if (GetType() != BYTE_T && w8117 < w8115)
+    if (info->type != BYTE_T && w8117 < w8115)
         atFData.var.val = (atFData.var.val << 8) + dat[w8117++];
     Sub_4CAC();
 }
 
 static void Sub_4D85() {
-    if (atFData.var.val > 255 && GetType() == BYTE_T)
+    if (atFData.var.val > 255 && info->type == BYTE_T)
         Sub_4CF9();
     else
         Sub_4CAC();
@@ -188,55 +180,55 @@ static void Sub_4D85() {
 
 static void Sub_4DA8() {
     byte i, j;
-    offset_t p;
-    pointer q;
+    index_t savIdx;
+    pointer recPtr;
 
     if (atFData.var.infoOffset == 0)
         Sub_4D85();
-    else if (GetType() == BYTE_T)
+    else if (info->type == BYTE_T)
         Sub_4CF9();
     else {
-        p       = infoIdx;
-        infoIdx = atFData.var.infoOffset;
-        if (TestInfoFlag(F_MEMBER)) {
+        savIdx       = infoIdx;
+        SetInfo(atFData.var.infoOffset);
+        if ((info->flag & F_MEMBER)) {
             atFData.var.val =
-                atFData.var.val + Sub_4984() * atFData.var.nestedArrayIndex + GetLinkVal();
-            infoIdx = GetParentOffset();
+                atFData.var.val + Sub_4984() * atFData.var.nestedArrayIndex + info->linkVal;
+            SetInfo(info->parent);
         }
 
-        atFData.var.val = atFData.var.val + Sub_4984() * atFData.var.arrayIndex + GetLinkVal();
-        if (TestInfoFlag(F_EXTERNAL)) {
-            i       = GetExternId();
-            infoIdx = p;
+        atFData.var.val += Sub_4984() * atFData.var.arrayIndex + info->linkVal;
+        if ((info->flag & F_EXTERNAL)) {
+            i       = info->extId;
+            SetInfo(savIdx);
             ExtendChk(rec20, 0x95, 4);
             Sub_4CAC();
             RecAddWord(rec20, 1, i);
             RecAddWord(rec20, 1, w7197 - 2);
-        } else if (TestInfoFlag(F_ABSOLUTE)) {
-            infoIdx = p;
+        } else if ((info->flag & F_ABSOLUTE)) {
+            SetInfo(savIdx);
             Sub_4CAC();
         } else {
-            if (GetType() == PROC_T || GetType() == LABEL_T || TestInfoFlag(F_DATA)) {
-                q = rec24_1;
+            if (info->type == PROC_T || info->type == LABEL_T || (info->flag & F_DATA)) {
+                recPtr = rec24_1;
                 i = 1;
-            } else if (TestInfoFlag(F_MEMORY)) {
-                q = rec24_3;
+            } else if ((info->flag & F_MEMORY)) {
+                recPtr = rec24_3;
                 i = 4;
             } else {
-                q = rec24_2;
+                recPtr = rec24_2;
                 i = 2;
             }
 
             if (i == rec6[CONTENT_SEG]) {
-                q = rec22;
+                recPtr = rec22;
                 j = 1;
             } else
                 j = 2;
 
-            infoIdx = p;
-            ExtendChk(q, 0x95, 2);
+            SetInfo(savIdx);
+            ExtendChk(recPtr, 0x95, 2);
             Sub_4CAC();
-            RecAddWord(q, j, w7197 - 2);
+            RecAddWord(recPtr, j, w7197 - 2);
         }
     }
 } /* Sub_4DA8() */
@@ -260,21 +252,21 @@ static void Sub_4C7A() {
 static void Sub_4A31() {
     atFData.infoP = RdAtWord();
     atFData.stmt  = RdAtWord();
-    infoIdx       = (w811E = atFData.infoP);
+    SetInfo(w811E = atFData.infoP);
     w8119 = w811B = w8115 = w8117 = 0;
-    if (TestInfoFlag(F_DATA))
+    if ((info->flag & F_DATA))
         rec6[CONTENT_SEG] = 1;
-    else if (TestInfoFlag(F_MEMORY))
+    else if ((info->flag & F_MEMORY))
         rec6[CONTENT_SEG] = 4;
-    else if (TestInfoFlag(F_ABSOLUTE))
+    else if ((info->flag & F_ABSOLUTE))
         rec6[CONTENT_SEG] = 0;
     else
         rec6[CONTENT_SEG] = 2;
 
-    w7197 = putWord(&rec6[CONTENT_OFF], GetLinkVal());
+    w7197 = putWord(&rec6[CONTENT_OFF], info->linkVal);
     if (infoIdx == 0)
         b811D = false;
-    else if (TestInfoFlag(F_EXTERNAL)) {
+    else if ((info->flag & F_EXTERNAL)) {
         Sub_49BC(0xd9, w811E, atFData.stmt);
         b811D = false;
     } else {
@@ -299,8 +291,8 @@ static void Sub_4A31() {
                 w811B--;
             else {
                 do {
-                    infoIdx = AdvNxtInfo(infoIdx);
-                } while (infoIdx && !(BYTE_T <= GetType() && GetType() <= STRUCT_T));
+                    AdvNxtInfo();
+                } while (infoIdx && !(BYTE_T <= info->type && info->type <= STRUCT_T));
                 Sub_4B6C();
                 if (!b811D)
                     Sub_49BC(0xd1, w811E, atFData.stmt);
