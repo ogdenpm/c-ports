@@ -37,11 +37,10 @@ void lstc(byte ch) {
             col++;
         }
     } else {
+        WrLstC(ch);
         if (ch == '\n')
-            NewLineLst();
-        else {
-            WrLstC(ch);
+            col = 0;
+        else
             col++;
-        }
     }
 }

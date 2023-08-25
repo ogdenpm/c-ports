@@ -11,16 +11,12 @@
 #include "plm.h"
 
 static byte bC2A5, bC2A6, bC2A7;
-static word wC2A9, wC2AB, wC2AD;
+static word wC2A9, first, last;
 
 static bool Sub_8861() {
-    byte i;
-
-    for (wC1D6 = wC2AB; wC1D6 <= wC2AD; wC1D6++) {
-        i = Sub_5679(bC2A5);
-        if (0 <= i && i <= 3)
-            return true;
-        if (12 <= i && i <= 14)
+    for (wC1D6 = first; wC1D6 <= last; wC1D6++) {
+        byte i = Sub_5679(bC2A5);
+        if ((0 <= i && i <= 3) || (12 <= i && i <= 14))
             return true;
     }
     return false;
@@ -44,13 +40,11 @@ static void Sub_88C1() {
 static void Sub_894A() {
     if (bC0B5[bC2A5] > 3) {
         for (int i = 1; i < 4; i++) {
-            if (bC04E[i] == bC2A6) {
-                if (bC045[i] == 2 || bC045[i] == 3) {
-                    bC0B3[bC2A5] = bC045[i];
-                    bC0B5[bC2A5] = i;
-                    if (bC0B5[1 - bC2A5] != i)
-                        return;
-                }
+            if (bC04E[i] == bC2A6 && (bC045[i] == 2 || bC045[i] == 3)) {
+                bC0B3[bC2A5] = bC045[i];
+                bC0B5[bC2A5] = i;
+                if (bC0B5[1 - bC2A5] != i)
+                    return;
             }
         }
     }
@@ -61,9 +55,9 @@ static void Sub_89D1() {
     word p;
 
     if (bC0B5[bC2A5] == 0xA)
-        wC2A9 = tx2op2[bC2A6];
+        wC2A9 = tx2[bC2A6].op2;
     else if (bC0B5[bC2A5] == 9) {
-        wC2A9 = tx2op3[bC2A6];
+        wC2A9 = tx2[bC2A6].op3;
         if ((!boC069[0] && boC072[0]) || bC0B1 > 0 || wC2A9 != wC1C3) {
             i = bC0B1 + bC0B2;
             for (p = wC2A9; p <= wC1C3; p++) {
@@ -85,18 +79,18 @@ static void Sub_8A9C() {
     word r;
 
     if (bC0B5[bC2A5] == 0xA) {
-        p = wC2A9;
-        q = 0x100;
+        p  = wC2A9;
+        q  = 0x100;
         ii = 4;
-        j = Sub_5748(bC0B3[bC2A5]);
+        j  = Sub_5748(bC0B3[bC2A5]);
     } else if (bC0B5[bC2A5] == 8 && bC0B3[bC2A5] == 1) {
         GetVal(bC0B7[bC2A5], &p, &q);
         ii = 2;
-        j = 1;
+        j  = 1;
     } else if (bC0B5[bC2A5] == 4 && (bC0B3[bC2A5] == 0 || bC0B3[bC2A5] == 8 || !Sub_8861())) {
         GetVal(bC0B7[bC2A5], &p, &q);
         ii = 2;
-        j = Sub_5748(bC0B3[bC2A5]);
+        j  = Sub_5748(bC0B3[bC2A5]);
     } else
         return;
 
@@ -105,19 +99,18 @@ static void Sub_8A9C() {
             if (bC0B7[0] == bC0B7[1] && curOp != T2_COLONEQUALS)
                 if (bC0B5[bC2A5] > 3)
                     bC0B5[bC2A5] = i;
-        } else if (!boC072[i] && wC096[i] == q && boC057[i] && 1 <= bC045[i] &&
-                   bC045[i] <= 6) {
+        } else if (!boC072[i] && wC096[i] == q && boC057[i] && 1 <= bC045[i] && bC045[i] <= 6) {
             r = wC084[i] + bC0A8[i] - p;
             if (r > 0xff)
                 r = -r;
             if (r < ii) {
                 bC0B5[bC2A5] = i;
-                ii            = (byte)r;
+                ii           = (byte)r;
             }
         }
     }
     if (bC0B5[bC2A5] <= 3) {
-        int i        = bC0B5[bC2A5];
+        int i    = bC0B5[bC2A5];
         bC045[i] = bC0B3[bC2A5] = j;
         bC04E[i]                = bC0B7[bC2A5];
         bC0A8[i]                = wC084[i] + bC0A8[i] - p;
@@ -131,13 +124,13 @@ static void Sub_8CF5() {
     for (bC2A5 = 0; bC2A5 <= 1; bC2A5++) {
         if ((bC2A6 = bC0B7[bC2A5]) == 0)
             bC0B3[bC2A5] = 0xC;
-        else if ((bC2A7 = tx2opc[bC2A6]) == T2_STACKPTR)
+        else if ((bC2A7 = tx2[bC2A6].opc) == T2_STACKPTR)
             bC0B3[bC2A5] = 0xA;
         else if (bC2A7 == T2_LOCALLABEL)
             bC0B3[bC2A5] = 9;
         else {
-            bC0B3[bC2A5] = tx2Aux1b[bC2A6];
-            bC0B5[bC2A5] = tx2Aux2b[bC2A6];
+            bC0B3[bC2A5] = tx2[bC2A6].aux1;
+            bC0B5[bC2A5] = tx2[bC2A6].aux2;
             Sub_88C1();
             Sub_894A(); /*  checked */
         }
@@ -152,13 +145,10 @@ static void Sub_8CF5() {
 } /* Sub_8CF5() */
 
 static byte Sub_8E7E(byte arg1b) {
-    word p;
-    byte i;
 
     if (bC0B7[arg1b] == 0 || bC0B7[arg1b] == 1)
         return 1;
-    i = Sub_5679(arg1b);
-    return b4D23[p = bC0C1[arg1b] * 16 + i];
+    return b4D23[bC0C1[arg1b]][Sub_5679(arg1b)];
 } /* Sub_8E7E() */
 
 static void Sub_8ECD(byte arg1b, byte arg2b) {
@@ -172,7 +162,7 @@ static void Sub_8DCD() {
     h = i = 0; // set to avoid compiler warning
 
     j     = 198;
-    for (wC1D6 = wC2AB; wC1D6 <= wC2AD; wC1D6++) {
+    for (wC1D6 = first; wC1D6 <= last; wC1D6++) {
         k = Sub_8E7E(0);
         m = Sub_8E7E(1);
         n = b4C45[k] + b4C45[m] + (b43F8[b4A21[wC1D6]] & 0x1f);
@@ -204,14 +194,14 @@ static void Sub_8F35() {
     if (curOp == T2_STKARG || curOp == T2_STKBARG || curOp == T2_STKWARG) {
         Sub_5795(-(wB53C[procCallDepth] * 2));
         wB53C[procCallDepth]++;
-        wC1C3                = wC1C3 + 1;
+        wC1C3++;
     } else if (curOp == T2_CALL) {
         Sub_5795(-(wB53C[procCallDepth] * 2));
-        SetInfo(tx2op3[tx2qp]);
+        SetInfo(tx2[tx2qp].op3);
         if ((info->flag & F_EXTERNAL))
             p = (wB53C[procCallDepth] + 1) * 2;
         else
-            p = (wB528[procCallDepth] + 1) * 2 + info->baseVal;
+            p = (wB528[procCallDepth] + 1) * 2 + info->stackUsage;
         if (p > wC1C5)
             wC1C5 = p;
     } else if (curOp == T2_CALLVAR) {
@@ -256,8 +246,8 @@ static void Sub_90EB() {
     k = 0;
     if (curOp == T2_COLONEQUALS) {
         Sub_940D();
-        if (tx2Auxw[bC0B7[1]] == 0)
-            if (tx2Auxw[bC0B7[0]] > 0) {
+        if (tx2[bC0B7[1]].auxw == 0)
+            if (tx2[bC0B7[0]].auxw > 0) {
                 if (cfrag1 == CF_MOVMLR || cfrag1 == CF_STA) {
                     bC045[bC0B5[1]] = 0;
                     bC04E[bC0B5[1]] = bC0B7[0];
@@ -270,7 +260,7 @@ static void Sub_90EB() {
         Sub_940D();
     for (int n = 5; n < 9; n++) {
         byte i = p >> 13;
-        j = q >> 12;
+        j      = q >> 12;
         p <<= 3;
         q <<= 4;
         if (j <= 3) {
@@ -287,9 +277,9 @@ static void Sub_90EB() {
             }
         } else if (j == 4) {
             boC057[k = n] = 0;
-            if (0 < tx2Auxw[tx2qp]) {
+            if (0 < tx2[tx2qp].auxw) {
                 bC04E[n] = tx2qp;
-                bC045[n] = tx2Aux1b[tx2qp] = b43F8[cfrag1] >> 5;
+                bC045[n] = tx2[tx2qp].aux1 = b43F8[cfrag1] >> 5;
                 bC0A8[n]                   = 0;
             } else
                 bC04E[n] = 0;
@@ -305,7 +295,7 @@ static void Sub_90EB() {
             boC057[n] = 0;
         }
     }
-    if (k == 0 && tx2Auxw[tx2qp] > 0) {
+    if (k == 0 && tx2[tx2qp].auxw > 0) {
         for (int n = 5; n < 9; n++) {
             if (bC04E[n] == 0)
                 if (!boC057[k = n])
@@ -315,7 +305,7 @@ static void Sub_90EB() {
             bC04E[k]        = tx2qp;
             boC057[k]       = 0;
             bC045[k]        = 0;
-            tx2Aux1b[tx2qp] = 0;
+            tx2[tx2qp].aux1 = 0;
             bC0A8[k]        = 0;
         }
     }
@@ -324,17 +314,16 @@ static void Sub_90EB() {
 } /* Sub_90EB() */
 
 void Sub_87CB() {
-    bC0B7[0] = (byte)tx2op1[tx2qp];
-    bC0B7[1] = (byte)tx2op2[tx2qp];
-    wC2AB    = wAF54[curOp];
-    wC2AD    = wC2AB + b499B[curOp] - 1;
+    bC0B7[0] = (byte)tx2[tx2qp].op1;
+    bC0B7[1] = (byte)tx2[tx2qp].op2;
+    first    = wAF54[curOp];
+    last     = first + b499B[curOp] - 1;
     Sub_8CF5();
 
     while (1) {
         Sub_8DCD(); /*  OK */
-        if (bC0B9[0] == 0)
-            if (bC0B9[1] == 0)
-                break;
+        if (bC0B9[0] == 0 && bC0B9[1] == 0)
+            break;
         if (boC1D8)
             Sub_7A85();
         else
@@ -356,9 +345,9 @@ void Sub_9457() {
         extProcId[procChainId] = curExtProcId;
         procChainNext[blkSP]   = procChainId;
         procChainId            = blkSP;
-        SetInfo(blkCurInfo[blkSP] = tx2op1[tx2qp]);
-        curExtProcId                = info->procId;
-        pc                          = 0;
+        SetInfo(blkCurInfo[blkSP] = tx2[tx2qp].op1);
+        curExtProcId = info->procId;
+        pc           = 0;
         EmitTopItem();
         Sub_981C();
     }

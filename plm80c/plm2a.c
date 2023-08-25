@@ -12,10 +12,6 @@
 #include "plm.h"
 #include <stdlib.h>
 
-// byte unused[] = {2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3, 3,
-//             2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2, 2, 3,
-//             2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4};
-
 byte b3FCD[] = { 0,    2,    4,    7,    0xB,  0xE,  0x12, 0x14, 0x16, 0x19, 0x1D, 0x1F, 0x22, 0x24,
                  0x27, 0x2A, 0x2D, 0x30, 0x32, 0x34, 0x37, 0x3B, 0x3D, 0x40, 0x42, 0x45, 0x47, 0x49,
                  0x4B, 0x4D, 0x50, 0x52, 0x54, 0x56, 0x59, 0x5B, 0x5E, 0x60, 0x62, 0x65, 0x67, 0x69,
@@ -24,37 +20,35 @@ byte b3FCD[] = { 0,    2,    4,    7,    0xB,  0xE,  0x12, 0x14, 0x16, 0x19, 0x1
                  9,    6,    7,    0x25, 0x25, 0x25, 0x25, 0x25, 0xA,  0xA,  0xB,  0xB,  0x14, 0x14,
                  0x14, 0x14, 0x14, 0x39, 0x1A, 0x1A, 0x1A, 0x1A };
 
-byte b4029[] = { 0,    0,    0,    0,    0x26, 0x30, 0x30, 0x26, // was also b4332 in plm4a.c
-                 0x30, 0x20, 0x30, 0x12, 0x12, 0x12, 0,    0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x60,
-                 0,    0x26, 0x20, 0x20, 0,    0,    0,    0,    0,    0,    0x10, 0x80, 0x80, 0x80,
-                 0x90, 0x90, 0x40, 0xA0, 0xA0, 0xA0, 0x80, 0xB0, 0x90, 0x80, 0xB0, 0x90, 0x80, 0xB0,
-                 0x90, 0x80, 0xB0, 0x90, 0x80, 0xB0, 0x90, 0x20, 0x30, 0x30, 0x30, 0x10, 0x10, 0x70,
-                 0x70, 0x30, 0x30, 0x30, 0x30, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0,
-                 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0x20, 0x20, 0,    0,
-                 0x20, 0,    0,    0x2C, 0x40, 0,    0x10, 0x10, 0x60, 0x20, 0,    0,    0xA0, 0xA0,
-                 0xA0, 0xA0, 0x32, 0x16, 0x10, 0x20, 0,    0x10, 0x10, 0x10, 0x10, 0x10, 0x60, 0,
-                 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-                 0,    0x70, 0x60, 0x60, 0x70, 0x50, 0x70, 0x60, 0x60, 0xE0, 0,    0,    0,    0,
-                 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-                 0,    0,    0,    0,    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0,    0,    0x80, 0x80,
-                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80 };
+byte b4029[] = {
+    0,    0,    0,    0,    0x26, 0x30, 0x30, 0x26, 0x30, 0x20, 0x30, 0x12, 0x12, 0x12, 0,    0x10,
+    0x10, 0x10, 0x10, 0x10, 0x10, 0x60, 0,    0x26, 0x20, 0x20, 0,    0,    0,    0,    0,    0,
+    0x10, 0x80, 0x80, 0x80, 0x90, 0x90, 0x40, 0xA0, 0xA0, 0xA0, 0x80, 0xB0, 0x90, 0x80, 0xB0, 0x90,
+    0x80, 0xB0, 0x90, 0x80, 0xB0, 0x90, 0x80, 0xB0, 0x90, 0x20, 0x30, 0x30, 0x30, 0x10, 0x10, 0x70,
+    0x70, 0x30, 0x30, 0x30, 0x30, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0,    0,    0,
+    0,    0,    0,    0,    0,    0,    0,    0,    0x20, 0x20, 0,    0,    0x20, 0,    0,    0x2C,
+    0x40, 0,    0x10, 0x10, 0x60, 0x20, 0,    0,    0xA0, 0xA0, 0xA0, 0xA0, 0x32, 0x16, 0x10, 0x20,
+    0,    0x10, 0x10, 0x10, 0x10, 0x10, 0x60, 0,    0,    0,    0,    0,    0,    0,    0,    0,
+    0,    0,    0,    0,    0,    0,    0,    0x70, 0x60, 0x60, 0x70, 0x50, 0x70, 0x60, 0x60, 0xE0,
+    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+    0,    0,    0,    0,    0,    0,    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0,    0,    0x80, 0x80,
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80
+};
 
-byte b4128[] = { 0, 0,  1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, // was also b4431 in plm4a.c
-                 9, 0xA };
+byte b4128[]     = { 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 0xA };
 
-byte b413B[] = { 0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, // was also b4444 in
-                                                                       // plm4a.c
-                 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE,
-                 0x12, 0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, 4, 6, 8, 0xA, 0xC,
-                 0x10, 0x11, 0xE, 0x12, 0xC, 0x11, 0x12, 0xC, 0x11, 0x12, 2, 6, 0, 4, 6, 8, 0xA,
-                 0xC, 0xE, 0x10, 0x11, 0x12, 0xD, 0xF, 7, 9, 0xB, 1, 5, 3 };
+byte b413B[]     = { 0,    2,    4,    6,    8,    0xA,  0xC, 0x10, 0x11, 0xE,  0x12, 0,   2,    4,
+                     6,    8,    0xA,  0xC,  0x10, 0x11, 0xE, 0x12, 0,    2,    4,    6,   8,    0xA,
+                     0xC,  0x10, 0x11, 0xE,  0x12, 0,    2,   4,    6,    8,    0xA,  0xC, 0x10, 0x11,
+                     0xE,  0x12, 0,    2,    4,    6,    8,   0xA,  0xC,  0x10, 0x11, 0xE, 0x12, 0xC,
+                     0x11, 0x12, 0xC,  0x11, 0x12, 2,    6,   0,    4,    6,    8,    0xA, 0xC,  0xE,
+                     0x10, 0x11, 0x12, 0xD,  0xF,  7,    9,   0xB,  1,    5,    3 };
 
-byte b418C[][11] = { /* 11 byte entries */ // was also b4495 in plm4a.c
+byte b418C[][11] = { /* 11 byte entries */
                      { 0x90, 0x91, 0x94, 0x95, 0x98, 0x99, 0x9A, 0x9C, 0xA0, 0xA1, 0x9D },
                      { 0x6C, 0x6D, 0x70, 0x71, 0x74, 0x75, 0x76, 0x78, 0x7C, 0x7D, 0x79 },
                      { 0, 0, 0, 0, 0, 0, 0x64, 0x65, 0, 0, 0 },
@@ -73,22 +67,22 @@ byte b418C[][11] = { /* 11 byte entries */ // was also b4495 in plm4a.c
                      { 0x34, 0x36, 0x35, 0x38, 0x39, 0x3A, 0, 0, 0, 0, 0 },
                      { 0x3C, 0x3D, 0x3E, 0x40, 0x41, 0x42, 0, 0, 0, 0, 0 },
                      { 0, 0x2C, 0, 0, 0x2D, 0x2E, 0, 0, 0, 0, 0 },
-                     { 0xA4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+                     { 0xA4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+};
 
-byte b425D[] = { 8,   0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA,  0xF,  0x10,
-                 0xD, 9, // was also b4566 in plm4a.c
-                 2,   3,    4,   5, 6,   7,    0, 0x1E, 0x12, 0xE };
+byte b425D[] = { 8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF,  0x10, 0xD,
+                 9, 2,    3,   4, 5,   6,    7, 0,   0x1E, 0x12, 0xE };
 
-byte b4273[]     = { 3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0, // was also b457C in
-                                                                          // plm4a.c
-                     0, 0, 0, 0, 0, 0, 0, 0x12, 7, 4, 4, 2, 0xA, 0x15, 0, 0, 0, 0, 8, 9, 0, 0, 0, 0xB,
-                     6, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 5, 1, 1, 1, 0x13, 0x13, 0x13, 1, 1, 1, 0x13,
-                     0x13, 0x13, 0x14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0xC,
-                     0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0, 0xE,
-                     0xE, 0xE, 0xE, 0xF, 0xF, 0xF, 0xF, 0, 0xF, 0xF, 0xF, 0xF, 0xE, 0xE, 0xE, 0xE, 0,
-                     0x10, 0x10, 0x10, 0x10, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0 };
+byte b4273[] = { 3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0, // was also b457C in
+                                                                      // plm4a.c
+                 0, 0, 0, 0, 0, 0, 0, 0x12, 7, 4, 4, 2, 0xA, 0x15, 0, 0, 0, 0, 8, 9, 0, 0, 0, 0xB,
+                 6, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 5, 1, 1, 1, 0x13, 0x13, 0x13, 1, 1, 1, 0x13,
+                 0x13, 0x13, 0x14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0xC,
+                 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0, 0xE,
+                 0xE, 0xE, 0xE, 0xF, 0xF, 0xF, 0xF, 0, 0xF, 0xF, 0xF, 0xF, 0xE, 0xE, 0xE, 0xE, 0,
+                 0x10, 0x10, 0x10, 0x10, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0 };
 
-byte b42F9[]     = {
+byte b42F9[] = {
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0x10, 0,    0,    0,    0,    0,    0,
     0,    0,    0x10, 0,    0x20, 0,    0,    0x13, 0,    0,    0,    0,    0,    0,    0,    0,
     0x50, 0,    0,    0,    0x10, 0x10, 0x20, 0x10, 0x10, 0x10, 0,    0x50, 0x50, 0,    0x50, 0x50,
@@ -280,47 +274,47 @@ byte b4CB4[] = { 0x63, 0,    1,    0x32, 1,    2,    2,    1,    2,    1,    1, 
                  1,    1,    1,    1,    1,    1,    0x1D, 0x1F, 0x1D, 0x1F, 0x1D, 0x1D, 0x1F, 3,
                  3,    3,    0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 3 };
 
-byte b4D23[] = {
-    1,    0x47, 0x47, 0x47, 0, 0, 0,    0,    0,    0,    0,    0,    0x49, 0x49, 0x49, 0,
-    0x47, 1,    0x47, 0x47, 0, 0, 0,    0,    0,    0,    0,    0,    0x31, 0x49, 0x49, 0,
-    0x47, 0x47, 1,    0x61, 0, 0, 0,    0,    0,    0,    0,    0,    0x49, 0x31, 0x63, 0,
-    0x47, 0x47, 0x61, 1,    0, 0, 0,    0,    0,    0,    0,    0,    0x49, 0x63, 0x31, 0,
-    9,    0xD,  0xC,  0xB,  1, 0, 0x30, 0x30, 0x30, 0,    0,    0,    0xE,  0x13, 0x12, 0,
-    0x32, 0x32, 0x32, 0x32, 0, 1, 0,    0,    0,    0,    0,    0,    0x30, 0x30, 0x30, 0,
-    0x34, 0x35, 0x35, 0x35, 0, 0, 1,    0x52, 0x52, 0,    0,    0,    0x36, 0x37, 0x37, 0,
-    0x34, 0x64, 0x64, 0x64, 0, 0, 0x52, 1,    0x61, 0,    0,    0,    0x65, 0x65, 0x65, 0,
-    0x3A, 0x3A, 0x3A, 0x3A, 0, 0, 0x52, 0x61, 1,    0,    0,    0,    0x3C, 0x3C, 0x3C, 0,
-    0x38, 0x39, 0x39, 0x39, 0, 0, 2,    0x53, 0x53, 1,    0x52, 0x52, 0x4A, 0x4A, 0x4B, 0,
-    0x38, 0x6A, 0x6A, 0x6A, 0, 0, 0x53, 2,    0x6E, 0x52, 1,    0x61, 0x65, 0x65, 0x66, 0,
-    0x3B, 0x3B, 0x3B, 0x3B, 0, 0, 0x53, 0x6E, 2,    0x52, 0x61, 1,    0x45, 0x45, 0x3E, 0,
-    0x48, 2,    0x48, 0x48, 0, 0, 0,    0,    0,    0,    0,    0,    1,    0x52, 0x52, 0,
-    0x48, 0x48, 2,    0x6E, 0, 0, 0,    0,    0,    0,    0,    0,    0x52, 1,    0x61, 0,
-    0x48, 0x48, 0x6E, 2,    0, 0, 0,    0,    0,    0,    0,    0,    0x52, 0x61, 1,    0,
-    0xA,  0x11, 0x10, 0xF,  0, 0, 0,    0,    0,    0x30, 0x30, 0x30, 0x16, 0x15, 0x14, 1,
-    0x33, 0x33, 0x33, 0x33, 0, 0, 0,    0,    0,    0,    0,    0,    0x30, 0x30, 0x30, 0,
-    0,    0,    0,    0,    0, 0, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0,    0,    0,    0,
-    0x4B, 0x4C, 0x4C, 0x4C, 0, 0, 0x4A, 0x4A, 0x4B, 0,    0,    0,    0x4D, 0x4D, 0x4D, 0,
-    0x66, 0x67, 0x67, 0x67, 0, 0, 0x65, 0x65, 0x66, 0,    0,    0,    0x68, 0x68, 0x68, 0,
-    0x3D, 0x3F, 0x3F, 0x3F, 0, 0, 0x44, 0x44, 0x3D, 0,    0,    0,    0x40, 0x40, 0x40, 0,
-    0x50, 0x51, 0x51, 0x51, 0, 0, 0x4F, 0x4F, 0x50, 0x4A, 0x4A, 0x4B, 0x4D, 0x4D, 0x4E, 0,
-    0x6C, 0x6D, 0x6D, 0x6D, 0, 0, 0x6B, 0x6B, 0x6C, 0x65, 0x65, 0x66, 0x68, 0x68, 0x69, 0,
-    0x42, 0x43, 0x43, 0x43, 0, 0, 0x46, 0x46, 0x42, 0x44, 0x44, 0x3D, 0x40, 0x40, 0x41, 0,
-    0x47, 1,    0x47, 0x47, 0, 0, 0,    0,    0,    0,    0,    0,    1,    0x52, 0x52, 0,
-    0x47, 0x47, 1,    0x61, 0, 0, 0,    0,    0,    0,    0,    0,    0x52, 1,    0x61, 0,
-    0x47, 0x47, 0x61, 1,    0, 0, 0,    0,    0,    0,    0,    0,    0x52, 0x61, 1,    0,
-    8,    8,    8,    7,    0, 3, 0,    0,    0,    0,    0,    0,    6,    5,    4,    0,
-    0,    0,    0,    0,    0, 0, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,    0, 0, 0x19, 0x18, 0x17, 0x19, 0x18, 0x17, 0,    0,    0,    0,
-    0x2D, 0x2F, 0x2E, 0x2E, 0, 0, 0x2B, 0x2A, 0x2C, 0x1D, 0x1C, 0x1E, 0x23, 0x22, 0x24, 0,
-    0x59, 0x60, 0x5F, 0x5F, 0, 0, 0x58, 0x58, 0x58, 0x54, 0x54, 0x54, 0x5D, 0x5C, 0x5E, 0,
-    0x28, 0x28, 0x27, 0x27, 0, 0, 0x29, 0x26, 0x25, 0x19, 0x18, 0x17, 0x1D, 0x1C, 0x1E, 0,
-    0x59, 0x58, 0x58, 0x58, 0, 0, 0,    0,    0,    0,    0,    0,    0x54, 0x54, 0x54, 0,
-    0x55, 0x54, 0x54, 0x54, 0, 0, 0,    0,    0,    0,    0,    0,    0x54, 0x54, 0x54, 0,
-    0x1F, 0x21, 0x20, 0x20, 0, 0, 0x1D, 0x1C, 0x1E, 0,    0,    0,    0x23, 0x22, 0x22, 0,
-    0x55, 0x5B, 0x5A, 0x5A, 0, 0, 0x54, 0x54, 0x54, 0,    0,    0,    0x5D, 0x5C, 0x5C, 0,
-    0x1B, 0x1B, 0x1A, 0x1A, 0, 0, 0x19, 0x18, 0x17, 0,    0,    0,    0x1D, 0x1C, 0x1C, 0,
-    0x55, 0x54, 0x54, 0x54, 0, 0, 0,    0,    0,    0,    0,    0,    0x56, 0x56, 0x56, 0,
-    0x54, 0x55, 0x55, 0x55, 0, 0, 0,    0,    0,    0,    0,    0,    0x57, 0x57, 0x57, 0
+byte b4D23[][16] = {
+    { 1, 0x47, 0x47, 0x47, 0, 0, 0, 0, 0, 0, 0, 0, 0x49, 0x49, 0x49, 0 },
+    { 0x47, 1, 0x47, 0x47, 0, 0, 0, 0, 0, 0, 0, 0, 0x31, 0x49, 0x49, 0 },
+    { 0x47, 0x47, 1, 0x61, 0, 0, 0, 0, 0, 0, 0, 0, 0x49, 0x31, 0x63, 0 },
+    { 0x47, 0x47, 0x61, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0x49, 0x63, 0x31, 0 },
+    { 9, 0xD, 0xC, 0xB, 1, 0, 0x30, 0x30, 0x30, 0, 0, 0, 0xE, 0x13, 0x12, 0 },
+    { 0x32, 0x32, 0x32, 0x32, 0, 1, 0, 0, 0, 0, 0, 0, 0x30, 0x30, 0x30, 0 },
+    { 0x34, 0x35, 0x35, 0x35, 0, 0, 1, 0x52, 0x52, 0, 0, 0, 0x36, 0x37, 0x37, 0 },
+    { 0x34, 0x64, 0x64, 0x64, 0, 0, 0x52, 1, 0x61, 0, 0, 0, 0x65, 0x65, 0x65, 0 },
+    { 0x3A, 0x3A, 0x3A, 0x3A, 0, 0, 0x52, 0x61, 1, 0, 0, 0, 0x3C, 0x3C, 0x3C, 0 },
+    { 0x38, 0x39, 0x39, 0x39, 0, 0, 2, 0x53, 0x53, 1, 0x52, 0x52, 0x4A, 0x4A, 0x4B, 0 },
+    { 0x38, 0x6A, 0x6A, 0x6A, 0, 0, 0x53, 2, 0x6E, 0x52, 1, 0x61, 0x65, 0x65, 0x66, 0 },
+    { 0x3B, 0x3B, 0x3B, 0x3B, 0, 0, 0x53, 0x6E, 2, 0x52, 0x61, 1, 0x45, 0x45, 0x3E, 0 },
+    { 0x48, 2, 0x48, 0x48, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x52, 0x52, 0 },
+    { 0x48, 0x48, 2, 0x6E, 0, 0, 0, 0, 0, 0, 0, 0, 0x52, 1, 0x61, 0 },
+    { 0x48, 0x48, 0x6E, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0x52, 0x61, 1, 0 },
+    { 0xA, 0x11, 0x10, 0xF, 0, 0, 0, 0, 0, 0x30, 0x30, 0x30, 0x16, 0x15, 0x14, 1 },
+    { 0x33, 0x33, 0x33, 0x33, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0x30, 0x30, 0 },
+    { 0, 0, 0, 0, 0, 0, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0, 0, 0, 0 },
+    { 0x4B, 0x4C, 0x4C, 0x4C, 0, 0, 0x4A, 0x4A, 0x4B, 0, 0, 0, 0x4D, 0x4D, 0x4D, 0 },
+    { 0x66, 0x67, 0x67, 0x67, 0, 0, 0x65, 0x65, 0x66, 0, 0, 0, 0x68, 0x68, 0x68, 0 },
+    { 0x3D, 0x3F, 0x3F, 0x3F, 0, 0, 0x44, 0x44, 0x3D, 0, 0, 0, 0x40, 0x40, 0x40, 0 },
+    { 0x50, 0x51, 0x51, 0x51, 0, 0, 0x4F, 0x4F, 0x50, 0x4A, 0x4A, 0x4B, 0x4D, 0x4D, 0x4E, 0 },
+    { 0x6C, 0x6D, 0x6D, 0x6D, 0, 0, 0x6B, 0x6B, 0x6C, 0x65, 0x65, 0x66, 0x68, 0x68, 0x69, 0 },
+    { 0x42, 0x43, 0x43, 0x43, 0, 0, 0x46, 0x46, 0x42, 0x44, 0x44, 0x3D, 0x40, 0x40, 0x41, 0 },
+    { 0x47, 1, 0x47, 0x47, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x52, 0x52, 0 },
+    { 0x47, 0x47, 1, 0x61, 0, 0, 0, 0, 0, 0, 0, 0, 0x52, 1, 0x61, 0 },
+    { 0x47, 0x47, 0x61, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0x52, 0x61, 1, 0 },
+    { 8, 8, 8, 7, 0, 3, 0, 0, 0, 0, 0, 0, 6, 5, 4, 0 },
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { 0, 0, 0, 0, 0, 0, 0x19, 0x18, 0x17, 0x19, 0x18, 0x17, 0, 0, 0, 0 },
+    { 0x2D, 0x2F, 0x2E, 0x2E, 0, 0, 0x2B, 0x2A, 0x2C, 0x1D, 0x1C, 0x1E, 0x23, 0x22, 0x24, 0 },
+    { 0x59, 0x60, 0x5F, 0x5F, 0, 0, 0x58, 0x58, 0x58, 0x54, 0x54, 0x54, 0x5D, 0x5C, 0x5E, 0 },
+    { 0x28, 0x28, 0x27, 0x27, 0, 0, 0x29, 0x26, 0x25, 0x19, 0x18, 0x17, 0x1D, 0x1C, 0x1E, 0 },
+    { 0x59, 0x58, 0x58, 0x58, 0, 0, 0, 0, 0, 0, 0, 0, 0x54, 0x54, 0x54, 0 },
+    { 0x55, 0x54, 0x54, 0x54, 0, 0, 0, 0, 0, 0, 0, 0, 0x54, 0x54, 0x54, 0 },
+    { 0x1F, 0x21, 0x20, 0x20, 0, 0, 0x1D, 0x1C, 0x1E, 0, 0, 0, 0x23, 0x22, 0x22, 0 },
+    { 0x55, 0x5B, 0x5A, 0x5A, 0, 0, 0x54, 0x54, 0x54, 0, 0, 0, 0x5D, 0x5C, 0x5C, 0 },
+    { 0x1B, 0x1B, 0x1A, 0x1A, 0, 0, 0x19, 0x18, 0x17, 0, 0, 0, 0x1D, 0x1C, 0x1C, 0 },
+    { 0x55, 0x54, 0x54, 0x54, 0, 0, 0, 0, 0, 0, 0, 0, 0x56, 0x56, 0x56, 0 },
+    { 0x54, 0x55, 0x55, 0x55, 0, 0, 0, 0, 0, 0, 0, 0, 0x57, 0x57, 0x57, 0 }
 };
 
 byte b4FA3[] = { 0x17, 0x16, 0x16, 0x16, 0,    0,    0,    0,    0,    1,    1,    2,    2,    2,
@@ -374,7 +368,7 @@ byte b5124[] = { 2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2, 
                  0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x90, 0xA1, 0xA3, 0xA0, 0xA1, 0xA2, 0xB0, 0xA0, 0xA0, 0xA0, // 90
                  0xA0, 0xA0, 0xA1, 0xA3, 0,    0,    0,    0,    0,    0,    0,    0,    0x41, 0x41, 0x41, 0x40, // a0
                  0,    0,    0,    0,    0,    0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xD8, 0x41, 0x41, 0x41, 0xC0 };     // b0
-/* clan*/
+
 byte b51E3[] = { 0, 0, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0, 0,    0,    0,   0,
                  0, 0, 0x12, 0x14, 0x22, 0x33, 0x47, 0x47, 0x41, 0x49, 0x4F, 0, 0x5C, 0x5E, 0x60 };
 
@@ -390,7 +384,7 @@ byte b5221[] = { 0,    0x4D, 0,    0x55, 0,    0x5D, 0,    0x66, 0,    0x6F, 0x6
                  0,    0x41, 0x41, 0x12, 0x20, 0x20, 0,    0x4A, 0x4B, 0x4C, 0x7F, 0x80, 0x81,
                  0,    0xD,  0,    0xE,  0,    0xF,  0,    0x10, 0x11, 0 };
 
-byte b5286[] = { 0xC, 9, 0, 1, 8, 0, 0 };
+
 
 byte b528D[] = { 0, 0, 0, 0, 0, 0, 2, 2,   2, 3, 3, 3, 1, 1, 1, 1, 1, 8, 4, 4,
                  4, 5, 5, 5, 6, 6, 6, 0xA, 9, 8, 3, 3, 1, 1, 6, 2, 2, 0, 0, 0xB };
@@ -410,6 +404,8 @@ byte b52DD[][11] = { { 0, 1, 2, 3, 4, 0, 0, 0, 5, 0x26, 0x25 },
                      { 0, 0, 0, 0, 0, 0, 0, 0, 0x1C, 0, 0 },
                      { 0, 0, 0, 0, 0, 0, 0, 0, 0x1B, 0, 0 },
                      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x27, 0 } };
+
+// clang-format on
 
 void WrFragData() {
     if (!(PRINT || OBJECT)) {
@@ -485,49 +481,43 @@ void EncodeFragData(byte fragId) {
 void EmitTopItem() {
     fragLen = 0;
     if (!PRINT)
-        if (tx2opc[tx2qp] == T2_LINEINFO || tx2opc[tx2qp] == T2_INCLUDE)
+        if (tx2[tx2qp].opc == T2_LINEINFO || tx2[tx2qp].opc == T2_INCLUDE)
             return;
-    PutTx1Byte(tx2opc[tx2qp]);
-    if (b4029[tx2opc[tx2qp]] & 0x80) {
-        PutTx1Byte((byte)tx2op2[tx2qp]);
-        PutTx1Word(tx2op1[tx2qp]);
+    PutTx1Byte(tx2[tx2qp].opc);
+    if (b4029[tx2[tx2qp].opc] & 0x80) {
+        PutTx1Byte((byte)tx2[tx2qp].op2);
+        PutTx1Word(tx2[tx2qp].op1);
     } else
-        switch (b5124[tx2opc[tx2qp]] & 3) {
+        switch (b5124[tx2[tx2qp].opc] & 3) {
         case 0:
             break;
         case 1:
-            PutTx1Word(tx2op1[tx2qp]);
+            PutTx1Word(tx2[tx2qp].op1);
             break;
         case 2:
-            PutTx1Word(tx2op1[tx2qp]);
-            PutTx1Word(tx2op2[tx2qp]);
+            PutTx1Word(tx2[tx2qp].op1);
+            PutTx1Word(tx2[tx2qp].op2);
             break;
         case 3:
-            PutTx1Word(tx2op1[tx2qp]);
-            PutTx1Word(tx2op2[tx2qp]);
-            PutTx1Word(tx2op3[tx2qp]);
+            PutTx1Word(tx2[tx2qp].op1);
+            PutTx1Word(tx2[tx2qp].op2);
+            PutTx1Word(tx2[tx2qp].op3);
             break;
         }
     WrFragData();
 }
 
 void Tx2SyntaxError(byte arg1b) {
-    tx2opc[tx2qp] = T2_SYNTAXERROR;
-    tx2op1[tx2qp] = arg1b;
+    tx2[tx2qp].opc = T2_SYNTAXERROR;
+    tx2[tx2qp].op1 = arg1b;
 }
 
 byte Sub_5679(byte arg1b) {
-     return arg1b == 0 ? b44F7[wC1D6] >> 4 : b44F7[wC1D6] & 0xf;
+    return arg1b == 0 ? b44F7[wC1D6] >> 4 : b44F7[wC1D6] & 0xf;
 }
 
 void Sub_56A0(byte arg1b, byte arg2b) {
-    tx2opc[arg2b]   = tx2opc[arg1b];
-    tx2Aux1b[arg2b] = tx2Aux1b[arg1b];
-    tx2Aux2b[arg2b] = tx2Aux2b[arg1b];
-    tx2op1[arg2b]   = tx2op1[arg1b];
-    tx2op2[arg2b]   = tx2op2[arg1b];
-    tx2op3[arg2b]   = tx2op3[arg1b];
-    tx2Auxw[arg2b]  = tx2Auxw[arg1b];
+    tx2[arg2b] = tx2[arg1b];
 }
 
 byte Sub_5748(byte arg1b) {
@@ -537,7 +527,7 @@ byte Sub_5748(byte arg1b) {
         return arg1b + 2;
 }
 
-word Sub_575E(offset_t arg1w) { //PMO
+word Sub_575E(offset_t arg1w) { // PMO
 
     SetInfo(arg1w);
     if (info->type == BYTE_T)
@@ -554,7 +544,7 @@ void Sub_5795(word arg1w) {
     word p, q;
 
     p = arg1w + wC1C3 * 2;
-    q = (p >> 1) + (p & 1) + 2;
+    q = ((p + 1) >> 1) + 2; // convert to words
     if (curOp == T2_RETURNWORD)
         q -= 2;
     if (q > 7) {
@@ -582,7 +572,7 @@ void Sub_5795(word arg1w) {
             wC1DC[1] = 8;
             EncodeFragData(CF_POP);
             pc++;
-            p  = p - 2;
+            p = p - 2;
         }
     }
     if (arg1w > 0xff00)
@@ -592,18 +582,17 @@ void Sub_5795(word arg1w) {
 }
 
 bool EnterBlk() {
-    if (blkSP < 0x14) {
+    if (blkSP < 20) {
         blkSP++;
         return true;
-    } else {
-        if (blkOverCnt == 0) {
-            Tx2SyntaxError(ERR204); /*  LIMIT EXCEEDED: NUMBER OF ACTIVE */
-                                    /*  PROCEDURES and do CASE GROUPS */
-            EmitTopItem();
-        }
-        blkOverCnt++;
-        return false;
     }
+    if (blkOverCnt == 0) {
+        Tx2SyntaxError(ERR204); /*  LIMIT EXCEEDED: NUMBER OF ACTIVE */
+                                /*  PROCEDURES and do CASE GROUPS */
+        EmitTopItem();
+    }
+    blkOverCnt++;
+    return false;
 }
 
 bool ExitBlk() {
@@ -625,18 +614,18 @@ void Sub_58F5(byte arg1b) {
     fragment[0]    = 0x9a;
     fragment[1]    = fatalErrorCode;
     fragment[2]    = 0;
-    fragLen          = 3;
+    fragLen        = 3;
     WrFragData();
 
     while (blkSP > 0) {
         if (ExitBlk()) {
             if (procChainId > blkSP) {
                 SetInfo(blkCurInfo[procChainId]);
-                info->dim = pc;
+                info->dim     = pc;
                 info->baseVal = wC1C5;
-                procChainId = procChainNext[procChainId];
-                pc          = wB488[procChainId];
-                wC1C5       = wB4D8[procChainId];
+                procChainId   = procChainNext[procChainId];
+                pc            = wB488[procChainId];
+                wC1C5         = wB4D8[procChainId];
             }
         }
     }
@@ -654,7 +643,7 @@ void Sub_597E() {
         boC072[i] = false;
         boC07B[i] = false;
         k         = bC04E[i];
-        n         = b5124[tx2opc[k]] & 0xc0;
+        n         = b5124[tx2[k].opc] & 0xc0;
         if (k != 0) {
             boC060[i] = true;
             if (bC0B5[0] == i || bC0B5[1] == i) {
@@ -663,9 +652,9 @@ void Sub_597E() {
                     bC0B2++;
             }
             if (n == 0 || n == 0x80) {
-                if (tx2op3[k] == 0) {
-                    if (tx2Aux1b[k] == bC045[i] || (tx2Aux1b[k] == 0 && bC045[i] == 6))
-                        if (tx2Auxw[k] > 1 || boC069[i] || (bC0B7[0] != k && k != bC0B7[1]))
+                if (tx2[k].op3 == 0) {
+                    if (tx2[k].aux1 == bC045[i] || (tx2[k].aux1 == 0 && bC045[i] == 6))
+                        if (tx2[k].auxw > 1 || boC069[i] || (bC0B7[0] != k && k != bC0B7[1]))
                             boC072[i] = true;
                 }
             }
@@ -710,7 +699,7 @@ void Sub_5C1D(byte arg1b) {
     Sub_597E();
     i = bC140[wC1C3] = bC04E[arg1b];
     if (boC072[arg1b])
-        tx2op3[i] = wC1C3;
+        tx2[i].op3 = wC1C3;
 
     if (arg1b != 0)
         bC0C3[wC1C3] = (bC045[arg1b] << 4) | (bC0A8[arg1b] & 0xf);
@@ -722,8 +711,8 @@ void Sub_5C97(byte arg1b) {
     byte i;
 
     i = bC04E[arg1b] = bC140[wC1C3];
-    if (wC1C3 == tx2op3[i])
-        tx2op3[i] = 0;
+    if (wC1C3 == tx2[i].op3)
+        tx2[i].op3 = 0;
 
     boC057[arg1b] = 0;
     bC045[arg1b]  = bC0C3[wC1C3] >> 4;
@@ -820,18 +809,18 @@ void Sub_5EE8() {
     }
 }
 
-void Sub_5F4B(word arg1w, word arg2w, byte arg3b, byte arg4b) {
-    tx2op2[tx2qp]   = arg1w;
-    tx2op1[tx2qp]   = arg2w;
-    tx2Aux1b[tx2qp] = arg3b;
-    tx2Aux2b[tx2qp] = arg4b;
-    tx2opc[tx2qp] = arg4b == 8 ? T2_NUMBER : T2_IDENTIFIER;
+void Sub_5F4B(word val, word infoIdx, byte isWord, byte opFlag) {
+    tx2[tx2qp].op2  = val;
+    tx2[tx2qp].op1  = infoIdx;
+    tx2[tx2qp].aux1 = isWord;
+    tx2[tx2qp].aux2 = opFlag;
+    tx2[tx2qp].opc  = opFlag == 8 ? T2_NUMBER : T2_IDENTIFIER;
 }
 
 void GetVal(byte slot, wpointer pAcc, wpointer pAccFlag) {
-    if (tx2opc[slot] == T2_IDENTIFIER || tx2opc[slot] == T2_NUMBER) {
-        *pAcc = tx2op2[slot];
-        SetInfo(tx2op1[slot]);
+    if (tx2[slot].opc == T2_IDENTIFIER || tx2[slot].opc == T2_NUMBER) {
+        *pAcc = tx2[slot].op2;
+        SetInfo(tx2[slot].op1);
         if (!infoIdx || (info->flag & (F_MEMBER | F_BASED | F_ABSOLUTE)))
             *pAccFlag = 0;
         else if ((info->flag & F_AUTOMATIC))
@@ -847,10 +836,10 @@ void GetVal(byte slot, wpointer pAcc, wpointer pAccFlag) {
         else
             *pAccFlag = 0x2000;
     } else if (slot == 0) {
-        *pAcc = 0;
+        *pAcc     = 0;
         *pAccFlag = 0;
     } else {
-        *pAcc = 0;
+        *pAcc     = 0;
         *pAccFlag = 0x4000;
     }
 }
@@ -860,15 +849,12 @@ void Sub_611A() {
 
     for (i = 0; i <= 1; i++) {
         j = bC0B7[i];
-        if (j != 0) {
-            tx2Auxw[j]--;
-            if (tx2Auxw[j] == 0) {
-                for (k = 0; k <= 3; k++) {
-                    if (bC04E[k] == j)
-                        bC04E[k] = 0;
-                }
-                bC140[tx2op3[j]] = 0;
+        if (j && --tx2[j].auxw == 0) {
+            for (k = 0; k <= 3; k++) {
+                if (bC04E[k] == j)
+                    bC04E[k] = 0;
             }
+            bC140[tx2[j].op3] = 0;
         }
     }
 }
@@ -878,28 +864,27 @@ void Sub_61A9(byte arg1b) {
 }
 
 void Sub_61E0(byte arg1b) {
-    if ((b5124[tx2opc[arg1b]] & 0xc0) == 0) {
-        wC1DC[bC1DB++]     = 0xa;
-        wC1DC[bC1DB++] = tx2op3[arg1b];
-        wC1DC[bC1DB++] = (wC1C3 - tx2op3[arg1b]) * 2;
-    } else if (tx2op1[arg1b] != 0) {
-        SetInfo(tx2op1[arg1b]);
+    if ((b5124[tx2[arg1b].opc] & 0xc0) == 0) {
+        wC1DC[bC1DB++] = 0xa;
+        wC1DC[bC1DB++] = tx2[arg1b].op3;
+        wC1DC[bC1DB++] = (wC1C3 - tx2[arg1b].op3) * 2;
+    } else if (tx2[arg1b].op1) {
+        SetInfo(tx2[arg1b].op1);
         wC1DC[bC1DB++] = info->flag & F_AUTOMATIC ? 0xc : 0xb;
-        wC1DC[bC1DB++] = tx2op2[arg1b] - info->linkVal;
+        wC1DC[bC1DB++] = tx2[arg1b].op2 - info->linkVal;
         wC1DC[bC1DB++] = infoIdx;
         if ((info->flag & F_AUTOMATIC))
-            wC1DC[bC1DB++] = tx2op2[arg1b] + wC1C3 * 2;
+            wC1DC[bC1DB++] = tx2[arg1b].op2 + wC1C3 * 2;
     } else {
-        wC1DC[bC1DB++] = tx2op2[arg1b] < 0x100 ? 8 : 9;
-        wC1DC[bC1DB++] = tx2op2[arg1b];
+        wC1DC[bC1DB++] = tx2[arg1b].op2 < 0x100 ? 8 : 9;
+        wC1DC[bC1DB++] = tx2[arg1b].op2;
     }
 }
 
 void Sub_636A(byte arg1b) {
-    if (bC0B5[arg1b] <= 3) {
-        wC1DC[bC1DB] = bC0B5[arg1b];
-        bC1DB        = bC1DB + 1;
-    } else
+    if (bC0B5[arg1b] <= 3)
+        wC1DC[bC1DB++] = bC0B5[arg1b];
+    else
         Sub_61E0(bC0B7[arg1b]);
 }
 
@@ -931,40 +916,40 @@ void Sub_6416(byte arg1b) {
 }
 
 void GetTx2Item() {
-    tx2opc[tx2qp] = Rd2Byte();
+    tx2[tx2qp].opc = Rd2Byte();
 
-    switch (3 & b5124[tx2opc[tx2qp]]) {
+    switch (3 & b5124[tx2[tx2qp].opc]) {
     case 0:
-        if (tx2opc[tx2qp] == T2_EOF)
+        if (tx2[tx2qp].opc == T2_EOF)
             eofSeen = true;
         break;
     case 1:
-        tx2op1[tx2qp] = Rd2Word();
+        tx2[tx2qp].op1 = Rd2Word();
         break;
     case 2:
-        tx2op1[tx2qp] = Rd2Word();
-        tx2op2[tx2qp] = Rd2Word();
+        tx2[tx2qp].op1 = Rd2Word();
+        tx2[tx2qp].op2 = Rd2Word();
         break;
     case 3:
-        tx2op1[tx2qp] = Rd2Word();
-        tx2op2[tx2qp] = Rd2Word();
-        tx2op3[tx2qp] = Rd2Word();
+        tx2[tx2qp].op1 = Rd2Word();
+        tx2[tx2qp].op2 = Rd2Word();
+        tx2[tx2qp].op3 = Rd2Word();
         break;
     }
 }
 
 void Sub_652B() {
     if (curOp == T2_MODULE) {
-        if (tx2opc[tx2qp - 1] == T2_LABELDEF) {
-            SetInfo(tx2op1[tx2qp - 1]);
+        if (tx2[tx2qp - 1].opc == T2_LABELDEF) {
+            SetInfo(tx2[tx2qp - 1].op1);
             if (!(info->flag & (F_MODGOTO | F_PUBLIC)))
                 tx2qp--;
         }
     } else if (curOp == T2_LINEINFO) {
-        if (tx2op2[tx2qp] == 0) {
-            if (tx2opc[tx2qp - 1] == T2_LINEINFO) {
-                if (tx2op2[tx2qp - 1] == 0) {
-                    tx2op3[tx2qp - 1] = tx2op1[tx2qp];
+        if (tx2[tx2qp].op2 == 0) {
+            if (tx2[tx2qp - 1].opc == T2_LINEINFO) {
+                if (tx2[tx2qp - 1].op2 == 0) {
+                    tx2[tx2qp - 1].op3 = tx2[tx2qp].op1;
                     tx2qp--;
                 }
             }
@@ -973,35 +958,27 @@ void Sub_652B() {
 }
 
 void FillTx2Q() {
-    byte k;
 
     tx2qp = 4;
-    if (tx2qEnd > bC1BF) {
-        k = tx2qEnd - bC1BF;
-        memmove(&tx2opc[tx2qp], &tx2opc[bC1BF], k);
-        memmove(&tx2Aux1b[tx2qp], &tx2Aux1b[bC1BF], k);
-        memmove(&tx2Aux2b[tx2qp], &tx2Aux2b[bC1BF], k);
-        memmove(&tx2op1[tx2qp], &tx2op1[bC1BF], k * 2);
-        memmove(&tx2op2[tx2qp], &tx2op2[bC1BF], k * 2);
-        memmove(&tx2op3[tx2qp], &tx2op3[bC1BF], k * 2);
-        memmove(&tx2Auxw[tx2qp], &tx2Auxw[bC1BF], k * 2);
-        tx2qp = k + 4;
-        bC1BF += k;
+    if (tx2qEnd > tx2qNxt) {
+        byte k = tx2qEnd - tx2qNxt;
+        memmove(&tx2[tx2qp], &tx2[tx2qNxt], k * sizeof(tx2_t));
+        tx2qp += k;   // note byte arith
+        tx2qNxt += k; // note byte arith
     }
     bool exceeded = false;
     while (tx2qp < 255 && !eofSeen) {
         GetTx2Item();
-        curOp = tx2opc[tx2qp];
+        curOp = tx2[tx2qp].opc;
         Sub_652B();
         if (tx2qp == 4) {
             if (curOp == T2_STMTCNT || curOp == T2_LOCALLABEL || curOp == T2_EOF)
                 tx2qp++;
-            else if ((b5124[curOp] & 0x20) != 0)
+            else if ((b5124[curOp] & 0x20))
                 EmitTopItem();
             else if (!exceeded) {
                 exceeded = true;
-                Tx2SyntaxError(ERR200); /*  LIMIT EXCEEDED */
-                                        /*  STATEMENT Size() */
+                Tx2SyntaxError(ERR200); /*  LIMIT EXCEEDED: STATEMENT SIZE */
                 EmitTopItem();
             }
         } else
@@ -1014,28 +991,27 @@ void FillTx2Q() {
     tx2qEnd = tx2qp;
 }
 
-static void SkipBB(byte arg1b, byte arg2b) {
-    bC1BF = arg1b + arg2b;
-    while (tx2opc[bC1BF] != T2_STMTCNT && tx2opc[bC1BF] != T2_EOF && tx2opc[bC1BF] != T2_LOCALLABEL)
-        bC1BF += arg2b;
+static void SkipBB(byte startIdx, int8_t direction) {
+    tx2qNxt = startIdx + direction;
+    while (tx2[tx2qNxt].opc != T2_STMTCNT && tx2[tx2qNxt].opc != T2_EOF &&
+           tx2[tx2qNxt].opc != T2_LOCALLABEL)
+        tx2qNxt += direction;
 }
 
 void Sub_67A9() {
-    byte i;
-
-    SkipBB(tx2qEnd, 0xff);
-    i = 0;
-    if (bC1BF == 4 && !eofSeen)
-        bC1BF = tx2qEnd;
-    else
-        for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
-            bC1D2 = b5124[tx2opc[tx2qp]];
+    SkipBB(tx2qEnd, -1);
+    if (tx2qNxt == 4 && !eofSeen)
+        tx2qNxt = tx2qEnd;
+    else {
+        byte i = 0;
+        for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
+            bC1D2 = b5124[tx2[tx2qp].opc];
             if ((bC1D2 & 0x10)) {
                 if (i + 4 < tx2qp) {
-                    if (tx2opc[tx2qp] == T2_LOCALLABEL)
-                        bC1BF = tx2qp;
+                    if (tx2[tx2qp].opc == T2_LOCALLABEL)
+                        tx2qNxt = tx2qp;
                     else
-                        SkipBB(tx2qp, 0xff);
+                        SkipBB(tx2qp, -1);
                     return;
                 }
                 i++;
@@ -1047,4 +1023,5 @@ void Sub_67A9() {
             if ((bC1D2 & 0x20))
                 i++;
         }
+    }
 }

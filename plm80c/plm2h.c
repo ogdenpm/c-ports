@@ -10,25 +10,20 @@
 
 #include "plm.h"
 
-static byte b9BA8[2] = { 12, 13 };
-static byte b9BAA[2] = { 1, 2 };
-static byte b9BAC[2] = { 12, 13 };
-static byte b9BAE[2] = { 1, 2 };
-
 static bool Sub_9C33() {
     byte i, j, k;
 
-    i = (byte)tx2op1[tx2qp];
-    if ((b5124[tx2opc[i]] & 0xc0) == 0) {
-        if (tx2Auxw[i] > 1)
+    i = (byte)tx2[tx2qp].op1;
+    if ((b5124[tx2[i].opc] & 0xc0) == 0) {
+        if (tx2[i].auxw > 1)
             return false;
-        if (tx2op3[i] != 0)
-            bC140[tx2op3[i]] = tx2qp;
+        if (tx2[i].op3 != 0)
+            bC140[tx2[i].op3] = tx2qp;
     }
-    k = (byte)tx2Auxw[tx2qp];
+    k = (byte)tx2[tx2qp].auxw;
     Sub_56A0(i, tx2qp);
-    tx2Auxw[tx2qp] = k;
-    tx2Auxw[i]     = tx2Auxw[i] - 1;
+    tx2[tx2qp].auxw = k;
+    tx2[i].auxw--;
     for (j = 0; j <= 3; j++) {
         if (bC04E[j] == i)
             bC04E[j] = tx2qp;
@@ -37,8 +32,8 @@ static bool Sub_9C33() {
 }
 
 void Sub_9BB0() {
-    bC0B7[0] = (byte)tx2op1[tx2qp];
-    bC0B7[1] = (byte)tx2op2[tx2qp];
+    bC0B7[0] = (byte)tx2[tx2qp].op1;
+    bC0B7[1] = (byte)tx2[tx2qp].op2;
     if (T2_DOUBLE <= curOp && curOp <= T2_ADDRESSOF)
         Sub_717B();
     if (curOp <= T2_MEMBER) {
@@ -55,37 +50,32 @@ void Sub_9BB0() {
         Sub_994D();
 }
 
+
+static byte b9BA8[2] = { 12, 13 };
+static byte b9BAA[2] = { 1, 2 };
+
 void Sub_9D06() {
-    byte i, j, k;
+    byte j, k;
     pointer pbyt;
     byte m;
 
     if (procCallDepth <= 10) {
-        SetInfo(tx2op3[tx2qp]);
-        i       = GetDataType();
-        if (i == 3)
-            wAF54[132] = 1;
-        else
-            wAF54[132] = 0;
-        j = m = GetParamCnt();
-        pbyt  = &b44F7[wAF54[132]];
+        SetInfo(tx2[tx2qp].op3);
+        wAF54[T2_CALL] = info->returnType == ADDRESS_T ? ADDRESS_A : BYTE_A;
+        j = m = info->paramCnt;
+        pbyt  = &b44F7[wAF54[T2_CALL]];
         k     = 0;
 
         while (j > 0) {
             AdvNxtInfo();
-            j       = j - 1;
-            if (j < 2) {
-                *pbyt = (*pbyt << 4) & 0xf0;
-                if (info->type == ADDRESS_T)
-                    *pbyt = *pbyt | b9BA8[k];
-                else
-                    *pbyt = *pbyt | b9BAA[k];
+            if (--j < 2) {
+                *pbyt = ((*pbyt << 4) | (info->type == ADDRESS_T ? b9BA8[k] : b9BAA[k]));
                 k = 1;
             }
         }
 
         if (m == 1)
-            *pbyt = (*pbyt << 4) & 0xf0;
+            *pbyt <<= 4;
         Sub_9BB0();
         wC1C3 = wB528[procCallDepth];
     }
@@ -94,32 +84,35 @@ void Sub_9D06() {
 
 static pointer pb_C2EB;
 
+static byte b9BAC[2] = { 12, 13 };
+static byte b9BAE[2] = { 1, 2 };
+
 static void Sub_9EAA(byte arg1b, byte arg2b) {
-    *pb_C2EB = (*pb_C2EB << 4) & 0xf0;
+    *pb_C2EB <<= 4;
     if (arg1b != 0)
-        *pb_C2EB |= tx2Aux1b[arg1b] == 0 ? b9BAE[arg2b] : b9BAC[arg2b];
+        *pb_C2EB |= tx2[arg1b].aux1 == BYTE_A ? b9BAE[arg2b] : b9BAC[arg2b];
 }
 
 void Sub_9DD7() {
     byte i;
 
     if (procCallDepth <= 10) {
-        i = (byte)tx2op3[tx2qp];
-        if (tx2opc[i] == T2_IDENTIFIER) {
-            SetInfo(tx2op1[i]);
+        i = (byte)tx2[tx2qp].op3;
+        if (tx2[i].opc == T2_IDENTIFIER) {
+            SetInfo(tx2[i].op1);
             if ((info->flag & F_AUTOMATIC))
-                wAF54[133] = 3;
+                wAF54[T2_CALLVAR] = 3;
             else
-                wAF54[133] = 4;
-        } else if (tx2op3[i] == wB53C[procCallDepth]) {
-            wAF54[133]           = 5;
+                wAF54[T2_CALLVAR] = 4;
+        } else if (tx2[i].op3 == wB53C[procCallDepth]) {
+            wAF54[T2_CALLVAR] = 5;
             wB528[procCallDepth]--;
         } else
-            wAF54[133] = 2;
+            wAF54[T2_CALLVAR] = 2;
 
-        pb_C2EB = &b44F7[wAF54[133]];
-        Sub_9EAA((byte)tx2op1[tx2qp], 0);
-        Sub_9EAA((byte)tx2op2[tx2qp], 1);
+        pb_C2EB = &b44F7[wAF54[T2_CALLVAR]];
+        Sub_9EAA((byte)tx2[tx2qp].op1, 0);
+        Sub_9EAA((byte)tx2[tx2qp].op2, 1);
         Sub_9BB0();
         wC1C3 = wB528[procCallDepth];
     }
@@ -168,10 +161,10 @@ void Sub_9F9F() {
         if ((info->flag & F_INTERRUPT))
             wC1C5 += 8;
 
-        info->dim = pc;
+        info->dim     = pc;
         info->baseVal = wC1C5 + wC1C7;
-        pc      = wB488[procChainId = procChainNext[procChainId]];
-        fragLen = 0;
+        pc            = wB488[procChainId = procChainNext[procChainId]];
+        fragLen       = 0;
         PutTx1Byte(0xa4);
         PutTx1Word(blkCurInfo[procChainId]);
         PutTx1Word(pc);
@@ -185,21 +178,15 @@ void Sub_9F9F() {
 
 void Sub_A072(byte arg1b) {
     word p;
-    SetInfo(tx2op1[tx2qp]);
-    p       = info->dim - arg1b;
-    if (p < 0x100)
-        Sub_5F4B(p, 0, 0, 8);
-    else
-        Sub_5F4B(p, 0, 1, 8);
+    SetInfo(tx2[tx2qp].op1);
+    p = info->dim - arg1b;
+    Sub_5F4B(p, 0, p < 0x100 ? BYTE_A : ADDRESS_A, 8);
 }
 
 void Sub_A0C4() {
     word p;
-    p = Sub_575E(tx2op1[tx2qp]);
-    if (p < 0x100)
-        Sub_5F4B(p, 0, 0, 8);
-    else
-        Sub_5F4B(p, 0, 1, 8);
+    p = Sub_575E(tx2[tx2qp].op1);
+    Sub_5F4B(p, 0, p < 0x100 ? BYTE_A : ADDRESS_A, 8);
 }
 
 void Sub_A10A() {
@@ -228,8 +215,8 @@ static void Sub_A266() {
 
 void Sub_A153() {
     Sub_A266();
-    for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
-        curOp = tx2opc[tx2qp];
+    for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
+        curOp = tx2[tx2qp].opc;
         bC1D2 = b5124[curOp];
         switch (bC1D2 >> 6) {
         case 0:
@@ -268,7 +255,7 @@ void Sub_A153() {
             break;
         }
 
-        tx2op3[tx2qp] = 0;
+        tx2[tx2qp].op3 = 0;
     }
     Sub_5795(0);
     boC1CC = boC1CD;

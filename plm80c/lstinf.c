@@ -15,7 +15,7 @@ void LstModuleInfo() {
     p = 0;
     for (q = 1; q <= procCnt; q++) {
         SetInfo(procInfo[q]);
-        r       = info->baseVal;
+        r = info->baseVal;
         if (r > p)
             p = r;
     }

@@ -28,7 +28,7 @@ char *getCmdLine(int argc, char **argv);
 // char *GetToken(void);
 char *GetText(void);
 char *GetNSToken(void);
-    uint16_t GetNumber(void);
+uint16_t GetNumber(void);
 int printCmdLine(FILE *fp, int width);
 void printDriveMap(FILE *fp);
 
@@ -42,3 +42,4 @@ char *xstrdup(char const *str);
 void SkipWs();
 void ExpectChar(uint8_t ch, char const *msg);
 void SetEndToken(char *p);
+void mkpath(char *file);

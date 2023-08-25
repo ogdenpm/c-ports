@@ -23,7 +23,7 @@ static void InitFilesAndDefaults() {
     if (!t || t == s)
         t = strchr(s, '\0');
     int prefixLen = (int)(t - s);
-    bool uc     = true;
+    bool uc       = true;
     for (char *r = s; *r && uc; r++)
         if (islower(*r))
             uc = false;
@@ -40,8 +40,7 @@ static void InitFilesAndDefaults() {
     memcpy(objFileName, s, prefixLen);
     strcpy(objFileName + prefixLen, uc ? ".OBJ" : ".obj");
 
-
-    depFileName = xmalloc(prefixLen + 9);   // .deps/ {prefix} .d\0;
+    depFileName = xmalloc(prefixLen + 9); // .deps/ {prefix} .d\0;
     strcpy(depFileName, ".deps/");
     memcpy(depFileName + 6, s, prefixLen);
     strcpy(depFileName + 6 + prefixLen, ".d");
@@ -73,7 +72,7 @@ void SignOnAndGetSourceName() {
     srcFileTable[0].fNam = GetNSToken();
     if (!*srcFileTable[0].fNam)
         FatalCmdLineErr("No file to compile");
-    cmdTextP = cmdP;
+    cmdTextP    = cmdP;
     moreCmdLine = *cmdTextP != '\n';
     InitFilesAndDefaults();
 } /* SignOnAndGetSourceName() */

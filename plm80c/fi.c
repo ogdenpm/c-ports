@@ -10,20 +10,17 @@
 
 #include "plm.h"
 
-void FindInfo() {
-    word i;
-
-    if (!symtab[curSym].infoIdx) {
-        infoIdx = 0;
-        info    = NULL;
-        return;
+bool FindInfo() {
+    if (symtab[curSym].infoIdx) {
+        word depth = blockDepth;
+        while (depth) {
+            if (FindScopedInfo(procChains[depth--]))
+                return true;
+        }
     }
-    i = blockDepth;
-    while (i) {
-        FindScopedInfo(procChains[i--]);
-        if (infoIdx)
-            return;
-    }
+    infoIdx = 0;
+    info    = NULL;
+    return false;
 }
 
 void AdvNxtInfo() {
@@ -33,7 +30,7 @@ void AdvNxtInfo() {
             return;
         }
     }
-    info = NULL;
+    info    = NULL;
     infoIdx = 0;
     return;
 }
@@ -50,21 +47,25 @@ void FindMemberInfo() {
     info = NULL;
 }
 
-void FindScopedInfo(word scope) {
-    offset_t p = 0;
-    for (infoIdx = symtab[curSym].infoIdx; infoIdx; p = infoIdx, infoIdx = infotab[infoIdx].ilink) {
-        info = &infotab[infoIdx];
-        if (scope == info->scope) {
-            if (info->type == LIT_T || info->type == MACRO_T || !(info->flag & F_MEMBER)) {
-                if (p) {                                       /* not at start of Chain() */
-                    infotab[p].ilink = info->ilink;            /* Move() to head of Chain() */
-                    info->ilink      = symtab[curSym].infoIdx; /* set its link to current head */
-                    symtab[curSym].infoIdx = infoIdx;          /* set head to found info */
+bool FindScopedInfo(word scope) {
+    offset_t prev = 0;
+    for (index_t idx = symtab[curSym].infoIdx; idx; prev = idx, idx = infotab[idx].ilink) {
+        info_t *inf = &infotab[idx];
+        if (scope == inf->scope) {
+            if (inf->type == LIT_T || inf->type == MACRO_T || !(inf->flag & F_MEMBER)) {
+                if (prev) {                                       /* not at start of Chain() */
+                    infotab[prev].ilink = inf->ilink;             /* Move() to head of Chain() */
+                    inf->ilink          = symtab[curSym].infoIdx; /* set its link to current head */
+                    symtab[curSym].infoIdx = idx;                 /* set head to found info */
                 }
-                return;
+                SetInfo(idx);
+                return true;
             }
         }
     }
+    infoIdx = 0;
+    info    = NULL;
+    return false;
 }
 
 void CreateInfo(word scope, byte type, index_t sym) {

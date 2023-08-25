@@ -137,8 +137,7 @@ static void WrLabelDefs() {
     if (stmtLabelCnt != 0) {
         for (i = 1; i <= stmtLabelCnt; i++) { // check each label
             curSym = stmtLabels[i];
-            FindScopedInfo(curScope);
-            if (infoIdx) { /* already seen at this scope */
+            if (FindScopedInfo(curScope)) { /* already seen at this scope */
                 if ((info->flag & F_LABEL))
                     Wr1TokenError(ERR33, curSym); /* DUPLICATE LABEL DECLARATION */
                 else {
@@ -193,19 +192,19 @@ static void ProcEnding() {
         Wr1TokenErrorAt(ERR20); /* MISMATCHED IDENTIFIER AT END OF BLOCK */
 
     SetInfo(procIdx);
-    for (int i = GetParamCnt(); i > 0; i--) { // scan any parameters (info after proc info)
+    for (int i = info->paramCnt; i > 0; i--) { // scan any parameters (info after proc info)
         AdvNxtInfo();
-        if (!(info->flag & F_LABEL))                    // not declared?
+        if (!(info->flag & F_LABEL))         // not declared?
             Wr1TokenError(ERR25, info->sym); /* UNDECLARED PARAMETER */
     }
     doBlkCnt = PopStateWord(); // restore doBlkCnt & curProcInfoP to parent of proc
 
-    procIdx = PopStateWord();
+    procIdx  = PopStateWord();
     ExpectSemiColon(); // finish off statement
 }
 
 static void PushStateWord(word v) {
-    if (stateIdx != 0x63)
+    if (stateIdx != 99)
         stateStack[++stateIdx] = v;
     else
         LexFatalError(ERR31); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
@@ -220,11 +219,11 @@ static void CreateModuleInfo(offset_t symPtr) {
     CreateInfo(0, PROC_T, curSym);
     info->flag |= F_LABEL;
     Wr1XrefDef();
-    procIdx                 = infoIdx;
+    procIdx      = infoIdx;
     info->procId = 1;
-    procCnt                 = 1;
-    procInfo[1]             = infoIdx;
-    curScope                = 0x100; /* proc = 1,  do level = 0 */
+    procCnt      = 1;
+    procInfo[1]  = infoIdx;
+    curScope     = 0x100; /* proc = 1,  do level = 0 */
     Wr1Byte(L_DO);
     Wr1Byte(L_SCOPE);
     Wr1Word(curScope);
@@ -492,7 +491,7 @@ static void State13() {
 
     WrLabelDefs();                // write labels
     PopBlock();                   // restore scope to parent block
-    labelPtr = PopStateWord();      // get the do block label
+    labelPtr = PopStateWord();    // get the do block label
     if (YylexMatch(T_IDENTIFIER)) // if we have "end identifier" do they match
         if (curSym != labelPtr)
             Wr1TokenErrorAt(ERR20); /* MISMATCHED IDENTIFIER AT END OF BLOCK */
@@ -514,15 +513,15 @@ static void State14() { /* process CASE statements */
         PushStateByte(11); // parse <unit>
     } else {
         stateWord = PopStateWord(); /* get the label index for end of case target */
-        WrLabelDefs();            // write any labels associated with the end
-        if (stmtLabelCnt != 0) {  // write jmp to end target if there are labels
+        WrLabelDefs();              // write any labels associated with the end
+        if (stmtLabelCnt != 0) {    // write jmp to end target if there are labels
             Wr1Byte(L_JMP);
             Wr1Word(stateWord);
         }
-        PopBlock();              // restore scope
+        PopBlock();                // restore scope
         labelPtr = PopStateWord(); // get any prefix label to do
-        Wr1Byte(L_END);          // write end
-        Wr1Byte(L_LOCALLABEL);   // & target label
+        Wr1Byte(L_END);            // write end
+        Wr1Byte(L_LOCALLABEL);     // & target label
         Wr1Word(stateWord);
         /* check end label if (present */
         if (YylexMatch(T_IDENTIFIER))
@@ -535,7 +534,7 @@ static void State14() { /* process CASE statements */
 // write jmp to end of case and re-enter state14
 static void State15() {
     word stateWord = PopStateWord(); // get index of end of case label
-    Wr1Byte(L_JMP);           // write jmp & target
+    Wr1Byte(L_JMP);                  // write jmp & target
     Wr1Word(stateWord);
     PushStateWord(stateWord); // resave
     PushStateByte(14);        // parse case <unit>... <ending>
@@ -566,7 +565,7 @@ static void State17() { /* process optional else */
 
     word endTrueLabel = PopStateWord(); /* labelref for end of <true unit> */
     Yylex();
-    bool savToWrite             = lineInfoToWrite; /* supress line info for labeldefs etc */
+    bool savToWrite = lineInfoToWrite; /* supress line info for labeldefs etc */
     lineInfoToWrite = false;
     if (tokenType == T_ELSE) { // ELSE <false element>
         NewLocalLabel();       // reserve space for end of <false element>
@@ -587,11 +586,11 @@ static void State17() { /* process optional else */
 // parse end of <false element>
 static void State18() { /* end of else */
 
-    bool savToWrite             = lineInfoToWrite; /* supress line info for labeldefs */
+    bool savToWrite = lineInfoToWrite; /* supress line info for labeldefs */
 
     lineInfoToWrite = false;
     word falseLabel = PopStateWord(); /* labelref for end <false element> */
-    Wr1Byte(L_LOCALLABEL);    /* emit label */
+    Wr1Byte(L_LOCALLABEL);            /* emit label */
     Wr1Word(falseLabel);
     lineInfoToWrite = savToWrite; // restore status of lineInfoTo
 }
@@ -601,9 +600,8 @@ void ParseProgram() // core state machine to parse program
     stateIdx = 0;
     endSeen  = false;
     PushStateByte(0); // start with parse <module name> : 'DO' ;
-    while (stateIdx != 0) {
-        curState = stateStack[stateIdx]; // pop state
-        stateIdx--;
+    while (stateIdx) {
+        curState = stateStack[stateIdx--]; // pop state
         switch (curState) {
         case 0:
             State0();

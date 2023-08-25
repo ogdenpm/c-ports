@@ -30,6 +30,12 @@
     <ClInclude Include="os.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="errors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="int.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="data.c">
@@ -81,9 +87,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="plmb.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="accessors.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="plmfile.c">

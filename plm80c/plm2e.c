@@ -150,7 +150,7 @@ static void Sub_7FFC() {
         if (bC0B5[0] == bC0B5[1])
             bC298 = bC0B3[bC295] == 0 ? 0xE : 0x11;
     } else if (bC298 == 8) {
-        if (tx2op1[bC0B7[bC295]] != 0) {
+        if (tx2[bC0B7[bC295]].op1 != 0) {
             bC298 = 6;
             if (bC294 == 0)
                 bC294 = 1;
@@ -222,10 +222,10 @@ static void Sub_8207() {
         wC096[bC294]  = 0x100;
         if (wC1DC[0] == 0xA) {
             wC084[bC294] = -(wC1DC[1] * 2);
-            if (bC0C3[tx2op3[bC0B7[bC295]]] == 0xb0)
+            if (bC0C3[tx2[bC0B7[bC295]].op3] == 0xb0)
                 if (bC298 == 5) {
                     wC084[bC294]--;
-                    wC1DC[2]     = wC1DC[2] + 1;
+                    wC1DC[2] = wC1DC[2] + 1;
                 }
         } else
             wC084[bC294] = wC1DC[3] - wC1C3 * 2;
@@ -240,7 +240,7 @@ static void Sub_8207() {
         boC057[bC294] = 0;
         bC04E[bC294]  = bC0B7[bC295];
         if (bC0B3[bC295] == 4 || bC0B3[bC295] == 5) {
-            bC0A8[bC294] = bC0C3[tx2op3[bC0B7[bC295]]] & 0xf;
+            bC0A8[bC294] = bC0C3[tx2[bC0B7[bC295]].op3] & 0xf;
             if (bC0A8[bC294] > 7)
                 bC0A8[bC294] = bC0A8[bC294] | 0xf0;
         } else
@@ -355,10 +355,10 @@ static void Sub_8698(byte arg1b, byte arg2b) {
     case 6:
         if (arg2b == 7) {
             wC1DC[bC1DB]     = 0x10;
-            wC1DC[bC1DB + 1] = tx2op3[tx2qp];
+            wC1DC[bC1DB + 1] = tx2[tx2qp].op3;
             bC1DB += 2;
         } else
-            Sub_61E0((byte)tx2op3[tx2qp]);
+            Sub_61E0((byte)tx2[tx2qp].op3);
         return;
     default:
         fprintf(stderr, "out of bounds in Sub_8698 arg1b = %d\n", arg1b);
@@ -369,7 +369,7 @@ static void Sub_8698(byte arg1b, byte arg2b) {
     else {
         wC1DC[bC1DB] = arg2b + 9;
         if (arg2b == 6)
-            wC1DC[bC1DB + 1] = tx2op2[1];
+            wC1DC[bC1DB + 1] = tx2[1].op2;
         else
             GetVal(bC0B7[i], &wC1DC[bC1DB + 1], &p);
         bC1DB += 2;

@@ -25,7 +25,7 @@ void TabLst(byte tabTo) {
         tabTo = -tabTo;
         if (col >= tabTo)
             NewLineLst();
-        tabTo = tabTo - col + 1;
+        tabTo = tabTo - col;
     }
     while (tabTo-- != 0)
         lstc(' ');

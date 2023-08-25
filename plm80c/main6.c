@@ -18,7 +18,7 @@ static void Sub_3F96() {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMILATION OF MODULE ");
         SetInfo(procInfo[1]);
-        curSym  = info->sym;
+        curSym = info->sym;
         if (curSym)
             lprintf("%s", symtab[curSym].name->str);
         lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:\n",

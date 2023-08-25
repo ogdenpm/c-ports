@@ -18,8 +18,8 @@ void GetTx1Item() {
     while (1) {
         RdTx1Item();
         if (tx1Item.type == L_TOKENERROR) {
-            if ((curSym = tx1Item.dataw[1]) != 0) {       // check we have symbol info
-                if (High(symtab[curSym].infoIdx) == 0xff) // is it a keyword?
+            if ((curSym = tx1Item.dataw[1])) {       // check we have symbol info
+                if (symtab[curSym].infoIdx >= 0xff00) // is it a keyword?
                     symtab[curSym].infoIdx = 0;           // reset info link
                 if ((infoIdx = symtab[curSym].infoIdx) == 0)
                     CreateInfo(0, UNK_T, curSym); // allocate an UNK_T info block
@@ -99,9 +99,9 @@ void ExpectRParen(byte arg1b) {
 }
 
 void ChkIdentifier() {
-    FindInfo();
-    if (!infoIdx || info->type == LIT_T)   // doesn't exist or appeared in recursive LIT!!
-        CreateInfo(0x100, BYTE_T, curSym); // assume a var was declared
+
+    if (!FindInfo() || info->type == LIT_T) // doesn't exist or appeared in recursive LIT!!
+        CreateInfo(0x100, BYTE_T, curSym);  // assume a var was declared
     OptWrXrf();
     // check if declared, labels ok since forward ref allowed
     if (info->type != BUILTIN_T && !(info->flag & F_LABEL) && !(info->flag & F_DECLARED)) {

@@ -13,6 +13,7 @@
 // #include "omf.h"
 #include "os.h"
 #include <ctype.h>
+#include <direct.h>
 #include <errno.h>
 #include <showVersion.h>
 #include <stdarg.h>
@@ -20,13 +21,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <direct.h>
 // "lst.h"
 
 #ifdef _WIN32
 #include <io.h>
 #define mkdir(dir, access) _mkdir(dir)
-#define DIRSEP "/\\"
+#define DIRSEP             "/\\"
 #else
 #include <errno.h>
 #include <unistd.h>

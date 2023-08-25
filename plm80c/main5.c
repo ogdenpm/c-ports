@@ -14,13 +14,9 @@
 
 byte maxSymLen;
 offset_t xrefIdx;
-byte b66D8 = 0;
+byte groupingChar = 0;
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
-
-void warn(char const *str) {
-    lprintf("\n-- WARNING -- %s\n", str);
-}
 
 void LoadDictionary() {
     dictCnt = maxSymLen = 0;
@@ -30,7 +26,7 @@ void LoadDictionary() {
         if (info->type < MACRO_T && info->sym != 0) {
             newDict(infoIdx);
             info->scope = 0; /* used for xref Chain() */
-            curSym = info->sym;
+            curSym      = info->sym;
             if (symtab[curSym].name->len > maxSymLen)
                 maxSymLen = symtab[curSym].name->len;
         }
@@ -56,7 +52,7 @@ static void LoadXref() {
     vfRewind(&xrff);
     while ((xrefType = vfRbyte(&xrff))) {
         word xrInfo = vfRword(&xrff);
-        word stmt  = vfRword(&xrff);
+        word stmt   = vfRword(&xrff);
         if (xrefType == 'B' || XREF) {
             SetInfo(xrInfo);
             xrefIdx = newXref(info->scope, xrefType == 'B' ? -stmt : stmt); /* make defn line -ve */
@@ -74,15 +70,15 @@ static void XrefDef2Head() {
         SetInfo(dicttab[p]);
         xrefIdx = info->scope;
         if (xrefIdx) {
-            q = 0;
-            info->scope= 0;
+            q           = 0;
+            info->scope = 0;
             while (xrefIdx) {
                 r = xreftab[xrefIdx].next;
                 if ((xreftab[xrefIdx].line & 0x8000))
                     q = xrefIdx; /* definition */
                 else {
                     xreftab[xrefIdx].next = info->scope;
-                    info->scope = xrefIdx;
+                    info->scope           = xrefIdx;
                 }
                 xrefIdx = r;
             }
@@ -90,7 +86,7 @@ static void XrefDef2Head() {
             if (q) { /* insert definition at head */
                 xrefIdx               = q;
                 xreftab[xrefIdx].next = info->scope;
-                info->scope = xrefIdx;
+                info->scope           = xrefIdx;
             }
         }
     }
@@ -104,7 +100,7 @@ void PrepXref() {
 // file scope due to nested procedure lift;
 static byte defnCol, addrCol, sizeCol, nameCol, attribCol, refContCol;
 
-static void Sub_480A() {
+static void PrintXrefs() {
     word p;
 
     if (!XREF) {
@@ -136,7 +132,7 @@ static void Sub_480A() {
         NewLineLst();
 }
 
-static void Sub_48A7() {
+static void DescribeName() {
     curSym = info->sym;
     TabLst(-nameCol);
     lstStr(symtab[curSym].name->str);
@@ -144,20 +140,20 @@ static void Sub_48A7() {
     lstc(' ');
 }
 
-static void Sub_48E2(word arg1w, word arg2w) {
+static void DescribeAddressAndSize(word addr, word size) {
     TabLst(-addrCol);
-    lstStr(hexfmt(4, arg1w)->str);
-    if (arg2w != 0) {
+    lstStr(hexfmt(4, addr)->str);
+    if (size != 0) {
         TabLst(-sizeCol);
-        lprintf("%5d", arg2w);
+        lprintf("%5d", size);
     }
 }
 
-static void Sub_4921() {
+static void DescribeDefinition() {
     xrefIdx = info->scope;
     if (info->type == BUILTIN_T)
         return;
-    if (xrefIdx != 0 && (xreftab[xrefIdx].line & 0x8000) != 0) {
+    if (xrefIdx && (xreftab[xrefIdx].line & 0x8000) != 0) {
         TabLst(-defnCol);
         lprintf("%5d", 0x10000 - xreftab[xrefIdx].line); /* defn stored as -ve */
         info->scope = xreftab[xrefIdx].next;
@@ -167,21 +163,18 @@ static void Sub_4921() {
     }
 }
 
-static void Sub_499C() {
-    lprintf(" EXTERNAL(%d)", info->extId);
-}
 
-static void Sub_49BB() {
+static void DescribeBased() {
     offset_t baseSym, member;
     info_t *baseInfo;
 
     baseInfo = &infotab[info->baseOff];
     if ((baseInfo->flag & F_MEMBER)) {
-        member       = baseInfo->sym;
-        baseSym       = infotab[baseInfo->parent].sym;
+        member  = baseInfo->sym;
+        baseSym = infotab[baseInfo->parent].sym;
     } else {
         baseSym = baseInfo->sym;
-        member = 0;
+        member  = 0;
     }
 
     curSym = baseSym;
@@ -194,31 +187,30 @@ static void Sub_49BB() {
     lstc(')');
 }
 
-static void Sub_4A42() {
-    curSym  = infotab[info->parent].sym;
+static void DescribeMember() {
+    curSym = infotab[info->parent].sym;
     lprintf(" MEMBER(%.*s)", symtab[curSym].name->len, symtab[curSym].name->str);
-
 }
 
-static void Sub_4A78(char const *str) {
-    Sub_4921();
-    Sub_48A7();
-    lstStr(str);
-    Sub_480A();
+static void DescribeSimple(char const *attribute) {
+    DescribeDefinition();
+    DescribeName();
+    lstStr(attribute);
+    PrintXrefs();
 }
 
-static void Sub_4A92() {
-    Sub_4921();
-    Sub_48E2(info->linkVal, info->dim);
-    Sub_48A7();
+static void DescribeProc() {
+    DescribeDefinition();
+    DescribeAddressAndSize(info->addr, info->codeSize);
+    DescribeName();
     lstStr("PROCEDURE");
-    if (GetDataType() != 0)
-        lstStr(GetDataType() == 2 ? " BYTE" : " ADDRESS");
+    if (info->returnType)
+        lstStr(info->returnType == BYTE_T ? " BYTE" : " ADDRESS");
     if ((info->flag & F_PUBLIC))
         lstStr(" PUBLIC");
 
     if ((info->flag & F_EXTERNAL))
-        Sub_499C();
+        lprintf(" EXTERNAL(%d)", info->extId);
 
     if ((info->flag & F_REENTRANT))
         lstStr(" REENTRANT");
@@ -226,15 +218,15 @@ static void Sub_4A92() {
     if ((info->flag & F_INTERRUPT))
         lprintf(" INTERRUPT(%d)", info->intno);
     if (!(info->flag & F_EXTERNAL))
-        lprintf(" STACK=%s", hexfmt(4, info->baseVal)->str);
+        lprintf(" STACK=%s", hexfmt(4, info->stackUsage)->str);
 
-    Sub_480A();
+    PrintXrefs();
 }
 
-static void Sub_4B4A(char const *str) {
+static void DescribeVar(char const *str) {
     word size;
 
-    Sub_4921();
+    DescribeDefinition();
     byte type = info->type;
     if (type == BYTE_T)
         size = 1;
@@ -247,11 +239,11 @@ static void Sub_4B4A(char const *str) {
 
     if ((info->flag & F_ARRAY))
         size *= info->dim;
-    Sub_48E2(info->linkVal, size);
-    Sub_48A7();
+    DescribeAddressAndSize(info->addr, size);
+    DescribeName();
     lstStr(str);
     if ((info->flag & F_BASED))
-        Sub_49BB();
+        DescribeBased();
     if ((info->flag & F_ARRAY))
         lprintf(" ARRAY(%d)", info->dim);
 
@@ -259,7 +251,7 @@ static void Sub_4B4A(char const *str) {
         lstStr(" PUBLIC");
 
     if ((info->flag & F_EXTERNAL))
-        Sub_499C();
+        lprintf(" EXTERNAL(%d)", info->extId);
 
     if ((info->flag & F_AT))
         lstStr(" AT");
@@ -269,7 +261,7 @@ static void Sub_4B4A(char const *str) {
         lstStr(" INITIAL");
 
     if ((info->flag & F_MEMBER))
-        Sub_4A42();
+        DescribeMember();
 
     if ((info->flag & F_PARAMETER))
         lstStr(" PARAMETER");
@@ -280,37 +272,37 @@ static void Sub_4B4A(char const *str) {
     if ((info->flag & F_ABSOLUTE))
         lstStr(" ABSOLUTE");
 
-    Sub_480A();
+    PrintXrefs();
 }
 
-static void Sub_4C84() {
+static void DoOneXref() {
     curSym = info->sym;
-    if (b66D8 != symtab[curSym].name->str[0]) {
+    if (groupingChar != symtab[curSym].name->str[0]) {
         NewLineLst();
-        b66D8 = symtab[curSym].name->str[0];
+        groupingChar = symtab[curSym].name->str[0];
     }
     if (info->type < MACRO_T)
         switch (info->type) {
-        case 0:
-            Sub_4A78("LITERALLY");
+        case LIT_T:
+            DescribeSimple("LITERALLY");
             break;
-        case 1:
-            Sub_4B4A("LABEL");
+        case LABEL_T:
+            DescribeVar("LABEL");
             break;
-        case 2:
-            Sub_4B4A("BYTE");
+        case BYTE_T:
+            DescribeVar("BYTE");
             break;
-        case 3:
-            Sub_4B4A("ADDRESS");
+        case ADDRESS_T:
+            DescribeVar("ADDRESS");
             break;
-        case 4:
-            Sub_4B4A("STRUCTURE");
+        case STRUCT_T:
+            DescribeVar("STRUCTURE");
             break;
-        case 5:
-            Sub_4A92();
+        case PROC_T:
+            DescribeProc();
             break;
-        case 6:
-            Sub_4A78("BUILTIN");
+        case BUILTIN_T:
+            DescribeSimple("BUILTIN");
             break;
         }
 } /* Sub_4C84() */
@@ -356,9 +348,9 @@ void PrintRefs() {
         SetInfo(dicttab[p]);
         if (info->type == BUILTIN_T) {
             if (info->scope != 0)
-                Sub_4C84();
+                DoOneXref();
         } else
-            Sub_4C84();
+            DoOneXref();
     }
 } /* PrintRefs() */
 
@@ -378,7 +370,7 @@ static void WrIxiWord(word v) {
 
 void CreateIxrefFile() {
     info   = &infotab[infoIdx = procInfo[1]];
-    curSym  = info->sym;
+    curSym = info->sym;
     if (curSym) { /* Write() the module info */
         pstr_t const *pstr = symtab[curSym].name;
         WrIxiByte(0xff); // module header
@@ -399,11 +391,10 @@ void CreateIxrefFile() {
     WrIxiBuf((uint8_t *)ixname, 19);
 
     for (int p = 0; p < dictCnt; p++) {
-        info = &infotab[infoIdx   = dicttab[p]];
+        info      = &infotab[infoIdx = dicttab[p]];
         byte type = info->type;
         if (LABEL_T <= type && type <= PROC_T &&
-            ((info->flag & (F_PUBLIC | F_EXTERNAL)) &&
-             !(info->flag & F_AT))) {
+            ((info->flag & (F_PUBLIC | F_EXTERNAL)) && !(info->flag & F_AT))) {
             WrIxiByte((info->flag & F_PUBLIC) ? 0 : 1);
             curSym             = info->sym;
             pstr_t const *pstr = symtab[curSym].name;
@@ -413,7 +404,7 @@ void CreateIxrefFile() {
 
             WrIxiByte(type);
             if (info->type == PROC_T)
-                WrIxiWord(GetDataType());
+                WrIxiWord(info->returnType);
             else
                 WrIxiWord((info->flag & F_ARRAY) ? info->dim : 0);
         }
@@ -421,7 +412,7 @@ void CreateIxrefFile() {
     CloseF(&ixiFile);
 }
 
-void Sub_4EC5() {
+void ProcessXref() {
     LoadDictionary();
     SortDictionary();
     PrepXref();
@@ -432,7 +423,7 @@ void Sub_4EC5() {
 }
 
 word Start5() {
-    Sub_4EC5();
+    ProcessXref();
     if (PRINT)
         LstModuleInfo();
     EndCompile();

@@ -19,26 +19,26 @@ byte b4813[] = { 3, 7, 3, 7,   2, 3,   8, 1, 3,   1, 8,    2, 3, 8,   1, 3,    1
 
 byte              /* tx1Buf[1280], use plm0a.c nmsBuf[1280], use main6.c */
     objBuf[1280]; // use buffer in plm0a.c
-word w7197;
-byte b7199;
-byte rec2[54]     = { 2, 0, 0 };
-byte rec18[303]   = { 0x18, 0, 0 };
-byte rec16_1[304] = { 0x16, 0, 0, 0 };
-byte rec16_2[304] = { 0x16, 0, 0, 1 };
-byte rec16_3[304] = { 0x16, 0, 0, 2 };
-byte rec16_4[304] = { 0x16, 0, 0, 4 };
-byte rec12[1024]  = { 0x12, 0, 0, 1 };
-byte rec6[306]    = { 6, 0, 0, 0 };
-byte rec24_2[154] = { 0x24, 0, 0, 2, 3 };
-byte rec24_3[154] = { 0x24, 0, 0, 4, 3 };
+word curOffset;
+byte printOrObj;
+byte recModHdr[54]        = { 2, 0, 0 };
+byte recExternals[303]    = { 0x18, 0, 0 };
+byte recPublicAbs[304]    = { 0x16, 0, 0, 0 };
+byte recPublicCode[304]   = { 0x16, 0, 0, 1 };
+byte recPublicData[304]   = { 0x16, 0, 0, 2 };
+byte recPublicMemory[304] = { 0x16, 0, 0, 4 };
+byte recLocals[1024]      = { 0x12, 0, 0, 1 };
+byte recInitContent[306]  = { 6, 0, 0, 0 };
+byte recDataFixup[154]    = { 0x24, 0, 0, 2, 3 };
+byte recMemoryFixup[154]  = { 0x24, 0, 0, 4, 3 };
 
 void FlushRecGrp() {
-    WriteRec(rec6, 3);
-    WriteRec(rec22, 1);
-    WriteRec(rec24_1, 2);
-    WriteRec(rec24_2, 2);
-    WriteRec(rec24_3, 2);
-    WriteRec(rec20, 1);
+    WriteRec(recInitContent, 3);
+    WriteRec(recSelfFixup, 1);
+    WriteRec(recCodeFixup, 2);
+    WriteRec(recDataFixup, 2);
+    WriteRec(recMemoryFixup, 2);
+    WriteRec(recExtFixup, 1);
 }
 
 void RecAddName(pointer recP, byte offset, byte len, char const *str) {
@@ -47,42 +47,28 @@ void RecAddName(pointer recP, byte offset, byte len, char const *str) {
         RecAddByte(recP, offset, (byte)str[i]);
 }
 
-void ExtendChk(pointer arg1wP, word arg2w, byte arg3b) {
-    if (getWord(arg1wP + 1) + arg3b >= arg2w) {
+void ExtendChk(pointer recP, word limit, byte toAdd) {
+    if (getWord(recP + 1) + toAdd >= limit) {
         FlushRecGrp();
-        putWord(&rec6[CONTENT_OFF], w7197);
+        putWord(&recInitContent[CONTENT_OFF], curOffset);
     }
 }
 
-word Sub_4938() {
-    word p, q;
-    q = 0;
-    for (p = 1; p <= procCnt; p++) {
-        SetInfo(procInfo[p]);
-        if (q < info->baseVal)
-            q = info->baseVal;
+word CalcMaxStack() {
+    word maxStack = 0;
+    for (int i = 1; i <= procCnt; i++) {
+        if (maxStack < infotab[procInfo[i]].stackUsage)
+            maxStack = infotab[procInfo[i]].stackUsage;
     }
-    return q;
+    return maxStack;
 }
 
-word Sub_4984() {
-    switch (info->type) {
-    case BYTE_T:
-        return 1;
-    case ADDRESS_T:
-        return 2;
-    case STRUCT_T:
-        return info->totalSize;
-    }
-    return 0;
-}
-
-void Sub_49BC(word arg1w, word arg2w, word arg3w) {
-    if (b7199) {
-        Wr1Byte(0xa3);
-        Wr1Word(arg1w);
-        Wr1Word(arg2w);
-        Wr1Word(arg3w);
+void p3Error(word errNum, info_t  *tokInfo, word stmt) {
+    if (printOrObj) {
+        Wr1Byte(T2_ERROR);
+        Wr1Word(errNum);
+        Wr1Word(tokInfo - infotab); // scale to index
+        Wr1Word(stmt);
     } else
         programErrCnt++;
 }
@@ -99,44 +85,44 @@ extern union {
 
 static byte dat[255];
 
-static word w8115, w8117, w8119, w811B;
-static bool b811D;
-static word w811E;
+static word stringLen, stringIdx, structDim, itemDim;
+static bool moreToInit;
+static info_t *atInfo;
 
 static void Sub_4B6C() {
     if (infoIdx == 0 || !(info->flag & F_MEMBER)) {
-        if (w8119 > 1) {
-            w8119--;
-            SetInfo(atFData.infoP);
+        if (structDim > 1) {
+            structDim--;
+            SetInfo(atFData.infoP); // restart for next iteration
         } else if (infoIdx == 0) {
-            b811D = false;
+            moreToInit = false;
             return;
         } else {
             if (!(info->flag & F_PACKED))
-                b811D = false;
+                moreToInit = false;
             if (info->type == STRUCT_T) {
                 if ((info->flag & F_ARRAY))
-                    w8119 = info->dim;
+                    structDim = info->dim;
                 AdvNxtInfo();
                 atFData.infoP = infoIdx;
             }
         }
     }
     if ((info->flag & F_ARRAY))
-        w811B = info->dim;
+        itemDim = info->dim;
 }
 
 static void Sub_4BF4() {
-    if (!b811D || w8117 >= w8115) {
+    if (!moreToInit || stringIdx >= stringLen) {
         atFData.type = RdAtByte();
         switch (atFData.type) {
         case ATI_2:
             atFData.var.val = RdAtWord();
             break;
         case ATI_STRING:
-            w8115 = RdAtWord();
-            vfRbuf(&atf, dat, w8115);
-            w8117 = 0;
+            stringLen = RdAtWord();
+            vfRbuf(&atf, dat, stringLen);
+            stringIdx = 0;
             break;
         case ATI_DATA:
             RdAtData();
@@ -147,94 +133,84 @@ static void Sub_4BF4() {
     }
 }
 
-static void Sub_4CAC() {
+static void EmitInitItem() {
     if (info->type == BYTE_T) {
-        ExtendChk(rec6, 0x12c, 1);
-        RecAddByte(rec6, 3, (byte)atFData.var.val);
-        w7197++;
+        ExtendChk(recInitContent, 300, 1);
+        RecAddByte(recInitContent, 3, (byte)atFData.var.val);
+        curOffset++;
     } else {
-        ExtendChk(rec6, 0x12C, 2);
-        RecAddWord(rec6, 3, atFData.var.val);
-        w7197 += 2;
+        ExtendChk(recInitContent, 300, 2);
+        RecAddWord(recInitContent, 3, atFData.var.val);
+        curOffset += 2;
     }
 }
 
-static void Sub_4CF9() {
-    Sub_49BC(0xd2, infoIdx, atFData.stmt);
-    Sub_4CAC();
+static void BadInit() {
+    p3Error(ERR210, info, atFData.stmt); /* ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255 */
+    EmitInitItem();
 }
 
 static void Sub_4D13() {
-    atFData.var.val = dat[w8117++];
-    if (info->type != BYTE_T && w8117 < w8115)
-        atFData.var.val = (atFData.var.val << 8) + dat[w8117++];
-    Sub_4CAC();
+    atFData.var.val = dat[stringIdx++];
+    if (info->type != BYTE_T && stringIdx < stringLen)
+        atFData.var.val = (atFData.var.val << 8) + dat[stringIdx++];
+    EmitInitItem();
 }
 
 static void Sub_4D85() {
+    /* Chk for ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255 */
     if (atFData.var.val > 255 && info->type == BYTE_T)
-        Sub_4CF9();
-    else
-        Sub_4CAC();
+        p3Error(ERR210, info, atFData.stmt);
+    EmitInitItem();
 }
 
 static void Sub_4DA8() {
-    byte i, j;
-    index_t savIdx;
-    pointer recPtr;
 
     if (atFData.var.infoOffset == 0)
         Sub_4D85();
     else if (info->type == BYTE_T)
-        Sub_4CF9();
+        BadInit();
     else {
-        savIdx       = infoIdx;
+        index_t savIdx = infoIdx;
         SetInfo(atFData.var.infoOffset);
         if ((info->flag & F_MEMBER)) {
             atFData.var.val =
-                atFData.var.val + Sub_4984() * atFData.var.nestedArrayIndex + info->linkVal;
+                atFData.var.val + GetElementSize() * atFData.var.nestedArrayIndex + info->linkVal;
             SetInfo(info->parent);
         }
 
-        atFData.var.val += Sub_4984() * atFData.var.arrayIndex + info->linkVal;
+        atFData.var.val += GetElementSize() * atFData.var.arrayIndex + info->linkVal;
         if ((info->flag & F_EXTERNAL)) {
-            i       = info->extId;
+            byte extId = info->extId;
             SetInfo(savIdx);
-            ExtendChk(rec20, 0x95, 4);
-            Sub_4CAC();
-            RecAddWord(rec20, 1, i);
-            RecAddWord(rec20, 1, w7197 - 2);
+            ExtendChk(recExtFixup, 149, 4);
+            EmitInitItem();
+            RecAddWord(recExtFixup, 1, extId);
+            RecAddWord(recExtFixup, 1, curOffset - 2);
         } else if ((info->flag & F_ABSOLUTE)) {
             SetInfo(savIdx);
-            Sub_4CAC();
+            EmitInitItem();
         } else {
-            if (info->type == PROC_T || info->type == LABEL_T || (info->flag & F_DATA)) {
-                recPtr = rec24_1;
-                i = 1;
-            } else if ((info->flag & F_MEMORY)) {
-                recPtr = rec24_3;
-                i = 4;
-            } else {
-                recPtr = rec24_2;
-                i = 2;
-            }
-
-            if (i == rec6[CONTENT_SEG]) {
-                recPtr = rec22;
-                j = 1;
-            } else
-                j = 2;
+            pointer fixupRec;
+            if (info->type == PROC_T || info->type == LABEL_T || (info->flag & F_DATA))
+                fixupRec = recCodeFixup;
+            else if ((info->flag & F_MEMORY))
+                fixupRec = recMemoryFixup;
+            else
+                fixupRec = recDataFixup;
+            if (recInitContent[CONTENT_SEG] == fixupRec[FIXUP_SEG]) // see if self ref fixup
+                fixupRec = recSelfFixup;
 
             SetInfo(savIdx);
-            ExtendChk(recPtr, 0x95, 2);
-            Sub_4CAC();
-            RecAddWord(recPtr, j, w7197 - 2);
+            ExtendChk(fixupRec, 149, 2);
+            EmitInitItem();
+            RecAddWord(fixupRec, fixupRec == recSelfFixup ? 1 : 2, curOffset - 2); // add fixup
         }
     }
 } /* Sub_4DA8() */
 
 static void Sub_4C7A() {
-    if (b811D) {
+    if (moreToInit) {
         switch (atFData.type) {
         case ATI_2:
             Sub_4D85();
@@ -249,29 +225,30 @@ static void Sub_4C7A() {
     }
 }
 
-static void Sub_4A31() {
-    atFData.infoP = RdAtWord();
+static void EmitInitData() {
+    SetInfo(atFData.infoP = RdAtWord());
     atFData.stmt  = RdAtWord();
-    SetInfo(w811E = atFData.infoP);
-    w8119 = w811B = w8115 = w8117 = 0;
+    atInfo       = info;
+    structDim = itemDim = stringLen = stringIdx = 0;
     if ((info->flag & F_DATA))
-        rec6[CONTENT_SEG] = 1;
+        recInitContent[CONTENT_SEG] = S_CODE;
     else if ((info->flag & F_MEMORY))
-        rec6[CONTENT_SEG] = 4;
+        recInitContent[CONTENT_SEG] = S_MEMORY;
     else if ((info->flag & F_ABSOLUTE))
-        rec6[CONTENT_SEG] = 0;
+        recInitContent[CONTENT_SEG] = S_ABS;
     else
-        rec6[CONTENT_SEG] = 2;
+        recInitContent[CONTENT_SEG] = S_DATA;
 
-    w7197 = putWord(&rec6[CONTENT_OFF], info->linkVal);
+    curOffset = putWord(&recInitContent[CONTENT_OFF], info->linkVal);
     if (infoIdx == 0)
-        b811D = false;
+        moreToInit = false;
     else if ((info->flag & F_EXTERNAL)) {
-        Sub_49BC(0xd9, w811E, atFData.stmt);
-        b811D = false;
+        p3Error(ERR217, atInfo,
+                atFData.stmt); /* ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE */
+        moreToInit = false;
     } else {
         Sub_4B6C();
-        b811D = true;
+        moreToInit = true;
     }
 
     Sub_4BF4();
@@ -286,16 +263,17 @@ static void Sub_4A31() {
         if (atFData.type == ATI_END) {
             FlushRecGrp();
             return;
-        } else if (b811D) {
-            if (w811B > 1)
-                w811B--;
+        } else if (moreToInit) {
+            if (itemDim > 1)
+                itemDim--;
             else {
                 do {
                     AdvNxtInfo();
                 } while (infoIdx && !(BYTE_T <= info->type && info->type <= STRUCT_T));
                 Sub_4B6C();
-                if (!b811D)
-                    Sub_49BC(0xd1, w811E, atFData.stmt);
+                if (!moreToInit)
+                    p3Error(ERR209, atInfo,
+                            atFData.stmt); /* ILLEGAL INITIALIZATION OF MORE SPACE THAN DECLARED */
             }
         }
     }
@@ -308,7 +286,7 @@ void Sub_49F9() {
             RdAtHdr();
             RdAtData();
         } else if (atFData.type == ATI_DHDR)
-            Sub_4A31();
+            EmitInitData();
         else
             return;
     }

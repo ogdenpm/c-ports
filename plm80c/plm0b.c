@@ -29,31 +29,49 @@ static struct {
     byte controlId;  // index into controls if not 0xff
     byte controlVal; // index used in switch in PraseExtControl
     byte primaryId;  // index into primaryCtrlSeen
-} *tknFlagsP, optTable[] = {
-    { 5, "PRINT", 0, 0, 0xFF, 7, 0 },       { 7, "NOPRINT", 0, 0, 0xFF, 8, 0 },
-    { 4, "LIST", L_LIST, 1, 0, 0, 0 },      { 6, "NOLIST", L_NOLIST, 1, 0, 0, 0 },
-    { 4, "CODE", L_CODE, 1, 0, 0, 0 },      { 6, "NOCODE", L_NOCODE, 1, 0, 0, 0 },
-    { 4, "XREF", 0, 0, 1, 1, 1 },           { 6, "NOXREF", 0, 0, 1, 0, 1 },
-    { 7, "SYMBOLS", 0, 0, 2, 1, 2 },        { 9, "NOSYMBOLS", 0, 0, 2, 0, 2 },
-    { 5, "DEBUG", 0, 0, 3, 1, 3 },          { 7, "NODEBUG", 0, 0, 3, 0, 3 },
-    { 6, "PAGING", 0, 0, 4, 1, 4 },         { 8, "NOPAGING", 0, 0, 4, 0, 4 },
-    { 10, "PAGELENGTH", 0, 0, 0xFF, 0, 5 }, { 9, "PAGEWIDTH", 0, 0, 0xFF, 1, 6 },
-    { 4, "DATE", 0, 0, 0xFF, 2, 7 },        { 5, "TITLE", 0, 0, 0xFF, 3, 8 },
-    { 5, "EJECT", L_EJECT, 1, 0, 0, 0 },    { 10, "LEFTMARGIN", 0, 1, 0xFF, 4, 0 },
-    { 6, "OBJECT", 0, 0, 0xFF, 5, 9 },      { 8, "NOOBJECT", 0, 0, 0xFF, 9, 9 },
-    { 8, "OPTIMIZE", 0, 0, 6, 1, 10 },      { 10, "NOOPTIMIZE", 0, 0, 6, 0, 10 },
-    { 7, "INCLUDE", 0, 1, 0xFF, 6, 0 },     { 9, "WORKFILES", 0, 0, 0xFF, 10, 11 },
-    { 9, "INTVECTOR", 0, 0, 0xFF, 11, 12 }, { 11, "NOINTVECTOR", 0, 0, 0xFF, 12, 12 },
-    { 5, "IXREF", 0, 0, 0xFF, 13, 13 },     { 7, "NOIXREF", 0, 0, 0xFF, 14, 13 },
-    { 4, "SAVE", 0, 1, 0xFF, 15, 0 },       { 7, "RESTORE", 0, 1, 0xFF, 16, 0 },
-    { 3, "SET", 0, 1, 0xFF, 17, 0 },        { 5, "RESET", 0, 1, 0xFF, 18, 0 },
-    { 2, "IF", 0, 1, 0xFF, 19, 0 },         { 6, "ELSEIF", 0, 1, 0xFF, 20, 0 },
-    { 4, "ELSE", 0, 1, 0xFF, 20, 0 },       { 5, "ENDIF", 0, 1, 0xFF, 21, 0 },
-    { 4, "COND", 0, 1, 0xFF, 22, 0 },       { 6, "NOCOND", 0, 1, 0xFF, 23, 0 },
-    { 10, "MAKEDEPEND", 0, 0, 0xFF, 24, 0 } };
+} *tknFlagsP, optTable[] = { { 5, "PRINT", 0, 0, 0xFF, 7, 0 },
+                             { 7, "NOPRINT", 0, 0, 0xFF, 8, 0 },
+                             { 4, "LIST", L_LIST, 1, 0, 0, 0 },
+                             { 6, "NOLIST", L_NOLIST, 1, 0, 0, 0 },
+                             { 4, "CODE", L_CODE, 1, 0, 0, 0 },
+                             { 6, "NOCODE", L_NOCODE, 1, 0, 0, 0 },
+                             { 4, "XREF", 0, 0, 1, 1, 1 },
+                             { 6, "NOXREF", 0, 0, 1, 0, 1 },
+                             { 7, "SYMBOLS", 0, 0, 2, 1, 2 },
+                             { 9, "NOSYMBOLS", 0, 0, 2, 0, 2 },
+                             { 5, "DEBUG", 0, 0, 3, 1, 3 },
+                             { 7, "NODEBUG", 0, 0, 3, 0, 3 },
+                             { 6, "PAGING", 0, 0, 4, 1, 4 },
+                             { 8, "NOPAGING", 0, 0, 4, 0, 4 },
+                             { 10, "PAGELENGTH", 0, 0, 0xFF, 0, 5 },
+                             { 9, "PAGEWIDTH", 0, 0, 0xFF, 1, 6 },
+                             { 4, "DATE", 0, 0, 0xFF, 2, 7 },
+                             { 5, "TITLE", 0, 0, 0xFF, 3, 8 },
+                             { 5, "EJECT", L_EJECT, 1, 0, 0, 0 },
+                             { 10, "LEFTMARGIN", 0, 1, 0xFF, 4, 0 },
+                             { 6, "OBJECT", 0, 0, 0xFF, 5, 9 },
+                             { 8, "NOOBJECT", 0, 0, 0xFF, 9, 9 },
+                             { 8, "OPTIMIZE", 0, 0, 6, 1, 10 },
+                             { 10, "NOOPTIMIZE", 0, 0, 6, 0, 10 },
+                             { 7, "INCLUDE", 0, 1, 0xFF, 6, 0 },
+                             { 9, "WORKFILES", 0, 0, 0xFF, 10, 11 },
+                             { 9, "INTVECTOR", 0, 0, 0xFF, 11, 12 },
+                             { 11, "NOINTVECTOR", 0, 0, 0xFF, 12, 12 },
+                             { 5, "IXREF", 0, 0, 0xFF, 13, 13 },
+                             { 7, "NOIXREF", 0, 0, 0xFF, 14, 13 },
+                             { 4, "SAVE", 0, 1, 0xFF, 15, 0 },
+                             { 7, "RESTORE", 0, 1, 0xFF, 16, 0 },
+                             { 3, "SET", 0, 1, 0xFF, 17, 0 },
+                             { 5, "RESET", 0, 1, 0xFF, 18, 0 },
+                             { 2, "IF", 0, 1, 0xFF, 19, 0 },
+                             { 6, "ELSEIF", 0, 1, 0xFF, 20, 0 },
+                             { 4, "ELSE", 0, 1, 0xFF, 20, 0 },
+                             { 5, "ENDIF", 0, 1, 0xFF, 21, 0 },
+                             { 4, "COND", 0, 1, 0xFF, 22, 0 },
+                             { 6, "NOCOND", 0, 1, 0xFF, 23, 0 },
+                             { 10, "MAKEDEPEND", 0, 0, 0xFF, 24, 15 } };
 
-
-byte primaryCtrlSeen[14]; // C defaults to all false
+byte primaryCtrlSeen[15]; // C defaults to all false
 static struct {
     byte code;
     byte list;
@@ -67,9 +85,12 @@ static bool LIST = true;
 static bool COND = true;
 static char *curChP;
 static byte chrClass;
-static struct {
-    word len; // allow long filenames on command line.
-    char *str;
+static union {
+    struct {
+        word len; // allow long filenames on command line.
+        char *str;
+    };
+    pstr_t *pstr;
 } optVal;
 
 static word optNumValue;
@@ -98,14 +119,14 @@ static void NxtCh() {
 } /* NxtCh() */
 
 static void BadCmdTail(byte err) {
-    if (moreCmdLine != 0) // processing command line
+    if (moreCmdLine) // processing command line
         Fatal("ILLEGAL COMMAND TAIL SYNTAX OR VALUE");
     else
         Wr1SyntaxError(err);
 }
 
 static void UnknownCtrl() {
-    if (moreCmdLine != 0) // processing command line
+    if (moreCmdLine) // processing command line
         Fatal("UNRECOGNIZED CONTROL IN COMMAND TAIL");
     else
         Wr1SyntaxError(ERR9); /* INVALID CONTROL */
@@ -182,31 +203,23 @@ static void AcceptFileName() {
 }
 
 static word Asc2Num(char *firstChP, char *lastChP, byte radix) {
-    word num;
-    unsigned trial; // use unsigned (>= 32 bit) to smiplify test for overflow
-    byte digit;
 
     if (lastChP < firstChP || radix == 0)
         return 0xffff;
 
-    num = 0;
-    while (firstChP <= lastChP) {
+    unsigned num = 0; // 32 bit to simplify overflow test
+    byte digit;
+    for (; firstChP <= lastChP; firstChP++) {
         if (cClass[*(pointer)firstChP] <= CC_DECDIGIT)
             digit = *firstChP - '0';
         else if (cClass[*(pointer)firstChP] < CC_ALPHA)
-            digit = *firstChP - '7';
+            digit = *firstChP - 'A' + 10;
         else
             return 0xffff;
-        if (digit >= radix)
+        if (digit >= radix || (num = num * radix + digit) > 0xffff)
             return 0xffff;
-        //        if ((trial = num * radix + digit) < digit || ((word)(num * radix + digit) - digit)
-        //        / radix != num)
-        if ((trial = num * radix + digit) > 0xffff)
-            return 0xffff;
-        num = (word)trial;
-        firstChP++;
     }
-    return num;
+    return (word)num;
 }
 
 static byte ChkRadix(char **pLastCh) {
@@ -263,27 +276,23 @@ static void GetOptStr() {
 }
 
 static void ParseId(byte maxLen) {
-    static char pstr[33];
-
-    optVal.str = pstr + 1;
-    optVal.len = 0;
+    optVal.pstr      = (pstr_t *)tokenStr;
+    optVal.pstr->len = 0;
     SkipWhite();
-    if (chrClass == CC_HEXCHAR || chrClass == CC_ALPHA)         // A-Z
-        while (chrClass <= CC_ALPHA || chrClass == CC_DOLLAR) { // 0-9 A-Z $
-            if (chrClass != CC_DOLLAR && optVal.len <= maxLen) {
-                pstr[optVal.len + 1] = toupper(*(uint8_t *)curChP);
-                optVal.len++;
-            }
+    if (chrClass == CC_HEXCHAR || chrClass == CC_ALPHA || chrClass == CC_UNDERBAR) // A-Z or _
+        while (chrClass <= CC_ALPHA || chrClass == CC_DOLLAR ||
+               chrClass == CC_UNDERBAR) { // 0-9 A-Z $
+            if (chrClass != CC_DOLLAR && optVal.pstr->len < maxLen)
+                optVal.pstr->str[optVal.pstr->len++] = toupper(*(uint8_t *)curChP);
             NxtCh();
         }
-    pstr[0] = optVal.len > maxLen ? maxLen : optVal.len;
+    
 }
 
 static void GetVar() {
-    char *tmp;
-    tmp = curChP - 1;
-    ParseId(31);
-    if (optVal.len == 0) {
+    char *tmp = curChP - 1;
+    ParseId(32);
+    if (optVal.pstr->len == 0) {
         infoIdx  = BADINFO;
         info     = NULL;
         curChP   = tmp;
@@ -291,12 +300,12 @@ static void GetVar() {
         NxtCh();
         return;
     }
-    if (optVal.len > 31) {
-        optVal.len--;
+    if (optVal.pstr->len > 31) {
+        optVal.pstr->len = 31;
         BadCmdTail(ERR184); /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
     }
-    Lookup((pstr_t *)(optVal.str - 1));
-    if (High(symtab[curSym].infoIdx) == 0xFF) { /* special */
+    Lookup(optVal.pstr);
+    if (symtab[curSym].infoIdx >= 0xFF00) { /* special */
         infoIdx  = BADINFO;
         info     = NULL;
         curChP   = tmp;
@@ -304,23 +313,22 @@ static void GetVar() {
         NxtCh();
         return;
     }
-
     FindScopedInfo(1);
 }
 
 // return logical operator
 // none (0), OR (1), AND (2), XOR (3), bad (4)
 static byte GetLogical() {
-    ParseId(3);
-    if (optVal.len == 0 && chrClass == CC_NEWLINE)
+    ParseId(4);
+    if (optVal.pstr->len == 0 && chrClass == CC_NEWLINE)
         return 0;
-    if (optVal.len == 2) {
-        if (strncmp((char *)optVal.str, "OR", 2) == 0)
+    if (optVal.pstr->len == 2) {
+        if (strncmp(optVal.pstr->str, "OR", 2) == 0)
             return 1;
-    } else if (optVal.len == 3) {
-        if (strncmp((char *)optVal.str, "AND", 3) == 0)
+    } else if (optVal.pstr->len == 3) {
+        if (strncmp(optVal.pstr->str, "AND", 3) == 0)
             return 2;
-        else if (strncmp((char *)optVal.str, "XOR", 3) == 0)
+        else if (strncmp(optVal.pstr->str, "XOR", 3) == 0)
             return 3;
     }
     BadCmdTail(ERR185); /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
@@ -355,15 +363,12 @@ static byte GetTest() {
 
 static byte ChkNot() // checks for potentially multiple NOT prefixes
 {
-    byte notStatus;
-    char *tmp;
-
-    notStatus = 0;
+    byte notStatus = 0;
 
     while ((1)) {
-        tmp = curChP - 1;
-        ParseId(3);
-        if (optVal.len != 3 || strncmp((char *)optVal.str, "NOT", 3) != 0) {
+        char *tmp = curChP - 1;
+        ParseId(4);
+        if (optVal.pstr->len != 3 || strncmp(optVal.pstr->str, "NOT", 3) != 0) {
             curChP = tmp;
             return notStatus;
         }
@@ -389,10 +394,8 @@ static word GetIfVal() {
             BadCmdTail(ERR180); /* MISSING OF INVALID CONDITIONAL COMPILATION PARAMETER */
             SkipToRPARorEOL();
             return 256; // error value
-        } else if (infoIdx == 0)
-            return 0; // default to false if name not defined
-        else
-            return info->condFlag; // else return current value
+        } else
+            return infoIdx ? info->condFlag : 0; // return current value or false if not defined
     }
 }
 
@@ -419,22 +422,22 @@ static bool ParseIfCond() {
                 return true; // illegal name
             val2 = not2 ^ val2;
             switch (relOp) {
-            case 1:
+            case 1: // =
                 val1 = val1 == val2 ? 0xff : 0;
                 break;
-            case 2:
+            case 2: // <
                 val1 = val1 < val2 ? 0xff : 0;
                 break;
-            case 3:
+            case 3: // <=
                 val1 = val1 <= val2 ? 0xff : 0;
                 break;
-            case 4:
+            case 4: // >
                 val1 = val1 > val2 ? 0xff : 0;
                 break;
-            case 5:
+            case 5: // >=
                 val1 = val1 >= val2 ? 0xff : 0;
                 break;
-            case 6:
+            case 6: // <>
                 val1 = val1 != val2 ? 0xff : 0;
                 break;
             }
@@ -444,18 +447,18 @@ static bool ParseIfCond() {
         switch (GetLogical()) {
         case 0: // apply final OR/XOR and convert to bool using PLM rule
             return ((val1 | orFactor) ^ xorFactor) & 1;
-        case 1:
+        case 1: // OR
             orFactor  = (val1 | orFactor) ^ xorFactor;
             xorFactor = 0;
             break;
-        case 2:
+        case 2: // AND
             andFactor = (byte)val1;
             break;
-        case 3:
+        case 3: // XOR
             xorFactor = (val1 | orFactor) ^ xorFactor;
             orFactor  = 0;
             break;
-        case 4:
+        case 4:          // Bad
             return true; // bad so assume true
         }
     }
@@ -631,51 +634,31 @@ static void OptIntVector() {
     }
 }
 
-// lifted to filescope
-
-static bool isOK;
-static pointer lFname;
-
-static void AcceptRangeChrs(byte lch, byte hch) {
-    if (isOK) {
-        if (*curChP < lch || hch < *curChP) {
-            BadCmdTail(ERR12); /* INVALID CONTROL PARAMETER */
-            SkipToRPARorEOL();
-            isOK = false;
-        } else {
-            *lFname++ = *curChP;
+static bool AcceptDrive(byte follow) {
+    SkipWhite();
+    if (curChP[0] == ':' && toupper(curChP[1]) == 'F' && isdigit(curChP[2]) && curChP[3] == ':') {
+        curChP += 4;
+        SkipWhite();
+        if (*curChP == follow) {
             NxtCh();
+            return true;
         }
     }
-}
 
-static bool AcceptDrive(pointer fname, byte follow) {
-    lFname = fname;
-
-    isOK   = true;
-    SkipWhite();
-    AcceptRangeChrs(':', ':');
-    AcceptRangeChrs('F', 'F');
-    AcceptRangeChrs('0', '9');
-    AcceptRangeChrs(':', ':');
-    SkipWhite();
-    AcceptRangeChrs(follow, follow);
-    return isOK;
+    return false;
 }
 
 static void OptWorkFiles() {
-    byte wrkFiles1[5], wrkFiles2[5];
 
     SkipWhite();
     if (*curChP != '(')
         BadCmdTail(ERR11); /* MISSING CONTROL PARAMETER */
     else {
         NxtCh();
-        if (!AcceptDrive(wrkFiles1, ','))
-            return;
-        if (!AcceptDrive(wrkFiles2, ')'))
-            return;
-        BadCmdTail(ERR8); // INVAILD CONTROL FORMAT
+        if (!AcceptDrive(',') || !AcceptDrive(')')) {
+            BadCmdTail(ERR12); /* INVALID CONTROL PARAMETER */
+            SkipToRPARorEOL();
+        }
     }
 }
 
@@ -694,8 +677,7 @@ static void OptRestore() {
     if (saveDepth == 0)
         BadCmdTail(ERR188); /* MISPLACED RESTORE OPTION */
     else {
-        saveDepth  = saveDepth - 1;
-        CODE       = saveStack[saveDepth].code;
+        CODE       = saveStack[--saveDepth].code;
         LIST       = saveStack[saveDepth].list;
         COND       = saveStack[saveDepth].cond;
         LEFTMARGIN = saveStack[saveDepth].leftMargin;
@@ -853,10 +835,9 @@ static void ParseControlExtra() {
     case 23:
         COND = false;
         break;
-    case 24:    // MAKEDEPEND
+    case 24: // MAKEDEPEND
         OptMakeDepend();
         break;
-
     }
 }
 

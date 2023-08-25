@@ -11,145 +11,39 @@
 #include "plm.h"
 
 /* lex item to icode */
+// clang-format off
 static byte tx1Aux1Map[] = {
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0, // LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0, // INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0, // END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0, // CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
-    0,
-    0,
-    0,
-    0,
-    I_IDENTIFIER,
-    I_NUMBER,
-    I_STRING,
-    I_PLUSSIGN, // EOF, AT, INITIAL, DATA, ...
-    I_MINUSSIGN,
-    I_PLUS,
-    I_MINUS,
-    I_STAR,
-    I_SLASH,
-    I_MOD,
-    I_COLONEQUALS,
-    I_AND,
-    I_OR,
-    I_XOR,
-    I_NOT,
-    I_LT,
-    I_LE,
-    I_EQ,
-    I_NE,
-    I_GE,
-    I_GT,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0, // GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
-    0,
-    0,
-    0,
-    0
-}; // MODULE, XREFUSE, XREFDEF, EXTERNAL
+    0,           0,      0,       0,      0,            0,        0,             0,          //LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
+    0,           0,      0,       0,      0,            0,        0,             0,          //INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
+    0,           0,      0,       0,      0,            0,        0,             0,          //END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
+    0,           0,      0,       0,      0,            0,        0,             0,          //CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
+    0,           0,      0,       0,      I_IDENTIFIER, I_NUMBER, I_STRING,      I_PLUSSIGN, //EOF, AT, INITIAL, DATA, ...
+    I_MINUSSIGN, I_PLUS, I_MINUS, I_STAR, I_SLASH,      I_MOD,    I_COLONEQUALS, I_AND,
+    I_OR,        I_XOR,  I_NOT,   I_LT,   I_LE,         I_EQ,     I_NE,          I_GE,
+    I_GT,        0,      0,       0,      0,            0,        0,             0,          //GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
+    0,           0,      0,       0                                                          //MODULE, XREFUSE, XREFDEF, EXTERNAL
+};
 
-byte tx1ToTx2Map[] = { T2_LINEINFO,
-                       T2_SYNTAXERROR,
-                       T2_TOKENERROR,
-                       T2_LIST,
-                       T2_NOLIST,
-                       T2_CODE,
-                       T2_NOCODE,
-                       T2_EJECT,
-                       T2_INCLUDE,
-                       T2_STMTCNT,
-                       T2_LABELDEF,
-                       T2_LOCALLABEL,
-                       T2_JMP,
-                       T2_JMPFALSE,
-                       T2_PROCEDURE,
-                       0 /* L_SCOPE */,
-                       0 /* END */,
-                       0 /* DO */,
-                       0 /* DOLOOP */,
-                       0 /* WHILE */,
-                       T2_CASE,
-                       T2_CASELABEL,
-                       0 /* IF */,
-                       0 /* STATEMENT */,
-                       0 /* CALL */,
-                       T2_RETURN,
-                       T2_GOTO /* GO */,
-                       T2_GOTO,
-                       T2_SEMICOLON,
-                       T2_ENABLE,
-                       T2_DISABLE,
-                       T2_HALT,
-                       0 /* EOF */,
-                       0 /* AT */,
-                       0 /* INITIAL */,
-                       0 /* DATA */,
-                       T2_IDENTIFIER,
-                       0 /* NUMBER */,
-                       0 /* L_STRING */,
-                       T2_PLUSSIGN,
-                       T2_MINUSSIGN,
-                       T2_PLUS,
-                       T2_MINUS,
-                       T2_STAR,
-                       T2_SLASH,
-                       T2_MOD,
-                       T2_COLONEQUALS,
-                       T2_AND,
-                       T2_OR,
-                       T2_XOR,
-                       T2_NOT,
-                       T2_LT,
-                       T2_LE,
-                       T2_EQ,
-                       T2_NE,
-                       T2_GE,
-                       T2_GT,
-                       0 /* COMMA */,
-                       0 /* LPAREN */,
-                       0 /* RPAREN */,
-                       0 /* PERIOD */,
-                       0 /* TO */,
-                       0 /* BY */,
-                       0 /* INVALID */,
-                       T2_MODULE,
-                       0 /* XREFUSE */,
-                       0 /* XREFDEF */,
-                       0 /* EXTERNAL */ };
+byte tx1ToTx2Map[] = {
+    T2_LINEINFO,   T2_SYNTAXERROR, T2_TOKENERROR,  T2_LIST,
+    T2_NOLIST,     T2_CODE,        T2_NOCODE,      T2_EJECT,
+    T2_INCLUDE,    T2_STMTCNT,     T2_LABELDEF,    T2_LOCALLABEL,
+    T2_JMP,        T2_JMPFALSE,    T2_PROCEDURE,   0/*L_SCOPE*/,
+    0/*END*/,      0/*DO*/,        0/*DOLOOP*/,    0/*WHILE*/,
+    T2_CASE,       T2_CASELABEL,   0/*IF*/,        0/*STATEMENT*/,
+    0/*CALL*/,     T2_RETURN,      T2_GOTO/*GO*/,  T2_GOTO,
+    T2_SEMICOLON,  T2_ENABLE,      T2_DISABLE,     T2_HALT,
+    0/*EOF*/,      0/*AT*/,        0/*INITIAL*/,   0/*DATA*/,
+    T2_IDENTIFIER, 0/*NUMBER*/,    0/*L_STRING*/,  T2_PLUSSIGN,
+    T2_MINUSSIGN,  T2_PLUS,        T2_MINUS,       T2_STAR,
+    T2_SLASH,      T2_MOD,         T2_COLONEQUALS, T2_AND,
+    T2_OR,         T2_XOR,         T2_NOT,         T2_LT,
+    T2_LE,         T2_EQ,          T2_NE,          T2_GE,
+    T2_GT,         0/*COMMA*/,     0/*LPAREN*/,    0/*RPAREN*/,
+    0/*PERIOD*/,   0/*TO*/,        0/*BY*/,        0/*INVALID*/,
+    T2_MODULE,     0/*XREFUSE*/,   0/*XREFDEF*/,   0/*EXTERNAL*/
+};
+
 
 /* 0x80	- Expression item */
 /* 0x40 - binary operator */
@@ -157,50 +51,36 @@ byte tx1ToTx2Map[] = { T2_LINEINFO,
 /* 0x10 - procedure, at, data, initial or external */
 
 byte tx1Aux2Map[] = {
-    0x20, 0x20, 0x20, 0x20,
-    0x20, 0x20, 0x20, 0x20, // LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
-    0x20, 0,    0,    0,
-    0,    0,    0x10, 0, // INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
-    0,    0,    0,    0,
-    0,    0,    0,    0, // END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
-    0,    0,    0,    0,
-    0,    0,    0,    0, // CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
-    0,    0x10, 0x10, 0x10,
-    0x80, 0x80, 0x80, 0xC0, // EOF, AT, INITIAL, DATA, IDENTIFIER, NUMBER, STRING, PLUSSIGN
-    0xC0, 0xC0, 0xC0, 0xC0,
-    0xC0, 0xC0, 0x80, 0xC0, // MINUSSIGN, PLUS, MINUS, STAR, SLASH, MOD, COLONEQUALS, AND
-    0xC0, 0xC0, 0x80, 0xC0,
-    0xC0, 0xC0, 0xC0, 0xC0, // OR, XOR, NOT, LT  , LE, EQ, NE, GE
-    0xC0, 0x80, 0x80, 0x80,
-    0x80, 0x80, 0x80, 0, // GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
-    0x20, 0,    0,    0x10
-}; // MODULE, XREFUSE, XREFDEF, EXTERNAL
+    0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, //LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
+    0x20, 0,    0,    0,    0,    0,    0x10, 0,    //INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
+    0,    0,    0,    0,    0,    0,    0,    0,    //END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
+    0,    0,    0,    0,    0,    0,    0,    0,    //CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
+    0,    0x10, 0x10, 0x10, 0x80, 0x80, 0x80, 0xC0, //EOF, AT, INITIAL, DATA, IDENTIFIER, NUMBER, STRING, PLUSSIGN
+    0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0x80, 0xC0, //MINUSSIGN, PLUS, MINUS, STAR, SLASH, MOD, COLONEQUALS, AND
+    0xC0, 0xC0, 0x80, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, //OR, XOR, NOT, LT, LE, EQ, NE, GE
+    0xC0, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0,    //GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
+    0x20, 0, 0, 0x10                                //MODULE, XREFUSE, XREFDEF, EXTERNAL
+};
 
 byte lexHandlerIdxTable[] = {
-    0x12, 0x12, 0x12, 0x12,
-    0x12, 0x12, 0x12, 0x12, // LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
-    0x12, 0,    0x13, 0x13,
-    0x13, 0x13, 7,    1, // INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
-    2,    6,    4,    5,
-    8,    0x13, 3,    9, // END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
-    0xA,  0xB,  0xD,  0xC,
-    0xE,  0xF,  0xF,  0xF, // CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
-    0x12, 0x10, 0x11, 0x11,
-    0x12, 0x12, 0x12, 0x12, // EOF, AT, INITIAL, DATA, IDENTIFIER, NUMBER, STRING, PLUSSIGN
-    0x12, 0x12, 0x12, 0x12,
-    0x12, 0x12, 0x12, 0x12, // MINUSSIGN, PLUS, MINUS, STAR, SLASH, MOD, COLONEQUALS, AND
-    0x12, 0x12, 0x12, 0x12,
-    0x12, 0x12, 0x12, 0x12, // OR, XOR, NOT, LT  , LE, EQ, NE, GE
-    0x12, 0x12, 0x12, 0x12,
-    0x12, 0x12, 0x12, 0x12, // GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
-    0x12, 0x12, 0x12, 0x14
-}; // MODULE, XREFUSE, XREFDEF, EXTERNAL
+    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
+    0x12, 0,    0x13, 0x13, 0x13, 0x13, 7,    1,    //INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
+    2,    6,    4,    5,    8,    0x13, 3,    9,    //END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
+    0xA,  0xB,  0xD,  0xC,  0xE,  0xF,  0xF,  0xF,  //CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
+    0x12, 0x10, 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, //EOF, AT, INITIAL, DATA, IDENTIFIER, NUMBER, STRING, PLUSSIGN
+    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //MINUSSIGN, PLUS, MINUS, STAR, SLASH, MOD, COLONEQUALS, AND
+    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //OR, XOR, NOT, LT, LE, EQ, NE, GE
+    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
+    0x12, 0x12, 0x12, 0x14                          //MODULE, XREFUSE, XREFDEF, EXTERNAL
+};
 
 byte tx1ItemLengths[] = {
-    /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-    6, 2, 4, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2,   0, 0, 0, 0, 0, 2, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 255, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 2, 2, 2
+    /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+       6,   2,   4,   0,   0,   0,   0,   0,   2,   2,   2,   2,   2,   2,   2,   2,
+       0,   0,   0,   0,   0,   2,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+       0,   2,   2,   2,   2,   2,   255, 0,   0,   0,   0,   0,   0,   0,   0,   0,
+       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+       0,   2,   2,   2
 };
 
 byte icodeToTx2Map[] = {
@@ -212,26 +92,26 @@ byte icodeToTx2Map[] = {
     T2_MEMBER, T2_BASED,      T2_CARRY,     T2_DEC,        T2_DOUBLE,    T2_HIGH,
     T2_LAST,   T2_LENGTH,     T2_LOW,       T2_MOVE,       T2_PARITY,    T2_ROL,
     T2_ROR,    T2_SCL,        T2_SCR,       T2_SHL,        T2_SHR,       T2_SIGN,
-    T2_SIZE,   T2_TIME,       T2_ZERO
+    T2_SIZE,   T2_TIME,       T2_ZERO,
 };
 
 byte b4172[] = {
-    /* I_STRING, I_IDENTIFIER, I_NUMBER, I_PLUSSIGN, I_MINUSSIGN, I_PLUS, I_MINUS, I_STAR */
-    10, 0, 0, 60, 60, 60, 60, 70,
-    /* I_SLASH, I_MOD, I_AND, I_OR, I_XOR, I_NOT, I_LT, I_LE */
-    70, 70, 30, 20, 20, 40, 50, 50,
-    /* I_EQ, I_NE, I_GE, I_GT,_ADDRESSOF,I_UNARYMINUS, I_STACKPTR, I_INPUT */
-    50, 50, 50, 50, 0, 80, 0, 0,
-    /* I_OUTPUT, I_CALL, I_CALLVAR, I_BYTEINDEX, I_WORDINDEX, I_COLONEQUALS, I_MEMBER, I_BASED */
-    0, 0, 0, 0, 0, 0, 0, 0,
-    /* I_CARRY, I_DEC, I_DOUBLE, I_HIGH, I_LAST, I_LENGTH, I_LOW, I_MOVE  */
-    0, 0, 0, 0, 0, 0, 0, 0,
-    /* I_PARITY, I_ROL, I_ROR, I_SCL, I_SCR, I_SHL, I_SHR, I_SIGN */
-    0, 0, 0, 0, 0, 0, 0, 0,
-    /*  I_SIZE, I_TIME, I_ZERO */
-    0, 0, 0
+    /*I_STRING, I_IDENTIFIER, I_NUMBER,  I_PLUSSIGN,  I_MINUSSIGN, I_PLUS,        I_MINUS,    I_STAR*/
+    10,         0,            0,         60,          60,          60,            60,         70,
+    /*I_SLASH,  I_MOD,        I_AND,     I_OR,        I_XOR,       I_NOT,         I_LT,       I_LE*/
+    70,         70,           30,        20,          20,          40,            50,         50,
+    /*I_EQ,     I_NE,         I_GE,      I_GT,        _ADDRESSOF,  I_UNARYMINUS,  I_STACKPTR, I_INPUT*/
+    50,         50,           50,        50,          0,           80,            0,          0,
+    /*I_OUTPUT, I_CALL,       I_CALLVAR, I_BYTEINDEX, I_WORDINDEX, I_COLONEQUALS, I_MEMBER,   I_BASED*/
+    0,          0,            0,         0,           0,           0,             0,          0,
+    /*I_CARRY,  I_DEC,        I_DOUBLE,  I_HIGH,      I_LAST,      I_LENGTH,      I_LOW,      I_MOVE*/
+    0,          0,            0,         0,           0,           0,             0,          0,
+    /*I_PARITY, I_ROL,        I_ROR,     I_SCL,       I_SCR,       I_SHL,         I_SHR,      I_SIGN*/
+    0,          0,            0,         0,           0,           0,             0,          0,
+    /*I_SIZE,   I_TIME,       I_ZERO*/
+    0,          0,
 };
-
+// clang-format on
 byte builtinsMap[] = { I_CARRY, I_DEC,    I_DOUBLE, I_HIGH,     I_INPUT, I_LAST, I_LENGTH, I_LOW,
                        I_MOVE,  I_OUTPUT, I_PARITY, I_ROL,      I_ROR,   I_SCL,  I_SCR,    I_SHL,
                        I_SHR,   I_SIGN,   I_SIZE,   I_STACKPTR, I_TIME,  I_ZERO };
@@ -301,7 +181,6 @@ void Wr2Item(uint8_t type, void *buf, uint16_t len) {
     }
 }
 
-// modified to return true if write of buffer is needed
 static void Sub_4251(uint8_t type, void *buf, uint16_t len) {
     if (tx2LinfoPending && type == T2_STMTCNT) {
         Wr2Item(linfo.type, &linfo.lineCnt, sizeof(struct _linfo));
@@ -339,7 +218,7 @@ word Sub_42EF(word arg1w) {
 }
 
 void MapLToT2() {
-    byte arglen  = tx1ItemLengths[tx1Item.type]; // assumes String handled elsewhere
+    byte arglen  = tx1ItemLengths[tx1Item.type];
     tx1Item.type = tx1ToTx2Map[tx1Item.type];
     if (arglen == 255)
         Sub_4251(tx1Item.type, tx1Item.str, tx1Item.len);

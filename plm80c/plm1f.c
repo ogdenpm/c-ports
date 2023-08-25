@@ -14,10 +14,10 @@
 static byte externalsCnt = 0;
 static word atStmtNum    = 0;
 
-static void Sub_6EF6(word arg) {
+static void Sub_6EF6(word errNum) {
     hasErrors = true;
     Wr2Byte(T2_ERROR);
-    Wr2Word(arg);
+    Wr2Word(errNum);
     Wr2Word(infoIdx);
     Wr2Word(atStmtNum);
 }
@@ -30,7 +30,7 @@ int32_t RdAtWord() {
     return vfRword(&atf);
 }
 
-static word GetElementSize() {
+word GetElementSize() {
     switch (info->type) {
     case BYTE_T:
         return 1; /* byte */
@@ -53,7 +53,7 @@ static void AdvNextDataInfo() {
 }
 
 /* determine structure sizes and member offsets */
-static void StructSizes() {
+static void SetStructSizes() {
     word oldSize, varSize, newSize;
     info_t *parent;
     infoIdx = 0;
@@ -64,11 +64,11 @@ static void StructSizes() {
         } else if ((info->flag & F_MEMBER)) {
             varSize = GetVarSize();
             parent  = &infotab[info->parent];
-            oldSize = parent->totalSize;                /* this gets Size() so far */
+            oldSize = parent->totalSize;                 /* this gets Size() so far */
             if ((newSize = oldSize + varSize) < varSize) /* add in the new element */
                 Sub_6EF6(ERR208);                        /* LIMIT EXCEEDED: structure Size() */
-            parent->totalSize = newSize;                /* store the running Size() */
-            info->linkVal      = oldSize; /* use link value for offset of this member */
+            parent->totalSize = newSize;                 /* store the running Size() */
+            info->linkVal     = oldSize; /* use link value for offset of this member */
         }
         AdvNextDataInfo();
     }
@@ -180,7 +180,7 @@ static void Sub_7486() {
 
     do {
         if (!(info->flag & F_MEMBER)) {
-            if ((info->flag & F_DATA)) {
+            if ((info->flag & F_DATA)) { // convert DATA to INITIAL
                 info->flag &= ~F_DATA;
                 info->flag |= F_INITIAL;
             }
@@ -221,16 +221,15 @@ static void Sub_73DC() {
     atFData.infoP = atFData.infoP;
     atStmtNum     = atFData.stmt;
     atOffset      = atFData.var.val;
-    if (atFData.var.infoOffset != 0) {
+    if (atFData.var.infoOffset) {
         SetInfo(atFData.var.infoOffset);
         if ((info->flag & F_MEMBER)) {
-            atOffset = GetElementSize() * atFData.var.nestedArrayIndex + atOffset + info->linkVal;
+            atOffset += GetElementSize() * atFData.var.nestedArrayIndex + info->linkVal;
             SetInfo(info->parent);
         }
-        atOffset = info->linkVal + GetElementSize() * atFData.var.arrayIndex + atOffset;
-        if ((info->flag & F_AT))
-            if (infoIdx >= atFData.infoP)
-                Sub_6EF6(ERR213); /* UNDEFINED RESTRICTED REFERENCE IN 'at' */
+        atOffset += info->linkVal + GetElementSize() * atFData.var.arrayIndex;
+        if ((info->flag & F_AT) && infoIdx >= atFData.infoP)
+            Sub_6EF6(ERR213); /* UNDEFINED RESTRICTED REFERENCE IN 'at' */
     }
     Sub_7486();
 }
@@ -264,29 +263,29 @@ static void ProcAtFile() {
     }
 }
 
-static void Sub_75F7() {
+static void InitLabelAndProc() {
     localLabels = xmalloc((localLabelCnt + 1) * sizeof(offset_t));
     procIds     = xmalloc((localLabelCnt + 1) * sizeof(byte));
     memset(localLabels, 0, (localLabelCnt + 1) * sizeof(offset_t));
     memset(procIds, 0, (localLabelCnt + 1) * sizeof(byte));
 }
 
-static void Sub_7695() {
+static void InitAllocation() {
     vfRewind(&atf);
     csegSize = dsegSize = 0;
 }
 
-static void Sub_76D9() {
+static void EndT2File() {
     vfRewind(&atf); /* used for string data */
     Wr2Byte(T2_EOF);
     vfRewind(&utf2);
 }
 
 void Sub_6EE0() {
-    Sub_7695();
-    StructSizes();
+    InitAllocation();
+    SetStructSizes();
     DataAllocation();
     ProcAtFile();
-    Sub_75F7();
-    Sub_76D9();
+    InitLabelAndProc();
+    EndT2File();
 } /* Sub_6EE0() */

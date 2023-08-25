@@ -19,8 +19,8 @@ void WriteRec(pointer rec, byte fixed) {
     if (len > 0 && OBJECT) {
         crc = 0;
         len += fixed + 1;
-        putWord(&rec[REC_LEN], len);  // final record length
-        cnt = len + 2;                // allow for type, len but not crc byte
+        putWord(&rec[REC_LEN], len);       // final record length
+        cnt = len + 2;                     // allow for type, len but not crc byte
         for (unsigned p = 0; p < cnt; p++) // calculate the crc
             crc -= rec[p];
 

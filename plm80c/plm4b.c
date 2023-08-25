@@ -231,14 +231,14 @@ static struct {
 };
 
 void FlushRecs() {
-    WriteRec(rec8, 1);
-    WriteRec(rec6_4, 3);
-    WriteRec(rec22, 1);
-    WriteRec(rec24_1, 2);
-    WriteRec(rec24_2, 2);
-    WriteRec(rec24_3, 2);
-    WriteRec(rec20, 1);
-    putWord(&rec6_4[CONTENT_OFF], baseAddr);
+    WriteRec(recLineNum, 1);
+    WriteRec(recExec, 3);
+    WriteRec(recSelfFixup, 1);
+    WriteRec(recCodeFixup, 2);
+    WriteRec(recDataFixup, 2);
+    WriteRec(recMemoryFixup, 2);
+    WriteRec(recExtFixup, 1);
+    putWord(&recExec[CONTENT_OFF], baseAddr);
 }
 
 void AddWrdDisp(pstr_t *pstr, word arg2w) {
@@ -316,7 +316,7 @@ void EmitError() {
         if (errData.info) {
             lstStr("NEAR '");
             SetInfo(errData.info);
-            curSym  = info->sym;
+            curSym = info->sym;
             if (curSym != 0)
                 lstStr(symtab[curSym].name->str);
             else

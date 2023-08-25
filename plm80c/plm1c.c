@@ -78,9 +78,9 @@ static void GetRestrictedVar() {
         return;
     }
     ChkIdentifier();
-    var.infoOffset = infoIdx;                 // record the var info
+    var.infoOffset = infoIdx;      // record the var info
     if (info->type == BUILTIN_T) { // can't take the address of a builtin!!
-        WrTx2Error(ERR123);                   /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
+        WrTx2Error(ERR123);        /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
         RecoverRPOrEndExpr();
         return;
     }
@@ -283,7 +283,7 @@ void Sub_4D2C() {
 }
 
 void ChkTypedProcedure() {
-    if (GetDataType() == 0)
+    if (!info->returnType)
         WrTx2ExtError(131); /* ILLEGAL REFERENCE to UNTYPED PROCEDURE */
 }
 
@@ -379,8 +379,8 @@ void MkIndexNode() {
     word p, r;
     byte i;
 
-    SetInfo(eStack[exSP - 1].info); /* get var */
-    if (eStack[exSP].op1 == I_PLUSSIGN) {             /* see if (index is of form expr + ?? */
+    SetInfo(eStack[exSP - 1].info);       /* get var */
+    if (eStack[exSP].op1 == I_PLUSSIGN) { /* see if (index is of form expr + ?? */
         p = eStack[exSP].info + 1;
         if (sStack[p].op1 == I_NUMBER) { /* expr + number */
             eStack[exSP] = sStack[p - 1];
@@ -456,9 +456,9 @@ byte Sub_512E(word arg1w) {
 }
 
 void ConstantList() {
-    CreateInfo(256, BYTE_T, 0);                       // create an info block to hold the list
+    CreateInfo(256, BYTE_T, 0);            // create an info block to hold the list
     info->flag |= F_DATA;                  // mark as data
-    ExprPush2(I_IDENTIFIER, infoIdx);                 // push the identifier
+    ExprPush2(I_IDENTIFIER, infoIdx);      // push the identifier
     info->flag |= F_ARRAY | F_STARDIM;     // set as a byte array with * dim
     info->dim = InitialValueList(infoIdx); // get the list and record number of bytes
 }

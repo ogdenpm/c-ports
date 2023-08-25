@@ -77,7 +77,7 @@ static void ExprParse5() {
 
     if (MatchTx1Item(L_IDENTIFIER)) {
         ChkIdentifier();
-        if (info->type == BUILTIN_T &&info->builtinId == 9) { /* 9 -> OUTPUT */
+        if (info->type == BUILTIN_T && info->builtinId == 9) { /* 9 -> OUTPUT */
             WrTx2ExtError(ERR130); /* ILLEGAL REFERENCE TO OUTPUT FUNCTION */
             if (MatchTx1Item(L_LPAREN))
                 ResyncRParen();
@@ -137,7 +137,7 @@ static void ExprParse8() {
         ExprPush2(I_NUMBER, 0); // assume a 0
     } else {
         ExprPush2(I_IDENTIFIER, infoIdx); // record the variable
-        if (info->type == PROC_T) {        // if proc then can't have (...) invocation
+        if (info->type == PROC_T) {       // if proc then can't have (...) invocation
             if (MatchTx1Item(L_LPAREN)) {
                 WrTx2ExtError(ERR104); /* ILLEGAL PROCEDURE INVOCATION WITH DOT OPERATOR */
                 ResyncRParen();        // skip invocation
@@ -194,7 +194,7 @@ static void ExprParse11() {
             Sub_4DCF((byte)p);
         else {
             PushParseWord(p);
-            PushParseWord(GetParamCnt());
+            PushParseWord(info->paramCnt);
             PushOperator(0);
             PushParseByte(17);
             ChkTypedProcedure();
@@ -207,7 +207,7 @@ static void ExprParse11() {
         Sub_50D5();
         ExprPush2(I_IDENTIFIER, infoIdx);
         ChkTypedProcedure();
-        PushParseWord(GetParamCnt());
+        PushParseWord(info->paramCnt);
         PushOperator(0);
         PushParseByte(16);
         if (MatchTx1Item(L_LPAREN)) {

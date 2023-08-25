@@ -14,36 +14,36 @@ byte verNo[] = VERSION;
 
 // plmf.c
 // the builtins each entry is
-// name (pstr), id  (byte), paramCnt (byte), dataType (byte)
+// name (pstr), id  (byte), paramCnt (byte), returnType (byte)
 static struct {
     pstr_t *name;
     byte id;
     byte paramCnt;
-    byte dataType;
+    byte returnType;
 } builtins[] = {
     // clang-format off
-    {(pstr_t *)("\x5""CARRY"),  0,  0, 2},
-    {(pstr_t *)("\x3""DEC"),    1,  1, 2},
-    {(pstr_t *)("\x6""DOUBLE"), 2,  1, 3},
-    {(pstr_t *)("\x4HIGH"),     3,  1, 2},
-    {(pstr_t *)("\x5INPUT"),    4,  1, 2},
-    {(pstr_t *)("\x4LAST"),     5,  1, 3},
-    {(pstr_t *)("\x6LENGTH"),   6,  1, 3},
-    {(pstr_t *)("\x3LOW"),      7,  1, 2},
+    {(pstr_t *)("\x5""CARRY"),  0,  0, BYTE_T},
+    {(pstr_t *)("\x3""DEC"),    1,  1, BYTE_T},
+    {(pstr_t *)("\x6""DOUBLE"), 2,  1, ADDRESS_T},
+    {(pstr_t *)("\x4HIGH"),     3,  1, BYTE_T},
+    {(pstr_t *)("\x5INPUT"),    4,  1, BYTE_T},
+    {(pstr_t *)("\x4LAST"),     5,  1, ADDRESS_T},
+    {(pstr_t *)("\x6LENGTH"),   6,  1, ADDRESS_T},
+    {(pstr_t *)("\x3LOW"),      7,  1, BYTE_T},
     {(pstr_t *)("\x4MOVE"),     8,  3, 0},
     {(pstr_t *)("\x6OUTPUT"),   9,  1, 0},
-    {(pstr_t *)("\x6PARITY"),   10, 0, 2},
-    {(pstr_t *)("\x3ROL"),      11, 2, 2},
-    {(pstr_t *)("\x3ROR"),      12, 2, 2},
-    {(pstr_t *)("\x3SCL"),      13, 2, 2},
-    {(pstr_t *)("\x3SCR"),      14, 2, 2},
-    {(pstr_t *)("\x3SHL"),      15, 2, 2},
-    {(pstr_t *)("\x3SHR"),      16, 2, 2},
-    {(pstr_t *)("\x4SIGN"),     17, 0, 2},
-    {(pstr_t *)("\x4SIZE"),     18, 1, 2},
-    {(pstr_t *)("\x8STACKPTR"), 19, 0, 3},
+    {(pstr_t *)("\x6PARITY"),   10, 0, BYTE_T},
+    {(pstr_t *)("\x3ROL"),      11, 2, BYTE_T},
+    {(pstr_t *)("\x3ROR"),      12, 2, BYTE_T},
+    {(pstr_t *)("\x3SCL"),      13, 2, BYTE_T},
+    {(pstr_t *)("\x3SCR"),      14, 2, BYTE_T},
+    {(pstr_t *)("\x3SHL"),      15, 2, BYTE_T},
+    {(pstr_t *)("\x3SHR"),      16, 2, BYTE_T},
+    {(pstr_t *)("\x4SIGN"),     17, 0, BYTE_T},
+    {(pstr_t *)("\x4SIZE"),     18, 1, BYTE_T},
+    {(pstr_t *)("\x8STACKPTR"), 19, 0, ADDRESS_T},
     {(pstr_t *)("\x4TIME"),     20, 1, 0},
-    {(pstr_t *)("\x4ZERO"),     21, 0, 2}
+    {(pstr_t *)("\x4ZERO"),     21, 0, BYTE_T}
 };
 
 // the plm reserved keywords - format
@@ -99,9 +99,9 @@ static void InstallBuiltins() {
     for (int i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
         Lookup(builtins[i].name);
         CreateInfo(0, BUILTIN_T, curSym);
-        info->builtinId = builtins[i].id;
-        SetParamCnt(builtins[i].paramCnt);
-        SetDataType(builtins[i].dataType);
+        info->builtinId  = builtins[i].id;
+        info->paramCnt   = builtins[i].paramCnt;   // modified to be consistent with procedures
+        info->returnType = builtins[i].returnType; // modified to be consistent with procedures
     }
     Lookup((pstr_t *)"\x6MEMORY");
     CreateInfo(0, BYTE_T, curSym);

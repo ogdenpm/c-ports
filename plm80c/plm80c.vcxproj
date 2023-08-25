@@ -117,7 +117,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <WarningLevel>Level4</WarningLevel>
+      <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
@@ -270,6 +270,8 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="errors.h" />
+    <ClInclude Include="int.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="plm.h" />
     <ClInclude Include="vfile.h" />
@@ -277,7 +279,6 @@
     <ClInclude Include="_version.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="accessors.c" />
     <ClCompile Include="data.c" />
     <ClCompile Include="endcom.c" />
     <ClCompile Include="fatal.c" />

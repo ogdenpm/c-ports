@@ -49,44 +49,42 @@ byte Sub_5945() {
 }
 
 byte Sub_59D4() {
-    byte i;
     ResetStacks();
     if (NotMatchTx1Item(L_IDENTIFIER)) {
         WrTx2ExtError(ERR117); /* MISSING procedure NAME IN call STATEMENT */
         return false;
     }
     GetVariable();
-    i = info->type;
-    if (i == PROC_T) {
+
+    if (info->type == PROC_T) {
         Sub_50D5();
-        if (GetDataType() != 0)
+        if (info->returnType)
             WrTx2ExtError(ERR129); /* ILLEGAL 'call' WITH TYPED procedure */
         ExprPush2(I_IDENTIFIER, infoIdx);
-        PushParseWord(GetParamCnt());
+        PushParseWord(info->paramCnt);
         PushOperator(0);
         PushParseByte(16);
         if (MatchTx1Item(L_LPAREN)) {
             PushParseByte(15);
             PushParseByte(0);
         }
-    } else if (i == BUILTIN_T) {
-        if (GetDataType() != 0) {
+    } else if (info->type == BUILTIN_T) {
+        if (info->returnType) {
             WrTx2ExtError(ERR129); /* ILLEGAL 'call' WITH TYPED procedure */
             return false;
         }
         PushParseWord(builtinsMap[info->builtinId]);
-        PushParseWord(GetParamCnt());
+        PushParseWord(info->paramCnt);
         PushOperator(0);
         PushParseByte(17);
         if (MatchTx1Item(L_LPAREN)) {
             PushParseByte(15);
             PushParseByte(0);
         }
+    } else if (info->type != ADDRESS_T || (info->flag & F_ARRAY)) {
+        WrTx2ExtError(ERR118); /* INVALID INDIRECT CALL, IDENTIFIER NOT AN ADDRESS SCALAR */
+        return false;
     } else {
-        if (i != ADDRESS_T || (info->flag & F_ARRAY)) {
-            WrTx2ExtError(ERR118); /* INVALID INDIRECT CALL, IDENTIFIER NOT AN ADDRESS SCALAR */
-            return false;
-        }
         Sub_4D2C();
         PushOperator(0);
         PushParseByte(18);
@@ -200,10 +198,10 @@ static void SerialiseParse2() { /* check for any more leaves */
 
 static void SerialiseParse3() { /* parse args */
     topNode = parseStack[parseSP];
-    PushParseByte(5);                                /* final call wrap up */
-    if (sStack[topNode].op2 > 1) {                   /* any args */
-        PushParseWord(sStack[topNode].op2 - 1);      /* num args  */
-        PushParseWord(sStack[topNode].info + 1);     /* index of arg info */
+    PushParseByte(5);                               /* final call wrap up */
+    if (sStack[topNode].op2 > 1) {                  /* any args */
+        PushParseWord(sStack[topNode].op2 - 1);     /* num args  */
+        PushParseWord(sStack[topNode].info + 1);    /* index of arg info */
         SetInfo(sStack[sStack[topNode].info].info); /* from proc info adv to arginfo */
         AdvNxtInfo();
         PushParseWord(infoIdx);
@@ -218,7 +216,7 @@ static void SerialiseParse4() {
     word p, q;
     byte i;
 
-    q       = (p = parseSP - 1) - 1;
+    q = (p = parseSP - 1) - 1;
     SetInfo(parseStack[parseSP]);
     topNode = parseStack[p];
     i       = (byte)parseStack[q];
@@ -527,11 +525,11 @@ static word Sub_671D(offset_t arg1w) {
     word p, q;
 
     SetInfo(arg1w);
-    q    = WrTx2Item1Arg(T2_IDENTIFIER, arg1w);
+    q = WrTx2Item1Arg(T2_IDENTIFIER, arg1w);
     if ((info->flag & F_MEMBER)) {
         SetInfo(info->parent);
-        p    = WrTx2Item1Arg(T2_IDENTIFIER, infoIdx);
-        q    = WrTx2Item2Arg(T2_MEMBER, Sub_42EF(p), Sub_42EF(q));
+        p = WrTx2Item1Arg(T2_IDENTIFIER, infoIdx);
+        q = WrTx2Item2Arg(T2_MEMBER, Sub_42EF(p), Sub_42EF(q));
     }
     return q;
 }
@@ -652,8 +650,7 @@ static void IterativeDoStatement() {
     GetVariable();
     w                        = infoIdx;
     procInfoStack[controlSP] = w;
-    if ((info->type != BYTE_T && info->type != ADDRESS_T) ||
-        (info->flag & F_ARRAY)) {
+    if ((info->type != BYTE_T && info->type != ADDRESS_T) || (info->flag & F_ARRAY)) {
         WrTx2ExtError(ERR139); /* INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS */
         return;
     }
@@ -705,7 +702,7 @@ static void ParseEND() {
     case 0:
         SetInfo(procIdx);
         info->flag |= F_DEFINED;
-        if (GetDataType() != 0 && !b9A13[controlSP])
+        if (info->returnType && !b9A13[controlSP])
             WrTx2Error(ERR156); /* MISSING RETURN STATEMENT IN TYPED PROCEDURE */
         WrTx2Item(T2_ENDPROC);
         procIdx = procInfoStack[controlSP];
@@ -743,25 +740,24 @@ static void ParseCALL() {
 static void ReturnStatement() // return already seen
 {
     word p;
-    byte i;
 
     if (procIdx == 0) {
         WrTx2Error(ERR155); /* INVALID RETURN IN MAIN PROGRAM */
         return;
     }
     SetInfo(procIdx);
-    i = GetDataType();
+    byte retType = info->returnType;
     if (MatchTx2AuxFlag(0x80)) { /* there is an Expression item */
         SetRegetTx1Item();
-        if (i == 0)             // untyped procedure
+        if (retType == 0)             // untyped procedure
             WrTx2Error(ERR136); /* INVALID RETURN FOR UNTYPED PROCEDURE, VALUE ILLEGAL */
         p = Sub_6917();
-        if (i == BYTE_T)
+        if (retType == BYTE_T)
             p = WrTx2Item1Arg(T2_RETURNBYTE, Sub_42EF(p));
         else
             p = WrTx2Item1Arg(T2_RETURNWORD, Sub_42EF(p));
     } else {
-        if (i != 0)             // typed procedure
+        if (retType != 0)             // typed procedure
             WrTx2Error(ERR137); /* MISSING VALUE IN RETURN FOR TYPED PROCEDURE */
         p = WrTx2Item(T2_RETURN);
     }
@@ -785,13 +781,12 @@ static void GotoStatement() {
             WrTx2ExtError(ERR143); /* INVALID REFERENCE FOLLOWING GOTO, NOT A LABEL */
         else {
             if (High(info->scope) == 1 &&
-                High(procChains[blockDepth]) != 1)  // goto is from local to a module level target
-                info->flag |= F_MODGOTO; // flag target as module level label
+                High(procChains[blockDepth]) != 1) // goto is from local to a module level target
+                info->flag |= F_MODGOTO;           // flag target as module level label
             if (High(info->scope) == 1 ||
-                High(info->scope) ==
-                    High(procChains[blockDepth])) { // its module level to module
-                                                    // level or local to local
-                WrTx2Item1Arg(T2_GOTO, infoIdx);    // write lex token with normalised infoOffset
+                High(info->scope) == High(procChains[blockDepth])) { // its module level to module
+                                                                     // level or local to local
+                WrTx2Item1Arg(T2_GOTO, infoIdx); // write lex token with normalised infoOffset
                 ChkEndOfStmt();
             } else
                 WrTx2ExtError(ERR144); /* INVALID GOTO LABEL, NOT AT LOCAL OR MODULE LEVEL */
@@ -900,7 +895,7 @@ void ParseLexItems() {
             MapLToT2();
             break; /* L_LABELDEF, L_LOCALLABEL, L_JMP, L_JMPFALSE, L_CASELABEL */
         case 20:
-            SetInfo(tx1Item.dataw[0]);          /* L_EXTERNAL */
+            SetInfo(tx1Item.dataw[0]);            /* L_EXTERNAL */
             info->flag |= F_DECLARED | F_DEFINED; // flag proc as declared & defined
             break;
         }

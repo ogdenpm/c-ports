@@ -8,8 +8,8 @@
  *                                                                          *
  ****************************************************************************/
 
-#include "plm.h"
 #include "os.h"
+#include "plm.h"
 #include <stdio.h>
 #include <stdlib.h>
 #ifndef _MAX_PATH
@@ -20,9 +20,12 @@
 
 jmp_buf exception;
 
+static void WriteDepend() {
+    mkpath(depFileName);
+    FILE *fp = fopen(depFileName, "wt");
+    if (!fp)
+        IoError(depFileName, "Can't create dependency file");
 
-static void savedepend() {
-    FILE *fp = stdout;
     char oname[_MAX_PATH + 1];
     int col = 0;
 
@@ -38,9 +41,10 @@ static void savedepend() {
     putc('\n', fp);
     for (int i = 0; i < includeCnt; i++)
         fprintf(fp, "%s:\n", MapFile(oname, includes[i]));
+    fclose(fp);
 }
 
-void unwindInclude() {  // cleanup any open include files
+void unwindInclude() { // cleanup any open include files
     if (srcFileIdx) {
         while (srcFileIdx)
             CloseF(&srcFileTable[srcFileIdx--]);
@@ -56,7 +60,8 @@ static void FinishLexPass() {
     Wr1Byte(L_EOF);
     vfRewind(&utf1);
     unwindInclude();
-    savedepend();
+    if (DEPEND)
+        WriteDepend();
 } /* FinishLexPass() */
 
 static void ParseCommandLine() {
@@ -76,10 +81,8 @@ static void LexPass() {
 } /* LexPass() */
 
 word Start0() {
-    if (setjmp(exception) == 0) {
-        state = 20; /* 9B46 */
+    if (setjmp(exception) == 0)
         LexPass();
-    }
     FinishLexPass(); /* exception goes to here */
     return 1;        // Chain(overlay[1]);
 }

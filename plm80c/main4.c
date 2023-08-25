@@ -24,7 +24,7 @@ static void Sub_3FC8() {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMPILATION OF MODULE ");
         SetInfo(procInfo[1]);
-        curSym  = info->sym;
+        curSym = info->sym;
         if (curSym != 0)
             lstStr(symtab[curSym].name->str);
         NewLineLst();
@@ -44,8 +44,8 @@ static void Sub_3FC8() {
 static void Sub_408B() {
     Sub_3FC8();
     stmtNo   = 0;
-    info = &infotab[infoIdx  = procInfo[1]];
-    baseAddr = putWord(&rec6_4[CONTENT_OFF], info->linkVal);
+    info     = &infotab[infoIdx = procInfo[1]];
+    baseAddr = putWord(&recExec[CONTENT_OFF], info->linkVal);
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
@@ -83,14 +83,14 @@ static void Sub_4162() {
 
 static void Sub_4208() {
     if (haveModuleLevelUnit) {
-        rec4[MODEND_TYPE] = 1;
+        recEnd[MODEND_TYPE] = 1;
         SetInfo(procInfo[1]);
-        putWord(&rec4[MODEND_OFF], info->linkVal);
+        putWord(&recEnd[MODEND_OFF], info->linkVal);
     } else {
-        rec4[MODEND_TYPE] = 0;
-        putWord(&rec4[MODEND_OFF], 0);
+        recEnd[MODEND_TYPE] = 0;
+        putWord(&recEnd[MODEND_OFF], 0);
     }
-    WriteRec(rec4, 0);
+    WriteRec(recEnd, 0);
 }
 
 static void Sub_423C() {
@@ -107,8 +107,8 @@ static void Sub_423C() {
 
 word Start4() {
     // rec24_2 is has different seg c.f. plm3a.c
-    rec24_1[REC_DATA] = 2; // data seg
-    rec24_2[REC_DATA] = 3; // stack seg
+    recCodeFixup[REC_DATA] = 2; // data seg
+    recDataFixup[REC_DATA] = 3; // stack seg
 
     dump(&utf1, "utf1_main4");
     vfRewind(&utf1);

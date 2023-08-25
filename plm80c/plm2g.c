@@ -15,8 +15,8 @@ static byte reg;
 static byte bC2D3;
 static word wC2D4;
 
-#define R_BC    1
-#define R_DE    2
+#define R_BC 1
+#define R_DE 2
 
 void FindParamInfo(byte arg1b) {
     infoIdx = blkCurInfo[blkSP];
@@ -48,7 +48,7 @@ void Sub_9560() {
     else
         reg = R_DE;
     for (byte paramNo = 1; paramNo <= curParamCnt; paramNo++) {
-        FindParamInfo(paramOrder);      // popping stack in reverse parameter order
+        FindParamInfo(paramOrder); // popping stack in reverse parameter order
         if (paramNo == 2)
             reg = R_BC;
         else if (paramNo == 3) {
@@ -93,7 +93,7 @@ void Sub_9646(word arg1w) {
             wC1DC[0] = 3; /*  push h */
             wC1DC[1] = 8;
             EncodeFragData(CF_PUSH);
-            pc    = pc + 1;
+            pc = pc + 1;
             arg1w -= 2;
         }
     } else {
@@ -183,7 +183,7 @@ void Sub_978E() {
 
 void Sub_981C() {
     byte i, j;
-    curParamCnt = GetParamCnt();
+    curParamCnt = info->paramCnt;
     if ((info->flag & F_INTERRUPT)) {
         for (j = 0; j <= 3; j++) {
             wC1DC[0] = 3 - j;
@@ -236,19 +236,19 @@ void Sub_994D() {
     byte opc;
 
     if (curOp == T2_LABELDEF) {
-        boC1CC  = false;
-        SetInfo(tx2op1[tx2qp]);
+        boC1CC = false;
+        SetInfo(tx2[tx2qp].op1);
         info->linkVal = pc;
     } else if (curOp == T2_LOCALLABEL) {
         boC1CC                     = false;
-        localLabels[tx2op1[tx2qp]] = pc;
-        procIds[tx2op1[tx2qp]]     = curExtProcId;
+        localLabels[tx2[tx2qp].op1] = pc;
+        procIds[tx2[tx2qp].op1]     = curExtProcId;
     } else if (curOp == T2_CASELABEL) {
-        localLabels[tx2op1[tx2qp]] = pc;
-        procIds[tx2op1[tx2qp]]     = curExtProcId;
-        newCase(tx2op1[tx2qp]);
+        localLabels[tx2[tx2qp].op1] = pc;
+        procIds[tx2[tx2qp].op1]     = curExtProcId;
+        newCase(tx2[tx2qp].op1);
     } else if (curOp == T2_JMP || curOp == T2_JNC || curOp == T2_JNZ || curOp == T2_GOTO) {
-        opc = tx2opc[tx2qp - 1];
+        opc = tx2[tx2qp - 1].opc;
         if (opc == T2_RETURN || opc == T2_RETURNBYTE || opc == T2_RETURNWORD || opc == T2_GOTO)
             return;
         Sub_5795(0);
@@ -263,19 +263,19 @@ void Sub_994D() {
         bC04E[0]        = tx2qp;
         boC057[0]       = 0;
         bC0A8[0]        = 0;
-        tx2Aux1b[tx2qp] = 0;
-        tx2Aux2b[tx2qp] = 9;
+        tx2[tx2qp].aux1 = 0;
+        tx2[tx2qp].aux2 = 9;
     } else if (curOp == T2_STMTCNT) {
         bool found = false;
-        for (int j = tx2qp + 1; tx2opc[j] != T2_STMTCNT && tx2opc[j] != T2_EOF && j < 255; j++) {
-            if ((b5124[tx2opc[j]] & 0x20) == 0 || tx2opc[j] == T2_MODULE) {
+        for (int j = tx2qp + 1; tx2[j].opc != T2_STMTCNT && tx2[j].opc != T2_EOF && j < 255; j++) {
+            if ((b5124[tx2[j].opc] & 0x20) == 0 || tx2[j].opc == T2_MODULE) {
                 found = true;
                 break;
             }
         }
         if (!found) {
             curOp         = CF_134;
-            tx2opc[tx2qp] = CF_134;
+            tx2[tx2qp].opc = CF_134;
         }
     }
     EmitTopItem();

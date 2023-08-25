@@ -138,7 +138,7 @@ static void AddByte() {
 
 static void AddPCRel() {
     dstRec = 1;
-    word q      = b4A78[++wA18D];
+    word q = b4A78[++wA18D];
     if (q > 127) /* Sign() extend */
         q = q | 0xff00;
     opBytes[opByteCnt++] = (baseAddr + q) % 256;
@@ -248,41 +248,41 @@ static void Sub_654F() {
 
     if (opByteCnt == 0 || !OBJECT)
         return;
-    if (getWord(&rec6_4[REC_LEN]) + opByteCnt >= 1018)
+    if (getWord(&recExec[REC_LEN]) + opByteCnt >= 1018)
         FlushRecs();
     p = baseAddr + opByteCnt - 2;
     switch (dstRec) {
     case 0:
         break;
     case 1:
-        if (getWord(&rec22[REC_LEN]) + 2 >= 1018)
+        if (getWord(&recSelfFixup[REC_LEN]) + 2 >= 1018)
             FlushRecs();
-        RecAddWord(rec22, 1, p);
+        RecAddWord(recSelfFixup, 1, p);
         break;
     case 2:
-        if (getWord(&rec24_1[REC_LEN]) + 2 >= 1017)
+        if (getWord(&recCodeFixup[REC_LEN]) + 2 >= 1017)
             FlushRecs();
-        RecAddWord(rec24_1, 2, p);
+        RecAddWord(recCodeFixup, 2, p);
         break;
     case 3:
-        if (getWord(&rec24_2[REC_LEN]) + 2 >= 99)
+        if (getWord(&recDataFixup[REC_LEN]) + 2 >= 99)
             FlushRecs();
-        RecAddWord(rec24_2, 2, p);
+        RecAddWord(recDataFixup, 2, p);
         break;
     case 4:
-        if (getWord(&rec24_3[REC_LEN]) + 2 >= 99)
+        if (getWord(&recMemoryFixup[REC_LEN]) + 2 >= 99)
             FlushRecs();
-        RecAddWord(rec24_3, 2, p);
+        RecAddWord(recMemoryFixup, 2, p);
         break;
     case 5:
-        if (getWord(&rec20[REC_LEN]) + 4 >= 1018)
+        if (getWord(&recExtFixup[REC_LEN]) + 4 >= 1018)
             FlushRecs();
-        RecAddWord(rec20, 1, curExtId);
-        RecAddWord(rec20, 1, p);
+        RecAddWord(recExtFixup, 1, curExtId);
+        RecAddWord(recExtFixup, 1, p);
         break;
     }
     for (i = 0; i <= opByteCnt - 1; i++) {
-        RecAddByte(rec6_4, 3, opBytes[i]);
+        RecAddByte(recExec, 3, opBytes[i]);
     }
 } /* Sub_654F() */
 
@@ -315,7 +315,6 @@ void Sub_66F1() {
         b9692  = b4128[i];
     }
 }
-
 
 static void setReg(byte slot, byte regNo, pstr_t *regStr) {
     wValAry[slot] = regNo;
@@ -379,7 +378,7 @@ static void Sub_69E1(word disp, byte slot) {
 }
 
 static void Sub_6B0E(byte slot) {
-    word disp     = Rd1Word();
+    word disp = Rd1Word();
 
     SetInfo(Rd1Word());
     wValAry[slot] = Rd1Word();
@@ -468,9 +467,9 @@ void Sub_668B() {
     if (cfCode == 0x87) {
         baseAddr = info->linkVal;
         if (DEBUG) {
-            putWord(&rec8[REC_LEN], getWord(&rec8[REC_LEN]) - 4);
-            RecAddWord(rec8, 1, baseAddr);
-            putWord(&rec8[REC_LEN], getWord(&rec8[REC_LEN]) + 2);
+            putWord(&recLineNum[REC_LEN], getWord(&recLineNum[REC_LEN]) - 4);
+            RecAddWord(recLineNum, 1, baseAddr);
+            putWord(&recLineNum[REC_LEN], getWord(&recLineNum[REC_LEN]) + 2);
         }
         FlushRecs();
     }

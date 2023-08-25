@@ -1292,10 +1292,10 @@ static void NewStatementNo() {
     if (stmtNo == 0)
         return;
     if (DEBUG) {
-        if (getWord(&rec8[REC_LEN]) + 4 >= 1020)
-            WriteRec(rec8, 1);
-        RecAddWord(rec8, 1, baseAddr);
-        RecAddWord(rec8, 1, stmtNo);
+        if (getWord(&recLineNum[REC_LEN]) + 4 >= 1020)
+            WriteRec(recLineNum, 1);
+        RecAddWord(recLineNum, 1, baseAddr);
+        RecAddWord(recLineNum, 1, stmtNo);
     }
     if (codeOn)
         EmitStatementNo();
@@ -1310,7 +1310,7 @@ static void EmitLocalLabel() {
 
 static void EmitSymLabel() {
     SetInfo(Rd1Word());
-    curSym  = info->sym;
+    curSym = info->sym;
     AddrCheck(info->linkVal);
     EmitLabel(symtab[curSym].name->str);
 }
@@ -1347,7 +1347,7 @@ void Sub_54BA() {
     cfCode = Rd1Byte();
     if (cfCode == T2_LINEINFO)
         EmitSource();
-    else if (cfCode == 0x86)
+    else if (cfCode == T2_SETSTMTNO)
         stmtNo = Rd1Word();
     else if (cfCode == T2_STMTCNT)
         NewStatementNo();
@@ -1355,7 +1355,7 @@ void Sub_54BA() {
         EmitLocalLabel();
     else if (cfCode == T2_LABELDEF)
         EmitSymLabel();
-    else if (cfCode == 0xA4)
+    else if (cfCode == T2_SETADDR)
         SetNewAddr();
     else if (cfCode == T2_SYNTAXERROR)
         EmitSimpleError();

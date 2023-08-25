@@ -15,10 +15,8 @@ static byte tokenTypeTable[]  = {
     T_NUMBER, T_NUMBER, T_NUMBER, T_IDENTIFIER, T_IDENTIFIER, T_PLUSSIGN, T_MINUSSIGN,
     T_STAR,   T_SLASH,  T_LPAREN, T_RPAREN,     T_COMMA,      T_COLON,    T_SEMICOLON,
     T_STRING, T_PERIOD, T_EQ,     T_LT,         T_GT,         0,          0,
-    0,        0,        0
+    0,        0,        0,        T_IDENTIFIER
 };
-
-byte typeProcIdx[]  = { 1, 1, 1, 2, 2, 3, 3, 3, 4, 3, 3, 3, 5, 3, 6, 3, 3, 7, 8, 0, 9, 9, 10, 0 };
 
 byte binValidate[4] = { 0, 1, 1, 1 };
 byte octValidate[4] = { 0, 0, 1, 1 };
@@ -99,43 +97,48 @@ static void NestMacro() {
         info->type = MACRO_T; // mark the type as  MACRO_T to spot recursive expansion
         macroPtrs[++macroDepth].text   = inChrP;   // push the current location
         macroPtrs[macroDepth].macroIdx = macroIdx; // and infoP
-        inChrP =
-            (byte *)(info->lit->str) - 1; // adjust for initial increment in GNxtCh()
-        macroIdx = infoIdx;                          // set up the new infoP
+        inChrP   = (byte *)(info->lit->str) - 1;   // adjust for initial increment in GNxtCh()
+        macroIdx = infoIdx;                        // set up the new infoP
     }
 } /* NestMacro() */
 
-static bool IsNotLit() {
+static bool expandLit() {
     Lookup((pstr_t *)tokenStr);
     markedSymbolP = curSym;
-    if (High(symtab[curSym].infoIdx) == 0xFF) /* simple key word */
+    if (symtab[curSym].infoIdx >= 0xFF00) /* simple key word */
         tokenType = Low(symtab[curSym].infoIdx);
     else {
-        FindInfo();
-        if (infoIdx) {
+        index_t tmp = infoIdx; // if lit expand then restore infoIdx
+        if (FindInfo()) {
             if (info->type == LIT_T) {
                 NestMacro();
-                return false;
+                SetInfo(tmp);
+                return true;
             } else if (info->type == MACRO_T) {
                 Wr1TokenErrorAt(ERR6); /* ILLEGAL MACRO REFERENCE, RECURSIVE EXPANSION */
-                return false;
+                SetInfo(tmp);
+                return true;
             }
         }
     }
-    return true;
+    return false;
 }
 
+// updated version of GetName
+// now allows _ in names, in numbers _ is ignored like $ is
 static void GetName(word maxlen) {
     byte ct;
     word curOff = 1;
 
     ct          = cClass[nextCh];
-    while (ct <= CC_ALPHA || nextCh == '$') {
-        if (nextCh == '$')
+    bool isnum  = ct <= CC_DECDIGIT;
+    while (ct <= CC_ALPHA || nextCh == '$' || ct == CC_UNDERBAR) {
+        if (nextCh == '$' || (isnum && ct == CC_UNDERBAR))
             GNxtCh();
         else if (curOff > maxlen) {
             Wr1TokenErrorAt(ERR3); /* IDENTIFIER, STRING, or NUMBER TOO LONG, TRUNCATED */
-            while (ct <= CC_ALPHA || nextCh == '$') { // junk rest of identifier
+            while (ct <= CC_ALPHA || nextCh == '$' ||
+                   ct == CC_UNDERBAR) { // junk rest of identifier
                 GNxtCh();
                 ct = cClass[nextCh];
             }
@@ -157,15 +160,14 @@ static void ParseString() {
     // code simplified in port to C
     while (1) {
         GNxtCh();
-        if (nextCh == '\r' ||
-            nextCh == '\n') // strings can go over more than one line but cr lf ignored
+        if (nextCh == '\r' || nextCh == '\n') // ignore cr lf
             continue;
         if (nextCh == QUOTE) { // double quote passes through as single quote
             GNxtCh();
             if (nextCh != QUOTE) // single quote finishes string
                 break;
         }
-        if (curOff != 256)
+        if (curOff != MAXSTRING)
             tokenStr[curOff++] = nextCh;
         else {
             tooLong = true;
@@ -175,43 +177,50 @@ static void ParseString() {
             }
         }
     }
-    tokenStr[0] = (byte)(curOff - 1); // record length of pstr
-    if (tokenStr[0] == 0)
+    wTokenLen = (word)(curOff - 1); // record length long string
+    tokenStr[0] = wTokenLen < 256 ? (byte)wTokenLen : 255;
+    if (wTokenLen == 0)
         Wr1TokenErrorAt(ERR189); /* NULL STRING NOT ALLOWED */
     if (tooLong)
         Wr1TokenErrorAt(ERR3); /* IDENTIFIER, STRING, or NUMBER TOO LONG, TRUNCATED */
 }
 
 static void LocYylex() {
-    word tmp;
-    byte saveClass;
-
     while (1) {
-        saveClass = cClass[nextCh]; // the lookahead char
-        tokenType = tokenTypeTable[saveClass];
-        switch (typeProcIdx[saveClass]) {
-        case 0: /* white space */
+        byte chrClass = cClass[nextCh]; // the lookahead char
+        tokenType     = tokenTypeTable[chrClass];
+        switch (chrClass) {
+        default: /* white space */
             do {
                 GNxtCh();
-                saveClass = cClass[nextCh];
-            } while (saveClass == CC_WSPACE);
+            } while (cClass[nextCh] == CC_WSPACE);
             break;
-        case 1: /* digits */
+        case CC_BINDIGIT:
+        case CC_OCTDIGIT:
+        case CC_DECDIGIT: // number
             GetName(31);
             Token2Num();
             return;
-        case 2:            /* letters */
-            tmp = infoIdx; // preserve current info as IsNotLit may change it
+        case CC_HEXCHAR:
+        case CC_ALPHA:
+        case CC_UNDERBAR: // token or identifier
             GetName(255);
-            if (IsNotLit()) // will cause lit to expand
+            if (!expandLit())
                 return;
-            SetInfo(tmp);
             GNxtCh(); // carry on processing
             break;
-        case 3: /* -, +, *, (,), ,, ;, = */
+        case CC_PLUS:
+        case CC_MINUS:
+        case CC_STAR:
+        case CC_LPAREN:
+        case CC_RPAREN:
+        case CC_COMMA:
+        case CC_SEMICOLON:
+        case CC_PERIOD:
+        case CC_EQUALS:
             GNxtCh();
             return;
-        case 4: /* slash */
+        case CC_SLASH:
             GNxtCh();
             if (nextCh != '*') // not start of comment
                 return;
@@ -223,17 +232,17 @@ static void LocYylex() {
             } while (nextCh != '/'); // not end of comment
             GNxtCh();
             break;
-        case 5: /* : */
+        case CC_COLON:
             GNxtCh();
             if (nextCh == '=') {
                 tokenType = T_COLON_EQUALS;
                 GNxtCh();
             }
             return;
-        case 6: /* quote */
+        case CC_QUOTE:
             ParseString();
             return;
-        case 7: /* < */
+        case CC_LESS:
             GNxtCh();
             if (nextCh == '>') {
                 tokenType = T_NE;
@@ -243,18 +252,19 @@ static void LocYylex() {
                 GNxtCh();
             }
             return;
-        case 8: /* > */
+        case CC_GREATER:
             GNxtCh();
             if (nextCh == '=') {
                 tokenType = T_GE;
                 GNxtCh();
             }
             return;
-        case 9:                    /* $, !, ", #, %, &, ?, @, [, \, ], ^, _, `, {, |, }, ~ */
+        case CC_DOLLAR:
+        case CC_INVALID:
             Wr1TokenErrorAt(ERR1); /* INVALID PL/M-80 CHARACTER */
             GNxtCh();
             break;
-        case 10:                   /* non white space control chars and DEL */
+        case CC_NONPRINT:
             Wr1TokenErrorAt(ERR2); /* UNPRINTABLE ASCII CHARACTER */
             GNxtCh();
             break;
@@ -451,8 +461,7 @@ static void CreateStructMemberInfo() {
 static void ChkAndSetAttributes(word factoredIdx) {
     word declaringBase = declBasedNames[factoredIdx];
     curSym = declaringName = declNames[factoredIdx];
-    FindScopedInfo(curScope);
-    if (infoIdx) { // identifier already in scope  - only valid for parameter
+    if (FindScopedInfo(curScope)) { // identifier already in scope  - only valid for parameter
         Wr1XrefUse();
         if ((info->flag & (F_PARAMETER | F_LABEL)) == F_PARAMETER) {
             if (dclFlags)
@@ -480,13 +489,13 @@ static void ChkAndSetAttributes(word factoredIdx) {
         info->lit = lastLit;
         return;
     } else if (dclType == LABEL_T) {
-        if (declaringBase != 0)
+        if (declaringBase)
             DeclarationError(ERR80); /* INVALID DECLARATION, LABEL MAY NOT BE BASED */
         if ((info->flag & F_EXTERNAL))
             info->flag |= F_LABEL;
         return;
     } else {
-        if (declaringBase != 0) {
+        if (declaringBase) {
             if ((info->flag & (F_PUBLIC | F_EXTERNAL | F_AT | F_INITIAL | F_DATA))) {
                 DeclarationError(ERR81); /* CONFLICTING ATTRIBUTE WITH 'BASE' */
                 declaringBase = 0;
@@ -562,7 +571,7 @@ static void ParseDclScope() {
     }
 }
 
-static void ParseStructMType() {
+static void ParseMemberType() {
     word type;
 
     if (YylexMatch(T_BYTE))
@@ -585,7 +594,7 @@ static void ParseStructMType() {
     member[memberCnt].type = (byte)type;
 }
 
-static void ParseStructMDim() {
+static void ParseMemberDim() {
     word dim;
 
     if (YylexMatch(T_LPAREN)) {
@@ -611,7 +620,7 @@ static void ParseStructMDim() {
     }
 }
 
-static void ParseStructMemElement() {
+static void ParseMember() {
 
     if (YylexNotMatch(T_IDENTIFIER))
         Wr1TokenErrorAt(ERR66); /* INVALID STRUCTURE MEMBER, NOT AN IDENTIFIER */
@@ -627,8 +636,8 @@ static void ParseStructMemElement() {
         member[memberCnt].sym  = curSym;
         member[memberCnt].type = 0;
         member[memberCnt].dim  = 0;
-        ParseStructMDim();
-        ParseStructMType();
+        ParseMemberDim();
+        ParseMemberType();
     }
 }
 
@@ -638,7 +647,7 @@ static void ParseStructMem() {
         Wr1TokenErrorAt(ERR64); /* MISSING STRUCTURE MEMBERS */
     else {
         while (1) {
-            ParseStructMemElement();
+            ParseMember();
             if (YylexNotMatch(T_COMMA))
                 break;
         }
@@ -706,10 +715,10 @@ static void ParseDeclType() {
 static void ParseLiterally() {
     if (YylexNotMatch(T_STRING)) {
         Wr1TokenErrorAt(ERR56); /* INVALID MACRO TEXT, NOT A STRING CONSTANT */
-        tokenStr[0] = 1;        // give default of a single space
+        wTokenLen   = 1;        // give default of a single space
         tokenStr[1] = ' ';
     }
-    lastLit = CreateLit((pstr_t *)tokenStr);
+    lastLit = CreateLit(wTokenLen, tokenStr + 1);
     dclType = LIT_T;
 }
 
@@ -741,8 +750,7 @@ static void ParseBaseSpecifier() {
         } else
             base2Name = 0;
         curSym = base1Name;
-        FindInfo();
-        if (infoIdx == 0) {
+        if (!FindInfo()) {
             Wr1TokenErrorAt(ERR54); /* UNDECLARED BASE */
             return;
         }
@@ -774,11 +782,8 @@ static void ParseVariableNameSpecifier() {
 
         declNames[declNameCnt]      = curSym;
         declBasedNames[declNameCnt] = 0;
-        if (!isNewVar) {
-            FindScopedInfo(curScope);
-            if (infoIdx == 0) // new var definition
-                isNewVar = true;
-        }
+        if (!isNewVar && !FindScopedInfo(curScope)) // new var definition
+            isNewVar = true;
         if (YylexMatch(T_BASED)) { // check for BASED variant
             ParseBaseSpecifier();
             if (basedInfo != 0) {
@@ -835,9 +840,6 @@ void ParseDeclareElementList() {
     }
 }
 
-// lifted to file scope for nested procedures
-bool hasParams;
-
 static void SetPublic() {
     if (info->scope != 0x100)
         Wr1TokenErrorAt(ERR39); /* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
@@ -885,9 +887,9 @@ static void SetInterruptNo() {
         Wr1TokenErrorAt(ERR39); /* INVALID ATTRIBUTE or INITIALIZATION, not at MODULE LEVEL */
     else if ((info->flag & F_INTERRUPT))
         Wr1TokenErrorAt(ERR40); /* DUPLICATE ATTRIBUTE */
-    else if (hasParams)
+    else if (info->paramCnt)
         Wr1TokenErrorAt(ERR44); /* ILLEGAL ATTRIBUTE, 'interrupt' WITH PARAMETERS */
-    else if (GetDataType() != 0)
+    else if (info->returnType)
         Wr1TokenErrorAt(ERR45); /* ILLEGAL ATTRIBUTE, 'interrupt' WITH TYPED procedure */
     else if ((info->flag & F_EXTERNAL))
         Wr1TokenErrorAt(ERR41); /* CONFLICTING ATTRIBUTE */
@@ -917,31 +919,28 @@ static void ParseProcAttrib() {
 static void ParseRetType() {
     SetInfo(procIdx);
     if (YylexMatch(T_BYTE))
-        SetDataType(BYTE_T);
+        info->returnType = BYTE_T;
     else if (YylexMatch(T_ADDRESS))
-        SetDataType(ADDRESS_T);
+        info->returnType = ADDRESS_T;
 }
 
-word paramCnt;
-
 static void AddParam() {
-    FindScopedInfo(curScope);
-    if (infoIdx != 0)
+    if (FindScopedInfo(curScope))
         Wr1TokenErrorAt(ERR38);           /* DUPLICATE PARAMETER NAME */
     CreateInfo(curScope, BYTE_T, curSym); // for now assume byte
     Wr1XrefDef();
     info->flag |= F_PARAMETER;
-    paramCnt++;
 }
 
 static void ParseParams() {
-    paramCnt = 0;
+    byte paramCnt = 0;
     if (YylexMatch(T_LPAREN)) {
+
         while (1) {
-            hasParams = true;
-            if (YylexMatch(T_IDENTIFIER))
+            if (YylexMatch(T_IDENTIFIER)) {
                 AddParam();
-            else {
+                paramCnt++;
+            } else {
                 Wr1TokenErrorAt(ERR36); /* MISSING PARAMETER */
                 RecoverMissingParam();
             }
@@ -954,9 +953,9 @@ static void ParseParams() {
             Yylex();
         }
         SetInfo(procIdx); // note number of params. info's follow procInfo
-        SetParamCnt((byte)paramCnt);
-    } else
-        hasParams = false;
+    }
+    info->paramCnt = paramCnt;
+    ;
 }
 
 // parse <procedure statement> (label already parsed)
@@ -965,9 +964,8 @@ void ProcProcStmt() {
     word parentProcIdx;
 
     parentProcIdx = procIdx;
-    curSym     = stmtLabels[1];
-    FindScopedInfo(curScope);             // look up procedure
-    if (infoIdx != 0)                     // error if already exists
+    curSym        = stmtLabels[1];
+    if (FindScopedInfo(curScope))         // error if procedure already exists
         Wr1SyntaxError(ERR34);            /* DUPLICATE procedure DECLARATION */
     CreateInfo(curScope, PROC_T, curSym); // create a new procedure info block with current scope
     info->flag |= F_LABEL;
@@ -983,8 +981,8 @@ void ProcProcStmt() {
     ParseRetType();
     ParseProcAttrib();
     /* write info to tx1 stream */
-    SetInfo(procIdx); // accessors use curInfoP
-    if (!(info->flag & F_EXTERNAL)) {   // not external
+    SetInfo(procIdx);                 // accessors use curInfoP
+    if (!(info->flag & F_EXTERNAL)) { // not external
         Wr1Byte(L_PROCEDURE);
         Wr1InfoOffset(infoIdx);
         Wr1Byte(L_SCOPE);

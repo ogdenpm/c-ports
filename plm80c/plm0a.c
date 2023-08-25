@@ -24,7 +24,7 @@ byte cClass[] = {
     CC_HEXCHAR,  CC_ALPHA,    CC_ALPHA,    CC_ALPHA,     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,
     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,    CC_ALPHA,     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,
     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,    CC_ALPHA,     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,
-    CC_INVALID,  CC_INVALID,  CC_INVALID,  CC_INVALID,   CC_INVALID,  CC_INVALID,  CC_HEXCHAR,
+    CC_INVALID,  CC_INVALID,  CC_INVALID,  CC_INVALID,   CC_UNDERBAR,  CC_INVALID,  CC_HEXCHAR,
     CC_HEXCHAR,  CC_HEXCHAR,  CC_HEXCHAR,  CC_HEXCHAR,   CC_HEXCHAR,  CC_ALPHA,    CC_ALPHA,
     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,    CC_ALPHA,     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,
     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,    CC_ALPHA,     CC_ALPHA,    CC_ALPHA,    CC_ALPHA,
@@ -61,7 +61,8 @@ offset_t markedSymbolP = 0;
 byte lineBuf[MAXLINE + 1];
 char inbuf[1280];
 byte tokenType;
-byte tokenStr[256];
+word wTokenLen;         // used for strings and lit
+byte tokenStr[MAXSTRING + 2];
 byte nextCh;
 byte stmtStartCode;
 byte stmtStartToken;
@@ -140,11 +141,6 @@ void Wr1TokenError(byte err, offset_t symP) {
 
 _Noreturn void LexFatalError(byte err) {
     hasErrors = true;
-    if (state != 20) {
-        if (err == ERR83) /* LIMIT EXCEEDED: DYNAMIC STORAGE */
-            Fatal("DYNAMIC STORAGE OVERFLOW");
-        Fatal("UNKNOWN FATAL ERROR");
-    }
     Wr1TokenErrorAt(err);
     fatalErrorCode = err;
     longjmp(exception, -1);
@@ -179,8 +175,8 @@ void Wr1LexToken() {
     else if (tokenType == T_NUMBER)
         Wr1Word(tokenVal);
     else if (tokenType == T_STRING) {
-        Wr1Word(tokenStr[0]);
-        Wr1Buf(tokenStr + 1, tokenStr[0]);
+        Wr1Word(wTokenLen);
+        Wr1Buf(tokenStr + 1, wTokenLen);
     }
 } /* WrLexToken() */
 
