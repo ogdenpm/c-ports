@@ -202,12 +202,12 @@ static void Sub_8F35() {
             p = (wB53C[procCallDepth] + 1) * 2;
         else
             p = (wB528[procCallDepth] + 1) * 2 + info->stackUsage;
-        if (p > wC1C5)
-            wC1C5 = p;
+        if (p > stackUsage)
+            stackUsage = p;
     } else if (curOp == T2_CALLVAR) {
         Sub_5795(-(wB53C[procCallDepth] * 2));
-        if (wC1C5 < wC1C3 * 2)
-            wC1C5 = wC1C3 * 2;
+        if (stackUsage < wC1C3 * 2)
+            stackUsage = wC1C3 * 2;
     } else if (curOp == T2_RETURN || curOp == T2_RETURNBYTE || curOp == T2_RETURNWORD) {
         boC1CD = true;
         Sub_5EE8();
@@ -339,15 +339,15 @@ void Sub_87CB() {
 
 void Sub_9457() {
     if (EnterBlk()) {
-        wB488[procChainId]     = pc;
-        wB4B0[procChainId]     = wC1C3;
-        wB4D8[procChainId]     = wC1C5;
-        extProcId[procChainId] = curExtProcId;
-        procChainNext[blkSP]   = procChainId;
-        procChainId            = blkSP;
-        SetInfo(blkCurInfo[blkSP] = tx2[tx2qp].op1);
+        blk[blkId].codeSize     = codeSize;
+        blk[blkId].wB4B0     = wC1C3;
+        blk[blkId].stackSize     = stackUsage;
+        blk[blkId].extProcId = curExtProcId;
+        blk[blkSP].next   = blkId;
+        blkId            = blkSP;
+        SetInfo(blk[blkSP].info = tx2[tx2qp].op1);
         curExtProcId = info->procId;
-        pc           = 0;
+        codeSize           = 0;
         EmitTopItem();
         Sub_981C();
     }

@@ -25,18 +25,14 @@ word wAF54[] = {
 };
 
 // clang-format on
-offset_t blkCurInfo[20];
-word wB488[20];
-word wB4B0[20];
-word wB4D8[20];
-byte extProcId[20];
-byte procChainNext[20];
+blk_t blk[20];
+
 word wB528[10];
 word wB53C[10];
-tx2_t tx2[255]     = { { T2_SEMICOLON, 0, 0, 0, LIT_A },
-                       { T2_LOCALLABEL, 0, 0, 0, LABEL_A, 0, 1 },
-                       { T2_SEMICOLON },
-                       { T2_SEMICOLON } };
+tx2_t tx2[255] = { { T2_SEMICOLON, 0, 0, 0, LIT_A },
+                   { T2_LOCALLABEL, 0, 0, 0, LABEL_A, 0, 1 },
+                   { T2_SEMICOLON },
+                   { T2_SEMICOLON } };
 
 byte bC045[9];
 byte bC04E[9];
@@ -64,9 +60,9 @@ byte bC1BD = 0;
 byte tx2qp;
 byte tx2qNxt       = 4;
 byte tx2qEnd       = 4;
-word pc            = 0;
+word codeSize            = 0;
 word wC1C3         = 0;
-word wC1C5         = 0;
+word stackUsage         = 0;
 word wC1C7         = 0;
 byte blkSP         = 0;
 byte blkOverCnt    = 0;
@@ -78,7 +74,7 @@ byte curOp;
 byte bC1D2;
 byte padC1D3;
 byte curExtProcId = 1;
-byte procChainId  = 0;
+byte blkId  = 0;
 word wC1D6;
 bool boC1D8 = false;
 byte bC1D9;
@@ -96,14 +92,14 @@ static void Sub_3F27() {
     vfReset(&utf1);
     vfRewind(&utf2);
     memset(wC1DC, 0, 10);
-    blkCurInfo[0] = procInfo[1];
+    blk[0].info = ToIdx(procInfo[1]);
     programErrCnt = 0;
 } /* Sub_3F27() */
 
 static void Sub_3F7D() {
-    SetInfo(procInfo[1]);
-    info->dim     = pc;
-    info->baseVal = wC1C5;
+    infoIdx = ToIdx(info = procInfo[1]);
+    info->codeSize   = codeSize;
+    info->stackUsage = stackUsage;
 } /* Sub_3F7D() */
 
 word Start2() {

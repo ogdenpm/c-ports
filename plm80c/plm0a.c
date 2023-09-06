@@ -51,7 +51,7 @@ word tokenVal;
 byte *inChrP; /* has to be pointer as it accesses data outside info/symbol space */
 word stateStack[100];
 word stateIdx;
-offset_t stmtLabels[10];
+sym_t *stmtLabels[10];
 word stmtLabelCnt;
 
 word curStmtCnt        = 0;
@@ -115,8 +115,8 @@ uint16_t Rd1Word() {
     return v;
 }
 
-void Wr1InfoOffset(offset_t addr) {
-    Wr1Word(addr);
+void Wr1InfoOffset(info_t *inf) {
+    Wr1Word(ToIdx(inf));
 } /* WrInfoOffset() */
 
 void Wr1SyntaxError(byte err) {
@@ -171,7 +171,7 @@ void Wr1LexToken() {
     }
     Wr1Byte(tok2oprMap[tokenType]);
     if (tokenType == T_IDENTIFIER)
-        Wr1Word(curSym);
+        Wr1Word(curSym - symtab);
     else if (tokenType == T_NUMBER)
         Wr1Word(tokenVal);
     else if (tokenType == T_STRING) {
@@ -183,13 +183,13 @@ void Wr1LexToken() {
 void Wr1XrefUse() {
     if (XREF) {
         Wr1Byte(L_XREFUSE);
-        Wr1InfoOffset(infoIdx);
+        Wr1InfoOffset(info);
     }
 }
 
 void Wr1XrefDef() {
     if (XREF || IXREF || SYMBOLS) {
         Wr1Byte(L_XREFDEF);
-        Wr1InfoOffset(infoIdx);
+        Wr1InfoOffset(info);
     }
 }

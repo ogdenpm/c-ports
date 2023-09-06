@@ -104,11 +104,11 @@ static void NestMacro() {
 
 static bool expandLit() {
     Lookup((pstr_t *)tokenStr);
-    markedSymbolP = curSym;
-    if (symtab[curSym].infoIdx >= 0xFF00) /* simple key word */
-        tokenType = Low(symtab[curSym].infoIdx);
+    markedSymbolP = curSym - symtab;
+    if (curSym->infoChain >= 0xFF00) /* simple key word */
+        tokenType = Low(curSym->infoChain);
     else {
-        index_t tmp = infoIdx; // if lit expand then restore infoIdx
+        index_t tmp = infoIdx; // if lit expand then restore info
         if (FindInfo()) {
             if (info->type == LIT_T) {
                 NestMacro();
@@ -177,7 +177,7 @@ static void ParseString() {
             }
         }
     }
-    wTokenLen = (word)(curOff - 1); // record length long string
+    wTokenLen   = (word)(curOff - 1); // record length long string
     tokenStr[0] = wTokenLen < 256 ? (byte)wTokenLen : 255;
     if (wTokenLen == 0)
         Wr1TokenErrorAt(ERR189); /* NULL STRING NOT ALLOWED */
@@ -394,10 +394,10 @@ static void RecoverMissingParam() {
     SetYyAgain(); /* push back token */
 }
 
-static offset_t declNames[33];
+static sym_t *declNames[33];
 static word declBasedNames[33];
 static word declNameCnt;
-static offset_t declaringName;
+static sym_t *declaringName;
 
 static word basedInfo;
 static uint32_t dclFlags;
@@ -405,7 +405,7 @@ static byte dclType;
 static pstr_t const *lastLit;
 static word arrayDim;
 static struct {
-    index_t sym;
+    sym_t *sym;
     word dim;
     byte type;
 } member[33];
@@ -415,7 +415,7 @@ static byte factoredParamCnt;
 static bool isNewVar;
 
 static void DeclarationError(word errcode) {
-    Wr1TokenError((byte)errcode, declaringName);
+    Wr1TokenError((byte)errcode, declaringName - symtab);
 }
 
 static void ChkModuleLevel() {
@@ -443,7 +443,7 @@ static void CreateStructMemberInfo() {
 
     if (memberCnt == 0)
         return;
-    index_t parent = infoIdx;
+    info_t *parent = info;
     for (word i = 1; i <= memberCnt; i++) {
         curSym = member[i].sym;
         CreateInfo(curScope, member[i].type, member[i].sym);
@@ -454,13 +454,14 @@ static void CreateStructMemberInfo() {
             info->dim = member[i].dim;
         } else
             info->dim = 1;
-        info->parent = parent; // this is the infoP of the structure
+        info->parent = ToIdx(parent); // this is the infoP of the structure
     }
 }
 
 static void ChkAndSetAttributes(word factoredIdx) {
     word declaringBase = declBasedNames[factoredIdx];
-    curSym = declaringName = declNames[factoredIdx];
+    declaringName      = declNames[factoredIdx];
+    curSym             = declaringName;
     if (FindScopedInfo(curScope)) { // identifier already in scope  - only valid for parameter
         Wr1XrefUse();
         if ((info->flag & (F_PARAMETER | F_LABEL)) == F_PARAMETER) {
@@ -503,8 +504,8 @@ static void ChkAndSetAttributes(word factoredIdx) {
                 info->flag |= F_BASED;
         }
         info->dim     = arrayDim;
-        info->baseOff = declaringBase;
-        if ((infotab[procIdx].flag & F_REENTRANT)) {
+        info->baseInfo = declaringBase;
+        if ((curProc->flag & F_REENTRANT)) {
             if (!(info->flag & (F_DATA | F_BASED | F_AT)))
                 info->flag |= F_AUTOMATIC;
         }
@@ -533,7 +534,7 @@ static void AttributeExpression(byte lexItem, uint32_t locflag) {
     if (YylexMatch(T_LPAREN)) {
         Wr1Byte(lexItem);
         if (isNewVar)
-            Wr1InfoOffset(infoCnt);
+            Wr1InfoOffset(topInfo);
         else
             Wr1InfoOffset(0);
         dclFlags |= locflag;
@@ -733,7 +734,7 @@ static void ParseLitOrType() {
 }
 
 static void ParseBaseSpecifier() {
-    offset_t base1Name, base2Name;
+    sym_t *base1Name, *base2Name;
 
     basedInfo = 0;
     if (YylexNotMatch(T_IDENTIFIER))
@@ -900,7 +901,7 @@ static void SetInterruptNo() {
 }
 
 static void ParseProcAttrib() {
-    SetInfo(procIdx);
+    infoIdx = ToIdx(info = curProc);
 
     while (1) {
         if (YylexMatch(T_PUBLIC))
@@ -917,7 +918,7 @@ static void ParseProcAttrib() {
 }
 
 static void ParseRetType() {
-    SetInfo(procIdx);
+    infoIdx = ToIdx(info = curProc);
     if (YylexMatch(T_BYTE))
         info->returnType = BYTE_T;
     else if (YylexMatch(T_ADDRESS))
@@ -952,7 +953,7 @@ static void ParseParams() {
             RecoverToSemiOrRP();
             Yylex();
         }
-        SetInfo(procIdx); // note number of params. info's follow procInfo
+        infoIdx = ToIdx(info = curProc); // note number of params. info's follow procInfo
     }
     info->paramCnt = paramCnt;
     ;
@@ -961,37 +962,37 @@ static void ParseParams() {
 // parse <procedure statement> (label already parsed)
 
 void ProcProcStmt() {
-    word parentProcIdx;
+    info_t *parentProc;
 
-    parentProcIdx = procIdx;
-    curSym        = stmtLabels[1];
+    parentProc = curProc;
+    curSym     = stmtLabels[1];
     if (FindScopedInfo(curScope))         // error if procedure already exists
         Wr1SyntaxError(ERR34);            /* DUPLICATE procedure DECLARATION */
     CreateInfo(curScope, PROC_T, curSym); // create a new procedure info block with current scope
     info->flag |= F_LABEL;
     Wr1XrefDef();
-    if (procCnt == 254)            // oops too many procedures
-        LexFatalError(ERR35);      /* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
-    procInfo[++procCnt] = infoIdx; // save procedure info
-    curScope = procCnt << 8;       // set scope procedure id reset do block count for this procedure
-    procIdx  = infoIdx;
+    if (procCnt == 254)         // oops too many procedures
+        LexFatalError(ERR35);   /* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
+    procInfo[++procCnt] = info; // save procedure info
+    curScope = procCnt << 8;    // set scope procedure id reset do block count for this procedure
+    curProc  = info;
     doBlkCnt = 0;
     PushBlock(curScope); // push current scope
     ParseParams();
     ParseRetType();
     ParseProcAttrib();
     /* write info to tx1 stream */
-    SetInfo(procIdx);                 // accessors use curInfoP
+    infoIdx = ToIdx(info = curProc);
     if (!(info->flag & F_EXTERNAL)) { // not external
         Wr1Byte(L_PROCEDURE);
-        Wr1InfoOffset(infoIdx);
+        Wr1InfoOffset(info);
         Wr1Byte(L_SCOPE);
         Wr1Word(curScope);
     } else {
         Wr1Byte(L_EXTERNAL);
-        Wr1InfoOffset(infoIdx);
+        Wr1InfoOffset(info);
     }
     info->procId = High(curScope);
-    if (parentProcIdx && (infotab[parentProcIdx].flag & F_REENTRANT)) // were we in re-entrant proc?
+    if (parentProc && (parentProc->flag & F_REENTRANT)) // were we in re-entrant proc?
         Wr1SyntaxError(ERR88); /* INVALID procedure NESTING, ILLEGAL IN reentrant procedure */
 }

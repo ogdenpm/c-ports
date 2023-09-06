@@ -48,7 +48,7 @@ pstr_t *sValAry[4];
 char ps96B0[38];
 byte b96D6;
 word locLabelNum;
-byte curExtId;
+word curExtId;
 char commentStr[42] = "\0; ";
 
 byte opByteCnt;

@@ -12,6 +12,7 @@
 #include "plm.h"
 #include <ctype.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define BADINFO 0xffff
 
@@ -154,31 +155,6 @@ static void AcceptRP() {
         NxtCh();
 }
 
-static void AcceptOptStrVal() {
-    byte nesting = 0;
-
-    SkipWhite();
-    if (*curChP != '(')
-        optVal.len = 0;
-    else {
-        NxtCh();
-        optVal.str = curChP;
-        for (;;) {
-            if (chrClass == CC_NEWLINE || *curChP == '\'')
-                break;
-            if (*curChP == '(')
-                nesting++;
-            else if (*curChP == ')') {
-                if (nesting-- == 0)
-                    break;
-            }
-            NxtCh();
-        }
-        optVal.len = (word)(curChP - optVal.str);
-        AcceptRP();
-    }
-} /* AcceptOptStrVal() */
-
 static void AcceptFileName() {
     SkipWhite();
     if (*curChP != '(')
@@ -286,7 +262,6 @@ static void ParseId(byte maxLen) {
                 optVal.pstr->str[optVal.pstr->len++] = toupper(*(uint8_t *)curChP);
             NxtCh();
         }
-    
 }
 
 static void GetVar() {
@@ -305,7 +280,7 @@ static void GetVar() {
         BadCmdTail(ERR184); /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
     }
     Lookup(optVal.pstr);
-    if (symtab[curSym].infoIdx >= 0xFF00) { /* special */
+    if (curSym->infoChain >= 0xFF00) { /* special */
         infoIdx  = BADINFO;
         info     = NULL;
         curChP   = tmp;
@@ -469,7 +444,7 @@ static void OptPageLen() {
     if (optNumValue < 4 || optNumValue == 0xFFFF)
         BadCmdTail(ERR91); /* ILLEGAL PAGELENGTH CONTROL VALUE */
     else
-        SetPageLen(optNumValue - 3);
+        PAGELEN = optNumValue - 3;
 }
 
 static void OptPageWidth() {
@@ -477,56 +452,71 @@ static void OptPageWidth() {
     if (optNumValue < 60 || optNumValue > 132)
         BadCmdTail(ERR92); /* ILLEGAL PAGEWIDTH CONTROL VALUE */
     else
-        SetPageWidth(optNumValue);
+        PWIDTH = (byte)optNumValue;
 }
 
 static void OptDate() {
-    AcceptOptStrVal();
-    SetDate(optVal.str, (byte)optVal.len);
-}
-
-// promoted to file level
-static bool LocalSetTitle() {
-    byte len;
-    NxtCh();
-    if (*curChP != '\'')
-        return false;
-    len = 0;
-    while (1) {
+    SkipWhite();
+    if (*curChP != '(') {
+        time_t nowTime;
+        time(&nowTime);
+        struct tm *now = localtime(&nowTime);
+        sprintf(DATE, "%04d-%02d-%02d", now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
+    } else {
+        byte nesting = 0;
         NxtCh();
-        if (*curChP == '\r' || *curChP == '\n')
-            break;
-        if (*curChP == '\'') {
-            NxtCh();
-            if (*curChP != '\'')
+        optVal.str = curChP;
+        for (;;) {
+            if (chrClass == CC_NEWLINE || *curChP == '\'')
                 break;
+            if (*curChP == '(')
+                nesting++;
+            else if (*curChP == ')') {
+                if (nesting-- == 0)
+                    break;
+            }
+            NxtCh();
         }
-        if (len <= 59) {
-            TITLE[len++] = *curChP;
-        }
-    }
-    if (len != 0)
-        TITLELEN = len;
-    else {
-        TITLELEN = 1;
-        TITLE[0] = ' ';
-    }
-    if (*curChP != ')')
-        return false;
-    else {
-        NxtCh();
-        return true;
+        optVal.len = (word)(curChP - optVal.str);
+        if (optVal.len > 10)
+            optVal.len = 10;
+        AcceptRP();
+        memcpy(DATE, optVal.str, optVal.len);
+        DATE[optVal.len] = '\0';
     }
 }
 
 static void OptTitle() {
+    TITLELEN = 0;
     SkipWhite();
-    if (*curChP != '(')
+    if (*curChP != '(') {
         BadCmdTail(ERR11); /* MISSING CONTROL PARAMETER */
-    else if (!LocalSetTitle()) {
-        BadCmdTail(ERR12); /* INVALID CONTROL PARAMETER */
-        SkipToRPARorEOL();
+        return;
     }
+    NxtCh();
+    if (*curChP == '\'') {
+        while (1) {
+            NxtCh();
+            if (*curChP == '\r' || *curChP == '\n')
+                break;
+            if (*curChP == '\'') {
+                NxtCh();
+                if (*curChP != '\'')
+                    break;
+            }
+            if (TITLELEN <= 59) {
+                TITLE[TITLELEN++] = *curChP;
+            }
+        }
+        if (*curChP == ')') {
+            TITLE[TITLELEN] = '\0';
+            NxtCh();
+            return;
+        }
+    }
+    TITLE[TITLELEN = 0] = '\0';
+    BadCmdTail(ERR12); /* INVALID CONTROL PARAMETER */
+    SkipToRPARorEOL();
 }
 
 static void OptLeftMargin() {
@@ -621,6 +611,7 @@ static void OptIntVector() {
             BadCmdTail(ERR177); /* INVALID INTVECTOR LOCATION VALUE */
             SkipToRPARorEOL();
         } else {
+            NxtCh();
             vecLoc = ParseNum();
             if (vecLoc > 0xFFE0 || vecLoc % (vecNum * 8) != 0 || *curChP != ')') {
                 BadCmdTail(ERR177); /* INVALID INTVECTOR LOCATION VALUE */

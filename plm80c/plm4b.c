@@ -318,7 +318,7 @@ void EmitError() {
             SetInfo(errData.info);
             curSym = info->sym;
             if (curSym != 0)
-                lstStr(symtab[curSym].name->str);
+                lstStr(curSym->name->str);
             else
                 lstStr("<LONG CONSTANT>");
             lstStr("', ");

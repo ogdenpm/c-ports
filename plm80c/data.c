@@ -10,14 +10,14 @@
 
 #include "plm.h"
 
-index_t curSym;
+sym_t *curSym;
 index_t infoIdx;
 info_t *info;
 bool moreCmdLine = true;
 word LEFTMARGIN;
 word localLabelCnt;
 word srcFileIdx;
-index_t hashTab[64]; // offset is to pointer to array of offsets
+sym_t *hashTab[64]; // offset is to pointer to array of offsets
 word blockDepth;
 word *localLabels;
 byte *procIds;
@@ -38,7 +38,7 @@ vfile_t atf;
 vfile_t xrff;
 file_t ixiFile;
 word procChains[35];
-word procInfo[255];
+info_t *procInfo[255];
 byte srcStemLen;
 bool standAlone          = true;
 
@@ -57,16 +57,17 @@ char *objFileName;
 bool isList = false;
 word pageNo = 0;
 byte linLft = 0;
-byte wrapMarkerCol, wrapMarker, wrapTextCol;
+byte wrapMarkerCol, wrapTextCol;
 byte col      = 0;
 byte skipCnt  = 0;
-byte tWidth   = 0;
-byte TITLELEN = 1;
-byte PAGELEN  = 60;
+byte tWidth   = 4;
+
+byte PAGELEN  = 57;
 byte PWIDTH   = 120;
 byte margin   = 0xFF;
-char DATE[10];
-char TITLE[60] = " ";
+char DATE[11];  // max yyyy-mm-dd\0
+byte TITLELEN;
+char TITLE[60];
 
 byte intVecNum = 8;
 word intVecLoc = 0;

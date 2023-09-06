@@ -21,7 +21,7 @@ byte Sub_5945() {
             return 0;
         }
         ChkIdentifier();
-        PushParseByte(11);
+        PushParse(11);
         ExpressionStateMachine();
         if (Sub_512E(exSP)) {
             WrTx2ExtError(ERR128); /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
@@ -33,7 +33,7 @@ byte Sub_5945() {
     }
 
     if (MatchTx1Item(L_EQ)) {
-        PushParseByte(0); // <expression>
+        PushParse(0); // <expression>
         ExpressionStateMachine();
         if (i != 0) {
             ExprMakeNode(I_COLONEQUALS, i + 1);
@@ -61,25 +61,25 @@ byte Sub_59D4() {
         if (info->returnType)
             WrTx2ExtError(ERR129); /* ILLEGAL 'call' WITH TYPED procedure */
         ExprPush2(I_IDENTIFIER, infoIdx);
-        PushParseWord(info->paramCnt);
+        PushParse(info->paramCnt);
         PushOperator(0);
-        PushParseByte(16);
+        PushParse(16);
         if (MatchTx1Item(L_LPAREN)) {
-            PushParseByte(15);
-            PushParseByte(0);
+            PushParse(15);
+            PushParse(0);
         }
     } else if (info->type == BUILTIN_T) {
         if (info->returnType) {
             WrTx2ExtError(ERR129); /* ILLEGAL 'call' WITH TYPED procedure */
             return false;
         }
-        PushParseWord(builtinsMap[info->builtinId]);
-        PushParseWord(info->paramCnt);
+        PushParse(builtinsMap[info->builtinId]);
+        PushParse(info->paramCnt);
         PushOperator(0);
-        PushParseByte(17);
+        PushParse(17);
         if (MatchTx1Item(L_LPAREN)) {
-            PushParseByte(15);
-            PushParseByte(0);
+            PushParse(15);
+            PushParse(0);
         }
     } else if (info->type != ADDRESS_T || (info->flag & F_ARRAY)) {
         WrTx2ExtError(ERR118); /* INVALID INDIRECT CALL, IDENTIFIER NOT AN ADDRESS SCALAR */
@@ -87,10 +87,10 @@ byte Sub_59D4() {
     } else {
         Sub_4D2C();
         PushOperator(0);
-        PushParseByte(18);
+        PushParse(18);
         if (MatchTx1Item(L_LPAREN)) {
-            PushParseByte(15);
-            PushParseByte(0);
+            PushParse(15);
+            PushParse(0);
         }
     }
     ExpressionStateMachine();
@@ -101,7 +101,7 @@ byte Sub_59D4() {
 
 void Expression() {
     ResetStacks();
-    PushParseByte(0);
+    PushParse(0);
     ExpressionStateMachine();
     MoveExpr2Stmt();
     markedStSP = stSP;
@@ -109,139 +109,125 @@ void Expression() {
 
 // lifted to file scope
 static word topNode;
-static word w99C1;
+static word t2Cnt;
 
-static void FlgVisited(word arg1w, word arg2w) {
-    sStack[arg1w].op1  = 255;
-    sStack[arg1w].info = arg2w;
+static void FlgVisited(word node, word t2Cnt) {
+    sStack[node].icode = 255;
+    sStack[node].val   = t2Cnt;
 }
 
-static void Sub_5BF5(word arg1w) {
-    byte i, j;
-    offset_t p;
+static void Sub_5BF5(word node) {
+    byte iCode = sStack[node].icode;
 
-    p = sStack[arg1w].info;
-    if ((i = sStack[arg1w].op1) == I_IDENTIFIER)
-        w99C1 = WrTx2Item1Arg(T2_IDENTIFIER, p);
-    else if (i == I_NUMBER) {
-        if (High(p) == 0)
-            j = T2_NUMBER;
-        else
-            j = T2_BIGNUMBER;
-        w99C1 = WrTx2Item1Arg(j, p);
-    } else if (i == I_INPUT)
-        w99C1 = WrTx2Item1Arg(T2_INPUT, p);
-    else if (i == I_LENGTH || i == I_LAST || i == I_SIZE)
-        w99C1 = WrTx2Item1Arg(icodeToTx2Map[i], p);
+    if (iCode == I_IDENTIFIER)
+        t2Cnt = WrTx2Item1Arg(T2_IDENTIFIER, sStack[node].infoIdx);
+    else if (iCode == I_NUMBER) {
+        t2Cnt = WrTx2Item1Arg(High(sStack[node].val) ? T2_BIGNUMBER : T2_NUMBER, sStack[node].val);
+    } else if (iCode == I_INPUT)
+        t2Cnt = WrTx2Item1Arg(T2_INPUT, sStack[node].val);
+    else if (iCode == I_LENGTH || iCode == I_LAST || iCode == I_SIZE)
+        t2Cnt = WrTx2Item1Arg(icodeToTx2Map[iCode], sStack[node].infoIdx);
     else
-        w99C1 = WrTx2Item(icodeToTx2Map[i]);
-    FlgVisited(arg1w, w99C1);
+        t2Cnt = WrTx2Item(icodeToTx2Map[iCode]);
+    FlgVisited(node, t2Cnt);
 }
 
 static void SerialiseParse0() {
-    byte i;
+    byte icode;
 
-    topNode = parseStack[parseSP];
-    PopParseStack();
-    if ((i = sStack[topNode].op1) == I_OUTPUT)
+    topNode = PopParse();
+
+    if ((icode = sStack[topNode].icode) == I_OUTPUT)
         return;
     if (sStack[topNode].op2 == 0)
         Sub_5BF5(topNode);
     else {
-        PushParseWord(topNode);
-        if (i == I_CALL)
-            PushParseByte(3);
-        else if (i == I_CALLVAR) {
-            PushParseByte(6);
-            PushParseWord(sStack[topNode].info);
-            PushParseByte(0);
-        } else if (i == I_COLONEQUALS)
-            PushParseByte(9);
-        else if (i == I_MOVE) {
-            PushParseByte(14);
-            PushParseWord(sStack[topNode].info);
-            PushParseByte(0);
-        } else if (i == I_BYTEINDEX || i == I_WORDINDEX) {
-            PushParseByte(8);
-            PushParseWord(2);
-            PushParseWord(sStack[topNode].info);
-            PushParseByte(1);
+        PushParse(topNode);
+        if (icode == I_CALL)
+            PushParse(3);
+        else if (icode == I_CALLVAR) {
+            PushParse(6);
+            PushParse(sStack[topNode].sNodeIdx);
+            PushParse(0);
+        } else if (icode == I_COLONEQUALS)
+            PushParse(9);
+        else if (icode == I_MOVE) {
+            PushParse(14);
+            PushParse(sStack[topNode].sNodeIdx);
+            PushParse(0);
+        } else if (icode == I_BYTEINDEX || icode == I_WORDINDEX) {
+            PushParse(8);
+            PushParse(2);
+            PushParse(sStack[topNode].sNodeIdx);
+            PushParse(1);
         } else {
-            PushParseByte(13);
-            PushParseWord(sStack[topNode].op2);  /* num args */
-            PushParseWord(sStack[topNode].info); /* loc of args */
-            PushParseByte(1);
+            PushParse(13);
+            PushParse(sStack[topNode].op2);      /* num args */
+            PushParse(sStack[topNode].sNodeIdx); /* loc of args */
+            PushParse(1);
         }
     }
 }
 
 static void SerialiseParse1() { /* serialise 1 leaf) check */
     topNode = parseStack[parseSP];
-    PushParseByte(2);       /* flag to check for more leaves */
-    PushParseWord(topNode); /* serialise this leaf */
-    PushParseByte(0);
+    PushParse(2);       /* flag to check for more leaves */
+    PushParse(topNode); /* serialise this leaf */
+    PushParse(0);
 }
 
 static void SerialiseParse2() { /* check for any more leaves */
-    word p;
-
-    p = parseSP - 1;
-    parseStack[p]--;
-    if (parseStack[p] == 0) {
-        PopParseStack();
-        PopParseStack();
+    if (--parseStack[parseSP - 1] == 0) {
+        PopParse();
+        PopParse();
     } else {
         parseStack[parseSP]++;
-        PushParseByte(1);
+        PushParse(1);
     }
 }
 
 static void SerialiseParse3() { /* parse args */
     topNode = parseStack[parseSP];
-    PushParseByte(5);                               /* final call wrap up */
-    if (sStack[topNode].op2 > 1) {                  /* any args */
-        PushParseWord(sStack[topNode].op2 - 1);     /* num args  */
-        PushParseWord(sStack[topNode].info + 1);    /* index of arg info */
-        SetInfo(sStack[sStack[topNode].info].info); /* from proc info adv to arginfo */
+    PushParse(5);                                          /* final call wrap up */
+    if (sStack[topNode].op2 > 1) {                         /* any args */
+        PushParse(sStack[topNode].op2 - 1);                /* num args  */
+        PushParse(sStack[topNode].sNodeIdx + 1);           /* index of arg info */
+        SetInfo(sStack[sStack[topNode].sNodeIdx].infoIdx); /* from proc info adv to arginfo */
         AdvNxtInfo();
-        PushParseWord(infoIdx);
-        PushParseByte(4);
-        PushParseWord(sStack[topNode].info + 1); /* index of arg info */
-        PushParseByte(0);
+        PushParse(infoIdx);
+        PushParse(4);
+        PushParse(sStack[topNode].sNodeIdx + 1); /* index of arg info */
+        PushParse(0);
     }
-    w99C1 = WrTx2Item(T2_BEGCALL);
+    t2Cnt = WrTx2Item(T2_BEGCALL);
 }
 
 static void SerialiseParse4() {
-    word p, q;
-    byte i;
-
-    q = (p = parseSP - 1) - 1;
     SetInfo(parseStack[parseSP]);
-    topNode = parseStack[p];
-    i       = (byte)parseStack[q];
-    if (i > 2) { /* all bar first 2 args to stack */
-        if (infoIdx == 0)
-            w99C1 = WrTx2Item1Arg(T2_STKARG, Sub_42EF(sStack[topNode].info));
+    topNode     = parseStack[parseSP - 1];
+    byte argCnt = (byte)parseStack[parseSP - 2];
+    if (argCnt > 2) { /* all bar first 2 args to stack */
+        if (!info)
+            t2Cnt = WrTx2Item1Arg(T2_STKARG, RelCnt(sStack[topNode].sNodeIdx));
         else {
-            w99C1 = WrTx2Item1Arg(info->type == BYTE_T ? T2_STKBARG : T2_STKWARG,
-                                  Sub_42EF(sStack[topNode].info));
+            t2Cnt = WrTx2Item1Arg(info->type == BYTE_T ? T2_STKBARG : T2_STKWARG,
+                                  RelCnt(sStack[topNode].sNodeIdx));
             AdvNxtInfo();
             parseStack[parseSP] = infoIdx;
         }
-        FlgVisited(topNode, w99C1);
+        FlgVisited(topNode, t2Cnt);
     }
-    i--;
-    if (i == 0) { /* all done, clear working data */
-        PopParseStack();
-        PopParseStack();
-        PopParseStack();
+    argCnt--;
+    if (argCnt == 0) { /* all done, clear working data */
+        PopParse();
+        PopParse();
+        PopParse();
     } else {
-        parseStack[q] = i;
-        parseStack[p] = ++topNode;
-        PushParseByte(4);
-        PushParseWord(topNode); /* serialise the arg */
-        PushParseByte(0);
+        parseStack[parseSP - 2] = argCnt;
+        parseStack[parseSP - 1] = ++topNode;
+        PushParse(4);
+        PushParse(topNode); /* serialise the arg */
+        PushParse(0);
     }
 }
 
@@ -249,34 +235,33 @@ static void SerialiseParse5() {
     word p, q, r;
     byte i;
 
-    topNode = parseStack[parseSP];
-    PopParseStack();
-    r = sStack[topNode].info;
-    i = sStack[topNode].op2 - 1;
+    topNode = PopParse();
+    r       = sStack[topNode].sNodeIdx;
+    i       = sStack[topNode].op2 - 1;
     p = q = 0;
     if (i > 1) {
-        p = Sub_42EF(sStack[r + i - 1].info);
-        q = Sub_42EF(sStack[r + i].info);
+        p = RelCnt(sStack[r + i - 1].sNodeIdx);
+        q = RelCnt(sStack[r + i].sNodeIdx);
     } else if (i > 0)
-        p = Sub_42EF(sStack[r + i].info);
-    w99C1 = WrTx2Item3Arg(T2_CALL, p, q, sStack[r].info);
-    FlgVisited(topNode, w99C1);
+        p = RelCnt(sStack[r + i].sNodeIdx);
+    t2Cnt = WrTx2Item3Arg(T2_CALL, p, q, sStack[r].sNodeIdx);
+    FlgVisited(topNode, t2Cnt);
 }
 
 static void SerialiseParse6() {
     byte i;
     word p;
-    w99C1   = WrTx2Item(T2_BEGCALL);
+    t2Cnt   = WrTx2Item(T2_BEGCALL);
     topNode = parseStack[parseSP];
-    PushParseByte(7);
+    PushParse(7);
     if ((i = sStack[topNode].op2 - 1) != 0) {
-        PushParseWord(i);
-        p = sStack[topNode].info + 1;
-        PushParseWord(p);
-        PushParseWord(0); /* no arg info */
-        PushParseByte(4);
-        PushParseWord(p);
-        PushParseByte(0);
+        PushParse(i);
+        p = sStack[topNode].sNodeIdx + 1;
+        PushParse(p);
+        PushParse(0); /* no arg info */
+        PushParse(4);
+        PushParse(p);
+        PushParse(0);
     }
 }
 
@@ -284,38 +269,33 @@ static void SerialiseParse7() {
     byte i;
     word p, q, r;
 
-    topNode = parseStack[parseSP];
-    PopParseStack();
-    i = sStack[topNode].op2 - 1;
-    p = sStack[topNode].info;
+    topNode = PopParse();
+    i       = sStack[topNode].op2 - 1;
+    p       = sStack[topNode].sNodeIdx;
     q = r = 0;
     if (i > 1) {
-        q = Sub_42EF(sStack[p + i - 1].info);
-        r = Sub_42EF(sStack[p + i].info);
+        q = RelCnt(sStack[p + i - 1].sNodeIdx);
+        r = RelCnt(sStack[p + i].sNodeIdx);
     } else if (i > 0)
-        q = Sub_42EF(sStack[p + i].info);
-    w99C1 = WrTx2Item3Arg(T2_CALLVAR, q, r, Sub_42EF(sStack[p].info));
-    FlgVisited(topNode, w99C1);
+        q = RelCnt(sStack[p + i].sNodeIdx);
+    t2Cnt = WrTx2Item3Arg(T2_CALLVAR, q, r, RelCnt(sStack[p].sNodeIdx));
+    FlgVisited(topNode, t2Cnt);
 }
 
 static void SerialiseParse8() {
-    byte i;
-    word p;
-
-    topNode = parseStack[parseSP];
-    PopParseStack();
-    i     = sStack[topNode].op1;
-    p     = sStack[topNode].info;
-    w99C1 = WrTx2Item3Arg(icodeToTx2Map[i], Sub_42EF(sStack[p].info), Sub_42EF(sStack[p + 1].info),
-                          sStack[p + 2].info);
-    FlgVisited(topNode, w99C1);
+    topNode    = PopParse();
+    byte icode = sStack[topNode].icode;
+    word sIdx  = sStack[topNode].sNodeIdx;
+    t2Cnt      = WrTx2Item3Arg(icodeToTx2Map[icode], RelCnt(sStack[sIdx].sNodeIdx),
+                               RelCnt(sStack[sIdx + 1].sNodeIdx), sStack[sIdx + 2].sNodeIdx);
+    FlgVisited(topNode, t2Cnt);
 }
 
 static void SerialiseParse9() {
     topNode = parseStack[parseSP];
-    PushParseByte(10); /* post serialise LHS */
-    PushParseWord(sStack[topNode].info + sStack[topNode].op2 - 1);
-    PushParseByte(0);
+    PushParse(10); /* post serialise LHS */
+    PushParse(sStack[topNode].sNodeIdx + sStack[topNode].op2 - 1);
+    PushParse(0);
 }
 
 static void SerialiseParse10() {
@@ -323,87 +303,81 @@ static void SerialiseParse10() {
     word p;
 
     topNode = parseStack[parseSP];
-    PushParseByte(12);           /* mark LHS as used at end */
-    i = sStack[topNode].op2 - 1; /* num RHS */
-    p = sStack[topNode].info;    /* base RHS */
-    PushParseWord(i);
-    PushParseWord(p);
-    PushParseWord(p + i); /* LHS */
-    PushParseByte(11);    /* after serialised leaf */
-    PushParseWord(p);     /* do the leaf */
-    PushParseByte(0);
+    PushParse(12);                /* mark LHS as used at end */
+    i = sStack[topNode].op2 - 1;  /* num RHS */
+    p = sStack[topNode].sNodeIdx; /* base RHS */
+    PushParse(i);
+    PushParse(p);
+    PushParse(p + i); /* LHS */
+    PushParse(11);    /* after serialised leaf */
+    PushParse(p);     /* do the leaf */
+    PushParse(0);
 }
 
 static void SerialiseParse11() { /* do one RHS assignment */
-    word p, q;
-    byte i;
-    word r, s;
 
-    i = (byte)parseStack[q = (p = parseSP - 1) - 1];
-    s = parseStack[parseSP];
-    if (sStack[r = parseStack[p]].op1 == I_OUTPUT) {
-        w99C1 = WrTx2Item1Arg(T2_NUMBER, sStack[r].info);
-        w99C1 = WrTx2Item2Arg(T2_OUTPUT, Sub_42EF(w99C1), Sub_42EF(sStack[s].info));
+    word lhsIdx;
+
+    byte lhsCnt = (byte)parseStack[parseSP - 2];
+    word rhsIdx = parseStack[parseSP];
+    if (sStack[lhsIdx = parseStack[parseSP - 1]].icode == I_OUTPUT) {
+        t2Cnt = WrTx2Item1Arg(T2_NUMBER, sStack[lhsIdx].val);
+        t2Cnt = WrTx2Item2Arg(T2_OUTPUT, RelCnt(t2Cnt), RelCnt(sStack[rhsIdx].sNodeIdx));
     } else
-        w99C1 = WrTx2Item2Arg(T2_COLONEQUALS, Sub_42EF(sStack[r].info), Sub_42EF(sStack[s].info));
-    i--;
-    if (i == 0) { /* all done */
-        PopParseStack();
-        PopParseStack();
-        PopParseStack();
+        t2Cnt = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(sStack[lhsIdx].sNodeIdx),
+                              RelCnt(sStack[rhsIdx].sNodeIdx));
+
+    if (--lhsCnt == 0) { /* all done */
+        PopParse();
+        PopParse();
+        PopParse();
     } else { /* no so do another */
-        parseStack[q] = i;
-        r             = r + 1;
-        parseStack[p] = r;
-        PushParseByte(11); /* state 11 after serialise */
-        PushParseWord(r);  /* serialise leaf */
-        PushParseByte(0);
+        parseStack[parseSP - 2] = lhsCnt;
+        parseStack[parseSP - 1] = ++lhsIdx;
+        PushParse(11);     /* state 11 after serialise */
+        PushParse(lhsIdx); /* serialise leaf */
+        PushParse(0);
     }
 }
 
 static void SerialiseParse12() { /* mark LHS as used */
-    topNode = parseStack[parseSP];
-    PopParseStack();
-    w99C1 = sStack[sStack[topNode].info + sStack[topNode].op2 - 1].info;
-    FlgVisited(topNode, w99C1);
+    topNode = PopParse();
+    t2Cnt   = sStack[sStack[topNode].sNodeIdx + sStack[topNode].op2 - 1].sNodeIdx;
+    FlgVisited(topNode, t2Cnt);
 }
 
 static void SerialiseParse13() { /* binary or unary op */
-    word p;
-    byte i;
 
-    topNode = parseStack[parseSP];
-    PopParseStack();
-    p = sStack[topNode].info;
-    i = icodeToTx2Map[sStack[topNode].op1];
+    topNode    = PopParse();
+    word sIdx  = sStack[topNode].sNodeIdx;
+    byte iCode = icodeToTx2Map[sStack[topNode].icode];
     if (sStack[topNode].op2 == 1)
-        w99C1 = WrTx2Item1Arg(i, Sub_42EF(sStack[p].info));
+        t2Cnt = WrTx2Item1Arg(iCode, RelCnt(sStack[sIdx].sNodeIdx));
     else
-        w99C1 = WrTx2Item2Arg(i, Sub_42EF(sStack[p].info), Sub_42EF(sStack[p + 1].info));
-    FlgVisited(topNode, w99C1);
+        t2Cnt =
+            WrTx2Item2Arg(iCode, RelCnt(sStack[sIdx].sNodeIdx), RelCnt(sStack[sIdx + 1].sNodeIdx));
+    FlgVisited(topNode, t2Cnt);
 }
 
 static void SerialiseParse14() {
     word p;
-    p = sStack[topNode = parseStack[parseSP]].info;
+    p = sStack[topNode = parseStack[parseSP]].sNodeIdx;
     /* emit the count leaf */
-    w99C1 = WrTx2Item1Arg(T2_BEGMOVE, Sub_42EF(sStack[p].info));
-    FlgVisited(p, w99C1);
-    PushParseByte(15); /* Move() post serialise */
-    PushParseWord(2);  /* serialise the address leaves */
-    PushParseWord(p + 1);
-    PushParseByte(1);
+    t2Cnt = WrTx2Item1Arg(T2_BEGMOVE, RelCnt(sStack[p].sNodeIdx));
+    FlgVisited(p, t2Cnt);
+    PushParse(15); /* Move() post serialise */
+    PushParse(2);  /* serialise the address leaves */
+    PushParse(p + 1);
+    PushParse(1);
 }
 
 static void SerialiseParse15() { /* rest of Move() */
-    word p;
 
-    topNode = parseStack[parseSP];
-    PopParseStack();
-    p     = sStack[topNode].info;
-    w99C1 = WrTx2Item3Arg(T2_MOVE, Sub_42EF(sStack[p + 1].info), Sub_42EF(sStack[p + 2].info),
-                          Sub_42EF(sStack[p].info));
-    FlgVisited(topNode, w99C1);
+    topNode   = PopParse();
+    word sIdx = sStack[topNode].sNodeIdx;
+    t2Cnt     = WrTx2Item3Arg(T2_MOVE, RelCnt(sStack[sIdx + 1].sNodeIdx),
+                              RelCnt(sStack[sIdx + 2].sNodeIdx), RelCnt(sStack[sIdx].sNodeIdx));
+    FlgVisited(topNode, t2Cnt);
 }
 
 word SerialiseParse(word arg1w) {
@@ -412,8 +386,8 @@ word SerialiseParse(word arg1w) {
 
     p       = infoIdx;
     parseSP = 0;
-    PushParseWord(arg1w);
-    PushParseByte(0);
+    PushParse(arg1w);
+    PushParse(0);
     while (parseSP != 0) {
         i = (byte)parseStack[parseSP--];
         switch (i) {
@@ -468,16 +442,16 @@ word SerialiseParse(word arg1w) {
         }
     }
     SetInfo(p);
-    return sStack[arg1w].info;
+    return sStack[arg1w].sNodeIdx;
 }
 
-static byte b99FF[20];
+static byte flowType[20];
 static bool b9A13[20];
-static word procInfoStack[20];
+static info_t *procInfoStack[20];
 static word hNodes[20];
 static word eNodes[20];
-static word w9A9F[20];
-static word w9AC7[20];
+static word sNodes[20];
+static word byNodes[20];
 static word controlSP;
 
 static void PushScope(word arg1w) {
@@ -498,12 +472,12 @@ static void PushControl(byte arg1b) {
     if (controlSP == 0x13)
         FatalError_ov1(ERR84); /*  LIMIT EXCEEDED: BLOCK NESTING */
     else {
-        b99FF[++controlSP]       = arg1b;
+        flowType[++controlSP]    = arg1b;
         b9A13[controlSP]         = false;
-        procInfoStack[controlSP] = 0;
+        procInfoStack[controlSP] = NULL;
         hNodes[controlSP]        = 0;
         eNodes[controlSP]        = 0;
-        w9A9F[controlSP]         = 0;
+        sNodes[controlSP]        = 0;
     }
 }
 
@@ -511,7 +485,7 @@ static void PopControl() {
     if (controlSP == 0)
         FatalError_ov1(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
     else {
-        if (b99FF[controlSP] != 0)
+        if (flowType[controlSP])
             b9A13[controlSP - 1] |= b9A13[controlSP];
         controlSP--;
     }
@@ -521,25 +495,24 @@ static word NewLocalLabel() {
     return ++localLabelCnt;
 }
 
-static word Sub_671D(offset_t arg1w) {
-    word p, q;
+static word Sub_671D(info_t *pInfo) {
 
-    SetInfo(arg1w);
-    q = WrTx2Item1Arg(T2_IDENTIFIER, arg1w);
+    infoIdx = ToIdx(info = pInfo);
+    word q  = WrTx2Item1Arg(T2_IDENTIFIER, ToIdx(info));
     if ((info->flag & F_MEMBER)) {
         SetInfo(info->parent);
-        p = WrTx2Item1Arg(T2_IDENTIFIER, infoIdx);
-        q = WrTx2Item2Arg(T2_MEMBER, Sub_42EF(p), Sub_42EF(q));
+        word p = WrTx2Item1Arg(T2_IDENTIFIER, ToIdx(info));
+        q      = WrTx2Item2Arg(T2_MEMBER, RelCnt(p), RelCnt(q));
     }
     return q;
 }
 
-static word Sub_677C(offset_t arg1w) {
+static word Sub_677C(info_t *pInfo) {
     word p, q;
-    q = Sub_671D(arg1w);
+    q = Sub_671D(pInfo);
     if ((info->flag & F_BASED)) {
-        p = Sub_671D(info->baseOff);
-        q = WrTx2Item2Arg(T2_BASED, Sub_42EF(p), Sub_42EF(q));
+        p = Sub_671D(FromIdx(info->baseInfo));
+        q = WrTx2Item2Arg(T2_BASED, RelCnt(p), RelCnt(q));
     }
     return q;
 }
@@ -554,44 +527,43 @@ static void ChkEndOfStmt() {
     }
 }
 
-static void Sub_67E3() {
-    word p, q, r, s, u, v, w;
+static void EndFor() {
+    word loopCnt, w;
 
-    p = procInfoStack[controlSP];
-    u = hNodes[controlSP];
-    v = eNodes[controlSP];
-    if ((w = w9A9F[controlSP]) == 0) {
-        SetInfo(p);
+    info         = procInfoStack[controlSP];
+    word forLoop = hNodes[controlSP];
+    word forEnd  = eNodes[controlSP];
+    if ((w = sNodes[controlSP]) == 0) {
         if (info->type == BYTE_T)
             WrTx2Item1Arg(T2_LOCALLABEL, NewLocalLabel());
-        q = Sub_677C(p);
-        r = Sub_677C(p);
-        s = WrTx2Item1Arg(T2_NUMBER, 1);
+        loopCnt       = Sub_677C(info);
+        word loopVar  = Sub_677C(info);
+        word loopStep = WrTx2Item1Arg(T2_NUMBER, 1);
         if (info->type == BYTE_T) {
-            r = WrTx2Item2Arg(T2_PLUSSIGN, Sub_42EF(r), Sub_42EF(s));
-            q = WrTx2Item2Arg(T2_COLONEQUALS, Sub_42EF(q), Sub_42EF(r));
-            q = WrTx2Item2Arg(T2_JNZ, u, 3);
+            loopVar = WrTx2Item2Arg(T2_PLUSSIGN, RelCnt(loopVar), RelCnt(loopStep));
+            loopCnt = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(loopCnt), RelCnt(loopVar));
+            loopCnt = WrTx2Item2Arg(T2_JNZ, forLoop, 3);
         } else {
-            r = WrTx2Item2Arg(T2_ADDW, Sub_42EF(r), Sub_42EF(s));
-            q = WrTx2Item2Arg(T2_COLONEQUALS, Sub_42EF(q), Sub_42EF(r));
-            q = WrTx2Item1Arg(T2_JNC, u);
+            loopVar = WrTx2Item2Arg(T2_ADDW, RelCnt(loopVar), RelCnt(loopStep));
+            loopCnt = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(loopCnt), RelCnt(loopVar));
+            loopCnt = WrTx2Item1Arg(T2_JNC, forLoop);
         }
     } else
-        q = WrTx2Item1Arg(T2_JMP, w);
-    q = WrTx2Item1Arg(T2_LOCALLABEL, v);
+        loopCnt = WrTx2Item1Arg(T2_JMP, w);
+    loopCnt = WrTx2Item1Arg(T2_LOCALLABEL, forEnd);
 }
 
-static word Sub_6917() {
+static word SerialiseExpression() {
     Expression();
     return SerialiseParse(markedStSP);
 }
 
 static void Sub_6923() {
     word p;
-    p = Sub_6917();
+    p = SerialiseExpression();
     ChkEndOfStmt();
     if (MatchTx1Item(L_JMPFALSE))
-        p = WrTx2Item2Arg(T2_JMPFALSE, tx1Item.dataw[0], Sub_42EF(p));
+        p = WrTx2Item2Arg(T2_JMPFALSE, tx1Item.dataw[0], RelCnt(p));
     else
         FatalError_ov1(ERR168); /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
 }
@@ -609,9 +581,8 @@ static void ParseIf() {
 static void ParseProcedure() {
     MapLToT2();
     PushControl(DO_PROC);
-    procInfoStack[controlSP] = procIdx;
-    procIdx = infoIdx = tx1Item.dataw[0];
-    info              = &infotab[infoIdx];
+    procInfoStack[controlSP] = curProc;
+    curProc = info = FromIdx(infoIdx = tx1Item.dataw[0]);
     info->flag |= F_DECLARED;
 }
 
@@ -623,8 +594,8 @@ static void ParseWhile() {
     hNodes[controlSP] = p;
     eNodes[controlSP] = q;
     r                 = WrTx2Item1Arg(T2_LOCALLABEL, p);
-    r                 = Sub_6917();
-    r                 = WrTx2Item2Arg(T2_JMPFALSE, q, Sub_42EF(r));
+    r                 = SerialiseExpression();
+    r                 = WrTx2Item2Arg(T2_JMPFALSE, q, RelCnt(r));
     ChkEndOfStmt();
 }
 
@@ -632,24 +603,23 @@ static void ParseCASE() {
     word p, q;
     PushControl(DO_CASE);
     MapLToT2();
-    q                 = Sub_6917();
+    q                 = SerialiseExpression();
     p                 = NewLocalLabel();
-    q                 = WrTx2Item2Arg(T2_63, p, Sub_42EF(q));
+    q                 = WrTx2Item2Arg(T2_63, p, RelCnt(q));
     hNodes[controlSP] = p;
     ChkEndOfStmt();
 }
 
+#if 0
 static void IterativeDoStatement() {
-    word p, q, r, s, t, u, v, w;
-
     PushControl(DO_LOOP);
     if (NotMatchTx1Item(L_IDENTIFIER)) {
         WrTx2Error(ERR138); /* MISSING INDEX VARIABLE */
         return;
     }
     GetVariable();
-    w                        = infoIdx;
-    procInfoStack[controlSP] = w;
+
+    info_t *pInfo = procInfoStack[controlSP] = info;
     if ((info->type != BYTE_T && info->type != ADDRESS_T) || (info->flag & F_ARRAY)) {
         WrTx2ExtError(ERR139); /* INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS */
         return;
@@ -658,54 +628,106 @@ static void IterativeDoStatement() {
         WrTx2ExtError(ERR140); /* MISSING '=' FOLLOWING INDEX VARIABLE */
         return;
     }
-    b99FF[controlSP]  = 4;
-    p                 = Sub_677C(w);
-    q                 = Sub_6917();
-    p                 = WrTx2Item2Arg(T2_COLONEQUALS, Sub_42EF(p), Sub_42EF(q));
+    flowType[controlSP] = 4;
+    word codeStart      = Sub_677C(pInfo);       // var
+    word codeCurrent    = SerialiseExpression(); // init expression
+
+    WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(codeStart), RelCnt(codeCurrent));
+    WrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP] = NewLocalLabel());
+    codeStart = Sub_677C(pInfo);
+
+    if (MatchTx1Item(L_TO))
+        codeCurrent = SerialiseExpression();
+    else {
+        WrTx2ExtError(ERR141); /* MISSING 'to' CLAUSE */
+        codeCurrent = WrTx2Item1Arg(T2_NUMBER, 0);
+    }
+
+    WrTx2Item2Arg(T2_LE, RelCnt(codeStart), RelCnt(codeCurrent));
+    WrTx2Item2Arg(T2_JMPFALSE, eNodes[controlSP] = NewLocalLabel(), RelCnt(codeStart));
+
+    if (NotMatchTx1Item(L_BY))
+        return;
+    WrTx2Item1Arg(T2_JMP, byNodes[controlSP] = NewLocalLabel());
+    WrTx2Item1Arg(T2_LOCALLABEL, sNodes[controlSP] = NewLocalLabel());
+    codeStart   = Sub_677C(pInfo);
+    codeCurrent = Sub_677C(pInfo);
+    codeCurrent = WrTx2Item2Arg(T2_ADDW, RelCnt(codeCurrent), RelCnt(SerialiseExpression()));
+    WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(codeStart), RelCnt(codeCurrent));
+    WrTx2Item1Arg(T2_JNC, hNodes[controlSP]);
+    WrTx2Item1Arg(T2_JMP, eNodes[controlSP]);
+    WrTx2Item1Arg(T2_LOCALLABEL, byNodes[controlSP]);
+}
+#else
+static void IterativeDoStatement() {
+    word p, q, r, s, t, u, v;
+
+    PushControl(DO_LOOP);
+    if (NotMatchTx1Item(L_IDENTIFIER)) {
+        WrTx2Error(ERR138); /* MISSING INDEX VARIABLE */
+        return;
+    }
+    GetVariable();
+
+    info_t *pInfo = procInfoStack[controlSP] = info;
+    if ((info->type != BYTE_T && info->type != ADDRESS_T) || (info->flag & F_ARRAY)) {
+        WrTx2ExtError(ERR139); /* INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS */
+        return;
+    }
+    if (NotMatchTx1Item(L_EQ)) {
+        WrTx2ExtError(ERR140); /* MISSING '=' FOLLOWING INDEX VARIABLE */
+        return;
+    }
+    flowType[controlSP]  = 4;
+    p                 = Sub_677C(pInfo);
+    q                 = SerialiseExpression();
+    p                 = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(p), RelCnt(q));
     s                 = NewLocalLabel();
     hNodes[controlSP] = s;
     p                 = WrTx2Item1Arg(T2_LOCALLABEL, s);
-    p                 = Sub_677C(w);
+    p                 = Sub_677C(pInfo);
 
     if (MatchTx1Item(L_TO))
-        q = Sub_6917();
+        q = SerialiseExpression();
     else {
         WrTx2ExtError(ERR141); /* MISSING 'to' CLAUSE */
         q = WrTx2Item1Arg(T2_NUMBER, 0);
     }
 
-    p                 = WrTx2Item2Arg(T2_LE, Sub_42EF(p), Sub_42EF(q));
+    p                 = WrTx2Item2Arg(T2_LE, RelCnt(p), RelCnt(q));
     t                 = NewLocalLabel();
     eNodes[controlSP] = t;
-    p                 = WrTx2Item2Arg(T2_JMPFALSE, t, Sub_42EF(p));
+    p                 = WrTx2Item2Arg(T2_JMPFALSE, t, RelCnt(p));
 
     if (NotMatchTx1Item(L_BY))
         return;
     v                = NewLocalLabel();
-    w9AC7[controlSP] = v;
+    byNodes[controlSP] = v;
     p                = WrTx2Item1Arg(T2_JMP, v);
     u                = NewLocalLabel();
-    w9A9F[controlSP] = u;
+    sNodes[controlSP] = u;
     p                = WrTx2Item1Arg(T2_LOCALLABEL, u);
-    p                = Sub_677C(w);
-    q                = Sub_677C(w);
-    r                = Sub_6917();
-    q                = WrTx2Item2Arg(T2_ADDW, Sub_42EF(q), Sub_42EF(r));
-    WrTx2Item2Arg(T2_COLONEQUALS, Sub_42EF(p), Sub_42EF(q));
+    p                = Sub_677C(pInfo);
+    q                = Sub_677C(pInfo);
+    r                = SerialiseExpression();
+    q                = WrTx2Item2Arg(T2_ADDW, RelCnt(q), RelCnt(r));
+    WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(p), RelCnt(q));
     WrTx2Item1Arg(T2_JNC, s);
     WrTx2Item1Arg(T2_JMP, t);
     WrTx2Item1Arg(T2_LOCALLABEL, v);
 }
+#endif
+
 
 static void ParseEND() {
-    switch (b99FF[controlSP]) {
+    switch (flowType[controlSP]) {
     case 0:
-        SetInfo(procIdx);
+        infoIdx = ToIdx(info = curProc);
         info->flag |= F_DEFINED;
         if (info->returnType && !b9A13[controlSP])
             WrTx2Error(ERR156); /* MISSING RETURN STATEMENT IN TYPED PROCEDURE */
         WrTx2Item(T2_ENDPROC);
-        procIdx = procInfoStack[controlSP];
+        curProc = procInfoStack[controlSP];
         break;
     case 1:
         break;
@@ -718,7 +740,7 @@ static void ParseEND() {
         WrTx2Item(T2_ENDCASE);
         break;
     case 4:
-        Sub_67E3();
+        EndFor();
         break;
     }
     PopControl();
@@ -741,23 +763,23 @@ static void ReturnStatement() // return already seen
 {
     word p;
 
-    if (procIdx == 0) {
+    if (!curProc) {
         WrTx2Error(ERR155); /* INVALID RETURN IN MAIN PROGRAM */
         return;
     }
-    SetInfo(procIdx);
+    infoIdx      = ToIdx(info = curProc);
     byte retType = info->returnType;
     if (MatchTx2AuxFlag(0x80)) { /* there is an Expression item */
         SetRegetTx1Item();
-        if (retType == 0)             // untyped procedure
+        if (retType == 0)       // untyped procedure
             WrTx2Error(ERR136); /* INVALID RETURN FOR UNTYPED PROCEDURE, VALUE ILLEGAL */
-        p = Sub_6917();
+        p = SerialiseExpression();
         if (retType == BYTE_T)
-            p = WrTx2Item1Arg(T2_RETURNBYTE, Sub_42EF(p));
+            p = WrTx2Item1Arg(T2_RETURNBYTE, RelCnt(p));
         else
-            p = WrTx2Item1Arg(T2_RETURNWORD, Sub_42EF(p));
+            p = WrTx2Item1Arg(T2_RETURNWORD, RelCnt(p));
     } else {
-        if (retType != 0)             // typed procedure
+        if (retType != 0)       // typed procedure
             WrTx2Error(ERR137); /* MISSING VALUE IN RETURN FOR TYPED PROCEDURE */
         p = WrTx2Item(T2_RETURN);
     }

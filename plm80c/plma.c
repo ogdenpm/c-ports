@@ -57,13 +57,9 @@ static void InitFilesAndDefaults() {
     DEPEND   = false;
 
     OPTIMIZE = true;
-    SetDate(" ", 1);
-    SetPageLen(57);
-    SetMarkerInfo(20, '-', 21);
+
+    SetMarkerInfo(20, 21);
     SetPageNo(0);
-    SetMarginAndTabW(0xFF, 4);
-    SetTitle(" ", 1);
-    SetPageWidth(120);
 } /* InitFilesAndDefaults() */
 
 void SignOnAndGetSourceName() {

@@ -19,7 +19,7 @@ static word wC2D4;
 #define R_DE 2
 
 void FindParamInfo(byte arg1b) {
-    infoIdx = blkCurInfo[blkSP];
+    SetInfo(blk[blkSP].info);
     while (arg1b-- != 0)
         AdvNxtInfo();
 }
@@ -28,15 +28,15 @@ static void saveParam(byte paramNo) {
     if (info->type == ADDRESS_T) {
         wC1DC[0] = reg;
         EncodeFragData(CF_MOVMRPR);
-        pc += 3;
+        codeSize += 3;
     } else {
         wC1DC[0] = reg;
         EncodeFragData(CF_MOVMLR);
-        pc++;
+        codeSize++;
     }
     if (paramNo != curParamCnt) {
         EncodeFragData(CF_DCXH);
-        pc++;
+        codeSize++;
     }
 }
 
@@ -58,12 +58,12 @@ void Sub_9560() {
             wC1DC[0] = R_BC; /*  pop b */
             wC1DC[1] = 8;
             EncodeFragData(CF_POP);
-            pc += 2;
+            codeSize += 2;
         } else if (paramNo > 3) {
             wC1DC[0] = R_BC; /*  pop b */
             wC1DC[1] = 8;
             EncodeFragData(CF_POP);
-            pc++;
+            codeSize++;
         }
         saveParam(paramNo);
         paramOrder--;
@@ -72,7 +72,7 @@ void Sub_9560() {
         wC1DC[0] = 2; /*  push d */
         wC1DC[1] = 8;
         EncodeFragData(CF_PUSH);
-        pc++;
+        codeSize++;
     }
 }
 
@@ -80,45 +80,45 @@ void Sub_9624(word arg1w) {
     wC1DC[0] = 9;
     wC1DC[1] = arg1w;
     EncodeFragData(CF_6);
-    pc += 4;
+    codeSize += 4;
 }
 
 void Sub_9646(word arg1w) {
     if ((arg1w >> 1) + (arg1w & 1) <= 5) {
         if (arg1w & 1) {
             EncodeFragData(CF_DCXSP);
-            pc++;
+            codeSize++;
         }
         while (arg1w > 1) {
             wC1DC[0] = 3; /*  push h */
             wC1DC[1] = 8;
             EncodeFragData(CF_PUSH);
-            pc = pc + 1;
+            codeSize = codeSize + 1;
             arg1w -= 2;
         }
     } else {
         Sub_9624(-arg1w);
         EncodeFragData(CF_SPHL);
-        pc++;
+        codeSize++;
     }
 }
 
 void Inxh() {
     wC1DC[0] = 3;
     EncodeFragData(CF_INX);
-    pc++;
+    codeSize++;
 }
 
 void OpB(byte arg1b) {
     wC1DC[0] = 1;
     EncodeFragData(arg1b);
-    pc++;
+    codeSize++;
 }
 
 void OpD(byte arg1b) {
     wC1DC[0] = 2;
     EncodeFragData(arg1b);
-    pc++;
+    codeSize++;
 }
 
 void Sub_9706() {
@@ -142,17 +142,17 @@ void Sub_9706() {
 
 void MovDem() {
     OpD(CF_MOVRPM);
-    pc += 2;
+    codeSize += 2;
 }
 
 void Sub_975F() {
     wC1DC[0] = reg;
     wC1DC[1] = 8;
     EncodeFragData(CF_PUSH);
-    pc++;
+    codeSize++;
     if (info->type == BYTE_T) {
         EncodeFragData(CF_INXSP);
-        pc++;
+        codeSize++;
     }
 }
 
@@ -173,7 +173,7 @@ void Sub_978E() {
         } else if (info->type == BYTE_T) {
             wC1DC[0] = reg;
             EncodeFragData(CF_MOVHRLR);
-            pc++;
+            codeSize++;
         }
         Sub_975F();
         reg = 1;
@@ -189,7 +189,7 @@ void Sub_981C() {
             wC1DC[0] = 3 - j;
             wC1DC[1] = 8; /*  push h, push d, push b, push psw */
             EncodeFragData(CF_PUSH);
-            pc++;
+            codeSize++;
         }
     }
     if ((info->flag & F_REENTRANT)) {
@@ -208,7 +208,7 @@ void Sub_981C() {
         if (curParamCnt > 2)
             wC1C7 += (curParamCnt - 2) * 2;
 
-        wC1C5 = 0;
+        stackUsage = 0;
     } else {
         if (curParamCnt > 0) {
             FindParamInfo(curParamCnt); /*  locate info for first param */
@@ -222,13 +222,13 @@ void Sub_981C() {
             wC1DC[3] = infoIdx; /*  info for first param */
             EncodeFragData(CF_7);
             Sub_9560();
-            pc += 3;
+            codeSize += 3;
         }
         wC1C7 = 0;
         if (curParamCnt > 2)
-            wC1C5 = (curParamCnt - 2) * 2;
+            stackUsage = (curParamCnt - 2) * 2;
         else
-            wC1C5 = 0;
+            stackUsage = 0;
     }
 }
 
@@ -238,13 +238,13 @@ void Sub_994D() {
     if (curOp == T2_LABELDEF) {
         boC1CC = false;
         SetInfo(tx2[tx2qp].op1);
-        info->linkVal = pc;
+        info->linkVal = codeSize;
     } else if (curOp == T2_LOCALLABEL) {
         boC1CC                     = false;
-        localLabels[tx2[tx2qp].op1] = pc;
+        localLabels[tx2[tx2qp].op1] = codeSize;
         procIds[tx2[tx2qp].op1]     = curExtProcId;
     } else if (curOp == T2_CASELABEL) {
-        localLabels[tx2[tx2qp].op1] = pc;
+        localLabels[tx2[tx2qp].op1] = codeSize;
         procIds[tx2[tx2qp].op1]     = curExtProcId;
         newCase(tx2[tx2qp].op1);
     } else if (curOp == T2_JMP || curOp == T2_JNC || curOp == T2_JNZ || curOp == T2_GOTO) {
@@ -279,5 +279,5 @@ void Sub_994D() {
         }
     }
     EmitTopItem();
-    pc += (b43F8[curOp] & 0x1f);
+    codeSize += (b43F8[curOp] & 0x1f);
 }

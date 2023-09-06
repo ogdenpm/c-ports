@@ -556,13 +556,13 @@ void Sub_5795(word arg1w) {
         EncodeFragData(CF_SPHL);
         if (bC0B5[0] == 3) {
             EncodeFragData(CF_XCHG);
-            pc += 7;
+            codeSize += 7;
         } else
-            pc += 5;
+            codeSize += 5;
     } else {
         if (p & 1) {
             EncodeFragData(CF_INXSP);
-            pc++;
+            codeSize++;
         }
         while (p > 1) {
             if (bC0B5[0] == 3)
@@ -571,7 +571,7 @@ void Sub_5795(word arg1w) {
                 wC1DC[0] = 3; /*  pop h */
             wC1DC[1] = 8;
             EncodeFragData(CF_POP);
-            pc++;
+            codeSize++;
             p = p - 2;
         }
     }
@@ -619,13 +619,13 @@ void Sub_58F5(byte arg1b) {
 
     while (blkSP > 0) {
         if (ExitBlk()) {
-            if (procChainId > blkSP) {
-                SetInfo(blkCurInfo[procChainId]);
-                info->dim     = pc;
-                info->baseVal = wC1C5;
-                procChainId   = procChainNext[procChainId];
-                pc            = wB488[procChainId];
-                wC1C5         = wB4D8[procChainId];
+            if (blkId > blkSP) {
+            	SetInfo(blk[blkId].info);
+                info->codeSize   = codeSize;
+                info->stackUsage = stackUsage;
+                blkId                         = blk[blkId].next;
+                codeSize                      = blk[blkId].codeSize;
+                stackUsage                    = blk[blkId].stackSize;
             }
         }
     }
@@ -722,14 +722,14 @@ void Sub_5C97(byte arg1b) {
 }
 
 void Sub_5D27(byte arg1b) {
-    if (wC1C5 < ++wC1C3 * 2)
-        wC1C5 = wC1C3 * 2;
+    if (stackUsage < ++wC1C3 * 2)
+        stackUsage = wC1C3 * 2;
     Sub_5C1D(arg1b);
     wC1DC[0] = arg1b;
     wC1DC[1] = 0xA;
     wC1DC[2] = wC1C3;
     EncodeFragData(CF_PUSH);
-    pc++;
+    codeSize++;
 }
 
 static void Sub_5E16(byte arg1b) // modified as passed in arg for nested proc
@@ -797,15 +797,15 @@ void Sub_5E66(byte arg1b) {
 
 void Sub_5EE8() {
     Sub_5795(wC1C7);
-    SetInfo(blkCurInfo[procChainId]);
-    if (infoIdx && (info->flag & F_INTERRUPT)) {
+    SetInfo(blk[blkId].info);
+    if (info && (info->flag & F_INTERRUPT)) {
         for (int i = 0; i < 4; i++) {
             wC1DC[0] = i; /*  pop psw, pop b, pop d, pop h */
             wC1DC[1] = 8;
             EncodeFragData(CF_POP);
         }
         EncodeFragData(CF_EI);
-        pc += 5;
+        codeSize += 5;
     }
 }
 
@@ -900,7 +900,7 @@ void Sub_63AC(byte arg1b) {
                 bC0A8[arg1b]--;
                 EncodeFragData(CF_DCX);
             }
-            pc++;
+            codeSize++;
         }
     }
 }
@@ -910,7 +910,7 @@ void Sub_6416(byte arg1b) {
     wC1DC[1] = 0xa;
     wC1DC[2] = wC1C3;
     EncodeFragData(CF_POP);
-    pc++;
+    codeSize++;
     Sub_5C97(arg1b);
     wC1C3--;
 }

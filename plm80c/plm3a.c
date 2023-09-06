@@ -17,8 +17,7 @@ byte b4813[] = { 3, 7, 3, 7,   2, 3,   8, 1, 3,   1, 8,    2, 3, 8,   1, 3,    1
                  3, 8, 3, 9,   1, 6,   3, 1, 6,   1, 7,    3, 1, 0xC, 3, 7,    3, 7, 2,   3,
                  8, 3, 8, 3,   9, 0xC, 3, 7, 3,   7, 2,    3, 8, 1,   3, 1,    8 };
 
-byte              /* tx1Buf[1280], use plm0a.c nmsBuf[1280], use main6.c */
-    objBuf[1280]; // use buffer in plm0a.c
+
 word curOffset;
 byte printOrObj;
 byte recModHdr[54]        = { 2, 0, 0 };
@@ -57,8 +56,8 @@ void ExtendChk(pointer recP, word limit, byte toAdd) {
 word CalcMaxStack() {
     word maxStack = 0;
     for (int i = 1; i <= procCnt; i++) {
-        if (maxStack < infotab[procInfo[i]].stackUsage)
-            maxStack = infotab[procInfo[i]].stackUsage;
+        if (maxStack < procInfo[i]->stackUsage)
+            maxStack = procInfo[i]->stackUsage;
     }
     return maxStack;
 }
@@ -67,7 +66,7 @@ void p3Error(word errNum, info_t  *tokInfo, word stmt) {
     if (printOrObj) {
         Wr1Byte(T2_ERROR);
         Wr1Word(errNum);
-        Wr1Word(tokInfo - infotab); // scale to index
+        Wr1Word(ToIdx(tokInfo)); // scale to index
         Wr1Word(stmt);
     } else
         programErrCnt++;
@@ -181,7 +180,7 @@ static void Sub_4DA8() {
 
         atFData.var.val += GetElementSize() * atFData.var.arrayIndex + info->linkVal;
         if ((info->flag & F_EXTERNAL)) {
-            byte extId = info->extId;
+            word extId = info->extId;
             SetInfo(savIdx);
             ExtendChk(recExtFixup, 149, 4);
             EmitInitItem();
@@ -269,7 +268,7 @@ static void EmitInitData() {
             else {
                 do {
                     AdvNxtInfo();
-                } while (infoIdx && !(BYTE_T <= info->type && info->type <= STRUCT_T));
+                } while (info && !(BYTE_T <= info->type && info->type <= STRUCT_T));
                 Sub_4B6C();
                 if (!moreToInit)
                     p3Error(ERR209, atInfo,

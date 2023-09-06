@@ -14,12 +14,12 @@
 static void ExprParse0() {
     PushOperator(0);                  // put end marker
     if (MatchTx1Item(L_IDENTIFIER)) { // startes with identifier
-        PushParseByte(1);
+        PushParse(E_1);
         ChkIdentifier();
-        PushParseByte(11);
+        PushParse(E_11);
     } else { // should NOT or '-'
-        PushParseByte(3);
-        PushParseByte(4);
+        PushParse(E_3);
+        PushParse(E_4);
     }
 }
 
@@ -29,16 +29,16 @@ static void ExprParse1() {
             WrTx2ExtError(ERR128); /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
             ExprPop();
         } else
-            PushParseByte(2);
-        PushParseByte(3);
-        PushParseByte(4);
+            PushParse(E_COLONEQUALS);
+        PushParse(E_3);
+        PushParse(4);
     } else {
-        if (eStack[exSP].op1 == I_OUTPUT) {
+        if (eStack[exSP].icode == I_OUTPUT) {
             WrTx2Error(ERR130); /*  ILLEGAL REFERENCE to OUTPUT FUNCTION */
             ExprPop();
             ExprPush2(I_NUMBER, 0);
         }
-        PushParseByte(3);
+        PushParse(E_3);
     }
 }
 
@@ -47,19 +47,19 @@ static void ExprParse2() {
 }
 
 static void ExprParse3() {
-    if (MatchTx2AuxFlag(64)) {
+    if (MatchTx2AuxFlag(0x40)) {
         while (b4172[tx1Aux1] <= b4172[operatorStack[operatorSP]]) {
             if (b4172[tx1Aux1] == 50 && b4172[operatorStack[operatorSP]] == 50)
                 WrTx2ExtError(ERR218); /* ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS */
             AcceptOpAndArgs();
         }
         PushOperator(tx1Aux1);
-        PushParseByte(3);
-        PushParseByte(4);
+        PushParse(E_3);
+        PushParse(4);
     } else {
         while (operatorStack[operatorSP] != 0)
             AcceptOpAndArgs();
-        PopOperatorStack();
+        PopOperator();
     }
 }
 
@@ -68,7 +68,7 @@ static void ExprParse4() {
         PushOperator(I_UNARYMINUS);
     else if (MatchTx1Item(L_NOT)) // starts with NOT
         PushOperator(I_NOT);
-    PushParseByte(5); // <primary>
+    PushParse(E_PRIMARY); // <primary>
 }
 
 // <primary>
@@ -83,7 +83,7 @@ static void ExprParse5() {
                 ResyncRParen();
             ExprPush2(I_NUMBER, 0); // error so assume 0
         } else
-            PushParseByte(11);
+            PushParse(E_11);
     } else if (MatchTx1Item(L_NUMBER))
         ExprPush2(I_NUMBER, tx1Item.dataw[0]); // push I_NUMBER & value
     else if (MatchTx1Item(L_STRING)) {
@@ -97,18 +97,18 @@ static void ExprParse5() {
         }
         ExprPush2(I_NUMBER, p); // push I_NUMBER & string constant value
     } else if (MatchTx1Item(L_LPAREN)) {
-        PushParseByte(6);                    // closing ')' of subexpression
-        PushParseByte(0);                    // <expression>
+        PushParse(E_RPAREN);                 // closing ')' of subexpression
+        PushParse(E_EXPRESSION);             // <expression>
     } else if (MatchTx1Item(L_PERIOD)) {     // addressof
         if (MatchTx1Item(L_IDENTIFIER)) {    // <location reference> := .<variable reference>
-            PushParseByte(7);                // <location reference> make addressof node
-            PushParseByte(8);                // <variable reference>
+            PushParse(E_ADDRESSOF);          // <location reference> make addressof node
+            PushParse(E_VARREF);             // <variable reference>
         } else if (MatchTx1Item(L_LPAREN)) { // <location reference> := .<constant list>
             ConstantList();                  // collect the constant list
-            PushParseByte(7);                // <location reference> make addressof node
+            PushParse(E_ADDRESSOF);          // <location reference> make addressof node
         } else {
             WrTx2ExtError(ERR101); /* INVALID ITEM FOLLOWS DOT OPERATOR */
-            PushParseByte(5);      // <primary>
+            PushParse(E_PRIMARY);  // <primary>
         }
     } else {
         WrTx2ExtError(ERR102);  /* MISSING PRIMARY OPERAND */
@@ -130,7 +130,7 @@ static void ExprParse7() {
 static void ExprParse8() {
     ChkIdentifier();
     if (info->type == BUILTIN_T) { // can't be a bulitin
-        PopParseStack();
+        PopParse();
         WrTx2ExtError(ERR123); /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
         if (MatchTx1Item(L_LPAREN))
             ResyncRParen();
@@ -145,29 +145,28 @@ static void ExprParse8() {
         } else { // labels are also bad
             if (info->type == LABEL_T)
                 WrTx2ExtError(ERR158); /* INVALID DOT OPERAND, LABEL ILLEGAL */
-            PushParseByte(9);          // <data reference>
+            PushParse(E_DATAREF);      // <data reference>
         }
     }
 }
 
 // <data reference>
 static void ExprParse9() {
-    PushParseWord(infoIdx);       // save name info
-    PushParseByte(10);            // <member specifier>
+    PushParse(infoIdx);           // save name info
+    PushParse(E_MEMBERSPEC);      // <member specifier>
     if (MatchTx1Item(L_LPAREN)) { // start of <subscript>
         if (!(info->flag & F_ARRAY))
             WrTx2ExtError(ERR127); /* INVALID SUBSCRIPT ON NON-ARRAY */
-        PushParseByte(19);         // <subscript>
+        PushParse(E_SUBSCRIPT);    // <subscript>
     }
 }
 
 // <member specifier>
 static void ExprParse10() {
-    offset_t p;
-    p = parseStack[parseSP]; // name info
-    PopParseStack();
+    offset_t nameInfo = PopParse();
+
     if (MatchTx1Item(L_PERIOD)) { // start of <member specifier>
-        SetInfo(p);
+        SetInfo(nameInfo);
         if (info->type != STRUCT_T)
             WrTx2ExtError(ERR110); /* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
         else if (NotMatchTx1Item(L_IDENTIFIER))
@@ -175,13 +174,13 @@ static void ExprParse10() {
         else {
             ChkStructureMember();
             ExprPush2(I_IDENTIFIER, infoIdx);
-            PushParseWord(p);  // member info
-            PushParseByte(14); // make member node
+            PushParse(nameInfo); // member info
+            PushParse(E_MEMBER); // make member node
             if (MatchTx1Item(L_LPAREN))
-                PushParseByte(19); // <subscript>
+                PushParse(E_SUBSCRIPT); // <subscript>
         }
     } else
-        FixupBased(p);
+        FixupBased(nameInfo);
 }
 
 static void ExprParse11() {
@@ -193,54 +192,53 @@ static void ExprParse11() {
         else if (p == I_LENGTH || p == I_LAST || p == I_SIZE)
             Sub_4DCF((byte)p);
         else {
-            PushParseWord(p);
-            PushParseWord(info->paramCnt);
+            PushParse(p);
+            PushParse(info->paramCnt);
             PushOperator(0);
-            PushParseByte(17);
+            PushParse(E_17);
             ChkTypedProcedure();
             if (MatchTx1Item(L_LPAREN)) {
-                PushParseByte(15);
-                PushParseByte(0); // <expression>
+                PushParse(E_ARGLIST);
+                PushParse(E_EXPRESSION); // <expression>
             }
         }
     } else if (info->type == PROC_T) {
         Sub_50D5();
         ExprPush2(I_IDENTIFIER, infoIdx);
         ChkTypedProcedure();
-        PushParseWord(info->paramCnt);
+        PushParse(info->paramCnt);
         PushOperator(0);
-        PushParseByte(16);
+        PushParse(E_FUNCTION);
         if (MatchTx1Item(L_LPAREN)) {
-            PushParseByte(15);
-            PushParseByte(0); // <expression>
+            PushParse(E_ARGLIST);
+            PushParse(E_EXPRESSION); // <expression>
         }
     } else
-        PushParseByte(12);
+        PushParse(E_12);
 }
 
 static void ExprParse12() {
     ExprPush2(I_IDENTIFIER, infoIdx);
-    PushParseWord(infoIdx);
+    PushParse(infoIdx);
     if (info->type == LABEL_T)
         WrTx2ExtError(ERR132); /* ILLEGAL USE OF label */
-    PushParseByte(13);
+    PushParse(E_PERIOD);
     if ((info->flag & F_ARRAY)) {
         if (MatchTx1Item(L_LPAREN))
-            PushParseByte(19);
+            PushParse(E_SUBSCRIPT);
         else
             WrTx2ExtError(ERR133); /* ILLEGAL REFERENCE to UNSUBSCRIPTED ARRAY */
     } else if (MatchTx1Item(L_LPAREN)) {
         WrTx2ExtError(ERR127); /* INVALID SUBSCRIPT ON NON-ARRAY */
-        PushParseByte(19);
+        PushParse(E_SUBSCRIPT);
     }
 }
 
 static void ExprParse13() {
-    index_t p;
+    index_t memberInfo = PopParse();
 
-    p = infoIdx = parseStack[parseSP];
-    info        = &infotab[infoIdx];
-    PopParseStack();
+    SetInfo(memberInfo);
+
     if (MatchTx1Item(L_PERIOD)) {
         if (info->type != STRUCT_T)
             WrTx2ExtError(ERR110); /* INVALID LEFT OPERAND OF QUALIFICATION, not A structure */
@@ -249,11 +247,11 @@ static void ExprParse13() {
         else {
             ChkStructureMember();
             ExprPush2(I_IDENTIFIER, infoIdx);
-            PushParseWord(p);
-            PushParseByte(14);
+            PushParse(memberInfo);
+            PushParse(E_MEMBER);
             if ((info->flag & F_ARRAY)) {
                 if (MatchTx1Item(L_LPAREN))
-                    PushParseByte(19);
+                    PushParse(E_SUBSCRIPT);
                 else
                     WrTx2ExtError(ERR134); /* ILLEGAL REFERENCE to UNSUBSCRIPTED MEMBER ARRAY */
             } else if (MatchTx1Item(L_LPAREN))
@@ -262,24 +260,21 @@ static void ExprParse13() {
     } else {
         if (info->type == STRUCT_T)
             WrTx2ExtError(ERR135); /* ILLEGAL REFERENCE to AN UNQUALIFIED structure */
-        FixupBased(p);
+        FixupBased(memberInfo);
     }
 }
 
 // make member node
 static void ExprParse14() {
-    offset_t p;
-    p = parseStack[parseSP]; // get member info
-    PopParseStack();
     ExprMakeNode(I_MEMBER, 2); // make member node
-    FixupBased(p);
+    FixupBased(PopParse());    // member info
 }
 
 static void ExprParse15() {
     operatorStack[operatorSP]++;
     if (MatchTx1Item(L_COMMA)) {
-        PushParseByte(15);
-        PushParseByte(0); // <expression>
+        PushParse(E_ARGLIST);
+        PushParse(E_EXPRESSION); // <expression>
     } else
         ExpectRParen(ERR113); /* MISSING ') ' at end OF ARGUMENT LIST */
 }
@@ -289,22 +284,18 @@ static void ExprParse16() {
 }
 
 static void ExprParse17() {
-    byte i, j;
-    j = GetCallArgCnt();
-    i = (byte)parseStack[parseSP];
-    PopParseStack();
-    ExprMakeNode(i, j);
+    byte argCnt = GetCallArgCnt(); // force ordering of functions
+    ExprMakeNode((byte)PopParse(), argCnt);
 }
 
 static void ExprParse18() {
-    ExprMakeNode(I_CALLVAR, operatorStack[operatorSP] + 1);
-    PopOperatorStack();
+    ExprMakeNode(I_CALLVAR, PopOperator() + 1);
 }
 
 // <subscript>
 static void ExprParse19() {
-    PushParseByte(20); // end of <subscript>
-    PushParseByte(0);  // <expression>
+    PushParse(E_ENDSUBSCRIPT); // end of <subscript>
+    PushParse(E_EXPRESSION);   // <expression>
 }
 
 // end of <subscript>
@@ -318,7 +309,7 @@ static void ExprParse20() {
 }
 
 void ExpressionStateMachine() {
-    while (parseSP != 0) {
+    while (parseSP) {
         switch (parseStack[parseSP--]) {
         case 0:
             ExprParse0();

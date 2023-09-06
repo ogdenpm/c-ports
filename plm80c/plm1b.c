@@ -18,10 +18,10 @@ void GetTx1Item() {
     while (1) {
         RdTx1Item();
         if (tx1Item.type == L_TOKENERROR) {
-            if ((curSym = tx1Item.dataw[1])) {       // check we have symbol info
-                if (symtab[curSym].infoIdx >= 0xff00) // is it a keyword?
-                    symtab[curSym].infoIdx = 0;           // reset info link
-                if ((infoIdx = symtab[curSym].infoIdx) == 0)
+            if ((curSym = symtab + tx1Item.dataw[1])) {       // check we have symbol info
+                if (curSym->infoChain >= 0xff00) // is it a keyword?
+                    curSym->infoChain = 0;           // reset info link
+                if ((infoIdx = curSym->infoChain) == 0)
                     CreateInfo(0, UNK_T, curSym); // allocate an UNK_T info block
                 tx1Item.dataw[1] = infoIdx;       // replace sym ref with info offset
             }
@@ -48,14 +48,14 @@ void GetTx1Item() {
             break;
     }
     if (tx1Item.type == L_IDENTIFIER) // set symbolP up
-        curSym = tx1Item.dataw[0];
+        curSym = symtab + tx1Item.dataw[0];
 }
 
-bool MatchTx1Item(byte arg1b) // check for requested Lex item. If present return true else return
+bool MatchTx1Item(byte type) // check for requested Lex item. If present return true else return
                               // false and don't consume item
 {
     GetTx1Item();
-    if (tx1Item.type == arg1b)
+    if (tx1Item.type == type)
         return true;
     else {
         SetRegetTx1Item();
@@ -71,7 +71,7 @@ bool NotMatchTx1Item(byte arg1b) /// check for requested Lex item. If present co
 
 bool MatchTx2AuxFlag(byte arg1b) {
     GetTx1Item();
-    if ((tx1Aux2 & arg1b) != 0)
+    if ((tx1Aux2 & arg1b))
         return true;
     else {
         SetRegetTx1Item();

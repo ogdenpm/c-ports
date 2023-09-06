@@ -33,38 +33,33 @@ static void Sub_3F3C() {
     curOffset = csegSize;
 }
 
-static void Sub_3FE2() {
-    word p;
-    for (p = 1; p <= procCnt; p++) {
-        SetInfo(procInfo[p]);
-        if (!(info->flag & F_EXTERNAL)) {
-            info->linkVal = curOffset;
-            curOffset += info->dim;
+static void AllocateCodeAddr() {
+    for (int i = 1; i <= procCnt; i++) {
+        info_t *pInfo = procInfo[i];
+        if (!(pInfo->flag & F_EXTERNAL)) {
+            pInfo->addr = curOffset;
+            curOffset += pInfo->codeSize;
         }
     }
 }
 
-static void Sub_402F() {
-    infoIdx = 0;
+static void AdjustLabels() {
+    info = infotab;
     AdvNxtInfo();
-    while (infoIdx) {
+    while (info) {
         if (info->type == LABEL_T) {
             if (!(info->flag & F_LABEL))
                 p3Error(ERR172, info, 0); // invalid label: undefined
             else if (!(info->flag & F_EXTERNAL))
-                info->linkVal += infotab[procInfo[High(info->scope)]].linkVal;
+                info->addr += procInfo[High(info->scope)]->addr;
         }
         AdvNxtInfo();
     }
 }
 
-static void Sub_40B6() {
-    word p;
-
-    for (p = 1; p <= localLabelCnt; p++) {
-        SetInfo(procInfo[procIds[p]]);
-        localLabels[p] += info->linkVal;
-    }
+static void AdjustLocalLabels() {
+    for (int i = 1; i <= localLabelCnt; i++)
+        localLabels[i] += procInfo[procIds[i]]->addr;
 }
 
 static void Sub_4105() {
@@ -75,10 +70,9 @@ static void Sub_4105() {
     if (!standAlone)
         return;
     Wr1Byte(T2_SETADDR);    // back to top level
-    Wr1Word(procInfo[1]);
+    Wr1Word(ToIdx(procInfo[1]));
 
-    SetInfo(procInfo[1]);
-    p = curOffset - info->linkVal;
+    p = curOffset - procInfo[1]->addr;
     Wr1Word(p);
     for (i = 0; i <= 45; i++) {
         k = b42D6[i];
@@ -99,12 +93,11 @@ static void Sub_4105() {
 }
 
 static void emitModHdr() {
-    SetInfo(procInfo[1]);
-    curSym = info->sym;
+    curSym = procInfo[1]->sym;
     if (curSym == 0)
         RecAddByte(recModHdr, 0, 0);
     else
-        RecAddName(recModHdr, 0, symtab[curSym].name->len, symtab[curSym].name->str);
+        RecAddName(recModHdr, 0, curSym->name->len, curSym->name->str);
     RecAddByte(recModHdr, 0, 1);                                      // translator is PL/M
     RecAddByte(recModHdr, 0, (version[1] << 4) | (version[3] & 0xf)); // the encoded version
     RecAddByte(recModHdr, 0, S_CODE);
@@ -128,16 +121,16 @@ static void Sub_436C() {
     byte seg, k;
 
     s       = 0;
-    infoIdx = 0;
+    info = infotab;
     AdvNxtInfo();
-    while (infoIdx) {
+    while (info) {
         curSym = info->sym;
-        if (LABEL_T <= info->type && info->type <= PROC_T && curSym != 0) {
+        if (LABEL_T <= info->type && info->type <= PROC_T && curSym) {
             if ((info->flag & (F_EXTERNAL | F_AT)) == F_EXTERNAL) {
-                if (getWord(&recExternals[REC_LEN]) + symtab[curSym].name->len + 2 >= 299)
+                if (getWord(&recExternals[REC_LEN]) + curSym->name->len + 2 >= 299)
                     WriteRec(recExternals, 0);
                 s++;
-                RecAddName(recExternals, 0, symtab[curSym].name->len, symtab[curSym].name->str);
+                RecAddName(recExternals, 0, curSym->name->len, curSym->name->str);
                 RecAddByte(recExternals, 0, 0);
             } else if (!(info->flag & (F_AUTOMATIC | F_BASED | F_MEMBER))) {
                 if ((info->flag & F_DATA) || info->type == LABEL_T || info->type == PROC_T) {
@@ -159,28 +152,28 @@ static void Sub_436C() {
                 }
 
                 if ((info->flag & F_PUBLIC)) {
-                    if (curRecLen + symtab[curSym].name->len + 4 >= 299)
+                    if (curRecLen + curSym->name->len + 4 >= 299)
                         WriteRec(rec, 1);
                     RecAddWord(rec, 1, info->linkVal);
-                    RecAddName(rec, 1, symtab[curSym].name->len, symtab[curSym].name->str);
+                    RecAddName(rec, 1, curSym->name->len, curSym->name->str);
                     RecAddByte(rec, 1, 0);
                 }
                 bool isExtern;
                 if (DEBUG) {
-                    if (infoIdx == procInfo[1])
+                    if (info == procInfo[1])
                         isExtern = true;
                     else if (!(info->flag & F_PARAMETER))
                         isExtern = (info->flag & F_EXTERNAL);
                     else
-                        isExtern = infotab[procInfo[High(info->scope)]].flag & F_EXTERNAL;
+                        isExtern = procInfo[High(info->scope)]->flag & F_EXTERNAL;
                     if (!isExtern) {
                         if (seg != recLocals[REC_DATA] ||
-                            getWord(&recLocals[REC_LEN]) + symtab[curSym].name->len + 4 >= 1019)
+                            getWord(&recLocals[REC_LEN]) + curSym->name->len + 4 >= 1019)
                             WriteRec(recLocals, 1);
                         recLocals[REC_DATA] = seg;
                         RecAddWord(recLocals, 1, info->linkVal);
-                        RecAddName(recLocals, 1, symtab[curSym].name->len,
-                                   symtab[curSym].name->str);
+                        RecAddName(recLocals, 1, curSym->name->len,
+                                   curSym->name->str);
                         RecAddByte(recLocals, 1, 0);
                     }
                 }
@@ -211,16 +204,14 @@ static void Sub_436C() {
 }
 
 static void Sub_46B7() {
-    word p;
-
     if (intVecNum == 0)
         return;
-    for (p = 1; p <= procCnt; p++) {
-        SetInfo(procInfo[p]);
-        if ((info->flag & F_INTERRUPT)) {
-            putWord(&recInitContent[CONTENT_OFF], intVecLoc + intVecNum * info->intno);
+    for (int i = 1; i <= procCnt; i++) {
+        info_t *pInfo = procInfo[i];
+        if ((pInfo->flag & F_INTERRUPT)) {
+            putWord(&recInitContent[CONTENT_OFF], intVecLoc + intVecNum * pInfo->intno);
             RecAddByte(recInitContent, 3, 0xC3);
-            RecAddWord(recInitContent, 3, info->linkVal);
+            RecAddWord(recInitContent, 3, pInfo->addr);
             WriteRec(recInitContent, 3);
             RecAddWord(recCodeFixup, 2, getWord(&recInitContent[CONTENT_OFF]) + 1);
             WriteRec(recCodeFixup, 2);
@@ -242,10 +233,10 @@ word Start3() {
 
     Sub_3F3C();
     if (printOrObj || IXREF)
-        Sub_3FE2();
-    Sub_402F();
+        AllocateCodeAddr();
+    AdjustLabels();
     if (printOrObj || IXREF) {
-        Sub_40B6();
+        AdjustLocalLabels();
         Sub_4105();
         csegSize = curOffset;
     }

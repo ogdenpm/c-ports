@@ -17,10 +17,9 @@ static void Sub_3F96() {
     if (PRINT) {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMILATION OF MODULE ");
-        SetInfo(procInfo[1]);
-        curSym = info->sym;
+        curSym = procInfo[1]->sym;
         if (curSym)
-            lprintf("%s", symtab[curSym].name->str);
+            lprintf("%s", curSym->name->str);
         lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:\n",
                 OBJECT ? "GENERATED" : "REQUESTED");
         // replace with PrintCmdLine code
@@ -38,9 +37,9 @@ static void Sub_404A() {
     stmtNo = 0;
     if (PRINT)
         unwindInclude(); // probably not needed
-    SetInfo(procInfo[1]);
+    //info = procInfo[1];
     SetSkipLst(3);
-    SetMarkerInfo(11, '-', 15);
+    SetMarkerInfo(11, 15);
     if (fatalErrorCode > 0) {
         errData.stmt = 0;
         errData.info = 0;

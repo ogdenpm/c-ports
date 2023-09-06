@@ -208,13 +208,13 @@ word WrTx2Item2Arg(byte type, word arg2w, word arg3w) {
 }
 
 word WrTx2Item3Arg(byte type, word arg2w, word arg3w, word arg4w) {
-    uint16_t args[] = { arg2w, arg3w, arg4w };
+    uint16_t args[3] = { arg2w, arg3w, arg4w };
     Sub_4251(type, &args, sizeof(args));
     return t2CntForStmt;
 }
 
-word Sub_42EF(word arg1w) {
-    return (t2CntForStmt + 1 - arg1w);
+word RelCnt(word nodeIdx) {
+    return (t2CntForStmt + 1 - nodeIdx);
 }
 
 void MapLToT2() {

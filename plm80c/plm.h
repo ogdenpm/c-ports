@@ -28,7 +28,6 @@ typedef unsigned short word;
 typedef byte *pointer;
 typedef word *wpointer;
 typedef word offset_t;
-typedef byte leword[2]; // to support writing of intel OMF words
 typedef uint16_t index_t;
 
 #define High(n)   ((n) >> 8)
@@ -38,15 +37,13 @@ typedef uint16_t index_t;
 #define Move(s, d, c) memcpy(d, s, c)
 #define Length(str)   (sizeof(str) - 1)
 
-#define SetInfo(v)    info = &infotab[infoIdx = v]
-
 #define TAB           9
 #define CR            '\r'
 #define LF            '\n'
 #define QUOTE         '\''
 #define ISISEOF       0x81
 
-#define MAXSTRING   4096
+#define MAXSTRING     4096
 /* flags */
 enum {
     F_PUBLIC    = (1 << 0),
@@ -85,7 +82,6 @@ enum {
     UNK_T     = 8,
     CONDVAR_T = 9
 };
-
 
 enum { BYTE_A = 0, ADDRESS_A = 1, STRUCT_A = 8, LABEL_A = 9, LIT_A = 12 };
 
@@ -157,6 +153,13 @@ typedef struct {
     char const *fNam;
 } file_t;
 
+
+typedef struct _sym {
+    struct _sym *link;
+    index_t infoChain;
+    pstr_t const *name;
+} sym_t;
+
 /*
     Unlike the original PL/M info items are allocated the same storage space
     this allows an dynamic array to be used. As this version also uses native OS
@@ -166,7 +169,7 @@ typedef struct {
 */
 typedef struct {
     byte type;
-    index_t sym;
+    sym_t *sym;
     word scope;
     union {
         index_t ilink;
@@ -181,13 +184,13 @@ typedef struct {
                 byte condFlag;
                 byte builtinId;
             };
-            byte extId;
+            word extId;
             union {
                 word dim;
                 word codeSize;
             };
             union {
-                index_t baseOff;
+                index_t baseInfo;
                 word baseVal;
                 word stackUsage;
             };
@@ -204,10 +207,14 @@ typedef struct {
 } info_t;
 
 typedef struct {
-    index_t link;
-    index_t infoIdx;
-    pstr_t const *name;
-} sym_t;
+    offset_t info;
+    word codeSize;
+    word wB4B0;
+    word stackSize;
+    byte extProcId;
+    byte next;
+} blk_t;
+
 
 typedef struct {
     index_t next;
@@ -235,11 +242,15 @@ typedef struct {
 } tx1item_t;
 
 typedef struct {
-    byte op1;
+    byte icode;
     byte op2;
-    word info;
+    union {
+        word eNodeIdx;
+        word sNodeIdx;
+        word infoIdx;
+        word val;
+    };
 } eStack_t;
-
 
 typedef struct {
     byte opc;
@@ -337,10 +348,10 @@ extern byte state;
 extern word stateIdx;
 extern word stateStack[];
 extern word stmtLabelCnt;
-extern offset_t stmtLabels[];
+extern sym_t *stmtLabels[];
 extern byte stmtStartCode;
 extern byte tok2oprMap[];
-extern word wTokenLen;  // used for string and lit
+extern word wTokenLen; // used for string and lit
 extern byte tokenStr[];
 
 extern byte tokenType;
@@ -348,8 +359,11 @@ extern word tokenVal;
 extern bool yyAgain;
 
 /* plm0A.plm,main1.plm */
-extern word procIdx;
+extern info_t *curProc;
 extern linfo_t linfo;
+
+/* main2 */
+extern blk_t blk[];
 
 /* plm0A.plm,plm3a.plm,pdata4.plm */
 extern byte tx1Buf[];
@@ -422,7 +436,6 @@ extern byte bC1D9;
 extern byte bC1DB;
 extern byte fragLen;
 extern byte bC209[];
-extern offset_t blkCurInfo[];
 extern byte blkOverCnt;
 extern byte blkSP;
 extern bool boC057[];
@@ -439,28 +452,21 @@ extern byte cfrag1;
 extern byte curExtProcId;
 extern byte curOp;
 extern bool eofSeen;
-extern byte extProcId[];
 extern byte padC1D3;
-extern word pc;
+extern word codeSize;
 extern byte procCallDepth;
-extern byte procChainId;
-extern byte procChainNext[];
-
-
+extern byte blkId;
 
 extern tx2_t tx2[255];
 extern byte tx2qEnd;
 extern byte tx2qp;
 extern word wAF54[];
-extern word wB488[];
-extern word wB4B0[];
-extern word wB4D8[];
 extern word wB528[];
 extern word wB53C[];
 extern word wC084[];
 extern word wC096[];
 extern word wC1C3;
-extern word wC1C5;
+extern word stackUsage;
 extern word wC1C7;
 extern word wC1D6;
 extern word wC1DC[5];
@@ -518,7 +524,6 @@ extern byte recExec[];
 extern word curOffset;
 
 /* plm3a.plm,pdata4.plm */
-extern byte objBuf[];
 extern byte recExtFixup[];
 extern byte recSelfFixup[];
 extern byte recCodeFixup[];
@@ -541,7 +546,7 @@ extern bool linePrefixChecked;
 extern bool linePrefixEmitted;
 extern byte cfCode;
 extern char commentStr[];
-extern byte curExtId;
+extern word curExtId;
 extern word blkCnt;
 extern byte dstRec;
 // extern byte endHelperId; now local var
@@ -630,7 +635,6 @@ extern word stmtNo;
 /* data.plm */
 extern vfile_t atf;
 extern byte wrapMarkerCol;
-extern byte wrapMarker;
 extern byte wrapTextCol;
 extern byte skipCnt;
 extern word blockDepth;
@@ -639,12 +643,12 @@ extern byte controls[];
 extern word csegSize;
 extern index_t infoIdx; // individually cast
 extern info_t *info;
-extern index_t curSym;
+extern sym_t *curSym;
 extern char DATE[];
 extern word dsegSize;
 extern byte fatalErrorCode;
 extern bool hasErrors;
-extern index_t hashTab[];
+extern sym_t *hashTab[];
 extern bool haveModuleLevelUnit;
 extern word helpers[];
 extern word intVecLoc;
@@ -670,7 +674,7 @@ extern word pageNo;
 
 extern word procChains[];
 extern word procCnt;
-extern word procInfo[];
+extern info_t *procInfo[];
 extern word programErrCnt;
 extern byte PWIDTH;
 extern file_t srcFil;
@@ -693,10 +697,10 @@ extern word cmdLineCaptured;
 extern vfile_t xrff;
 
 extern index_t symCnt;
-extern sym_t *symtab;
+extern sym_t symtab[];
 
-extern index_t infoCnt;
-extern info_t *infotab;
+extern info_t infotab[];
+extern info_t *topInfo;
 
 extern index_t dictCnt;
 extern index_t *dicttab;
@@ -710,9 +714,18 @@ extern xref_t *xreftab;
 extern char const **includes;
 extern uint16_t includeCnt;
 
+#define SetInfo(v) info = &infotab[infoIdx = (v)]
+
+inline index_t ToIdx(info_t *p) {
+    return p ? p - infotab : 0;
+}
+
+inline info_t *FromIdx(index_t n) {
+    return n ? infotab + n : NULL;
+}
 
 /* creati.c */
-void CreateInfo(word scope, byte type, index_t sym);
+void CreateInfo(word scope, byte type, sym_t *sym);
 
 /* endcom.c */
 void EndCompile(void);
@@ -741,7 +754,7 @@ void NewLineLst(void);
 void TabLst(byte tabTo);
 void DotLst(byte tabTo);
 void EjectNext(void);
-void SetMarkerInfo(byte markerCol, byte marker, byte textCol);
+void SetMarkerInfo(byte markerCol, byte textCol);
 void SetStartAndTabW(byte startCol, byte width);
 void SetSkipLst(byte cnt);
 void lstStr(char const *str);
@@ -797,7 +810,7 @@ void Wr1Word(uint16_t v);
 void Rd1Buf(void *buf, uint16_t len);
 uint8_t Rd1Byte(void);
 uint16_t Rd1Word(void);
-void Wr1InfoOffset(offset_t addr);
+void Wr1InfoOffset(info_t *inf);
 void Wr1SyntaxError(byte err);
 void Wr1TokenErrorAt(byte err);
 void Wr1TokenError(byte err, offset_t symP);
@@ -843,7 +856,7 @@ word WrTx2Item(byte type);
 word WrTx2Item1Arg(byte type, word arg2w);
 word WrTx2Item2Arg(byte type, word arg2w, word arg3w);
 word WrTx2Item3Arg(byte type, word arg2w, word arg3w, word arg4w);
-word Sub_42EF(word arg1w);
+word RelCnt(word arg1w);
 void MapLToT2(void);
 void WrTx2Error(byte arg1b);
 void WrTx2ExtError(byte arg1b);
@@ -869,14 +882,13 @@ void WrAtWord(word arg1w);
 void RestrictedExpression(void);
 word InitialValueList(offset_t infoOffset);
 void ResetStacks(void);
-void PushParseWord(word arg1w);
-void PopParseStack(void);
-void PushParseByte(byte arg1b);
+void PushParse(word arg1w);
+word PopParse(void);
 void ExprPop(void);
 void ExprPush2(byte icode, word val);
 void MoveExpr2Stmt(void);
 void PushOperator(byte arg1b);
-void PopOperatorStack(void);
+word PopOperator(void);
 void ExprMakeNode(byte icode, byte argCnt);
 void AcceptOpAndArgs(void);
 void FixupBased(offset_t arg1w);
@@ -1040,12 +1052,7 @@ void SignOnAndGetSourceName(void);
 
 /* plmb.c */
 void InitKeywordsAndBuiltins(void);
-void SetDate(char *str, byte len);
-void SetPageLen(word len);
 void SetPageNo(word v);
-void SetMarginAndTabW(byte startCol, byte width);
-void SetTitle(char *str, byte len);
-void SetPageWidth(word width);
 
 /* plmfile.c */
 void CloseF(file_t *fileP);
@@ -1060,7 +1067,7 @@ void lstc(byte ch);
 /* symtab.c */
 pstr_t const *pstrdup(pstr_t const *ps);
 bool pstrequ(pstr_t const *ps, pstr_t const *pt);
-index_t newSymbol(pstr_t const *ps);
+sym_t *newSymbol(pstr_t const *ps);
 void newInfo(byte type);
 index_t newDict(index_t idx);
 index_t newCase(word val);

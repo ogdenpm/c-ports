@@ -111,7 +111,7 @@ static void InstallBuiltins() {
 static void InstallKeywords() {
     for (int i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
         Lookup(keywords[i].name);
-        symtab[curSym].infoIdx = 0xFF00 | keywords[i].id;
+        curSym->infoChain = 0xFF00 | keywords[i].id;
     }
 } /* InstallKeywords() */
 
@@ -128,34 +128,7 @@ void InitKeywordsAndBuiltins() {
     InstallBuiltins();
 } /* InitKeywordsAndBuiltins() */
 
-void SetDate(char *str, byte len) {
-    if (len > 9)
-        len = 9;
-    memset(DATE, ' ', 9);
-    memcpy(DATE, str, len);
-    DATE[9] = '\0';
-} /* SetDate() */
-
-void SetPageLen(word len) {
-    PAGELEN = (byte)len;
-} /* SetPageLen() */
-
 void SetPageNo(word v) {
     pageNo = v - 1;
 }
 
-void SetMarginAndTabW(byte startCol, byte width) {
-    margin = startCol - 1;
-    tWidth = width;
-}
-
-void SetTitle(char *str, byte len) {
-    if (len > 60)
-        len = 60;
-    memmove(TITLE, str, len);
-    TITLELEN = len;
-} /* SetTitle() */
-
-void SetPageWidth(word width) {
-    PWIDTH = (byte)width;
-} /* SetPageWidth() */

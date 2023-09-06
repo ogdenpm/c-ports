@@ -11,13 +11,16 @@
 #include "plm.h"
 
 void NewPgl() {
+    byte pad = 0;
     if (!PAGING)
         return;
     linLft         = PAGELEN;
-    int titleWidth = PWIDTH - 41;
+    int titleWidth = PWIDTH - 30 - (int)strlen(DATE);
     int titlelen   = TITLELEN <= titleWidth ? TITLELEN : titleWidth;
-    fprintf(lstFile.fp, "\fPL/M-80 COMPILER    %*.*s  %s  PAGE %3d\n\n\n", titleWidth, titlelen,
-            TITLE, DATE, ++pageNo);
+    if (titleWidth > titlelen)
+        pad = titleWidth - titlelen;
+    fprintf(lstFile.fp, "\fPL/M-80 COMPILER  %*s%.*s%*s  %s  PAGE %3d\n\n\n", pad / 2, "",
+            titlelen, TITLE, pad - pad / 2, "", DATE, ++pageNo);
     skipCnt = 0;
 }
 
@@ -31,12 +34,7 @@ void NlLead() {
         WrLstC(' ');
         col++;
     }
-    if (wrapMarker) {
-        WrLstC(wrapMarker);
-        col++;
-    }
-    while (col < wrapTextCol) {
+    WrLstC('-');
+    while (++col < wrapTextCol)
         WrLstC(' ');
-        col++;
-    }
 }

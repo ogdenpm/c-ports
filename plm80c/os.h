@@ -6,7 +6,9 @@ void usage();
 void Start();
 
 // io.c routines
-void setTrap(void (*trap)(void));
+void setTrap(void (*trap)(int retCode));
+void DelOnError(char const *fname);
+void CancelDelOnError(char const *fname);
 char const *basename(char const *path);
 char *MapFile(char *osName, const char *isisPath);
 FILE *Fopen(char const *pathP, char *access);

@@ -40,9 +40,8 @@ void EjectNext() {
     linLft = 0;
 }
 
-void SetMarkerInfo(byte markerCol, byte marker, byte textCol) {
+void SetMarkerInfo(byte markerCol, byte textCol) {
     wrapMarkerCol = markerCol;
-    wrapMarker    = marker;
     wrapTextCol   = textCol;
 }
 

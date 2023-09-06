@@ -341,3 +341,12 @@ enum {
     CF_171     = 171,
     CF_174     = 174
 };
+
+
+/* expression parse states */
+enum {
+    E_EXPRESSION, E_1, E_COLONEQUALS, E_3, E_4, E_PRIMARY,
+    E_RPAREN, E_ADDRESSOF, E_VARREF, E_DATAREF, E_MEMBERSPEC,
+    E_11, E_12, E_PERIOD, E_MEMBER, E_ARGLIST, E_FUNCTION, E_17,
+    E_18, E_SUBSCRIPT, E_ENDSUBSCRIPT
+};

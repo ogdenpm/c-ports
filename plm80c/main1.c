@@ -9,12 +9,13 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include "os.h"
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 word markedStSP;
 word t2CntForStmt;
-word procIdx = { 0 };
+info_t *curProc;
 word curStmtNum;
 var_t var;
 
@@ -34,8 +35,10 @@ static void PrepFiles() {
     /* the opening of all output files has been moved here */
     if (IXREF)
         OpenF(&ixiFile, "IXREF", ixiFileName, "wb+");
-    if (OBJECT)
+    if (OBJECT) {
         OpenF(&objFile, "OBJECT", objFileName, "wb+");
+        DelOnError(objFileName);
+    }
     if (PRINT)
         OpenF(&lstFile, isList ? "LIST" : "PRINT", lstFileName, "wt");
 }

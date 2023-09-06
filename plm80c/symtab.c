@@ -1,11 +1,12 @@
 #include "os.h"
 #include "plm.h"
 
-#define STCHUNK 2048
+#define MAXSYM  2500        // same as pl/m-386
+#define MAXINFO 3000        // allow for symbol reuse
 
-index_t symtabSize;
-index_t symCnt = 1; // reserve 0
-sym_t *symtab;
+
+sym_t symtab[MAXSYM];
+sym_t *topSym = &symtab[1]; // 0 is reserved
 
 pstr_t const *pstrdup(pstr_t const *ps) {
     pstr_t *p = xmalloc(ps->len + 2);
@@ -18,35 +19,25 @@ bool pstrequ(pstr_t const *ps, pstr_t const *pt) {
     return ps->len == pt->len && strncmp(ps->str, pt->str, ps->len) == 0;
 }
 
-index_t newSymbol(pstr_t const *ps) {
-    if (symCnt >= symtabSize) {
-        if (symtabSize + STCHUNK >= 0x10000)
+sym_t *newSymbol(pstr_t const *ps) {
+    if (topSym >= &symtab[MAXSYM])
             FatalError("Out of symbol space");
-        else
-            symtab = xrealloc(symtab, (symtabSize += STCHUNK) * sizeof(sym_t));
-    }
-    symtab[symCnt].link    = 0;
-    symtab[symCnt].infoIdx = 0;
-    symtab[symCnt].name    = pstrdup(ps);
+    topSym->link           = 0;
+    topSym->infoChain        = 0;
+    topSym->name           = pstrdup(ps);
 
-    return symCnt++;
+    return topSym++;
 }
 
-#define INCHUNK 2048
-index_t infotabSize;
-index_t infoCnt = 1;
-info_t *infotab;
+info_t infotab[MAXINFO];
+info_t *topInfo = &infotab[1];  // 0 reserved
 
 void newInfo(byte type) {
-    if (infoCnt >= infotabSize) {
-        if (infotabSize + INCHUNK >= 0xf000)
+    if (topInfo >= &infotab[MAXINFO])
             FatalError("Out of info space");
-        else
-            infotab = xrealloc(infotab, (infotabSize += INCHUNK) * sizeof(info_t));
-    }
-    SetInfo(infoCnt++);
-    memset(info, 0, sizeof(info_t));
-    info->type = type;
+    topInfo->type = type;
+    info = topInfo;
+    infoIdx = topInfo++ - infotab;
 }
 
 #define DICHUNK 1024

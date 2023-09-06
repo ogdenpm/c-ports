@@ -18,7 +18,7 @@ static byte bC28B[4], bC28F;
 
 static void Sub_7D32() {
     EncodeFragData(CF_XCHG);
-    pc++;
+    codeSize++;
     Sub_5B96(3, 4);
     Sub_5B96(2, 3);
     Sub_5B96(4, 2);
@@ -28,7 +28,7 @@ static void Sub_7D54() {
     wC1DC[0] = 0xa;
     wC1DC[1] = wC1C3;
     EncodeFragData(CF_XTHL);
-    pc++;
+    codeSize++;
     Sub_5C97(4);
     Sub_5C1D(3);
     Sub_5B96(4, 3);
@@ -95,7 +95,7 @@ void Sub_7A85() {
         if (j != 0 && bC04E[j] != 0) {
             wC1DC[0] = j;
             EncodeFragData(CF_MOVLRHR);
-            pc++;
+            codeSize++;
         }
     }
     if (!boC1D8) {
@@ -318,7 +318,7 @@ void Sub_7DA9() {
         Sub_61A9(0);
         Sub_61A9(1);
         EncodeFragData(i);
-        pc += (b43F8[i] & 0x1f);
+        codeSize += (b43F8[i] & 0x1f);
     }
 }
 
@@ -384,21 +384,21 @@ void Sub_84ED() {
             wC1DC[bC1DB - 1] += 2;
         Sub_8698(b42F9[cfrag1] & 0xf, (b4029[cfrag1] >> 1) & 7);
         EncodeFragData(cfrag1);
-        pc += (b43F8[cfrag1] & 0x1f);
+        codeSize += (b43F8[cfrag1] & 0x1f);
         if (cfrag1 == CF_DELAY) {
             helpers[105] = 1;
-            if (wC1C5 < (wC1C3 + 1) * 2)
-                wC1C5 = (wC1C3 + 1) * 2;
+            if (stackUsage < (wC1C3 + 1) * 2)
+                stackUsage = (wC1C3 + 1) * 2;
         } else if (cfrag1 > CF_171) {
             byte i     = b4128[b413B[cfrag1 - CF_174]];
             byte j     = b425D[b4273[curOp]];
             i          = b3FCD[b418C[j][i] >> 2] + (b418C[j][i] & 3);
             helpers[i] = 1;
             if (curOp == T2_SLASH || curOp == T2_MOD || curOp == T2_44) {
-                if (wC1C5 < (wC1C3 + 2) * 2)
-                    wC1C5 = (wC1C3 + 2) * 2;
-            } else if (wC1C5 < (wC1C3 + 1) * 2)
-                wC1C5 = (wC1C3 + 1) * 2;
+                if (stackUsage < (wC1C3 + 2) * 2)
+                    stackUsage = (wC1C3 + 2) * 2;
+            } else if (stackUsage < (wC1C3 + 1) * 2)
+                stackUsage = (wC1C3 + 1) * 2;
         }
     }
 }

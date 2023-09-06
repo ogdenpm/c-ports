@@ -11,20 +11,20 @@
 #include "plm.h"
 
 void LstModuleInfo() {
-    word p, q, r;
-    p = 0;
-    for (q = 1; q <= procCnt; q++) {
-        SetInfo(procInfo[q]);
-        r = info->baseVal;
-        if (r > p)
-            p = r;
+    word maxStack = 0;
+
+    for (int i = 1; i <= procCnt; i++) {
+        info = procInfo[i];
+        if (info->stackUsage > maxStack)
+            maxStack = info->stackUsage;
     }
+
     SetSkipLst(3);
     lstStr("MODULE INFORMATION:\n");
     SetSkipLst(1);
-    lprintf("     CODE AREA SIZE     = %s  %5dD\n", hexfmt(4, csegSize)->str, csegSize);
-    lprintf("     VARIABLE AREA SIZE = %s  %5dD\n", hexfmt(4, dsegSize)->str, dsegSize);
-    lprintf("     MAXIMUM STACK SIZE = %s  %5dD\n", hexfmt(4, p)->str, p);
+    lprintf("     CODE AREA SIZE     = %0*XH  %5dD\n", csegSize >= 0xa000 ? 5 : 4, csegSize, csegSize);
+    lprintf("     VARIABLE AREA SIZE = %0*XH  %5dD\n", dsegSize >= 0xa000 ? 5 : 4, dsegSize, dsegSize);
+    lprintf("     MAXIMUM STACK SIZE = %0*XH  %5dD\n", maxStack >= 0xa000 ? 5 : 4, maxStack, maxStack);
     lprintf("     %d LINES READ\n", linesRead);
     lprintf("     %d PROGRAM ERROR%s\n", programErrCnt, programErrCnt != 1 ? "S" : "");
     SetSkipLst(1);

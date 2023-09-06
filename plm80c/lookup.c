@@ -23,18 +23,18 @@ void Lookup(pstr_t *pstr) {
     byte hval = Hash(pstr);
 
     curSym    = hashTab[hval]; // find start of list in hash table
-    for (index_t prevSym = 0; curSym; prevSym = curSym, curSym = symtab[curSym].link) {
-        if (pstrequ(symtab[curSym].name, pstr)) {
+    for (sym_t *prevSym = NULL; curSym; prevSym = curSym, curSym = curSym->link) {
+        if (pstrequ(curSym->name, pstr)) {
             if (prevSym) {
                 // move to front of list if not there already
-                symtab[prevSym].link = symtab[curSym].link;
-                symtab[curSym].link  = hashTab[hval];
+                prevSym->link = curSym->link;
+                curSym->link  = hashTab[hval];
                 hashTab[hval]        = curSym;
             }
             return;
         }
     }
     curSym              = newSymbol(pstr);
-    symtab[curSym].link = hashTab[hval];
+    curSym->link = hashTab[hval];
     hashTab[hval]       = curSym;
 } /* Lookup() */

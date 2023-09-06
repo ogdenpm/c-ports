@@ -45,14 +45,38 @@ char *cmdP; // current location on command line
 char const *invokeName; // sanitised invoking command
 bool prompt;
 
+#define MAXDELONERROR  3
+static char const *delOnError[MAXDELONERROR];
+
 char const *deviceMap[10]; // mappings of :Fx: to directories
 char *endToken;            // used in error reporting
 
-void (*trap)(void);
+void (*trap)(int retCode);
 
-void setTrap(void (*f)(void)) {
+void setTrap(void (*f)(int retCode)) {
     trap = f;
 }
+
+
+void DelOnError(char const *fname) {
+    CancelDelOnError(fname);    // remove any existing to avoid duplicates
+    for (int i = 0; i < MAXDELONERROR; i++)
+        if (!delOnError[i]) {
+            delOnError[i] = fname;
+            return;
+        }
+    FatalError("Internal error - too many delete on error files\n");
+   
+}
+
+void CancelDelOnError(char const *fname) {
+    for (int i = 0; i < MAXDELONERROR; i++)
+        if (delOnError[i] && strcmp(delOnError[i], fname) == 0) {
+            delOnError[i] = NULL;
+            return;
+        }
+}
+
 
 int main(int argc, char **argv) {
     CHK_SHOW_VERSION(argc, argv); // version info
@@ -77,12 +101,15 @@ int main(int argc, char **argv) {
 _Noreturn void Exit(int retCode) {
     if (fcloseall() < 0)
         fprintf(stderr, "Warning: Problem closing open files\n");
-    //    if (retCode && omfOutName && Delete(omfOutName))
-    //        fprintf(stderr, "Warning: Couldn't delete %s\n", omfOutName);
-    if (trap) {
-        //        omfOutName = NULL;
-        trap();
-    }
+    // delete any requested files if errors, also clear in case trap is used
+    for (int i = 0; i < MAXDELONERROR; i++)
+        if (delOnError[i]) {
+            if (retCode)
+                unlink(delOnError[i]);  // note aliased filenames return error but ignored
+            delOnError[i] = NULL;
+        }
+    if (trap)
+        trap(retCode);
     exit(retCode);
 }
 

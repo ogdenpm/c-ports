@@ -9,8 +9,14 @@
  ****************************************************************************/
 
 #include "plm.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 void EndCompile() {
     printf("PL/M-80 COMPILATION COMPLETE.  %-5d PROGRAM ERROR%s\n\n", programErrCnt,
            programErrCnt == 1 ? "" : "S");
+    if (programErrCnt && objFile.fp) {
+        fclose(objFile.fp);
+        unlink(objFile.fNam);
+    }
 }

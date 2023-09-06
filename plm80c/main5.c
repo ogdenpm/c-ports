@@ -20,15 +20,15 @@ byte groupingChar = 0;
 
 void LoadDictionary() {
     dictCnt = maxSymLen = 0;
-    infoIdx             = 0;
+    info                = infotab;
     AdvNxtInfo();
-    while (infoIdx) {
+    while (info) {
         if (info->type < MACRO_T && info->sym != 0) {
             newDict(infoIdx);
             info->scope = 0; /* used for xref Chain() */
             curSym      = info->sym;
-            if (symtab[curSym].name->len > maxSymLen)
-                maxSymLen = symtab[curSym].name->len;
+            if (curSym->name->len > maxSymLen)
+                maxSymLen = curSym->name->len;
         }
         AdvNxtInfo();
     }
@@ -38,7 +38,7 @@ int CmpSym(void const *a, void const *b) {
     index_t ia = *(index_t *)a;
     index_t ib = *(index_t *)b;
 
-    int cmp    = strcmp(symtab[infotab[ia].sym].name->str, symtab[infotab[ib].sym].name->str);
+    int cmp    = strcmp(infotab[ia].sym->name->str, infotab[ib].sym->name->str);
     return cmp ? cmp : ia - ib;
 }
 
@@ -135,7 +135,7 @@ static void PrintXrefs() {
 static void DescribeName() {
     curSym = info->sym;
     TabLst(-nameCol);
-    lstStr(symtab[curSym].name->str);
+    lstStr(curSym->name->str);
     DotLst(attribCol - 2);
     lstc(' ');
 }
@@ -165,10 +165,10 @@ static void DescribeDefinition() {
 
 
 static void DescribeBased() {
-    offset_t baseSym, member;
+    sym_t *baseSym, *member;
     info_t *baseInfo;
 
-    baseInfo = &infotab[info->baseOff];
+    baseInfo = &infotab[info->baseInfo];
     if ((baseInfo->flag & F_MEMBER)) {
         member  = baseInfo->sym;
         baseSym = infotab[baseInfo->parent].sym;
@@ -178,18 +178,18 @@ static void DescribeBased() {
     }
 
     curSym = baseSym;
-    lprintf(" BASED(%.*s", symtab[curSym].name->len, symtab[curSym].name->str);
+    lprintf(" BASED(%.*s", curSym->name->len, curSym->name->str);
     if (member) {
         lstc('.');
         curSym = member;
-        lprintf("%.*s", symtab[curSym].name->len, symtab[curSym].name->str);
+        lprintf("%.*s", curSym->name->len, curSym->name->str);
     }
     lstc(')');
 }
 
 static void DescribeMember() {
     curSym = infotab[info->parent].sym;
-    lprintf(" MEMBER(%.*s)", symtab[curSym].name->len, symtab[curSym].name->str);
+    lprintf(" MEMBER(%.*s)", curSym->name->len, curSym->name->str);
 }
 
 static void DescribeSimple(char const *attribute) {
@@ -277,9 +277,9 @@ static void DescribeVar(char const *str) {
 
 static void DoOneXref() {
     curSym = info->sym;
-    if (groupingChar != symtab[curSym].name->str[0]) {
+    if (groupingChar != curSym->name->str[0]) {
         NewLineLst();
-        groupingChar = symtab[curSym].name->str[0];
+        groupingChar = curSym->name->str[0];
     }
     if (info->type < MACRO_T)
         switch (info->type) {
@@ -317,7 +317,7 @@ void PrintRefs() {
     nameCol    = sizeCol + 7;
     attribCol  = nameCol + maxSymLen + 2;
     refContCol = attribCol + 1;
-    SetMarkerInfo(attribCol, '-', 3);
+    SetMarkerInfo(attribCol, 3);
     EjectNext();
     if (XREF)
         lstStr("CROSS-REFERENCE LISTING\n"
@@ -369,10 +369,9 @@ static void WrIxiWord(word v) {
 }
 
 void CreateIxrefFile() {
-    info   = &infotab[infoIdx = procInfo[1]];
-    curSym = info->sym;
+    curSym =  procInfo[1]->sym;
     if (curSym) { /* Write() the module info */
-        pstr_t const *pstr = symtab[curSym].name;
+        pstr_t const *pstr = curSym->name;
         WrIxiByte(0xff); // module header
         WrIxiByte(22 + pstr->len);
         WrIxiByte(pstr->len);                      /* module name len */
@@ -397,7 +396,7 @@ void CreateIxrefFile() {
             ((info->flag & (F_PUBLIC | F_EXTERNAL)) && !(info->flag & F_AT))) {
             WrIxiByte((info->flag & F_PUBLIC) ? 0 : 1);
             curSym             = info->sym;
-            pstr_t const *pstr = symtab[curSym].name;
+            pstr_t const *pstr = curSym->name;
             WrIxiByte(6 + pstr->len);
             WrIxiByte(pstr->len);           /* module name len */
             WrIxiBuf(pstr->str, pstr->len); /* module name */

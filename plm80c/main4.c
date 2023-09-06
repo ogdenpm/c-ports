@@ -23,10 +23,9 @@ static void Sub_3FC8() {
     if (PRINT) {
         EjectNext();
         lstStr("ISIS-II PL/M-80 " VERSION " COMPILATION OF MODULE ");
-        SetInfo(procInfo[1]);
-        curSym = info->sym;
-        if (curSym != 0)
-            lstStr(symtab[curSym].name->str);
+        curSym = procInfo[1]->sym;
+        if (curSym)
+            lstStr(curSym->name->str);
         NewLineLst();
         if (OBJECT)
             lprintf("OBJECT MODULE PLACED IN %s\n", objFile.fNam);
@@ -44,10 +43,9 @@ static void Sub_3FC8() {
 static void Sub_408B() {
     Sub_3FC8();
     stmtNo   = 0;
-    info     = &infotab[infoIdx = procInfo[1]];
-    baseAddr = putWord(&recExec[CONTENT_OFF], info->linkVal);
+    baseAddr = putWord(&recExec[CONTENT_OFF], procInfo[1]->addr);
     SetSkipLst(3);
-    SetMarkerInfo(11, '-', 15);
+    SetMarkerInfo(11, 15);
     if (fatalErrorCode > 0) {
         errData.stmt = errData.info = 0;
         errData.num                 = fatalErrorCode;
@@ -84,8 +82,7 @@ static void Sub_4162() {
 static void Sub_4208() {
     if (haveModuleLevelUnit) {
         recEnd[MODEND_TYPE] = 1;
-        SetInfo(procInfo[1]);
-        putWord(&recEnd[MODEND_OFF], info->linkVal);
+        putWord(&recEnd[MODEND_OFF], procInfo[1]->addr);
     } else {
         recEnd[MODEND_TYPE] = 0;
         putWord(&recEnd[MODEND_OFF], 0);

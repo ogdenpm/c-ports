@@ -11,7 +11,7 @@
 #include "os.h"
 #include "plm.h"
 
-static byte externalsCnt = 0;
+static word externalsCnt = 0;
 static word atStmtNum    = 0;
 
 static void Sub_6EF6(word errNum) {
@@ -49,16 +49,16 @@ static word GetVarSize() {
 static void AdvNextDataInfo() {
     do {
         AdvNxtInfo();
-    } while (infoIdx && (info->type < BYTE_T || STRUCT_T < info->type));
+    } while (info && (info->type < BYTE_T || STRUCT_T < info->type));
 }
 
 /* determine structure sizes and member offsets */
 static void SetStructSizes() {
     word oldSize, varSize, newSize;
     info_t *parent;
-    infoIdx = 0;
+    info = infotab;
     AdvNextDataInfo();
-    while (infoIdx) {
+    while (info) {
         if (info->type == STRUCT_T) {
             info->totalSize = 0; /* struct Size() is 0 */
         } else if ((info->flag & F_MEMBER)) {
@@ -75,7 +75,7 @@ static void SetStructSizes() {
 }
 
 static word AllocVar(word addr) {
-    info->linkVal = addr; /* allocate this var's address */
+    info->addr = addr; /* allocate this var's address */
     addr += GetVarSize(); /* reserve it's space */
     if (addr < GetVarSize())
         Sub_6EF6(ERR207); /* LIMIT EXCEEDED: SEGMENT Size() */
@@ -83,27 +83,22 @@ static word AllocVar(word addr) {
 }
 
 static void AllocStkVar() {
-    word idx;
-
-    idx                 = procInfo[High(info->scope)];
-    infotab[idx].parent = AllocVar(infotab[idx].parent);
+    info_t *pInfo = procInfo[High(info->scope)];
+    pInfo->totalSize = AllocVar(pInfo->totalSize);
 }
 
 static void DataAllocation() {
     /* allocate external data ids */
 
     standAlone = haveModuleLevelUnit;
-    infoIdx    = 0;
+    info       = infotab;
     AdvNxtInfo();
-    while (infoIdx) {
-        if ((info->type >= BYTE_T && info->type <= STRUCT_T) || info->type == PROC_T ||
+    while (info) {
+        if ((BYTE_T <= info->type && info->type <= STRUCT_T) || info->type == PROC_T ||
             info->type == LABEL_T) {
             if ((info->flag & F_EXTERNAL)) {
-                info->extId = externalsCnt;
-                externalsCnt++;
-                if (externalsCnt == 0)
-                    Sub_6EF6(ERR219); /* LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255 */
-                info->linkVal = 0;
+                info->extId = externalsCnt++;   // other limits will kick in before this wraps
+                info->addr = 0;
                 standAlone    = false;
             } else if ((info->flag & F_PUBLIC))
                 standAlone = false;
@@ -112,12 +107,12 @@ static void DataAllocation() {
     }
 
     /* allocate data variables */
-    infoIdx = 0;
+    info = infotab;
     AdvNextDataInfo();
-    while (infoIdx) {
+    while (info) {
         if (!(info->flag & (F_MEMBER | F_AT | F_EXTERNAL))) {
             if (((info->flag & F_PARAMETER) &&
-                 (infotab[procInfo[High(info->scope)]].flag & F_EXTERNAL)) ||
+                 (procInfo[High(info->scope)]->flag & F_EXTERNAL)) ||
                 (info->flag & F_BASED))
                 info->linkVal = 0; /* external parameter and based var have 0 offset */
             else if ((info->flag & F_DATA))
@@ -131,7 +126,7 @@ static void DataAllocation() {
         }
         AdvNextDataInfo();
     }
-    info = NULL; // just in case
+    infoIdx = 0;
 }
 
 union {
@@ -211,7 +206,7 @@ static void Sub_7486() {
             }
         }
         AdvNextDataInfo();
-    } while (infoIdx && (info->flag & (F_PACKED | F_MEMBER)));
+    } while (info && (info->flag & (F_PACKED | F_MEMBER)));
 }
 static void Sub_73DC() {
     RdAtHdr();

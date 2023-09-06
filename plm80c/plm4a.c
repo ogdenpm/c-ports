@@ -1312,7 +1312,7 @@ static void EmitSymLabel() {
     SetInfo(Rd1Word());
     curSym = info->sym;
     AddrCheck(info->linkVal);
-    EmitLabel(symtab[curSym].name->str);
+    EmitLabel(curSym->name->str);
 }
 
 static void EmitSimpleError() {

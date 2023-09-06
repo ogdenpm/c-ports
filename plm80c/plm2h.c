@@ -127,18 +127,18 @@ void Sub_9EF8() {
 
 void Sub_9F14() {
     if (EnterBlk())
-        blkCurInfo[blkSP] = caseCnt;
+        blk[blkSP].info = caseCnt;
 }
 
 void Sub_9F2F() {
     word p, q;
-    p = q = (word)blkCurInfo[blkSP];
+    p = q = (word)blk[blkSP].info;
     if (ExitBlk()) {
         while (p < caseCnt) {
             wC1DC[0] = 14;
             wC1DC[1] = casetab[p];
             EncodeFragData(CF_DW);
-            pc += 2;
+            codeSize += 2;
             p++;
         }
         if (caseCnt == q) {
@@ -152,27 +152,27 @@ void Sub_9F2F() {
 
 void Sub_9F9F() {
     if (ExitBlk()) {
-        SetInfo(blkCurInfo[procChainId]);
+        SetInfo(blk[blkId].info);
         if (!boC1CC) {
             Sub_5EE8();
             EncodeFragData(CF_RET);
-            pc++;
+            codeSize++;
         }
         if ((info->flag & F_INTERRUPT))
-            wC1C5 += 8;
+            stackUsage += 8;
 
-        info->dim     = pc;
-        info->baseVal = wC1C5 + wC1C7;
-        pc            = wB488[procChainId = procChainNext[procChainId]];
+        info->dim     = codeSize;
+        info->baseVal = stackUsage + wC1C7;
+        codeSize            = blk[blkId = blk[blkId].next].codeSize;
         fragLen       = 0;
         PutTx1Byte(0xa4);
-        PutTx1Word(blkCurInfo[procChainId]);
-        PutTx1Word(pc);
+        PutTx1Word(blk[blkId].info);
+        PutTx1Word(codeSize);
         WrFragData();
-        wC1C3        = wB4B0[procChainId];
-        wC1C5        = wB4D8[procChainId];
+        wC1C3        = blk[blkId].wB4B0;
+        stackUsage        = blk[blkId].stackSize;
         wC1C7        = 0;
-        curExtProcId = extProcId[procChainId];
+        curExtProcId = blk[blkId].extProcId;
     }
 }
 

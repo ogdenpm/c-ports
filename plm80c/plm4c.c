@@ -354,7 +354,7 @@ static void Sub_69E1(word disp, byte slot) {
     wValAry[slot] = info->linkVal + disp;
     curSym        = info->sym;
     if (curSym)
-        pstrcpy((pstr_t *)ps96B0, symtab[curSym].name);
+        pstrcpy((pstr_t *)ps96B0, curSym->name);
     else {
         ps96B0[0] = 1;
         ps96B0[1] = '$';
@@ -385,7 +385,7 @@ static void Sub_6B0E(byte slot) {
     sValAry[slot] = pstrcpy((pstr_t *)ps96B0, hexfmt(0, wValAry[slot]));
     ps969E        = (pstr_t *)commentStr;
     curSym        = info->sym;
-    commentStr[0] = sprintf(commentStr + 1, "; %s", symtab[curSym].name->str);
+    commentStr[0] = sprintf(commentStr + 1, "; %s", curSym->name->str);
     AddWrdDisp(ps969E, disp);
 }
 
