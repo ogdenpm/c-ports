@@ -38,9 +38,10 @@ void lstc(byte ch) {
         }
     } else {
         WrLstC(ch);
-        if (ch == '\n')
+        if (ch == '\n') {
+            linLft--;
             col = 0;
-        else
+        } else
             col++;
     }
 }

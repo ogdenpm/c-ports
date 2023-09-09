@@ -10,11 +10,9 @@
 
 #include "plm.h"
 
-byte Sub_5945() {
-    byte i;
-
+bool parseAssignment() {
     ResetStacks();
-    i = 0;
+    byte assignCnt = 0;
     while (1) {
         if (NotMatchTx1Item(L_IDENTIFIER)) {
             WrTx2ExtError(ERR128); /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
@@ -23,11 +21,11 @@ byte Sub_5945() {
         ChkIdentifier();
         PushParse(11);
         ExpressionStateMachine();
-        if (Sub_512E(exSP)) {
+        if (ChkRValue(exSP)) {
             WrTx2ExtError(ERR128); /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
             ExprPop();
         } else
-            i++;
+            assignCnt++;
         if (NotMatchTx1Item(L_COMMA))
             break;
     }
@@ -35,8 +33,8 @@ byte Sub_5945() {
     if (MatchTx1Item(L_EQ)) {
         PushParse(0); // <expression>
         ExpressionStateMachine();
-        if (i != 0) {
-            ExprMakeNode(I_COLONEQUALS, i + 1);
+        if (assignCnt) {
+            ExprMakeNode(I_COLONEQUALS, assignCnt + 1);
             MoveExpr2Stmt();
             markedStSP = stSP;
             return true;
@@ -109,16 +107,15 @@ void Expression() {
 
 // lifted to file scope
 static word topNode;
-static word t2Cnt;
 
-static void FlgVisited(word node, word t2Cnt) {
+static void RedirectNode(word node, word t2Cnt) {
     sStack[node].icode = 255;
     sStack[node].val   = t2Cnt;
 }
 
 static void Sub_5BF5(word node) {
     byte iCode = sStack[node].icode;
-
+    word t2Cnt;
     if (iCode == I_IDENTIFIER)
         t2Cnt = WrTx2Item1Arg(T2_IDENTIFIER, sStack[node].infoIdx);
     else if (iCode == I_NUMBER) {
@@ -129,7 +126,7 @@ static void Sub_5BF5(word node) {
         t2Cnt = WrTx2Item1Arg(icodeToTx2Map[iCode], sStack[node].infoIdx);
     else
         t2Cnt = WrTx2Item(icodeToTx2Map[iCode]);
-    FlgVisited(node, t2Cnt);
+    RedirectNode(node, t2Cnt);
 }
 
 static void SerialiseParse0() {
@@ -199,7 +196,7 @@ static void SerialiseParse3() { /* parse args */
         PushParse(sStack[topNode].sNodeIdx + 1); /* index of arg info */
         PushParse(0);
     }
-    t2Cnt = WrTx2Item(T2_BEGCALL);
+    WrTx2Item(T2_BEGCALL);
 }
 
 static void SerialiseParse4() {
@@ -207,15 +204,16 @@ static void SerialiseParse4() {
     topNode     = parseStack[parseSP - 1];
     byte argCnt = (byte)parseStack[parseSP - 2];
     if (argCnt > 2) { /* all bar first 2 args to stack */
+        word t2Cnt;
         if (!info)
-            t2Cnt = WrTx2Item1Arg(T2_STKARG, RelCnt(sStack[topNode].sNodeIdx));
+            t2Cnt = WrTx2Item1Arg(T2_STKARG, CvtToRel(sStack[topNode].sNodeIdx));
         else {
             t2Cnt = WrTx2Item1Arg(info->type == BYTE_T ? T2_STKBARG : T2_STKWARG,
-                                  RelCnt(sStack[topNode].sNodeIdx));
+                                  CvtToRel(sStack[topNode].sNodeIdx));
             AdvNxtInfo();
             parseStack[parseSP] = infoIdx;
         }
-        FlgVisited(topNode, t2Cnt);
+        RedirectNode(topNode, t2Cnt);
     }
     argCnt--;
     if (argCnt == 0) { /* all done, clear working data */
@@ -240,18 +238,17 @@ static void SerialiseParse5() {
     i       = sStack[topNode].op2 - 1;
     p = q = 0;
     if (i > 1) {
-        p = RelCnt(sStack[r + i - 1].sNodeIdx);
-        q = RelCnt(sStack[r + i].sNodeIdx);
+        p = CvtToRel(sStack[r + i - 1].sNodeIdx);
+        q = CvtToRel(sStack[r + i].sNodeIdx);
     } else if (i > 0)
-        p = RelCnt(sStack[r + i].sNodeIdx);
-    t2Cnt = WrTx2Item3Arg(T2_CALL, p, q, sStack[r].sNodeIdx);
-    FlgVisited(topNode, t2Cnt);
+        p = CvtToRel(sStack[r + i].sNodeIdx);
+    RedirectNode(topNode, WrTx2Item3Arg(T2_CALL, p, q, sStack[r].sNodeIdx));
 }
 
 static void SerialiseParse6() {
     byte i;
     word p;
-    t2Cnt   = WrTx2Item(T2_BEGCALL);
+    WrTx2Item(T2_BEGCALL);
     topNode = parseStack[parseSP];
     PushParse(7);
     if ((i = sStack[topNode].op2 - 1) != 0) {
@@ -266,29 +263,27 @@ static void SerialiseParse6() {
 }
 
 static void SerialiseParse7() {
-    byte i;
-    word p, q, r;
 
-    topNode = PopParse();
-    i       = sStack[topNode].op2 - 1;
-    p       = sStack[topNode].sNodeIdx;
-    q = r = 0;
-    if (i > 1) {
-        q = RelCnt(sStack[p + i - 1].sNodeIdx);
-        r = RelCnt(sStack[p + i].sNodeIdx);
-    } else if (i > 0)
-        q = RelCnt(sStack[p + i].sNodeIdx);
-    t2Cnt = WrTx2Item3Arg(T2_CALLVAR, q, r, RelCnt(sStack[p].sNodeIdx));
-    FlgVisited(topNode, t2Cnt);
+    topNode         = PopParse();
+    byte lastArgIdx = sStack[topNode].op2 - 1;
+    word relArgs    = sStack[topNode].sNodeIdx;
+    word relBC = 0, relDE = 0;
+    if (lastArgIdx > 1) {
+        relBC = CvtToRel(sStack[relArgs + lastArgIdx - 1].sNodeIdx);
+        relDE = CvtToRel(sStack[relArgs + lastArgIdx].sNodeIdx);
+    } else if (lastArgIdx > 0)
+        relBC = CvtToRel(sStack[relArgs + lastArgIdx].sNodeIdx);
+    word t2Cnt = WrTx2Item3Arg(T2_CALLVAR, relBC, relDE, CvtToRel(sStack[relArgs].sNodeIdx));
+    RedirectNode(topNode, t2Cnt);
 }
 
 static void SerialiseParse8() {
     topNode    = PopParse();
     byte icode = sStack[topNode].icode;
     word sIdx  = sStack[topNode].sNodeIdx;
-    t2Cnt      = WrTx2Item3Arg(icodeToTx2Map[icode], RelCnt(sStack[sIdx].sNodeIdx),
-                               RelCnt(sStack[sIdx + 1].sNodeIdx), sStack[sIdx + 2].sNodeIdx);
-    FlgVisited(topNode, t2Cnt);
+    word t2Cnt = WrTx2Item3Arg(icodeToTx2Map[icode], CvtToRel(sStack[sIdx].sNodeIdx),
+                               CvtToRel(sStack[sIdx + 1].sNodeIdx), sStack[sIdx + 2].sNodeIdx);
+    RedirectNode(topNode, t2Cnt);
 }
 
 static void SerialiseParse9() {
@@ -321,11 +316,11 @@ static void SerialiseParse11() { /* do one RHS assignment */
     byte lhsCnt = (byte)parseStack[parseSP - 2];
     word rhsIdx = parseStack[parseSP];
     if (sStack[lhsIdx = parseStack[parseSP - 1]].icode == I_OUTPUT) {
-        t2Cnt = WrTx2Item1Arg(T2_NUMBER, sStack[lhsIdx].val);
-        t2Cnt = WrTx2Item2Arg(T2_OUTPUT, RelCnt(t2Cnt), RelCnt(sStack[rhsIdx].sNodeIdx));
+        word numberT2 = WrTx2Item1Arg(T2_NUMBER, sStack[lhsIdx].val);
+        WrTx2Item2Arg(T2_OUTPUT, CvtToRel(numberT2), CvtToRel(sStack[rhsIdx].sNodeIdx));
     } else
-        t2Cnt = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(sStack[lhsIdx].sNodeIdx),
-                              RelCnt(sStack[rhsIdx].sNodeIdx));
+        WrTx2Item2Arg(T2_COLONEQUALS, CvtToRel(sStack[lhsIdx].sNodeIdx),
+                      CvtToRel(sStack[rhsIdx].sNodeIdx));
 
     if (--lhsCnt == 0) { /* all done */
         PopParse();
@@ -342,8 +337,8 @@ static void SerialiseParse11() { /* do one RHS assignment */
 
 static void SerialiseParse12() { /* mark LHS as used */
     topNode = PopParse();
-    t2Cnt   = sStack[sStack[topNode].sNodeIdx + sStack[topNode].op2 - 1].sNodeIdx;
-    FlgVisited(topNode, t2Cnt);
+    word t2Cnt   = sStack[sStack[topNode].sNodeIdx + sStack[topNode].op2 - 1].sNodeIdx;
+    RedirectNode(topNode, t2Cnt);
 }
 
 static void SerialiseParse13() { /* binary or unary op */
@@ -351,20 +346,21 @@ static void SerialiseParse13() { /* binary or unary op */
     topNode    = PopParse();
     word sIdx  = sStack[topNode].sNodeIdx;
     byte iCode = icodeToTx2Map[sStack[topNode].icode];
+    word t2Cnt;
     if (sStack[topNode].op2 == 1)
-        t2Cnt = WrTx2Item1Arg(iCode, RelCnt(sStack[sIdx].sNodeIdx));
+        t2Cnt = WrTx2Item1Arg(iCode, CvtToRel(sStack[sIdx].sNodeIdx));
     else
-        t2Cnt =
-            WrTx2Item2Arg(iCode, RelCnt(sStack[sIdx].sNodeIdx), RelCnt(sStack[sIdx + 1].sNodeIdx));
-    FlgVisited(topNode, t2Cnt);
+        t2Cnt = WrTx2Item2Arg(iCode, CvtToRel(sStack[sIdx].sNodeIdx),
+                              CvtToRel(sStack[sIdx + 1].sNodeIdx));
+    RedirectNode(topNode, t2Cnt);
 }
 
 static void SerialiseParse14() {
     word p;
     p = sStack[topNode = parseStack[parseSP]].sNodeIdx;
     /* emit the count leaf */
-    t2Cnt = WrTx2Item1Arg(T2_BEGMOVE, RelCnt(sStack[p].sNodeIdx));
-    FlgVisited(p, t2Cnt);
+    word t2Cnt = WrTx2Item1Arg(T2_BEGMOVE, CvtToRel(sStack[p].sNodeIdx));
+    RedirectNode(p, t2Cnt);
     PushParse(15); /* Move() post serialise */
     PushParse(2);  /* serialise the address leaves */
     PushParse(p + 1);
@@ -375,17 +371,16 @@ static void SerialiseParse15() { /* rest of Move() */
 
     topNode   = PopParse();
     word sIdx = sStack[topNode].sNodeIdx;
-    t2Cnt     = WrTx2Item3Arg(T2_MOVE, RelCnt(sStack[sIdx + 1].sNodeIdx),
-                              RelCnt(sStack[sIdx + 2].sNodeIdx), RelCnt(sStack[sIdx].sNodeIdx));
-    FlgVisited(topNode, t2Cnt);
+    word t2Cnt     = WrTx2Item3Arg(T2_MOVE, CvtToRel(sStack[sIdx + 1].sNodeIdx),
+                              CvtToRel(sStack[sIdx + 2].sNodeIdx), CvtToRel(sStack[sIdx].sNodeIdx));
+    RedirectNode(topNode, t2Cnt);
 }
 
 word SerialiseParse(word arg1w) {
     byte i;
-    word p;
+    info_t *savInfo = info;
 
-    p       = infoIdx;
-    parseSP = 0;
+    parseSP         = 0;
     PushParse(arg1w);
     PushParse(0);
     while (parseSP != 0) {
@@ -441,13 +436,13 @@ word SerialiseParse(word arg1w) {
             break;
         }
     }
-    SetInfo(p);
+    infoIdx = ToIdx(info = savInfo);
     return sStack[arg1w].sNodeIdx;
 }
 
-static byte flowType[20];
-static bool b9A13[20];
-static info_t *procInfoStack[20];
+static byte controlStk[20];
+static bool returnsVal[20];
+static info_t *infoStack[20];
 static word hNodes[20];
 static word eNodes[20];
 static word sNodes[20];
@@ -455,66 +450,61 @@ static word byNodes[20];
 static word controlSP;
 
 static void PushScope(word arg1w) {
-    if (blockDepth == 0x22)
+    if (scopeSP == 0x22)
         FatalError_ov1(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
     else
-        procChains[++blockDepth] = arg1w;
+        scopeChains[++scopeSP] = arg1w;
 }
 
 static void PopScope() {
-    if (blockDepth == 0)
+    if (scopeSP == 0)
         FatalError_ov1(ERR165); /* COMPILER Error: SCOPE STACK UNDERFLOW */
     else
-        blockDepth--;
+        scopeSP--;
 }
 
-static void PushControl(byte arg1b) {
-    if (controlSP == 0x13)
+static void PushControl(byte controlType) {
+    if (controlSP == 19)
         FatalError_ov1(ERR84); /*  LIMIT EXCEEDED: BLOCK NESTING */
     else {
-        flowType[++controlSP]    = arg1b;
-        b9A13[controlSP]         = false;
-        procInfoStack[controlSP] = NULL;
-        hNodes[controlSP]        = 0;
-        eNodes[controlSP]        = 0;
-        sNodes[controlSP]        = 0;
+        controlStk[++controlSP] = controlType;
+        returnsVal[controlSP]   = false;
+        infoStack[controlSP]    = NULL;
+        hNodes[controlSP]       = 0;
+        eNodes[controlSP]       = 0;
+        sNodes[controlSP]       = 0;
     }
 }
 
 static void PopControl() {
     if (controlSP == 0)
         FatalError_ov1(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
-    else {
-        if (flowType[controlSP])
-            b9A13[controlSP - 1] |= b9A13[controlSP];
-        controlSP--;
-    }
+    else if (controlStk[controlSP--])
+        returnsVal[controlSP] |= returnsVal[controlSP + 1];
 }
 
 static word NewLocalLabel() {
     return ++localLabelCnt;
 }
 
-static word Sub_671D(info_t *pInfo) {
-
-    infoIdx = ToIdx(info = pInfo);
-    word q  = WrTx2Item1Arg(T2_IDENTIFIER, ToIdx(info));
-    if ((info->flag & F_MEMBER)) {
-        SetInfo(info->parent);
-        word p = WrTx2Item1Arg(T2_IDENTIFIER, ToIdx(info));
-        q      = WrTx2Item2Arg(T2_MEMBER, RelCnt(p), RelCnt(q));
-    }
-    return q;
+static word WrTx2VarId(info_t *pInfo) {
+    word varT2 = WrTx2Item1Arg(T2_IDENTIFIER, ToIdx(pInfo));
+    if ((pInfo->flag & F_MEMBER)) {
+        SetInfo(pInfo->parent);
+        word memberNode = WrTx2Item1Arg(T2_IDENTIFIER, ToIdx(info));
+        varT2           = WrTx2Item2Arg(T2_MEMBER, CvtToRel(memberNode), CvtToRel(varT2));
+    } else
+        infoIdx = ToIdx(info = pInfo);
+    return varT2;
 }
 
-static word Sub_677C(info_t *pInfo) {
-    word p, q;
-    q = Sub_671D(pInfo);
+static word WrTx2Var(info_t *pInfo) {
+    word varNode = WrTx2VarId(pInfo);
     if ((info->flag & F_BASED)) {
-        p = Sub_671D(FromIdx(info->baseInfo));
-        q = WrTx2Item2Arg(T2_BASED, RelCnt(p), RelCnt(q));
+        word basedNode = WrTx2VarId(FromIdx(info->baseInfo));
+        varNode        = WrTx2Item2Arg(T2_BASED, CvtToRel(basedNode), CvtToRel(varNode));
     }
-    return q;
+    return varNode;
 }
 
 static void ChkEndOfStmt() {
@@ -527,30 +517,51 @@ static void ChkEndOfStmt() {
     }
 }
 
-static void EndFor() {
-    word loopCnt, w;
+/*
+    Serialise end of DO x = y to z [by s]
+    if no by clause
+        if x is byte
+            T2_LOCALLABEL newlabel
+        a: serialise x
+        b: serialise x
+        c: T2_NUMBER 1
+        if x is byte
+            d: T2_PLUSSIGN rel(b) rel(c)
+            e: T2_COLONEQUALS rel(a) rel(d)
+            f: T2_JNZ headLoop
+        else
+            d: T2_ADDW rel(b) rel(c)
+            e: T2_COLONEQUALS rel(a) rel(d)
+            f: T2_JNC headLoop
+    else
+        T2_JMP  stepLoop
+    T2_LOCALLABEL endLoop
+*/
 
-    info         = procInfoStack[controlSP];
-    word forLoop = hNodes[controlSP];
-    word forEnd  = eNodes[controlSP];
-    if ((w = sNodes[controlSP]) == 0) {
+static void EndIterDo() {
+    word stepLoop;
+
+    info          = infoStack[controlSP];
+    word headLoop = hNodes[controlSP];
+    word endLoop  = eNodes[controlSP];
+    if ((stepLoop = sNodes[controlSP]) == 0) {
         if (info->type == BYTE_T)
             WrTx2Item1Arg(T2_LOCALLABEL, NewLocalLabel());
-        loopCnt       = Sub_677C(info);
-        word loopVar  = Sub_677C(info);
+        word loopVar  = WrTx2Var(info);
+        word loopVar1 = WrTx2Var(info);
         word loopStep = WrTx2Item1Arg(T2_NUMBER, 1);
         if (info->type == BYTE_T) {
-            loopVar = WrTx2Item2Arg(T2_PLUSSIGN, RelCnt(loopVar), RelCnt(loopStep));
-            loopCnt = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(loopCnt), RelCnt(loopVar));
-            loopCnt = WrTx2Item2Arg(T2_JNZ, forLoop, 3);
+            loopVar1 = WrTx2Item2Arg(T2_PLUSSIGN, CvtToRel(loopVar1), CvtToRel(loopStep));
+            WrTx2Item2Arg(T2_COLONEQUALS, CvtToRel(loopVar), CvtToRel(loopVar1));
+            WrTx2Item2Arg(T2_JNZ, headLoop, 3);
         } else {
-            loopVar = WrTx2Item2Arg(T2_ADDW, RelCnt(loopVar), RelCnt(loopStep));
-            loopCnt = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(loopCnt), RelCnt(loopVar));
-            loopCnt = WrTx2Item1Arg(T2_JNC, forLoop);
+            loopVar1 = WrTx2Item2Arg(T2_ADDW, CvtToRel(loopVar1), CvtToRel(loopStep));
+            WrTx2Item2Arg(T2_COLONEQUALS, CvtToRel(loopVar), CvtToRel(loopVar1));
+            WrTx2Item1Arg(T2_JNC, headLoop);
         }
     } else
-        loopCnt = WrTx2Item1Arg(T2_JMP, w);
-    loopCnt = WrTx2Item1Arg(T2_LOCALLABEL, forEnd);
+        WrTx2Item1Arg(T2_JMP, stepLoop);
+    WrTx2Item1Arg(T2_LOCALLABEL, endLoop);
 }
 
 static word SerialiseExpression() {
@@ -558,109 +569,91 @@ static word SerialiseExpression() {
     return SerialiseParse(markedStSP);
 }
 
-static void Sub_6923() {
-    word p;
-    p = SerialiseExpression();
+static void SerialiseIF() {
+    word exprNode = SerialiseExpression();
     ChkEndOfStmt();
     if (MatchTx1Item(L_JMPFALSE))
-        p = WrTx2Item2Arg(T2_JMPFALSE, tx1Item.dataw[0], RelCnt(p));
+        WrTx2Item2Arg(T2_JMPFALSE, tx1Item.dataw[0], CvtToRel(exprNode));
     else
         FatalError_ov1(ERR168); /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
 }
 
 static void ParseStmtcnt() {
-    t2CntForStmt = 0;
+    stmtT2Cnt = 0;
     MapLToT2();
     curStmtNum = tx1Item.dataw[0];
 }
 
 static void ParseIf() {
-    Sub_6923();
+    SerialiseIF();
 }
 
 static void ParseProcedure() {
     MapLToT2();
     PushControl(DO_PROC);
-    procInfoStack[controlSP] = curProc;
+    infoStack[controlSP] = curProc;
     curProc = info = FromIdx(infoIdx = tx1Item.dataw[0]);
     info->flag |= F_DECLARED;
 }
 
+/*
+    Serialise WHILE
+    do while (cond);
+
+    a: T2_LOCALLABEL headLabel
+    b: Serialise expression cond
+    c: T2_JMPFALSE endlabel, rel(b)
+
+*/
 static void ParseWhile() {
-    word p, q, r;
     PushControl(DO_WHILE);
-    p                 = NewLocalLabel();
-    q                 = NewLocalLabel();
-    hNodes[controlSP] = p;
-    eNodes[controlSP] = q;
-    r                 = WrTx2Item1Arg(T2_LOCALLABEL, p);
-    r                 = SerialiseExpression();
-    r                 = WrTx2Item2Arg(T2_JMPFALSE, q, RelCnt(r));
+    WrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP] = NewLocalLabel());
+    word endLabel = eNodes[controlSP] = NewLocalLabel();
+    WrTx2Item2Arg(T2_JMPFALSE, endLabel, CvtToRel(SerialiseExpression()));
     ChkEndOfStmt();
 }
 
+/*
+    Serialise Case block
+    a: serialise expression
+       T2_CASEBLOCK headLabel rel(a)
+*/
 static void ParseCASE() {
-    word p, q;
     PushControl(DO_CASE);
     MapLToT2();
-    q                 = SerialiseExpression();
-    p                 = NewLocalLabel();
-    q                 = WrTx2Item2Arg(T2_63, p, RelCnt(q));
-    hNodes[controlSP] = p;
+    word exprT2 = SerialiseExpression();
+    WrTx2Item2Arg(T2_CASEBLOCK, hNodes[controlSP] = NewLocalLabel(), CvtToRel(exprT2));
     ChkEndOfStmt();
 }
 
-#if 0
+/*
+    write the tree for a do x = y to z [by s]
+
+    a:  serialise var x
+    b:  serialise expression y
+    c:  T2_COLONEQUALS rel(a) rel(b)
+    d:  T2_LOCALLABEL headLabel
+    e:  serialise var x
+    f:  serialise expression z
+    g:  T2_LE rel(e) rel(f)
+    h:  T2_JMPFALSE endLabel rel(g)
+
+    if BY
+    i:  T2_JMP byLabel
+    j:  T2_LOCALLABEL stepLabel
+    k:  serialise var x
+    l:  serialise var x
+    m:  serialise expression s
+    n:  T2_ADDW rel(l) rel(m)
+    o:  T2_COLONEQUALS rel(k) rel(n)
+        T2_JNC headlabel
+        T2_JMP endLabel
+        T2_LOCALLABEL byLabel
+
+    local labels allocated in order headLabel, endLabel, byLabel, stepLabel
+*/
+
 static void IterativeDoStatement() {
-    PushControl(DO_LOOP);
-    if (NotMatchTx1Item(L_IDENTIFIER)) {
-        WrTx2Error(ERR138); /* MISSING INDEX VARIABLE */
-        return;
-    }
-    GetVariable();
-
-    info_t *pInfo = procInfoStack[controlSP] = info;
-    if ((info->type != BYTE_T && info->type != ADDRESS_T) || (info->flag & F_ARRAY)) {
-        WrTx2ExtError(ERR139); /* INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS */
-        return;
-    }
-    if (NotMatchTx1Item(L_EQ)) {
-        WrTx2ExtError(ERR140); /* MISSING '=' FOLLOWING INDEX VARIABLE */
-        return;
-    }
-    flowType[controlSP] = 4;
-    word codeStart      = Sub_677C(pInfo);       // var
-    word codeCurrent    = SerialiseExpression(); // init expression
-
-    WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(codeStart), RelCnt(codeCurrent));
-    WrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP] = NewLocalLabel());
-    codeStart = Sub_677C(pInfo);
-
-    if (MatchTx1Item(L_TO))
-        codeCurrent = SerialiseExpression();
-    else {
-        WrTx2ExtError(ERR141); /* MISSING 'to' CLAUSE */
-        codeCurrent = WrTx2Item1Arg(T2_NUMBER, 0);
-    }
-
-    WrTx2Item2Arg(T2_LE, RelCnt(codeStart), RelCnt(codeCurrent));
-    WrTx2Item2Arg(T2_JMPFALSE, eNodes[controlSP] = NewLocalLabel(), RelCnt(codeStart));
-
-    if (NotMatchTx1Item(L_BY))
-        return;
-    WrTx2Item1Arg(T2_JMP, byNodes[controlSP] = NewLocalLabel());
-    WrTx2Item1Arg(T2_LOCALLABEL, sNodes[controlSP] = NewLocalLabel());
-    codeStart   = Sub_677C(pInfo);
-    codeCurrent = Sub_677C(pInfo);
-    codeCurrent = WrTx2Item2Arg(T2_ADDW, RelCnt(codeCurrent), RelCnt(SerialiseExpression()));
-    WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(codeStart), RelCnt(codeCurrent));
-    WrTx2Item1Arg(T2_JNC, hNodes[controlSP]);
-    WrTx2Item1Arg(T2_JMP, eNodes[controlSP]);
-    WrTx2Item1Arg(T2_LOCALLABEL, byNodes[controlSP]);
-}
-#else
-static void IterativeDoStatement() {
-    word p, q, r, s, t, u, v;
 
     PushControl(DO_LOOP);
     if (NotMatchTx1Item(L_IDENTIFIER)) {
@@ -669,7 +662,7 @@ static void IterativeDoStatement() {
     }
     GetVariable();
 
-    info_t *pInfo = procInfoStack[controlSP] = info;
+    info_t *pInfo = infoStack[controlSP] = info;
     if ((info->type != BYTE_T && info->type != ADDRESS_T) || (info->flag & F_ARRAY)) {
         WrTx2ExtError(ERR139); /* INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS */
         return;
@@ -678,69 +671,67 @@ static void IterativeDoStatement() {
         WrTx2ExtError(ERR140); /* MISSING '=' FOLLOWING INDEX VARIABLE */
         return;
     }
-    flowType[controlSP]  = 4;
-    p                 = Sub_677C(pInfo);
-    q                 = SerialiseExpression();
-    p                 = WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(p), RelCnt(q));
-    s                 = NewLocalLabel();
-    hNodes[controlSP] = s;
-    p                 = WrTx2Item1Arg(T2_LOCALLABEL, s);
-    p                 = Sub_677C(pInfo);
+    controlStk[controlSP] = DO_ITERATIVE;
+    word lhs              = WrTx2Var(pInfo);
+    word rhs              = SerialiseExpression();
+    WrTx2Item2Arg(T2_COLONEQUALS, CvtToRel(lhs), CvtToRel(rhs));
+    word headLabel    = NewLocalLabel();
+    hNodes[controlSP] = headLabel;
+    WrTx2Item1Arg(T2_LOCALLABEL, headLabel);
+    lhs = WrTx2Var(pInfo);
 
     if (MatchTx1Item(L_TO))
-        q = SerialiseExpression();
+        rhs = SerialiseExpression();
     else {
         WrTx2ExtError(ERR141); /* MISSING 'to' CLAUSE */
-        q = WrTx2Item1Arg(T2_NUMBER, 0);
+        rhs = WrTx2Item1Arg(T2_NUMBER, 0);
     }
 
-    p                 = WrTx2Item2Arg(T2_LE, RelCnt(p), RelCnt(q));
-    t                 = NewLocalLabel();
-    eNodes[controlSP] = t;
-    p                 = WrTx2Item2Arg(T2_JMPFALSE, t, RelCnt(p));
+    lhs               = WrTx2Item2Arg(T2_LE, CvtToRel(lhs), CvtToRel(rhs));
+    word endLabel     = NewLocalLabel();
+    eNodes[controlSP] = endLabel;
+    WrTx2Item2Arg(T2_JMPFALSE, endLabel, CvtToRel(lhs));
 
     if (NotMatchTx1Item(L_BY))
         return;
-    v                = NewLocalLabel();
-    byNodes[controlSP] = v;
-    p                = WrTx2Item1Arg(T2_JMP, v);
-    u                = NewLocalLabel();
-    sNodes[controlSP] = u;
-    p                = WrTx2Item1Arg(T2_LOCALLABEL, u);
-    p                = Sub_677C(pInfo);
-    q                = Sub_677C(pInfo);
-    r                = SerialiseExpression();
-    q                = WrTx2Item2Arg(T2_ADDW, RelCnt(q), RelCnt(r));
-    WrTx2Item2Arg(T2_COLONEQUALS, RelCnt(p), RelCnt(q));
-    WrTx2Item1Arg(T2_JNC, s);
-    WrTx2Item1Arg(T2_JMP, t);
-    WrTx2Item1Arg(T2_LOCALLABEL, v);
+    word byLabel       = NewLocalLabel();
+    byNodes[controlSP] = byLabel;
+    WrTx2Item1Arg(T2_JMP, byLabel);
+    word stepLabel    = NewLocalLabel();
+    sNodes[controlSP] = stepLabel;
+    WrTx2Item1Arg(T2_LOCALLABEL, stepLabel);
+    lhs         = WrTx2Var(pInfo);
+    rhs         = WrTx2Var(pInfo);
+    word rhsExp = SerialiseExpression();
+    rhs         = WrTx2Item2Arg(T2_ADDW, CvtToRel(rhs), CvtToRel(rhsExp));
+    WrTx2Item2Arg(T2_COLONEQUALS, CvtToRel(lhs), CvtToRel(rhs));
+    WrTx2Item1Arg(T2_JNC, headLabel);
+    WrTx2Item1Arg(T2_JMP, endLabel);
+    WrTx2Item1Arg(T2_LOCALLABEL, byLabel);
 }
-#endif
-
 
 static void ParseEND() {
-    switch (flowType[controlSP]) {
-    case 0:
+    switch (controlStk[controlSP]) {
+    case DO_PROC:
         infoIdx = ToIdx(info = curProc);
         info->flag |= F_DEFINED;
-        if (info->returnType && !b9A13[controlSP])
+        if (info->returnType && !returnsVal[controlSP])
             WrTx2Error(ERR156); /* MISSING RETURN STATEMENT IN TYPED PROCEDURE */
         WrTx2Item(T2_ENDPROC);
-        curProc = procInfoStack[controlSP];
+        curProc = infoStack[controlSP];
         break;
-    case 1:
+    case DO_LOOP:
         break;
-    case 2:
+    case DO_WHILE:
         WrTx2Item1Arg(T2_JMP, hNodes[controlSP]);
         WrTx2Item1Arg(T2_LOCALLABEL, eNodes[controlSP]);
         break;
-    case 3:
+    case DO_CASE:
         WrTx2Item1Arg(T2_LOCALLABEL, hNodes[controlSP]);
         WrTx2Item(T2_ENDCASE);
         break;
-    case 4:
-        EndFor();
+    case DO_ITERATIVE:
+        EndIterDo();
         break;
     }
     PopControl();
@@ -748,7 +739,7 @@ static void ParseEND() {
 }
 
 static void ParseStatement() {
-    if (Sub_5945())
+    if (parseAssignment())
         SerialiseParse(markedStSP);
     ChkEndOfStmt();
 }
@@ -761,8 +752,6 @@ static void ParseCALL() {
 
 static void ReturnStatement() // return already seen
 {
-    word p;
-
     if (!curProc) {
         WrTx2Error(ERR155); /* INVALID RETURN IN MAIN PROGRAM */
         return;
@@ -773,17 +762,14 @@ static void ReturnStatement() // return already seen
         SetRegetTx1Item();
         if (retType == 0)       // untyped procedure
             WrTx2Error(ERR136); /* INVALID RETURN FOR UNTYPED PROCEDURE, VALUE ILLEGAL */
-        p = SerialiseExpression();
-        if (retType == BYTE_T)
-            p = WrTx2Item1Arg(T2_RETURNBYTE, RelCnt(p));
-        else
-            p = WrTx2Item1Arg(T2_RETURNWORD, RelCnt(p));
+        WrTx2Item1Arg(retType == BYTE_T ? T2_RETURNBYTE : T2_RETURNWORD,
+                      CvtToRel(SerialiseExpression()));
     } else {
         if (retType != 0)       // typed procedure
             WrTx2Error(ERR137); /* MISSING VALUE IN RETURN FOR TYPED PROCEDURE */
-        p = WrTx2Item(T2_RETURN);
+        WrTx2Item(T2_RETURN);
     }
-    b9A13[controlSP] = true;
+    returnsVal[controlSP] = true;
     ChkEndOfStmt();
 }
 
@@ -803,11 +789,11 @@ static void GotoStatement() {
             WrTx2ExtError(ERR143); /* INVALID REFERENCE FOLLOWING GOTO, NOT A LABEL */
         else {
             if (High(info->scope) == 1 &&
-                High(procChains[blockDepth]) != 1) // goto is from local to a module level target
-                info->flag |= F_MODGOTO;           // flag target as module level label
+                High(scopeChains[scopeSP]) != 1) // goto is from local to a module level target
+                info->flag |= F_MODGOTO;         // flag target as module level label
             if (High(info->scope) == 1 ||
-                High(info->scope) == High(procChains[blockDepth])) { // its module level to module
-                                                                     // level or local to local
+                High(info->scope) == High(scopeChains[scopeSP])) { // its module level to module
+                                                                   // level or local to local
                 WrTx2Item1Arg(T2_GOTO, infoIdx); // write lex token with normalised infoOffset
                 ChkEndOfStmt();
             } else
@@ -825,13 +811,12 @@ static void GoStatement() {
 
 // <locator> (AT already parsed)
 static void Locator() {
-    offset_t p;
-    p = tx1Item.dataw[0]; // info for variable
+    index_t varInfoIdx = tx1Item.dataw[0]; // info for variable
 
     GetTx1Item();
     RestrictedExpression(); // get the AT Expression
     WrAtByte(ATI_AHDR);
-    WrAtWord(p);                    // info index
+    WrAtWord(varInfoIdx);           // info index
     WrAtWord(curStmtNum);           // statement number
     WrAtWord(var.infoOffset);       // info offset for identifier in Expression
     WrAtWord(var.arrayIndex);       // any array index
@@ -841,11 +826,10 @@ static void Locator() {
 }
 
 void Initialization() {
-    word p, cnt;
-    p = tx1Item.dataw[0];      // info of variable being initialised
-    GetTx1Item();              // get next item
-    cnt = InitialValueList(p); // parse the initialisation list
-    SetInfo(p);
+    index_t varInfoIdx = tx1Item.dataw[0];   // info of variable being initialised
+    GetTx1Item();                            // get next item
+    word cnt = InitialValueList(varInfoIdx); // parse the initialisation list
+    SetInfo(varInfoIdx);
     if (infoIdx && (info->flag & F_STARDIM)) // update * dim
         info->dim = cnt;
 }
@@ -856,68 +840,75 @@ void ParseLexItems() {
     while (tx1Item.type != L_EOF) {
         infoIdx = 0;
         info    = NULL;
-        switch (lexHandlerIdxTable[tx1Item.type]) {
-        case 0:
+        switch (tx1Item.type) {
+        case L_STMTCNT:
             ParseStmtcnt();
-            break; /* L_STMTCNT */
-        case 1:
+            break;
+        case L_SCOPE:
             PushScope(tx1Item.dataw[0]);
-            break; /* L_SCOPE */
-        case 2:
+            break;
+        case L_END:
             ParseEND();
-            break; /* L_END */
-        case 3:
+            break;
+        case L_IF:
             ParseIf();
-            break; /* L_IF */
-        case 4:
-            IterativeDoStatement(); /* L_DOLOOP */
+            break;
+        case L_DOLOOP:
+            IterativeDoStatement();
             ChkEndOfStmt();
             break;
-        case 5:
+        case L_WHILE:
             ParseWhile();
-            break; /* L_WHILE */
-        case 6:
-            PushControl(1);
-            break; /* L_DO */
-        case 7:
+            break;
+        case L_DO:
+            PushControl(DO_LOOP);
+            break;
+        case L_PROCEDURE:
             ParseProcedure();
-            break; /* L_PROCEDURE */
-        case 8:
+            break;
+        case L_CASE:
             ParseCASE();
-            break; /* L_CASE */
-        case 9:
+            break;
+        case L_STATEMENT:
             ParseStatement();
-            break; /* L_STATEMENT */
-        case 10:
+            break;
+        case L_CALL:
             ParseCALL();
-            break; /* L_CALL */
-        case 11:
+            break;
+        case L_RETURN:
             ReturnStatement();
-            break; /* L_RETURN */
-        case 12:
+            break;
+        case L_GOTO:
             GotoStatement();
-            break; /* L_GOTO <goto statement> */
-        case 13:
+            break;
+        case L_GO:
             GoStatement();
-            break; /* L_GO <goto statement> */
-        case 14:
-            break; /* L_SEMICOLON */
-        case 15:
+            break;
+        case L_SEMICOLON:
+            break;
+        case L_ENABLE:
+        case L_DISABLE:
+        case L_HALT:
             I8080DependentStatement();
-            break; /* L_ENABLE, L_DISABLE, L_HALT <8080 dependent statement> */
-        case 16:
+            break;
+        case L_AT:
             Locator();
-            break; /* L_AT */
-        case 17:
+            break;
+        case L_DATA:
+        case L_INITIAL:
             Initialization();
-            break; /* L_DATA, L_INITIAL */
-        case 18:
+            break;
+        default:
             break; /* simple items */
-        case 19:
+        case L_LABELDEF:
+        case L_LOCALLABEL:
+        case L_JMP:
+        case L_JMPFALSE:
+        case L_CASELABEL:
             MapLToT2();
-            break; /* L_LABELDEF, L_LOCALLABEL, L_JMP, L_JMPFALSE, L_CASELABEL */
-        case 20:
-            SetInfo(tx1Item.dataw[0]);            /* L_EXTERNAL */
+            break;
+        case L_EXTERNAL:
+            SetInfo(tx1Item.dataw[0]);
             info->flag |= F_DECLARED | F_DEFINED; // flag proc as declared & defined
             break;
         }

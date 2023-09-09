@@ -25,7 +25,7 @@ static void ExprParse0() {
 
 static void ExprParse1() {
     if (MatchTx1Item(L_COLONEQUALS)) {
-        if (Sub_512E(exSP)) {
+        if (ChkRValue(exSP)) {
             WrTx2ExtError(ERR128); /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
             ExprPop();
         } else

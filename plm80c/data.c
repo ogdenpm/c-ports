@@ -18,7 +18,7 @@ word LEFTMARGIN;
 word localLabelCnt;
 word srcFileIdx;
 sym_t *hashTab[64]; // offset is to pointer to array of offsets
-word blockDepth;
+word scopeSP;
 word *localLabels;
 byte *procIds;
 word helpers[117];
@@ -37,7 +37,7 @@ vfile_t utf2;
 vfile_t atf;
 vfile_t xrff;
 file_t ixiFile;
-word procChains[35];
+word scopeChains[35];
 info_t *procInfo[255];
 byte srcStemLen;
 bool standAlone          = true;

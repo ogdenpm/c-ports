@@ -147,20 +147,20 @@ _Noreturn void LexFatalError(byte err) {
 }
 
 void PushBlock(word idAndLevel) {
-    if (blockDepth == 34)
+    if (scopeSP == 34)
         LexFatalError(ERR84); /* LIMIT EXCEEDED: BLOCK NESTING */
     else {
-        procChains[++blockDepth] = idAndLevel;
+        scopeChains[++scopeSP] = idAndLevel;
         curBlkCnt++;
     }
 } /* PushBlock() */
 
 void PopBlock() {
-    if (blockDepth == 0)
+    if (scopeSP == 0)
         LexFatalError(ERR96); /* COMPILER ERROR: SCOPE STACK UNDERFLOW */
     else {
         curBlkCnt--;
-        curScope = procChains[--blockDepth];
+        curScope = scopeChains[--scopeSP];
     }
 } /* PopBlock() */
 

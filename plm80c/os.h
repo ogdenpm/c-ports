@@ -31,7 +31,7 @@ char *getCmdLine(int argc, char **argv);
 char *GetText(void);
 char *GetNSToken(void);
 uint16_t GetNumber(void);
-int printCmdLine(FILE *fp, int width);
+int printCmdLine(FILE *fp, int width, int offset);
 void printDriveMap(FILE *fp);
 
 void *xmalloc(size_t size);

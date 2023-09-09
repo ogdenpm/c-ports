@@ -62,17 +62,6 @@ byte tx1Aux2Map[] = {
     0x20, 0, 0, 0x10                                //MODULE, XREFUSE, XREFDEF, EXTERNAL
 };
 
-byte lexHandlerIdxTable[] = {
-    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
-    0x12, 0,    0x13, 0x13, 0x13, 0x13, 7,    1,    //INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
-    2,    6,    4,    5,    8,    0x13, 3,    9,    //END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
-    0xA,  0xB,  0xD,  0xC,  0xE,  0xF,  0xF,  0xF,  //CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
-    0x12, 0x10, 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, //EOF, AT, INITIAL, DATA, IDENTIFIER, NUMBER, STRING, PLUSSIGN
-    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //MINUSSIGN, PLUS, MINUS, STAR, SLASH, MOD, COLONEQUALS, AND
-    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //OR, XOR, NOT, LT, LE, EQ, NE, GE
-    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, //GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
-    0x12, 0x12, 0x12, 0x14                          //MODULE, XREFUSE, XREFDEF, EXTERNAL
-};
 
 byte tx1ItemLengths[] = {
     /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
@@ -173,7 +162,7 @@ void Wr2LineInfo() {
 } /* WriteLineInfo() */
 
 void Wr2Item(uint8_t type, void *buf, uint16_t len) {
-    t2CntForStmt++;
+    stmtT2Cnt++;
     if (!hasErrors || (T2_STMTCNT <= linfo.type && linfo.type <= T2_ERROR)) {
         Wr2Byte(type);
         if (len)
@@ -193,28 +182,28 @@ static void Sub_4251(uint8_t type, void *buf, uint16_t len) {
 
 word WrTx2Item(byte type) {
     Sub_4251(type, NULL, 0);
-    return t2CntForStmt;
+    return stmtT2Cnt;
 }
 
 word WrTx2Item1Arg(byte type, word arg2w) {
     Sub_4251(type, &arg2w, sizeof(arg2w));
-    return t2CntForStmt;
+    return stmtT2Cnt;
 }
 
-word WrTx2Item2Arg(byte type, word arg2w, word arg3w) {
-    uint16_t args[] = { arg2w, arg3w };
+word WrTx2Item2Arg(byte type, word lhsRel, word rhsRel) {
+    uint16_t args[] = { lhsRel, rhsRel };
     Sub_4251(type, &args, sizeof(args));
-    return t2CntForStmt;
+    return stmtT2Cnt;
 }
 
 word WrTx2Item3Arg(byte type, word arg2w, word arg3w, word arg4w) {
     uint16_t args[3] = { arg2w, arg3w, arg4w };
     Sub_4251(type, &args, sizeof(args));
-    return t2CntForStmt;
+    return stmtT2Cnt;
 }
 
-word RelCnt(word nodeIdx) {
-    return (t2CntForStmt + 1 - nodeIdx);
+word CvtToRel(word nodeIdx) {
+    return (stmtT2Cnt + 1 - nodeIdx);
 }
 
 void MapLToT2() {

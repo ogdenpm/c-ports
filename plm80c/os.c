@@ -43,9 +43,10 @@ extern int fcloseall(void);
 char *cmdP; // current location on command line
 
 char const *invokeName; // sanitised invoking command
-bool prompt;
+bool ttyout;
+bool ttyin;
 
-#define MAXDELONERROR  3
+#define MAXDELONERROR 3
 static char const *delOnError[MAXDELONERROR];
 
 char const *deviceMap[10]; // mappings of :Fx: to directories
@@ -57,16 +58,14 @@ void setTrap(void (*f)(int retCode)) {
     trap = f;
 }
 
-
 void DelOnError(char const *fname) {
-    CancelDelOnError(fname);    // remove any existing to avoid duplicates
+    CancelDelOnError(fname); // remove any existing to avoid duplicates
     for (int i = 0; i < MAXDELONERROR; i++)
         if (!delOnError[i]) {
             delOnError[i] = fname;
             return;
         }
     FatalError("Internal error - too many delete on error files\n");
-   
 }
 
 void CancelDelOnError(char const *fname) {
@@ -76,7 +75,6 @@ void CancelDelOnError(char const *fname) {
             return;
         }
 }
-
 
 int main(int argc, char **argv) {
     CHK_SHOW_VERSION(argc, argv); // version info
@@ -93,7 +91,8 @@ int main(int argc, char **argv) {
         usage();
         exit(0);
     }
-    prompt = isatty(STDIN) && isatty(STDOUT);
+    ttyin  = isatty(STDIN);
+    ttyout = ttyin && isatty(STDOUT);
     cmdP   = getCmdLine(argc, argv);
     Start();
 }
@@ -105,7 +104,7 @@ _Noreturn void Exit(int retCode) {
     for (int i = 0; i < MAXDELONERROR; i++)
         if (delOnError[i]) {
             if (retCode)
-                unlink(delOnError[i]);  // note aliased filenames return error but ignored
+                unlink(delOnError[i]); // note aliased filenames return error but ignored
             delOnError[i] = NULL;
         }
     if (trap)
@@ -205,80 +204,71 @@ static int cmdLineSize;   // space allocate for the command line
 static char *tokenLine;   // copy of the line, modified to create C string tokens
 // returns true if more appends to the command line are needed
 
-static bool appendCmdLine(char const *s) {
+static bool appendCmdLine(char const *s, bool autoExtend) {
     int c;
-    static bool ampersandSeen = false;
-    int len                   = (int)strlen(s);
+    int len = (int)strlen(s);
 
-    if (cmdLineLen == 0)
-        ampersandSeen = false;
     if (cmdLineLen + len + 3 > cmdLineSize) { // allow for #\n\0 for error reporting
         while (cmdLineLen + len + 3 > cmdLineSize)
             cmdLineSize += CLCHUNK;
         commandLine = xrealloc(commandLine, cmdLineSize);
     }
     while ((c = *s++)) {
-        if (c != '\n') {
-            if (c > ' ')
-                ampersandSeen = false;
-            else if (c == '&')
-                ampersandSeen = true;
-            commandLine[cmdLineLen++] = c >= ' ' ? c : ' ';
-        } else {
-            while (commandLine[cmdLineLen - 1] == ' ') // trim
+        if (c != '\n')
+            commandLine[cmdLineLen++] =
+                c >= ' ' ? c : ' '; // replace control char with a single space
+        else {
+            while (cmdLineLen > 0 && commandLine[cmdLineLen - 1] == ' ') // trim trailing spaces
                 cmdLineLen--;
 
-            if (!ampersandSeen) {
+            if (cmdLineLen == 0 || (commandLine[cmdLineLen - 1] != '&' && !autoExtend)) {
+                while (cmdLineLen > 0 &&
+                       commandLine[cmdLineLen - 1] == '\r') // trim any trailing continuations
+                    cmdLineLen--;
                 commandLine[cmdLineLen++] = '\n';
-                return false; // user didn't have & at end of line so all done
+                return false; // all done
             }
-            commandLine[cmdLineLen++] = '\r';
-            ampersandSeen             = false; // remove flag for next line
+            if (commandLine[cmdLineLen - 1] == '&') // remove &
+                cmdLineLen--;
+            commandLine[cmdLineLen++] = '\r'; // use '\r' as line continuation
+            return true;
         }
     }
-    return true; // not reached end of line or &\n seen
+    return true; // not reached end of line
 }
-// get the command line and a shadow copy for token constructio
+// get the command line and a shadow copy for token construction
 //    if argc == 0 get line in interactive mode, argv ignored
 char *getCmdLine(int argc, char **argv) {
     char line[256];
     cmdLineLen = 0;
     free(tokenLine);
     if (argc == 0) {
-        if (prompt)
+        if (ttyin && ttyout)
             putchar('*');
         strcpy(line, "*");
     } else {
-        appendCmdLine(argc > 1 ? "-" : "*"); // flag whether actual cmd line params
-        appendCmdLine(invokeName);
-        bool useComma = false;
-        char *sep     = " ";
+        appendCmdLine(argc > 1 ? "-" : "*", false); // flag whether actual cmd line params
+        appendCmdLine(invokeName, false);
         for (int i = 1; i < argc; i++) {
-            if (strcmp(argv[i], "!") == 0) {
-                if (!(useComma = !useComma))
-                    sep = " ";
-            } else {
-                appendCmdLine(sep);
-                appendCmdLine(argv[i]);
-                if (useComma)
-                    sep = ",";
-            }
+            appendCmdLine(" ", false);
+            appendCmdLine(argv[i], false);
         }
         strcpy(line, argc > 0 ? "\n" : "&\n");
     }
-    while (appendCmdLine(line)) {
+    bool autoExtend = false;
+    while (appendCmdLine(line, autoExtend)) {
         /* new a new line */
-        if (strchr(line, '\n') && prompt)
+        if (strchr(line, '\n') && ttyout)
             fputs("**", stdout);
         if (!fgets(line, 256, stdin)) {
             if (cmdLineLen > 1)
-                appendCmdLine("\n\n"); // finish off line even if previous had &
+                appendCmdLine("\n\n", false); // finish off line even if previous had &
             break;
         }
+        autoExtend = !ttyin;
     }
     commandLine[cmdLineLen] = '\0';
-    tokenLine               = xmalloc(cmdLineLen + 1);
-    memcpy(tokenLine, commandLine, cmdLineLen + 1);
+    tokenLine               = xstrdup(commandLine);
     return commandLine;
 }
 
@@ -379,9 +369,9 @@ uint16_t GetNumber(void) {
 }
 
 // print the command line, splitting long lines
-int printCmdLine(FILE *fp, int width) {
-    int col   = 0;
-    char *s   = commandLine;
+int printCmdLine(FILE *fp, int width, int offset) {
+    int col   = offset;
+    char *s   = offset ? commandLine + 1 : commandLine;
     int nlCnt = 0;
     while (*s) {
         char *brk = strpbrk(s, ", '\n\r");
@@ -390,16 +380,16 @@ int printCmdLine(FILE *fp, int width) {
         if (!brk)
             brk = strchr(s, '\0'); // if no break do whole string
         if (col + (brk + 1 - s) >= width - 1) {
-            fputs("\\\n    ", fp);
-            col = 4;
+            col = offset ? offset : 4;
+            fprintf(fp, "\\\n%*s", col, "");
             nlCnt++;
         }
         col += fprintf(fp, "%.*s", (int)(brk - s), s);
         if (!*brk || *brk == '\n')
             break;
         if (*brk == '\r') {
-            fputs("&\n**", fp);
-            col = 2;
+            fprintf(fp, "&\n%*s**", offset, "");
+            col = 2 + offset;
             nlCnt++;
         } else
             fputc(*brk, fp);
@@ -416,7 +406,7 @@ int printCmdLine(FILE *fp, int width) {
 _Noreturn void FatalCmdLineErr(char const *errMsg) {
     strcpy(endToken, "#\n");
     fprintf(stderr, "Command line error near #: %s\n", errMsg);
-    printCmdLine(stderr, 120);
+    printCmdLine(stderr, 120, 0);
     Exit(1);
 }
 
@@ -473,7 +463,7 @@ void mkpath(char *file) {
     char dir[_MAX_PATH + 1];
     char *s = dir;
     while (1) {
-        while (*file && *file != '/' && *file != '\\')
+        while (*file && !strchr(DIRSEP, *file))
             *s++ = *file++;
         if (*file == 0)
             return;

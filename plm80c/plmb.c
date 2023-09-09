@@ -119,7 +119,7 @@ static void InitInfoAndSym() {
     SetPageNo(1);
     localLabelCnt = 0;
     cmdLineCaptured++;
-    procChains[0] = procChains[1] = blockDepth = 0;
+    scopeChains[0] = scopeChains[1] = scopeSP = 0;
 } /* InitInfoAndSym() */
 
 void InitKeywordsAndBuiltins() {

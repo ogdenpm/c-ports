@@ -421,7 +421,7 @@ void Sub_50D5() {
         WrTx2ExtError(170); /* ILLEGAL RECURSIVE call */
 }
 
-byte Sub_512E(word arg1w) {
+byte ChkRValue(word arg1w) {
     byte c;
 
     if ((c = eStack[arg1w].icode) == I_OUTPUT || c == I_STACKPTR || c == I_BASED)

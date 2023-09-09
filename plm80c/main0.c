@@ -69,8 +69,8 @@ static void ParseCommandLine() {
         ParseControlLine(cmdTextP);   // ParseControlLine will move to first char
     moreCmdLine   = false;            // 0 if no more cmd line
     inChrP        = (uint8_t *)" \n"; // GNxtCh will see \n and get a non blank line
-    blockDepth    = 1;
-    procChains[1] = 0;
+    scopeSP    = 1;
+    scopeChains[1] = 0;
 } /* ParseCommandLine() */
 
 static void LexPass() {

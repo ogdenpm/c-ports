@@ -217,7 +217,7 @@ static void Sub_8F35() {
             cfrag1 = CF_JMPTRUE;
             boC20F = false;
         }
-    } else if (curOp == T2_63)
+    } else if (curOp == T2_CASEBLOCK)
         Sub_5795(0);
     else if (curOp == T2_MOVE) {
         if (wB53C[procCallDepth] != wC1C3) {

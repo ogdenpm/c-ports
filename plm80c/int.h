@@ -179,7 +179,7 @@ enum {
     T2_DEC         = 60,
     T2_COLONEQUALS = 61,
     T2_OUTPUT      = 62,
-    T2_63          = 63,
+    T2_CASEBLOCK   = 63,
     T2_STKARG      = 64,
     T2_65          = 65,
     T2_MOVE        = 69,
@@ -342,11 +342,27 @@ enum {
     CF_174     = 174
 };
 
-
 /* expression parse states */
 enum {
-    E_EXPRESSION, E_1, E_COLONEQUALS, E_3, E_4, E_PRIMARY,
-    E_RPAREN, E_ADDRESSOF, E_VARREF, E_DATAREF, E_MEMBERSPEC,
-    E_11, E_12, E_PERIOD, E_MEMBER, E_ARGLIST, E_FUNCTION, E_17,
-    E_18, E_SUBSCRIPT, E_ENDSUBSCRIPT
+    E_EXPRESSION,
+    E_1,
+    E_COLONEQUALS,
+    E_3,
+    E_4,
+    E_PRIMARY,
+    E_RPAREN,
+    E_ADDRESSOF,
+    E_VARREF,
+    E_DATAREF,
+    E_MEMBERSPEC,
+    E_11,
+    E_12,
+    E_PERIOD,
+    E_MEMBER,
+    E_ARGLIST,
+    E_FUNCTION,
+    E_17,
+    E_18,
+    E_SUBSCRIPT,
+    E_ENDSUBSCRIPT
 };

@@ -33,8 +33,8 @@ static void Sub_3FC8() {
             lstStr("NO OBJECT MODULE REQUESTED\n");
 
         if (cmdLineCaptured == 1) {
-            lstStr("COMPILER INVOKED BY:\n");
-            linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH); // TODO modify to include TabLst(-23)
+            lstStr("COMPILER INVOKED BY: ");
+            linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH, 23);
             col = 0;
         }
     }

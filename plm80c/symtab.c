@@ -1,8 +1,7 @@
 #include "os.h"
 #include "plm.h"
 
-#define MAXSYM  2500        // same as pl/m-386
-#define MAXINFO 3000        // allow for symbol reuse
+
 
 
 sym_t symtab[MAXSYM];

@@ -44,6 +44,8 @@ typedef uint16_t index_t;
 #define ISISEOF       0x81
 
 #define MAXSTRING     4096
+#define MAXSYM        2500 // same as pl/m-386
+#define MAXINFO       3000 // allow for symbol reuse
 /* flags */
 enum {
     F_PUBLIC    = (1 << 0),
@@ -132,7 +134,7 @@ enum {
     S_RETURN
 };
 
-enum { DO_PROC = 0, DO_LOOP = 1, DO_WHILE = 2, DO_CASE = 3 };
+enum { DO_PROC = 0, DO_LOOP, DO_WHILE, DO_CASE, DO_ITERATIVE };
 
 /* standard structures */
 
@@ -387,7 +389,7 @@ extern byte b91C0;
 extern word curStmtNum;
 extern word markedStSP;
 extern bool regetTx1Item;
-extern word t2CntForStmt;
+extern word stmtT2Cnt;
 extern byte tx1Aux1;
 extern byte tx1Aux2;
 extern tx1item_t tx1Item;
@@ -637,7 +639,7 @@ extern vfile_t atf;
 extern byte wrapMarkerCol;
 extern byte wrapTextCol;
 extern byte skipCnt;
-extern word blockDepth;
+extern word scopeSP;
 extern byte col;
 extern byte controls[];
 extern word csegSize;
@@ -672,7 +674,7 @@ extern bool moreCmdLine;
 extern byte PAGELEN;
 extern word pageNo;
 
-extern word procChains[];
+extern word scopeChains[];
 extern word procCnt;
 extern info_t *procInfo[];
 extern word programErrCnt;
@@ -854,9 +856,9 @@ void Wr2LineInfo(void);
 void Wr2Item(uint8_t type, void *buf, uint16_t len);
 word WrTx2Item(byte type);
 word WrTx2Item1Arg(byte type, word arg2w);
-word WrTx2Item2Arg(byte type, word arg2w, word arg3w);
+word WrTx2Item2Arg(byte type, word lhsRel, word rhsRel);
 word WrTx2Item3Arg(byte type, word arg2w, word arg3w, word arg4w);
-word RelCnt(word arg1w);
+word CvtToRel(word arg1w);
 void MapLToT2(void);
 void WrTx2Error(byte arg1b);
 void WrTx2ExtError(byte arg1b);
@@ -899,7 +901,7 @@ void Sub_4DCF(byte arg1b);
 void MkIndexNode(void);
 void ParsePortNum(byte arg1b);
 void Sub_50D5(void);
-byte Sub_512E(word arg1w);
+byte ChkRValue(word arg1w);
 void ConstantList(void);
 
 /* plm1d.c */
@@ -907,7 +909,7 @@ void ConstantList(void);
 void ExpressionStateMachine(void);
 
 /* plm1e.c */
-byte Sub_5945(void);
+bool parseAssignment(void);
 byte Sub_59D4(void);
 void Expression(void);
 word SerialiseParse(word arg1w);

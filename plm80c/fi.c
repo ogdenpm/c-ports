@@ -12,9 +12,9 @@
 
 bool FindInfo() {
     if (curSym->infoChain) {
-        word depth = blockDepth;
+        word depth = scopeSP;
         while (depth) {
-            if (FindScopedInfo(procChains[depth--]))
+            if (FindScopedInfo(scopeChains[depth--]))
                 return true;
         }
     }

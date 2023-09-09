@@ -14,7 +14,7 @@
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 word markedStSP;
-word t2CntForStmt;
+word stmtT2Cnt;
 info_t *curProc;
 word curStmtNum;
 var_t var;
@@ -30,8 +30,8 @@ byte tx1Aux1;
 byte b91C0;
 
 static void PrepFiles() {
-    blockDepth    = 1;
-    procChains[1] = 0;
+    scopeSP    = 1;
+    scopeChains[1] = 0;
     /* the opening of all output files has been moved here */
     if (IXREF)
         OpenF(&ixiFile, "IXREF", ixiFileName, "wb+");
@@ -67,7 +67,7 @@ word Start1() {
         WrTx2ExtError(b91C0);
         while (tx1Item.type != L_EOF) {
             if (tx1Item.type == L_STMTCNT) {
-                t2CntForStmt = 0;
+                stmtT2Cnt = 0;
                 MapLToT2();
                 curStmtNum = tx1Item.dataw[0];
             }

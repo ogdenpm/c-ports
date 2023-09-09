@@ -16,14 +16,14 @@
 static void Sub_3F96() {
     if (PRINT) {
         EjectNext();
-        lstStr("ISIS-II PL/M-80 " VERSION " COMILATION OF MODULE ");
+        lstStr("ISIS-II PL/M-80 " VERSION " COMPILATION OF MODULE ");
         curSym = procInfo[1]->sym;
         if (curSym)
             lprintf("%s", curSym->name->str);
-        lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY:\n",
+        lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY: ",
                 OBJECT ? "GENERATED" : "REQUESTED");
         // replace with PrintCmdLine code
-        linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH);
+        linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH, 23);
         col = 0;
         SetSkipLst(3);
     }
