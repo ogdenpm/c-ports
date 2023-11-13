@@ -19,29 +19,28 @@
  *                                                                          *
  ****************************************************************************/
 
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
 #include <ctype.h>
 #include <showVersion.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef _MSC_VER
 #define strncasecmp _strnicmp
 #endif
 // intel OMF record types
-#define MODHDR  2
-#define MODEND  4
-#define CONTENT 6
-#define MODEOF  0xe
-#define MODLOC  0x12
+#define MODHDR     2
+#define MODEND     4
+#define CONTENT    6
+#define MODEOF     0xe
+#define MODLOC     0x12
 
-#define MAXNAME     31
-#define MAXCMDLINE  128
-#define MAXNUMSTR   17
-#define BUFFERSIZE  0xc000
+#define MAXNAME    31
+#define MAXCMDLINE 128
+#define MAXNUMSTR  17
+#define BUFFERSIZE 0xc000
 
 char *inFile;
 char *outFile;
@@ -56,22 +55,22 @@ struct {
     uint8_t length[2];
     uint8_t segId;
     uint8_t addr[2];
-    uint8_t dat[BUFFERSIZE + 1];    // allow for crc
+    uint8_t dat[BUFFERSIZE + 1]; // allow for crc
 } content = { CONTENT };
-
 
 // return the trailing filename part of the passed in path
 const char *basename(const char *path) {
     const char *t;
-    while ((t = strpbrk(path, ":\\/")))       // allow windows & unix separators - will fail for unix if : in filename!!
+    while ((t = strpbrk(
+                path,
+                ":\\/"))) // allow windows & unix separators - will fail for unix if : in filename!!
         path = t + 1;
     return path;
 }
 
-
 void OutRecord(uint8_t *p, FILE *fpout) {
     uint16_t addr = p[1] + p[2] * 256;
-    uint8_t crc = 0;
+    uint8_t crc   = 0;
 
     for (int i = 0; i <= addr + 1; i++)
         crc += p[i];
@@ -83,13 +82,13 @@ void OutRecord(uint8_t *p, FILE *fpout) {
 }
 
 uint8_t nibble(uint8_t c) {
-    return  isdigit(c) ? c - '0' : isxdigit(c) ? c - 'A' + 10 : 255;
+    return isdigit(c) ? c - '0' : isxdigit(c) ? c - 'A' + 10 : 255;
 }
 
 int ScanInteger(char **pp) {
     int val = 0;
     char *s;
-    char *p = *pp;
+    char *p       = *pp;
     uint8_t radix = 10;
 
     while (isblank(*p))
@@ -142,10 +141,9 @@ uint16_t getWord(FILE *fp) {
     return v + getByte(fp);
 }
 
-
 void putWord(uint8_t *p, uint16_t val) {
     *p++ = val % 256;
-    *p = val / 256;
+    *p   = val / 256;
 }
 
 char *deblank(char *s) {
@@ -159,7 +157,7 @@ bool parseStdOpt(int argc, char **argv) {
     startValue = -1;
     if (argc < 3 || argc > 4)
         return false;
-    inFile = argv[1];
+    inFile  = argv[1];
     outFile = argv[2];
     if (argc == 3)
         return true;
@@ -170,14 +168,13 @@ bool parseStdOpt(int argc, char **argv) {
     return true;
 }
 
-
 bool parseIntelOpt(int argc, char **argv) {
     char cmdOpts[MAXCMDLINE + 1];
     startValue = -1;
 
     if (argc < 4 || strcasecmp(argv[2], "to") != 0)
         return false;
-    inFile = argv[1];
+    inFile  = argv[1];
     outFile = argv[3];
     if (argc == 4)
         return true;
@@ -205,11 +202,10 @@ bool parseIntelOpt(int argc, char **argv) {
         if (*s != ')')
             return false;
         startValue = addr;
-        s = deblank(s + 1);
+        s          = deblank(s + 1);
     }
     return *s == 0;
 }
-
 
 void writeModHdr(FILE *fp, char *path) {
     /*
@@ -221,21 +217,19 @@ void writeModHdr(FILE *fp, char *path) {
         uint8_t type;
         uint8_t length[2];
         uint8_t nameLen;
-        uint8_t name[MAXNAME + 3];  // allow for trnId, trnVn and checksum
+        uint8_t name[MAXNAME + 3]; // allow for trnId, trnVn and checksum
     } modhdr = { MODHDR };
 
-    int i = 0;
+    int i    = 0;
     for (const char *name = basename(path); *name && *name != '.'; name++)
         if (isalnum(*name) && i < MAXNAME)
             modhdr.name[i++] = toupper(*name);
     modhdr.nameLen = i;
     putWord(modhdr.length, i + 4);
-    modhdr.name[i++] = 0;   // TRN ID
-    modhdr.name[i++] = 0;   // TRN VN
+    modhdr.name[i++] = 0; // TRN ID
+    modhdr.name[i++] = 0; // TRN VN
     OutRecord((uint8_t *)&modhdr, fp);
 }
-
-
 
 void writeContent(FILE *fpin, FILE *fpout) {
     struct {
@@ -244,13 +238,13 @@ void writeContent(FILE *fpin, FILE *fpout) {
         uint8_t segid;
         uint8_t offset[2];
         uint8_t namelen;
-        uint8_t name[MAXNAME + 2];    // allow for 0 and crc
-    } modloc = { MODLOC };
+        uint8_t name[MAXNAME + 2]; // allow for 0 and crc
+    } modloc     = { MODLOC };
 
     uint8_t rlen = 1;
     uint8_t c;
     unsigned i;
-    uint16_t recordPtr = 0;
+    uint16_t recordPtr  = 0;
     uint16_t contentPos = 0;
     uint16_t recordAddress;
     /*
@@ -262,7 +256,7 @@ void writeContent(FILE *fpin, FILE *fpout) {
     while (rlen) {
         while ((c = getChar(fpin)) != ':') {
             if (isdigit(c)) {
-                while (getChar(fpin) != ' ')         // skip number & following space
+                while (getChar(fpin) != ' ') // skip number & following space
                     ;
                 while ((c = getChar(fpin)) == ' ')
                     ;
@@ -287,7 +281,7 @@ void writeContent(FILE *fpin, FILE *fpout) {
             }
         }
         hexcrc = 0;
-        rlen = getByte(fpin);
+        rlen   = getByte(fpin);
         if (rlen) {
             recordAddress = getWord(fpin);
             if (recordPtr != recordAddress || contentPos >= BUFFERSIZE) {
@@ -296,14 +290,14 @@ void writeContent(FILE *fpin, FILE *fpout) {
                     OutRecord((uint8_t *)&content, fpout);
                 }
                 contentPos = 0;
-                recordPtr = recordAddress;
+                recordPtr  = recordAddress;
                 putWord(content.addr, recordAddress);
             }
             getByte(fpin);
             for (i = 0; i < rlen; i++)
                 content.dat[contentPos++] = getByte(fpin);
             recordPtr += rlen;
-            getByte(fpin);   /* compute checksum */
+            getByte(fpin); /* compute checksum */
             if (hexcrc) {
                 fprintf(stderr, "%s: Checksum error\n", inFile);
                 exit(1);
@@ -345,20 +339,19 @@ void writeModEof(FILE *fpout) {
     OutRecord((uint8_t *)&modeof, fpout);
 }
 
-
-
 int main(int argc, char **argv) {
     FILE *fpin, *fpout;
-
 
     CHK_SHOW_VERSION(argc, argv);
 
     // support both a standard command line and the original Intel one
     if (!parseStdOpt(argc, argv) && !parseIntelOpt(argc, argv)) {
         const char *invoke = basename(argv[0]);
-        fprintf(stderr, "Invalid command line\n\n"
-            "Usage: %s -v | -V | hexfile objfile [startaddr]\n"
-            "Or:    %s hexfile TO objfile [$] [START ( startaddr ) ]\n", invoke, invoke);
+        fprintf(stderr,
+                "Invalid command line\n\n"
+                "Usage: %s -v | -V | hexfile objfile [startaddr]\n"
+                "Or:    %s hexfile TO objfile [$] [START ( startaddr ) ]\n",
+                invoke, invoke);
         exit(1);
     }
     if ((fpin = fopen(inFile, "rt")) == 0) {
