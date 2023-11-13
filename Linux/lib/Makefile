@@ -1,7 +1,12 @@
 TARGET = lib
-OBJS =	lib.o newlib.o os.o omf.o
-
+OBJS =	lib.o newlib.o cmdline.o omf.o os.o 
+CFLAGS += -MMD
 include ../common.mk
 
-$(OBJS): os.h omf.h
-lib.o newlib.o: lib.h
+lib.o : lib.h cmdline.h omf.h os.h
+newlib.o: lib.h
+# common dependencies
+cmdline.o: cmdline.h os.h
+omf.o: omf.h os.h
+os.o: cmdline.h os.h showVersion.h
+_version.o: _appinfo.h _version.h

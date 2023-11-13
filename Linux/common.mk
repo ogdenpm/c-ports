@@ -75,7 +75,7 @@ $(TARGET): $(OBJS) _version.o $(LIBS)
 	$(LINKER) -o $@ $^
 
 clean:
-	rm -f *.o 
+	rm -f *.o
 
 distclean: clean
 	rm -f $(TARGET)
@@ -85,3 +85,5 @@ rebuild: distclean
 
 $(INSTALLDIR):
 	mkdir $@
+
+_version.o: _version.c showVersion.h appinfo.h 
