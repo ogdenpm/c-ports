@@ -19,16 +19,18 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\shared\cmdline.c" />
+    <ClCompile Include="..\shared\omf.c" />
+    <ClCompile Include="..\shared\os.c" />
     <ClCompile Include="lib.c" />
     <ClCompile Include="newlib.c" />
-    <ClCompile Include="omf.c" />
-    <ClCompile Include="os.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\shared\cmdline.h" />
+    <ClInclude Include="..\shared\omf.h" />
+    <ClInclude Include="..\shared\os.h" />
     <ClInclude Include="error.h" />
     <ClInclude Include="lib.h" />
-    <ClInclude Include="omf.h" />
-    <ClInclude Include="os.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>

@@ -1,20 +1,15 @@
 /****************************************************************************
  *  lib.c: part of the C port of Intel's ISIS-II lib             *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 
 /*
     vim:ts=4:shiftwidth=4:expandtab:
 */
-
-
-
-
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -29,21 +24,34 @@
 #endif
 #include "_version.h"
 #include "lib.h"
-#include "omf.h"
-#include "os.h"
+#include "../shared/omf.h"
+#include "../shared/os.h"
+#include "../shared/cmdline.h"
 static file_t *fileHead;
 static file_t *fileChain;
 
+char *breakList[] = { "PUBLICS", "TO", NULL };
+
+
 jmp_buf reset;
 
-static void GetFileAndModuleNames(bool oneOnly) {
+static void GetFileAndModuleNames(bool oneOnly, char * const *breakWords) {
     /* add another arg entry to the chain */
+    bool needName = false;
     for (;;) {
+        char *savePos = cmdP;
         char *token = GetToken();
         if (!*token) {
-            if (!fileHead)
+            if (!fileHead || !needName)
                 return;
             FatalCmdLineErr("Expected file name");
+        }
+        if (!needName && breakWords) {
+            for (char * const *s = breakWords; *s; s++)
+                if (stricmp(token, *s) == 0) {
+                    cmdP = savePos;
+                    return;
+                }
         }
         fileChain->next    = xmalloc(sizeof(file_t));
         fileChain          = fileChain->next;
@@ -51,9 +59,9 @@ static void GetFileAndModuleNames(bool oneOnly) {
         fileChain->next    = NULL;
         fileChain->modules = NULL;
         if (*cmdP == '(') { /* add the list of modules if present */
+            cmdP++;     // past (
             namelist_t *p = (namelist_t *)&fileChain->modules;
             do {
-                cmdP++; // past the ( or ,
                 token = GetToken();
                 if (!*token)
                     FatalCmdLineErr("Expected module name");
@@ -72,17 +80,23 @@ static void GetFileAndModuleNames(bool oneOnly) {
                 p->seen = false;
                 p->name = NULL; // in case GetModule errors
                 p->name = GetModuleName(token);
-            } while (*cmdP == ',');
+                if ((needName = *cmdP == ','))
+                    cmdP++;
+
+            } while (*cmdP && *cmdP != ')');
+            if (needName)
+                FatalCmdLineErr("Expected module name");
             ExpectChar(')', "Missing )");
         }
-        if (oneOnly || *cmdP != ',')
+        if (oneOnly)
             return;
-        ExpectChar(',', "Missing comma");
+        if ((needName = *cmdP == ','))
+            cmdP++;
     }
 }
 
-static void AddCmd() {
-    GetFileAndModuleNames(false);
+static void AddCmd(bool ignoreExisting) {
+    GetFileAndModuleNames(false, &breakList[1]);
     if (!fileHead) {
         if (*cmdP == '\n')
             fprintf(stderr, "Nothing to do\n");
@@ -105,7 +119,8 @@ static void AddCmd() {
     }
 
     InitLib();
-    ProcessFile(libFileName, true, NULL); // copy the current library
+    if (!ignoreExisting)
+        ProcessFile(libFileName, true, NULL); // copy the current library
     for (file_t *p = fileHead; p; p = p->next)
         ProcessFile(p->name, true, p->modules);
 
@@ -113,7 +128,7 @@ static void AddCmd() {
 }
 
 static void DeleteCmd() {
-    GetFileAndModuleNames(true);
+    GetFileAndModuleNames(true, NULL);
 
     if (!fileHead)
         FatalCmdLineErr("Missing library name");
@@ -126,47 +141,36 @@ static void DeleteCmd() {
         return;
     }
 
-
     InitLib();
     ProcessFile(fileHead->name, false, fileHead->modules);
     FinaliseLib(fileHead->name);
 }
 
 static void CreateCmd() {
-    bool force    = false;
     char *libName = GetToken();
     if (!*libName)
         FatalCmdLineErr("Expected library name");
-    char *token = GetToken();
-    if (*token) {
-        if (stricmp(token, "WITH") == 0)
-            force = true;
-        GetFileAndModuleNames(false);
-    }
     if (*cmdP != '\n') {
         SetEndToken(cmdP + 1);
         FatalCmdLineErr("Unexpected text");
     }
-    if (!force && Access(libName, 0) == 0)
+    if (Access(libName, 0) == 0)
         IoError(libName, "Already exists");
     InitLib();
-    for (file_t *p = fileHead; p; p = p->next)
-        ProcessFile(p->name, true, p->modules);
     FinaliseLib(libName);
 }
 
 FILE *lstFp;
 char *lstName;
 
-void listReset(void) {
+void listReset(int retCode) {
     SetITrap(0);
-    longjmp(reset, 3);
+    longjmp(reset, retCode ? retCode : -1);
 }
 
 static void ListCmd() {
-
     /* collect the users list of libraries */
-    GetFileAndModuleNames(false);
+    GetFileAndModuleNames(false, breakList);
 
     char *lstName = NULL; /* assume console output */
     char *token   = GetToken();
@@ -251,16 +255,16 @@ static void ListCmd() {
     SetITrap(0);
 }
 
-void cmdReset(void) {
+void cmdReset(int retCode) {
     SetITrap(0);
-    longjmp(reset, 1);
+    longjmp(reset, retCode ? retCode : -1);
 }
 void Start() {
     bool interactive = *cmdP == '*';
     if (interactive)
         puts("OMF85 LIBRARIAN - " GIT_VERSION);
 
-    GetToken(); // skip the lib cmd
+    GetNonSpaceToken(); // skip the lib cmd itself
 
     while (1) {
         if (setjmp(reset) == 0)
@@ -271,7 +275,6 @@ void Start() {
     }
     // main:
     while (1) {
-
         for (file_t *q, *p = fileHead; p; p = q) {
             q = p->next;
             for (namelist_t *n, *m = p->modules; m; m = n) {
@@ -287,21 +290,23 @@ void Start() {
 
         SetITrap(cmdReset);
         if (interactive)
-            cmdP = getCmdLine(0, NULL) + 1;
+            cmdP = getInteractiveLine() + 1;
         if (!*cmdP) // EOF
             exit(0);
         char *token = GetToken();
         if (stricmp(token, "EXIT") == 0 || stricmp(token, "E") == 0)
             exit(0);
         else if (stricmp(token, "ADD") == 0 || stricmp(token, "A") == 0)
-            AddCmd();
+            AddCmd(false);
+        else if (stricmp(token, "INIT") == 0 || stricmp(token, "I") == 0)
+            AddCmd(true);
         else if (stricmp(token, "CREATE") == 0 || stricmp(token, "C") == 0)
             CreateCmd();
         else if (stricmp(token, "LIST") == 0 || stricmp(token, "L") == 0)
             ListCmd();
         else if (stricmp(token, "DELETE") == 0 || stricmp(token, "D") == 0)
             DeleteCmd();
-        else if (stricmp(token, "HELP") == 0 ||  stricmp(token, "H") == 0)
+        else if (stricmp(token, "HELP") == 0 || stricmp(token, "H") == 0)
             usage();
         else if (*token)
             FatalCmdLineErr("Unrecognised command");
@@ -326,17 +331,17 @@ void usage() {
            "\n"
            "Command is one of:\n"
            "ADD fileModuleList TO libname\n"
-           "CREATE libname [WITH [fileModuleList]]\n"
+           "CREATE libname\n"
            "DELETE libname(module[,module]*)\n"
            "EXIT\n"
            "HELP\n"
+           "INIT fileModuleList TO libname\n"
            "LIST file fileModuleList [PUBLICS]\n"
-           "The first character each command can be as a shorthand\n"
-           "The WITH option for CREATE will overwrite an existing library file\n"
-           "adding the optional content as specified by fileModulelist\n"
+           "The first character of each command can be used as a shorthand\n"
+           "The INIT option is like ADD but ignores any existing library content\n"
            "\n"
            "fileModuleList syntax is: file[(module[,module]*)][,file[(module[,module]*)]]*\n"
+           "Spaces can be used instead of commas to separate module and file names\n"
            "File names are of the format [:Fx:]path, where x is a digit and path\n"
-           "The :Fx: maps to a directory prefix from the same named environment variable\n");
-    ;
+           "The :Fx: maps to a directory prefix from the ISIS_Fx environment variable\n");
 }

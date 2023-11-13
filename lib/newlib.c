@@ -1,10 +1,17 @@
-
+/****************************************************************************
+ *  newlib.c: part of the C port of Intel's ISIS-II lib             *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *                                                                          *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
+ *                                                                          *
+ *  It is released for academic interest and personal use only              *
+ ****************************************************************************/
+#include "lib.h"
 #include <setjmp.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lib.h"
 
 #ifdef _MSC_VER
 #include <io.h>
@@ -13,7 +20,6 @@
 #include <unistd.h>
 #define stricmp strcasecmp
 #endif
-
 
 /*
     The code below is a major rewrite of the original ISIS-II lib utility
@@ -25,9 +31,7 @@
     module header and public definition information.
     As a by product the new approach detects crc errors in the input files.
 
-
 */
-
 
 extern jmp_buf reset;
 
@@ -38,7 +42,6 @@ typedef struct _module {
 
 module_t *moduleHead;
 
-
 typedef struct _publist {
     struct _publist *next;
     pstr_t name;
@@ -47,7 +50,7 @@ typedef struct _publist {
 module_t *curModule;
 int moduleCnt;
 
-void libReset(void);
+void libReset(int retCode);
 char libTmp[20];
 
 typedef struct {
@@ -127,8 +130,8 @@ void addPublic(pstr_t const *name) {
     uint8_t hash = Hash(name);
     for (publist_t *p = hashTable[hash]; p; p = p->next) {
         if (pstrequ(&p->name, name)) {
-            fprintf(stderr, "%s: duplicate symbol %s", curModule->name.str, p->name.str);
-            libReset();
+            fprintf(stderr, "%s: duplicate symbol %s\n", curModule->name.str, p->name.str);
+            libReset(2);
         }
     }
     publist_t *p = xmalloc(sizeof(publist_t) + name->len);
@@ -138,7 +141,6 @@ void addPublic(pstr_t const *name) {
     hashTable[hash]          = p;
     appendBigBuf(&libdic, (uint8_t *)name, name->len + 1);
 }
-
 
 void CopyModule() {
     uint32_t loc = ftell(omfOutFp);
@@ -164,13 +166,13 @@ void CopyModule() {
     appendBigBuf(&libdic, &zero, 1);
 }
 
-
 /* process the input file,
     if adding
         Append simple module
         Append selected modules from library or all of library if no modules specified
     if Deleting
-        Append all but selected modules from library, the calling routine ensures modules are specified
+        Append all but selected modules from library, the calling routine ensures modules are
+   specified
 
    The function updates the names, location and dictionary information for modules appended.
 
@@ -225,11 +227,11 @@ void ProcessFile(char const *fileName, bool adding, namelist_t *mlist) {
     }
 }
 
-void libReset(void) {
+void libReset(int retCode) {
     // avoid recursive errors
     SetITrap(0);
     resetLibMem();
-    longjmp(reset, 2);
+    longjmp(reset, retCode ? retCode : -1);
 }
 
 void InitLib() {
