@@ -1,21 +1,20 @@
 /****************************************************************************
- *  loc.h: part of the C port of Intel's ISIS-II locate             *
+ *  loc.h: part of the C port of Intel's ISIS-II locate                     *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 
 /*
  * vim:ts=4:shiftwidth=4:expandtab:
  */
 #include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #ifdef _MSC_VER
 #include <io.h>
 #else
@@ -23,19 +22,20 @@
 #define stricmp strcasecmp
 #endif
 
-#include "os.h"
-#include "omf.h"
-#include "lst.h"
+#include "../shared/lst.h"
+#include "../shared/omf.h"
+#include "../shared/os.h"
+#include "../shared/cmdline.h"
 #define VERSION "V3.0"
 // ISIS uses MemCk to return the top of memory
 // this is used to calculate a size for MEMORY seg
 // defined a MEMCK value to use in calculation
-#define MEMCK	0xf7ff
+#define MEMCK   0xf7ff
 
 // accessor macros for HIGH and LOW
 // word cast is to avoid 64bit warnings
 #define High(n) ((uint16_t)((n) >> 8))
-#define Low(n)  ((uint16_t)((n) & 0xff))
+#define Low(n)  ((uint16_t)((n)&0xff))
 
 typedef struct {
     uint16_t saddr;
@@ -48,8 +48,6 @@ typedef struct {
     uint16_t start;
     uint16_t len;
 } segFrag_t;
-
-
 
 typedef union {
     bool all[9];
@@ -67,41 +65,38 @@ typedef union {
 } seen_t;
 
 // types of column information
-#define CTHEAD  0   // heading
-#define CTPUB   1   // publics
-#define CTSYM   2   // local symbols
-#define CTLIN   3   // lines
-#define CTMOD   4   // modules
-
-
+#define CTHEAD   0 // heading
+#define CTPUB    1 // publics
+#define CTSYM    2 // local symbols
+#define CTLIN    3 // lines
+#define CTMOD    4 // modules
 
 /* Alignments  & Flags*/
-#define AMASK   0xf
-#define AABS    0
-#define AUNKNOWN    0
-#define AINPAGE 1
-#define APAGE   2
-#define ABYTE   3
-#define FHASADDR    0x80
-#define FWRAP0  0x40
-#define FSEGSEEN    0x10
+#define AMASK    0xf
+#define AABS     0
+#define AUNKNOWN 0
+#define AINPAGE  1
+#define APAGE    2
+#define ABYTE    3
+#define FHASADDR 0x80
+#define FWRAP0   0x40
+#define FSEGSEEN 0x10
 
 /* Fixup type */
-#define FLOW    1
-#define FHIGH   2
-#define FBOTH   3
-
+#define FLOW     1
+#define FHIGH    2
+#define FBOTH    3
 
 /* controls seen tags */
-//#define seen.start   seen(0)
-//#define seen.stackSize   seen(1)
-//#define seen.restart0    seen(2)
-//#define seen.map     seen(3)
-//#define seen.publics seen(4)
-//#define seen.symbols seen(5)
-//#define seen.lines   seen(6)
-//#define seen.purge   seen(7)
-//#define seen.name  seen(8)
+// #define seen.start   seen(0)
+// #define seen.stackSize   seen(1)
+// #define seen.restart0    seen(2)
+// #define seen.map     seen(3)
+// #define seen.publics seen(4)
+// #define seen.symbols seen(5)
+// #define seen.lines   seen(6)
+// #define seen.purge   seen(7)
+// #define seen.name  seen(8)
 
 extern uint16_t columns;
 
@@ -157,7 +152,6 @@ void LocateFile(void);
 /* loc4.c */
 void PrintMemoryMap(void);
 
-
 /* loc6.c */
 void ExpectLP(void);
 void ExpectRP(void);
@@ -176,10 +170,3 @@ void ProcModhdr(void);
 void AssignAddress(void);
 void ProcComdef(void);
 void ProcHdrAndComDef(void);
-
-
-
-
-
-
-

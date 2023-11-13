@@ -1,15 +1,12 @@
 /****************************************************************************
- *  loc7.c: part of the C port of Intel's ISIS-II locate             *
+ *  loc7.c: part of the C port of Intel's ISIS-II locate                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "loc.h"
-
 /*
  * ISIS II does not have a STDERR device
  * So if the listing file is not a device
@@ -27,8 +24,6 @@ uint16_t ParseLPNumRP(void) {
     return num;
 }
 
-
-
 uint8_t GetCommonSegId(char *token) {
     char *s = strchr(token + 1, '/');
     if (!s || s[1])
@@ -42,8 +37,6 @@ uint8_t GetCommonSegId(char *token) {
     FatalCmdLineErr("unknown COMMON name");
 }
 
-
-
 void ProcArgsInit(void) {
     char *token;
     char *mark;
@@ -52,13 +45,13 @@ void ProcArgsInit(void) {
     puts("OMF85 OBJECT LOADER " VERSION);
     GetToken(); // skip invoke name and leading -
     char *inName = GetToken();
-    mark   = cmdP;
-    token  = GetToken();
-    if (stricmp(token, "TO") == 0 || stricmp(token, "-o") == 0)
+    mark         = cmdP;
+    token        = GetToken();
+    if (stricmp(token, "TO") == 0)
         omfOutName = GetToken();
     else {
         cmdP    = mark; // back up
-        char *s = basename(omfInName);
+        char const *s = basename(omfInName);
         char *t = strrchr(s, '.');
         if (!t || t == s)
             FatalCmdLineErr("TO expected");
@@ -67,7 +60,6 @@ void ProcArgsInit(void) {
     }
 
     openOMFIn(inName);
-
 
     recNum = 0;
     /* check we have a relocation file */
@@ -79,7 +71,6 @@ void ProcArgsInit(void) {
     /* process the rest of the command args */
     while (*cmdP != '\n')
         ProcessControls();
-
 
     FixSegOrder();
 
@@ -112,9 +103,9 @@ void ProcModhdr(void) {
     tranId     = ReadByte();
     tranVn     = ReadByte();
     while (inP < inEnd) { /* process all of the seg info */
-        uint8_t seg      = ReadByte();
+        uint8_t seg   = ReadByte();
         segSizes[seg] = ReadWord();
-        uint8_t align    = ReadByte();
+        uint8_t align = ReadByte();
         if (align < AINPAGE || ABYTE < align) /* check valid alignment */
             IllegalRecord();
         if (segFlags[seg]) // has been seen already
@@ -141,10 +132,10 @@ void AssignAddress(void) {
         segSizes[SSTACK] += 12;         /* reserve an additional 12 bytes */
 
     uint16_t loadAddress = 0x3680; // default ISIS load address
-    bool atTop       = false;  // not at top of memory
+    bool atTop           = false;  // not at top of memory
 
     for (int order = 1; order < 255; order++) { /* set addresses, using load order */
-        uint8_t seg  = segOrder[order];            // use next seg in order
+        uint8_t seg   = segOrder[order];        // use next seg in order
         uint16_t size = segSizes[seg];
         if (!(segFlags[seg] & FHASADDR)) { /* no address specified */
             if (atTop) {                   /* check for going over 64k */
@@ -161,9 +152,19 @@ void AssignAddress(void) {
         segBases[seg] = AlignAddress(segFlags[seg] & AMASK, size, loadAddress);
         if (segBases[seg] == 0 && loadAddress)
             FatalError("%s: Program exceeds 64k", omfOutName);
-        if (seg == SMEMORY && size == 0 && loadHasSize) // size memory segment
-            if (!atTop && MEMCK > segBases[SMEMORY])
-                segSizes[SMEMORY] = size = MEMCK - segBases[SMEMORY];
+        if (seg == SMEMORY && size == 0 && loadHasSize) { // size memory segment
+            /* change from Intel - in addition to using MEMCK, reduce the size
+               if there is another segment allocated above it.
+            */
+            if (!atTop && MEMCK > segBases[SMEMORY]) {
+                int top           = MEMCK;
+                for (int i = 1; i < 256; i++) {
+                    if (segBases[i] > segBases[SMEMORY] && segBases[i] < top)
+                        top = segBases[i];
+                }
+                segSizes[SMEMORY] = size = top - segBases[SMEMORY];
+            }
+        }
         /* advance loadAddress and check for memory wrap around */
         if ((loadAddress = segBases[seg] + size) < segBases[seg]) {
             if (loadAddress) /* beyond 64k boundary */

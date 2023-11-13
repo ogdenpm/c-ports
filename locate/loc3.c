@@ -1,11 +1,10 @@
 /****************************************************************************
- *  loc3.c: part of the C port of Intel's ISIS-II locate             *
+ *  loc3.c: part of the C port of Intel's ISIS-II locate                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 
 /*
@@ -37,7 +36,6 @@ void ProcLinNum(void) {
 }
 
 void ProcAncest(void) {
-
     if (!seen.purge)
         CopyRecord();
     if (seen.lines || seen.symbols) { // check if needed
@@ -54,7 +52,7 @@ void ProcDefs(uint8_t list, uint8_t ctype) {
     if (!seen.purge || list) { /* check if we need to process */
         uint8_t seg = ReadByte();
         if (seg == SSTACK) {
-            outSeg         = SSTACK;
+            outSeg     = SSTACK;
             targetBase = 0; /* stack base is 0 */
         } else
             SetTargetSeg(seg);
@@ -63,7 +61,7 @@ void ProcDefs(uint8_t list, uint8_t ctype) {
             WriteByte(outSeg);
         }
         while (inP < inEnd) {
-            uint16_t offset  = ReadWord() + targetBase;
+            uint16_t offset    = ReadWord() + targetBase;
             pstr_t const *name = ReadName();
             ReadByte();
             if (!seen.purge) {
@@ -83,7 +81,8 @@ void ProcDefs(uint8_t list, uint8_t ctype) {
 void ProcExtnam(void) {
     // copy over the record to the output
     CopyRecord();
-    warnings |= warningMask & 1;
+    if (!(warningMask & 1))
+        warnings++;
     while (inP < inEnd) { /* process each item in the input EXTNAM record */
         ForceSOL();
         pstr_t const *name = ReadName();
@@ -158,9 +157,8 @@ void LocateFile(void) {
             IllegalReloc();
             break;
         }
-
     }
-    ProcModend(); /* Read the modend and generate the rest of the located file */
+    ProcModend();     /* Read the modend and generate the rest of the located file */
     ForceSOL();       /* make sure at start of line if (symbols listed */
     PrintMemoryMap(); /* print the final memory map + any overlay Errors() */
     fclose(omfInFp);

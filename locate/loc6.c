@@ -1,13 +1,11 @@
 /****************************************************************************
- *  loc6.c: part of the C port of Intel's ISIS-II locate             *
+ *  loc6.c: part of the C port of Intel's ISIS-II locate                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "loc.h"
 #include <ctype.h>
 
@@ -20,16 +18,12 @@ static struct {
     uint8_t aux;
     char *name;
 } controls[] = {
-    { 1, 1, "CODE" },     { 1, 2, "DATA" },       { 1, 3, "STACK" },     { 1, 4, "MEMORY" },
-    { 2, 0, "START" },    { 2, 16, "-s" },        { 3, 1, "STACKSIZE" }, { 3, 17, "-ss" },
-    { 4, 2, "RESTART0" }, { 4, 2, "-r" },         { 4, 3, "MAP" },       { 4, 3, "-lm" },
-    { 4, 4, "PUBLICS" },  { 4, 4, "-lp" },        { 4, 5, "SYMBOLS" },   { 4, 5, "-ls" },
-    { 4, 6, "LINES" },    { 4, 6, "-ll" },        { 4, 7, "PURGE" },     { 4, 7, "-pu" },
-    { 5, 8, "NAME" },     { 5, 24, "-n" },        { 6, 0, "PRINT" },     { 6, 16, "-p" },
-    { 7, 0, "ORDER" },    { 8, 0, "COLUMNS" },    { 8, 16, "-c" },       { 10, 1, "NOEXTERN" },
-    { 10, 1, "-ne" },     { 10, 2, "NOOVERLAP" }, { 10, 2, "-no" }
+    { 1, 1, "CODE" },      { 1, 2, "DATA" },       { 1, 3, "STACK" },    { 1, 4, "MEMORY" },
+    { 2, 0, "START" },     { 3, 1, "STACKSIZE" },  { 4, 2, "RESTART0" }, { 4, 3, "MAP" },
+    { 4, 4, "PUBLICS" },   { 4, 5, "SYMBOLS" },    { 4, 6, "LINES" },    { 4, 7, "PURGE" },
+    { 5, 8, "NAME" },      { 6, 0, "PRINT" },      { 7, 0, "ORDER" },    { 8, 0, "COLUMNS" },
+    { 10, 1, "EXTERNOK" }, { 10, 2, "OVERLAPOK" },
 };
-
 
 void ExpectLP(void) {
     ExpectChar('(', "left parenthesis expected"); /* left parenthesis expected */
@@ -75,8 +69,6 @@ void FixSegOrder(void) {
     append(SMEMORY);
 }
 
-
-
 void ProcessControls(void) {
     uint8_t type, aux, seg;
     char *token = GetToken();
@@ -102,60 +94,61 @@ void ProcessControls(void) {
         break;
     case 2:                          /* START */
         seen.start = true;           /* got a start address */
-        startAddr  = aux & 0x10 ? GetNumber() : ParseLPNumRP(); /* and its value */
+        startAddr  = ParseLPNumRP(); /* and its value */
         break;
     case 3:                                /* STACKSIZE */
         seen.stackSize   = true;           /* got a stack size */
-        segSizes[SSTACK] = aux & 0x10 ? GetNumber() : ParseLPNumRP(); /* and its value */
+        segSizes[SSTACK] = ParseLPNumRP(); /* and its value */
         break;
     case 4:                   // RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE
         seen.all[aux] = true; /* simple command seen */
         break;
     case 5:               /* NAME */
         seen.name = true; /* got a module name */
-        if (aux & 0x10)
-            moduleName = GetModuleName(GetToken());
-        else {
-            ExpectLP();
-            moduleName = GetModuleName(GetToken()); /* get its value */
-            ExpectRP();
-        }
+        ExpectLP();
+        moduleName = GetModuleName(GetToken()); /* get its value */
+        ExpectRP();
         break;
     case 6: /* PRINT */ /* get the print file */
-        if (aux & 0x10)
-            lstName = GetToken();
-        else {
-            ExpectLP();
-            lstName = GetText();
-            ExpectRP();
-        }
+        ExpectLP();
+        lstName = GetText();
+        ExpectRP();
         break;
     case 7: /* ORDER */  /* process the order list */
         ResetSegOrder(); // ORDER resets. Remove this to make additive
-        ExpectLP();
-        while (*(token = GetToken())) {
-            if (*token == '/') {
-                seg = GetCommonSegId(token);
-                AddSegOrder(seg);
-            } else {
-                int i;
-                for (i = 0; i < 4 && stricmp(token, controls[i].name) != 0; i++)
-                    ;
-                if (i < 4)
-                    AddSegOrder(controls[i].aux);
-                else
-                    FatalCmdLineErr("Unknown segment");
-            }
-            if (*cmdP != ',') // list?
-                break;
-            cmdP++;
+        {
+            ExpectLP();
+            bool needSeg = true;
+            do {
+                token = GetToken();
+                if (!*token)
+                    break;
+
+                if (*token == '/') {
+                    seg = GetCommonSegId(token);
+                    AddSegOrder(seg);
+                } else {
+                    int i;
+                    for (i = 0; i < 4 && stricmp(token, controls[i].name) != 0; i++)
+                        ;
+                    if (i < 4)
+                        AddSegOrder(controls[i].aux);
+                    else
+                        FatalCmdLineErr("Unknown segment");
+                }
+                if ((needSeg = *cmdP == ','))
+                    cmdP++;
+            } while (*cmdP && *cmdP != ')');
+
+            if (needSeg)
+                FatalCmdLineErr("Expected Segment Name");
+            ExpectRP();
         }
-        ExpectRP();
         break;
     case 8: /* COLUMNS */ /* get the number of columns */
-        columns = aux & 0x10 ? GetNumber() : ParseLPNumRP();
-        if (columns < 1 || columns > 3)
-            FatalCmdLineErr("Expected number in range 1-3");
+        columns = ParseLPNumRP();
+        if (columns < 1 || columns > 4)
+            FatalCmdLineErr("Expected number in range 1-4");
         break;
     case 9:                             // common name
         seg = GetCommonSegId(token);    /* look up seg */

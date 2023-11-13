@@ -1,13 +1,11 @@
 /****************************************************************************
- *  loc2b.c: part of the C port of Intel's ISIS-II locate             *
+ *  loc2b.c: part of the C port of Intel's ISIS-II locate                   *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "loc.h"
 #include <stdarg.h>
 
@@ -20,7 +18,6 @@ void EmitModDat(dataFrag_t *block) {
     WriteByte(SABS);
     WriteWord(block->saddr);
     EndUserRecord(AddrInMem(block->saddr), block->eaddr - block->saddr + 1);
-
 }
 
 void ForceSOL(void) {
@@ -32,7 +29,6 @@ void ForceSOL(void) {
 
 #define CWIDTH (6 + 5 + 32) // value, type, symbol
 void PrintColumn(uint8_t ctype, ...) {
-
     static uint8_t curType = 99;
     static uint8_t toPad;
     static char *fmt[] = { "VALUE TYPE SYMBOL", "%04X PUB  %.*s", "%04XH SYM  %.*s",

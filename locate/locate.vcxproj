@@ -261,23 +261,25 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="lst.h" />
-    <ClInclude Include="os.h" />
+    <ClInclude Include="..\shared\cmdline.h" />
+    <ClInclude Include="..\shared\lst.h" />
+    <ClInclude Include="..\shared\omf.h" />
+    <ClInclude Include="..\shared\os.h" />
     <ClInclude Include="loc.h" />
-    <ClInclude Include="omf.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="lst.c" />
-    <ClCompile Include="os.c" />
+    <ClCompile Include="..\shared\cmdline.c" />
+    <ClCompile Include="..\shared\lst.c" />
+    <ClCompile Include="..\shared\omf.c" />
+    <ClCompile Include="..\shared\os.c" />
     <ClCompile Include="loc1.c" />
     <ClCompile Include="loc2b.c" />
     <ClCompile Include="loc3.c" />
     <ClCompile Include="loc4.c" />
     <ClCompile Include="loc6.c" />
     <ClCompile Include="loc7.c" />
-    <ClCompile Include="omf.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\intel.licenseheader" />
