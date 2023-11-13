@@ -1,13 +1,11 @@
 /****************************************************************************
- *  link.c: part of the C port of Intel's ISIS-II link             *
+ *  link.c: part of the C port of Intel's ISIS-II link                      *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "link.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -30,11 +28,10 @@ symbol_t *headCommSym;
 uint16_t unresolved;
 uint16_t maxExternCnt;
 symbol_t *unresolvedList;
-bool warnOk      = true;   // if false then warnings are teated as errors
-int warned     = 0;
+bool externOk         = false; // if false then warnings are teated as errors
+int warnings          = 0;
 
 uint8_t COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP'";
-
 
 uint8_t HashF(pstr_t const *pstr) {
     uint8_t i, j;
@@ -65,8 +62,7 @@ void Start() {
     ParseCmdLine();
     Phase1();
     Phase2();
-    Exit(warnOk ? 0 : warned);
-
+    Exit(externOk ? 0 : warnings);
 } /* Start */
 
 void usage() {
@@ -77,19 +73,16 @@ void usage() {
            "-h               Show this help\n"
            "-v / -V          Show simple / extended version information\n"
            "Link options are:\n"
-           "-m               Include link map information in listing\n"
-           "-n moduleName    Set targetFile module name. '_' is now supported\n"
-           "-p listfile      Set listing file rather than use stdout\n"
-           "-w               Warnings for unresolved, duplicate and COMMON length conflicts treated as errors\n"
-           "MAP              Intel equivalent of -m option\n"
-           "NAME(moduleName) Intel equivalent of -n option\n"
-           "PRINT(listfile)  Intel equivalent of -p option\n"
-           "NOWARN           Intel style equivalent of -w option\n"
+           "MAP              Include link map information in listing\n"
+           "NAME(moduleName) Set targetFile module name. '_' is now supported\n"
+           "PRINT(listfile)  Set listing file rather than use stdout\n"
+           "EXTERNOK         Don't treat unresolved warnings as errors\n"
+           "                 and COMMON length conflicts\n"
            "See Intel linker documentation for inputList specification\n"
            "Notes:\n"
            "* File names are of the format [:Fx:]path, where x is a digit and path\n"
            "  The :Fx: maps to a directory prefix from the same named environment variable\n"
            "* Response file input for linking is supported by using \"%s <file\"\n"
-           "* targetFile is deleted on error, which helps with make builds\n", invokeName);
-    exit(0);
+           "* targetFile is deleted on error, which helps with make builds\n",
+           invokeName);
 }

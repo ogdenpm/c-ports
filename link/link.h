@@ -1,21 +1,19 @@
 /****************************************************************************
- *  link.h: part of the C port of Intel's ISIS-II link             *
+ *  link.h: part of the C port of Intel's ISIS-II link                      *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #ifdef _WIN32
 #include <io.h>
-#define DIRSEP "/\\"
+#define DIRSEP  "/\\"
 #define namecmp stricmp // case insensitive file name compare
 #else
 #include <errno.h>
@@ -25,9 +23,9 @@
 #define DIRSEP    "/"
 #define namecmp   strcmp
 #endif
-#include "os.h"
-#include "omf.h"
-#include "lst.h"
+#include "../shared/lst.h"
+#include "../shared/omf.h"
+#include "../shared/os.h"
 
 #ifndef _MSC_VER
 #define stricmp strcasecmp
@@ -41,21 +39,20 @@
 #define RolB(v, n)	((uint8_t)(Ror((v), (8 - (n))))
 #define Move(s, d, c) memcpy(d, s, c)
 
-
 typedef struct { // pascal string for module names
     uint8_t len;
     char str[31];
 } psModName_t;
 
-//typedef struct {
-//    byte rectyp;
-//    word reclen;
-//    byte record[1];
-//} record_t;
+// typedef struct {
+//     byte rectyp;
+//     word reclen;
+//     byte record[1];
+// } record_t;
 
 #define REC_TYPE 0
 #define REC_LEN  1 // word
-#define REC_DATA 3    // various
+#define REC_DATA 3 // various
 
 typedef struct _segfrag {
     struct _segfrag *next;
@@ -93,13 +90,12 @@ typedef struct _library {
     char const *name;
 } objFile_t;
 
-#define SEGDEF_sizeof    4
+#define SEGDEF_sizeof 4
 
 typedef struct {
     uint8_t combine;
     uint16_t lenOrLinkedSeg;
 } comseginfo_t;
-
 
 /* Record types */
 #define R_MODHDR    2
@@ -157,7 +153,6 @@ typedef struct {
 #define F_EXTERN    0x40
 #define F_PUBLIC    0x80
 
-
 // link.plm
 extern uint8_t alignType[6];
 extern module_t *module;
@@ -179,15 +174,13 @@ extern objFile_t *objFileList;
 extern uint16_t segLen[6];
 extern uint8_t segmap[256];
 
-
 extern uint16_t unresolved;
 #define VERSION "V3.0"
 
 // linkov.plm
 
-
-extern bool warnOk;     // if true warnings are errors and out file is deleted
-extern int warned;
+extern bool externOk; // if true warnings are errors and out file is deleted
+extern int warnings;
 extern char *omfOutName;
 
 void AddExtMap(symbol_t *symP);
@@ -239,8 +232,6 @@ void Phase2();
 uint8_t SelectInSeg(uint8_t seg);
 uint8_t SelectSeg(uint8_t seg);
 
-
 void PrintBaseSizeAlign(uint16_t baddr, uint16_t bsize, uint8_t align);
 void ModuleWarning(char const *msg);
 void WriteStats();
-

@@ -1,13 +1,11 @@
 /****************************************************************************
- *  link3.c: part of the C port of Intel's ISIS-II link             *
+ *  link3.c: part of the C port of Intel's ISIS-II link                     *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "link.h"
 #include <stdlib.h>
 
@@ -231,9 +229,8 @@ void P1StdSegments() {
             default:
                 IllegalReloc();
             }
-            segLen[curSeg] = segLoadBase; /* update the overall seg len */
-            if ((segLoadBase -= inSegLen) >
-                prevLen) /* backup to start of this Load() address */
+            segLen[curSeg] = segLoadBase;            /* update the overall seg len */
+            if ((segLoadBase -= inSegLen) > prevLen) /* backup to start of this Load() address */
                 CreateFragment(curSeg, prevLen,
                                segLoadBase - 1); /* not contiguous so create fragment */
             if (segLen[curSeg] < segLoadBase)    /* oops we went over 64k */
@@ -336,7 +333,6 @@ void P1ModEnd() {
 } /* P1ModEnd() */
 
 void Pass1CONTENT() {
-
     if (!publicsOnly) {                      /* skip if just processing publics */
         if ((curSeg = ReadByte()) == SABS) { /* absolute record */
             uint16_t offset = ReadWord();
@@ -427,6 +423,7 @@ void Pass1PUBNAMES() {
                 if (curSeg != 0 || symbol->seg != curSeg || symbol->offsetOrSym != offset) {
                     PrintfAndLog(symbol->name->str);
                     ModuleWarning(" - Multiply defined, duplicate in ");
+                    warnings++;
                 }
             } else { /* was extern but we now have an address */
                 unresolved--;
@@ -468,7 +465,6 @@ void Pass1EXTNAMES() {
 void P1Records(uint8_t newModule) {
     if (newModule) /* create entry for new module */
     {
-
         hmoduleP->next  = (module = xmalloc(sizeof(module_t)));
         module->next    = 0;
         module->symbols = 0;
@@ -591,12 +587,10 @@ void P1LibScan() {
                     module->location = libData[i].location;
                 }
             }
-
         } /* do while */
         free(dictionary);
         free(libData);
     }
-
 } /* P1LibScan() */
 
 void P1LibUserModules() {

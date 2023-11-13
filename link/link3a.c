@@ -1,16 +1,15 @@
 /****************************************************************************
- *  link3a.c: part of the C port of Intel's ISIS-II link             *
+ *  link3a.c: part of the C port of Intel's ISIS-II link                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "link.h"
 #include <ctype.h>
 #include <stdio.h>
+#include "../shared/cmdline.h"
 
 void ChkLP() {
     ExpectChar('(', "Left parenthesis expected");
@@ -23,7 +22,6 @@ void ChkRP() {
 void ExpectComma() {
     ExpectChar(',', "Comma expected");
 } /* ExpectComma() */
-
 
 void AddFileToInputList(char *token) {
     if (objFileList == 0)
@@ -39,8 +37,6 @@ void AddFileToInputList(char *token) {
     objFile->name    = token;
 }
 
-
-
 /* ISIS only allowed filenames in 6.3 format so PUBLICS could never start
    a filename, code modified to check for publics string only
 */
@@ -49,13 +45,17 @@ void GetInputListItem() {
     pstr_t const *curModuleName;
     char *token = GetToken();
     if (!*token)
-        FatalCmdLineErr("Expected name");
+        FatalCmdLineErr("Expected file name");
     if (stricmp(token, "publics") == 0) {
         ChkLP(); // publics ( file [,file]* )
-        AddFileToInputList(GetToken());
-        objFile->publics = true; /* record PUBLICS */
-        while (*cmdP == ',') {   /* process any more PUBLICS files */
-            ExpectComma();
+        token = GetToken();
+        if (!*token)
+            FatalCmdLineErr("Expected module name\n");
+        AddFileToInputList(token);
+        objFile->publics = true;                         /* record PUBLICS */
+        while (*cmdP && *cmdP != '\n' && *cmdP != ')') { /* process any more PUBLICS files */
+            if (*cmdP == ',')
+                cmdP++;
             AddFileToInputList(GetToken());
             objFile->publics = true;
         }
@@ -64,17 +64,21 @@ void GetInputListItem() {
         AddFileToInputList(token);
         if (*cmdP == '(') /* check if we have a module list */
         {
-            ChkLP();               /* gobble up the ( */
-            objFile->isLib = true; /* note have module list */
-            curModuleName = GetModuleName(GetToken());
+            ChkLP();                /* gobble up the ( */
+            objFile->isLib  = true; /* note have module list */
+            curModuleName   = GetModuleName(GetToken());
             module          = (objFile->modules = xmalloc(sizeof(module_t)));
             module->next    = 0;
             module->symbols = 0;
             module->cbias   = 0;
             module->name    = curModuleName;
-            while (*cmdP == ',') { /* get more modules if (specified */
-                ExpectComma();
-                curModuleName = GetModuleName(GetToken());
+            while (*cmdP && *cmdP != ')') { /* get more modules if (specified */
+                if (*cmdP == ',')
+                    cmdP++;
+                token = GetToken();
+                if (!*token)
+                    FatalCmdLineErr("Expected module name\n");
+                curModuleName   = GetModuleName(token);
                 module->next    = xmalloc(sizeof(module_t));
                 module          = module->next;
                 module->next    = 0;
@@ -96,20 +100,14 @@ void ParseControl() {
         ChkLP();
         moduleName = GetModuleName(GetToken());
         ChkRP();
-    } else if (strcmp(token, "-n") == 0)
-        moduleName = GetModuleName(GetToken());
-    else if (stricmp(token, "PRINT") == 0) {
+    } else if (stricmp(token, "PRINT") == 0) {
         ChkLP();
         lstName = GetText();
         if (!*lstName)
             FatalCmdLineErr("Missing listing file for PRINT control");
         ChkRP();
-    } else if (strcmp(token, "-p") == 0) {
-        lstName = GetToken();
-        if (!*lstName)
-            FatalCmdLineErr("Missing listing file for -p control");
-    } else if (stricmp(token, "NOWARN") == 0 || strcmp(token, "-w") == 0)
-        warnOk = false;
+    } else if (stricmp(token, "EXTERNOK") == 0)
+        externOk = true;
     else
         FatalCmdLineErr("Unknown control");
 } /* ParseControl() */
@@ -117,21 +115,26 @@ void ParseControl() {
 void ParseCmdLine() {
     puts("OMF85 OBJECT LINKER " VERSION); /* put login message */
 
-    GetToken();            // skip the invoke name
-    objFileList = 0;       /* end of link file list marker */
-    GetInputListItem();    /* get the first file to link */
-    while (*cmdP == ',') { /* get any more in the list */
-        ExpectComma();
+    GetNonSpaceToken();                      // skip the invoke name
+    objFileList = 0;                 /* end of link file list marker */
+    GetInputListItem();              /* get the first file to link */
+    while (*cmdP && *cmdP != '\n') { /* get any more in the list */
+        if (*cmdP == ',')
+            cmdP++;
+        else {
+            char *peekToken = PeekToken();
+            if (stricmp(peekToken, "TO") == 0)
+                break;
+        }
         GetInputListItem();
     }
 
     char *token = GetToken();
 
-    if (stricmp(token, "to") == 0 || strcmp(token, "-o") == 0)
+    if (stricmp(token, "to") == 0)
         omfOutName = GetToken();
     else
-        FatalCmdLineErr("'TO' or '-o' expected");
-
+        FatalCmdLineErr("'TO' expected");
 
     while (*cmdP != '\n') /* while there are controls */
         ParseControl();
@@ -145,10 +148,10 @@ void ParseCmdLine() {
     if (!moduleName || moduleName->len == 0) {
         char const *fname = basename(omfOutName);
         // use local non const var to setup the name
-        pstr_t *mname      = (pstr_t *)c2pstrdup(*fname ? fname : "NONAME");
+        pstr_t *mname = (pstr_t *)c2pstrdup(*fname ? fname : "NONAME");
         if (mname->len > 31)
             mname->str[31] = '\0';
-        char *s       = mname->str;
+        char *s = mname->str;
         if (isdigit(*s))
             *s++ = '@';
         for (; *s && (*s != '.' || s == mname->str); s++)
@@ -159,6 +162,4 @@ void ParseCmdLine() {
     }
     openLst("OMF85 OBJECT LINKER " VERSION);
     /* if (printing to other than console, log the login & command line */
-
 }
-

@@ -1,13 +1,11 @@
 /****************************************************************************
- *  linkov.c: part of the C port of Intel's ISIS-II link             *
+ *  linkov.c: part of the C port of Intel's ISIS-II link                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "link.h"
 #include <stdlib.h>
 
@@ -39,13 +37,11 @@ static uint16_t segBias;
 static symbol_t **extMap;
 static uint16_t externsCount = 0;
 
-
 void AddExtMap(symbol_t *symbol) {
     extMap[externsCount++] = symbol; /* record the symbol mapping */
 } /* AddExtMap() */
 
 symbol_t *GetSymbolP(uint16_t symId) {
-
     if (symId >= externsCount) /* out of range */
         IllegalReloc();
     return extMap[symId]; /* return the symbol */
@@ -66,7 +62,7 @@ bool ExtendRec(uint16_t cnt) {
 } /* ExtendRec() */
 
 void static EmitMODHDRComSegInfo(uint8_t seg, uint16_t len, uint8_t combine) {
-    if (ExtendRec(SEGDEF_sizeof))                          /* make sure enough room */
+    if (ExtendRec(SEGDEF_sizeof))                             /* make sure enough room */
         FatalError("%s: Module header too long", omfOutName); /* mod hdr too long */
     WriteByte(seg);
     WriteWord(len);
@@ -117,9 +113,9 @@ void EmitCOMDEF() {
 
 void EmitPUBLICS() {
     for (uint16_t fixSeg = 0; fixSeg < 256; fixSeg++) { /* scan all segs */
-        if (segmap[fixSeg]) {                       /* seg used */
-            InitRecord(R_PUBDEF);                   /* init the record */
-            WriteByte((uint8_t)fixSeg);                /* seg needed */
+        if (segmap[fixSeg]) {                           /* seg used */
+            InitRecord(R_PUBDEF);                       /* init the record */
+            WriteByte((uint8_t)fixSeg);                 /* seg needed */
             /* scan all files, modules and symbols*/
             for (objFile = objFileList; objFile; objFile = objFile->next) {
                 for (module = objFile->modules; module; module = module->next) {
@@ -149,7 +145,7 @@ void EmitEXTNAMES() {
 
     for (symbol_t *symbol = unresolvedList; symbol; symbol = symbol->nxtSymbol) {
         if (ExtendRec(2 + symbol->name->len)) /* check room for len, symbol && 0 */
-            ;                                /* no need for special action on extend */
+            ;                                 /* no need for special action on extend */
         WriteName(symbol->name);
         WriteByte(0);
         symbol->offsetOrSym = unresolved++; /* record the final ext sym id */
@@ -160,8 +156,8 @@ void EmitEXTNAMES() {
 void EmitANCESTOR() {
     if (ancestorNameNotSet) /* we have a module name to use */
     {
-        InitRecord(R_ANCEST);          /* init the record */
-        WriteName(ancestor); /* copy name */
+        InitRecord(R_ANCEST); /* init the record */
+        WriteName(ancestor);  /* copy name */
         EndRecord();
         ancestorNameNotSet = false; /* it is now set */
     }
@@ -179,17 +175,17 @@ uint8_t SelectSeg(uint8_t seg) {
 
 void Pass2MODHDR() {
     free((void *)ancestor);
-    ancestor = pstrdup(ReadName()); /* read in the module name as the current ancestor*/ 
-    ancestorNameNotSet = true;           /* note the ancestor record has not been written */
-    for (uint16_t seg = 0; seg < 256; seg++) /* init the segment mapping */
+    ancestor           = pstrdup(ReadName()); /* read in the module name as the current ancestor*/
+    ancestorNameNotSet = true;                /* note the ancestor record has not been written */
+    for (uint16_t seg = 0; seg < 256; seg++)  /* init the segment mapping */
         segmap[seg] = (uint8_t)seg;
     GetRecord();
 } /* Pass2MODHDR() */
 
 void Pass2COMDEF() {
     while (inP < inEnd) { /* while more common definitions */
-        uint8_t segId = ReadByte();
-        pstr_t const *name  = ReadName();
+        uint8_t segId      = ReadByte();
+        pstr_t const *name = ReadName();
         symbol_t *commSym;
         if (!Lookup(name, &commSym, F_ALNMASK)) /* check found */
             RecError("Phase error");
@@ -209,6 +205,8 @@ void Pass2EXTNAMES() {
             /* write the unresolved reference info */
             PrintfAndLog(" %s", symbol->name->str);
             ModuleWarning(" - REFERENCED IN ");
+            if (!externOk)
+                warnings++;
         }
         ReadByte(); // skip the 0
     }
@@ -232,7 +230,7 @@ static uint16_t GetTypeAndSegHead(uint16_t prev, uint16_t typeAndSeg) {
             return i;
         prev = i; /* step along */
     }
-    uint16_t nf                 = newFixup(); /* add to the list */
+    uint16_t nf             = newFixup(); /* add to the list */
     fixups[nf].next         = fixups[prev].next;
     fixups[prev].next       = nf;
     fixups[nf].f.typeAndSeg = typeAndSeg; /* save the typeAndSeg */
@@ -264,7 +262,7 @@ void Pass2CONTENT() {
     // it's a potentially relocatable record, so copy original to output
     memcpy(outRec, inRec, recLen + REC_DATA);
 
-    uint8_t outSeg  = SelectSeg(ReadByte()); /* get the mapped link segment */
+    uint8_t outSeg   = SelectSeg(ReadByte()); /* get the mapped link segment */
     uint16_t outBias = segBias;               /* and the bias to apply */
     uint16_t start   = ReadWord();
     uint16_t len     = recLen - 4; // data bytes excludes crc
@@ -275,7 +273,7 @@ void Pass2CONTENT() {
     InitRecord(R_MODDAT);
     WriteByte(outSeg);
     WriteWord(start + outBias);
-   uint8_t *content = outP; // base location of data to be relocated
+    uint8_t *content = outP; // base location of data to be relocated
     outP += len;
 
     if (!fixups)
@@ -318,8 +316,8 @@ void Pass2CONTENT() {
                     AddRelocFixup(HEADEXT, fixType, offset + outBias, symbol->symId);
             }
         } else {                                /* reloc or interseg */
-            uint8_t fixSeg = outSeg;               /* get default reloc seg */
-            segBias     = outBias;              /* and reloc base to that of the content record */
+            uint8_t fixSeg = outSeg;            /* get default reloc seg */
+            segBias        = outBias;           /* and reloc base to that of the content record */
             if (inType == R_FIXSEG)             /* if we are interseg then update the reloc seg */
                 fixSeg = SelectSeg(ReadByte()); /* also updates the outRelocOffset */
 
@@ -397,8 +395,8 @@ void Pass2LINENO() {
 
 void Pass2ANCESTOR() {
     free((void *)ancestor);
-    ancestor = pstrdup(ReadName()); /* copy the module name over and mark as valid */
-    ancestorNameNotSet = true;     /* note it isn't written yet */
+    ancestor           = pstrdup(ReadName()); /* copy the module name over and mark as valid */
+    ancestorNameNotSet = true;                /* note it isn't written yet */
     GetRecord();
 } /* Pass2ANCESTOR() */
 
@@ -428,8 +426,8 @@ void Phase2() {
     EmitEXTNAMES();
     /* process all files */
     for (objFile = objFileList; objFile; objFile = objFile->next) {
-        if (!objFile->publics) { /* publics only file doesn't need more processing*/
-            openOMFIn(objFile->name);       /* Open file */
+        if (!objFile->publics) {      /* publics only file doesn't need more processing*/
+            openOMFIn(objFile->name); /* Open file */
             /* for each module in the file */
             for (module = objFile->modules; module; module = module->next) {
                 if (objFile->isLib) /* is in a library */

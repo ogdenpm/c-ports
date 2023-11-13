@@ -257,19 +257,21 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="lst.c" />
-    <ClCompile Include="omf.c" />
-    <ClCompile Include="os.c" />
+    <ClCompile Include="..\shared\cmdline.c" />
+    <ClCompile Include="..\shared\lst.c" />
+    <ClCompile Include="..\shared\omf.c" />
+    <ClCompile Include="..\shared\os.c" />
     <ClCompile Include="link.c" />
     <ClCompile Include="link3.c" />
     <ClCompile Include="link3a.c" />
     <ClCompile Include="linkov.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\shared\cmdline.h" />
+    <ClInclude Include="..\shared\lst.h" />
+    <ClInclude Include="..\shared\omf.h" />
+    <ClInclude Include="..\shared\os.h" />
     <ClInclude Include="link.h" />
-    <ClInclude Include="lst.h" />
-    <ClInclude Include="omf.h" />
-    <ClInclude Include="os.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>
