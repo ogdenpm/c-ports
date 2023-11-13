@@ -9,9 +9,10 @@
  ****************************************************************************/
 
 // $Id: trace.hpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
+#include "plm.hpp"
 extern const char *tx2Names[];
 void traceTx1(void *buf, word len);
-extern Byte tx1ItemLengths[];
+extern Byte tx1Lengths[];
 void traceRdTx1(Byte tx1type, Byte *buf, word len);
 void traceTx2(word cnt, Byte *buf, Byte len);
 
@@ -20,4 +21,3 @@ void dumpSym(symbol_pt p);
 void dumpTx2Q(int n);
 void dumpTx2QDetail(int n);
 void dumpMem(char *file, word start, word end);
-

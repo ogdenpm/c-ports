@@ -101,7 +101,7 @@ word arrayDim;
 symbol_pt structMembers[33];
 word structMemDim[33];
 Byte structMemType[33];
-word structMCnt;
+word memberCnt;
 Byte byte_9D7B;
 Byte hasParams;
 word paramCnt;
@@ -353,8 +353,8 @@ void sub_3F23() {
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
-    blockDepth     = 1;
-    procChains[1]  = 0;
+    scopeSP    = 1;
+    scopeChains[1] = 0;
     getNextChr(); // forces read of file
 }
 
@@ -506,20 +506,20 @@ void tokenError(Byte errCode, symbol_pt sym) {
 }
 
 void pushBlock(word idAndLevel) {
-    if (blockDepth == 0x22)
+    if (scopeSP == 0x22)
         fatalError(ERR84); // LIMIT EXCEEDED: BLOCK NESTING
     else {
-        procChains[++blockDepth] = idAndLevel;
+        scopeChains[++scopeSP] = idAndLevel;
         curBlkCnt++;
     }
 }
 
 void popDO() {
-    if (blockDepth == 0)
+    if (scopeSP == 0)
         fatalError(ERR96); // COMPILER ERROR: SCOPE STACK UNDERFLOW
     else {
         curBlkCnt--;
-        *curProcData = procChains[--blockDepth];
+        *curProcData = scopeChains[--scopeSP];
     }
 }
 
@@ -714,7 +714,7 @@ Byte chkRadix(char **plastch) {
     char *p = *plastch;
 
     if (cClass[*(Byte *)p] <= CC_DECDIGIT) // digit
-        return 10;                 // assume decimal no need to remove last char
+        return 10;                         // assume decimal no need to remove last char
     --*plastch;
     if (*p == 'B')
         return 2;
@@ -1957,10 +1957,10 @@ void createStructMemberInfo() {
     Byte memType;
     word memDim;
 
-    if (structMCnt == 0)
+    if (memberCnt == 0)
         return;
 
-    for (i = 1; i <= structMCnt; i++) {
+    for (i = 1; i <= memberCnt; i++) {
         curSymbol_p = structMembers[i];
         memType     = structMemType[i];
         memDim      = structMemDim[i];
@@ -2122,7 +2122,7 @@ void parseStructMType() {
         else
             tokenErrorAt(ERR72); // MISSING TYPE FOR STRUCTURE MEMBER
     }
-    structMemType[structMCnt] = (Byte)type;
+    structMemType[memberCnt] = (Byte)type;
 }
 
 void parseStructMDim() {
@@ -2147,7 +2147,7 @@ void parseStructMDim() {
             sub_61CF();
             yylex();
         }
-        structMemDim[structMCnt] = dim;
+        structMemDim[memberCnt] = dim;
     }
 }
 
@@ -2156,23 +2156,23 @@ void _parseStructMem() {
     if (yylexNotMatch(T_VARIABLE))
         tokenErrorAt(ERR66); // INVALID STRUCTURE MEMBER, NOT AN IDENTIFIER
     else {
-        for (mcnt = 1; mcnt <= structMCnt; mcnt++)
+        for (mcnt = 1; mcnt <= memberCnt; mcnt++)
             if (curSymbol_p == structMembers[mcnt])
                 tokenErrorAt(ERR67); // DUPLICATE STRUCTURE MEMBER NAME
-        if (structMCnt == 32)
+        if (memberCnt == 32)
             tokenErrorAt(ERR68); // LIMIT EXCEEDED: NUMBER OF STRUCTURE MEMBERS
         else
-            structMCnt++;
-        structMembers[structMCnt] = curSymbol_p;
-        structMemType[structMCnt] = 0;
-        structMemDim[structMCnt]  = 0;
+            memberCnt++;
+        structMembers[memberCnt] = curSymbol_p;
+        structMemType[memberCnt] = 0;
+        structMemDim[memberCnt]  = 0;
         parseStructMDim();
         parseStructMType();
     }
 }
 
 void parseStructMem() {
-    structMCnt = 0;
+    memberCnt = 0;
     if (yylexNotMatch(T_LPAREN))
         tokenErrorAt(ERR64); // MISSING STRUCTURE MEMBERS
     else {

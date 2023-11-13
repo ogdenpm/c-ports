@@ -140,14 +140,14 @@ void sub_A153();
 void sub_A266();
 void advNextInfo();
 
-//static Byte tx2Buf[512];
-//static Byte tx1Buf[512];
-word blkCurInfo[20];
-word wB488[20];
+// static Byte tx2Buf[512];
+// static Byte tx1Buf[512];
+word blkInfo[20];
+word blkCode[20];
 word wB4B0[20];
-word wB4D8[20];
+word blkStackSize[20];
 Byte extProcId[20];
-Byte procChainNext[20];
+Byte blkChain[20];
 word wB528[10];
 word wB53C[10];
 Byte tx2opc[255]   = { T2_SEMICOLON, T2_LOCALLABEL, T2_SEMICOLON, T2_SEMICOLON };
@@ -181,13 +181,13 @@ Byte bC0C1[2];
 Byte bC0C3[125];
 Byte bC140[126];
 Byte tx2qp;
-Byte bC1BF   = 4;
+Byte tx2qNxt   = 4;
 Byte tx2qEnd = 4;
-word pc;
+word codeSize;
 word wC1C3;
-word wC1C5;
+word stackUsage;
 word wC1C7;
-Byte blkSP;
+Byte firstCase;
 Byte blkOverCnt;
 Byte procCallDepth;
 bool boC1CC;
@@ -198,15 +198,15 @@ Byte curOp;
 Byte bC1D2;
 Byte padC1D3;
 Byte curExtProcId = 1;
-Byte procChainId;
+Byte blkId;
 word wC1D6;
 bool boC1D8;
 Byte bC1D9;
 Byte cfrag1;
 Byte bC1DB;
 word wC1DC[5];
-Byte bC1E6;
-Byte buf_C1E7[34];
+Byte fragLen;
+Byte fragment[34];
 const Byte bC209[] = { 4, 5, 3, 2, 0, 1 };
 bool boC20F;
 
@@ -637,7 +637,7 @@ const word w493D[] = { 0x0123, 0x0123, 0x0124, 0x0126, 0x0134, 0x0143, 0x0163, 0
                        0x6134, 0x6324, 0x6624, 0x6634, 0x6634, 0x6663, 0x6664, 0x6666,
                        0x5146, 0x5164, 0x5154, 0x5346, 0x5364, 0x5354, 0x5623 };
 
-inline int fragLen(int n) {
+inline int FragLen(int n) {
     return fragFlg_Len[n] & 0x1f;
 }
 
@@ -668,28 +668,28 @@ void sub_3F27() {
     //	assignFileBuffer(&tx1File, tx1Buf, 512, 2);
     //	assignFileBuffer(&tx2File, tx2Buf, 512, 1);
     FILL(10, &wC1DC[0], 0);
-    blkCurInfo[0] = off2Info(procInfo[1]);
+    blkInfo[0] = off2Info(procInfo[1]);
     programErrCnt = 0;
 }
 
 void sub_3F7D() {
     curInfo_p = off2Info(procInfo[1]);
-    setDimension(pc);
-    setBasedOffset(wC1C5);
+    setDimension(codeSize);
+    setBasedOffset(stackUsage);
     //	flushFile(&tx1File);
 }
 
 void wrFragData() {
     if (!(OBJECT | PRINT)) {
-        if (buf_C1E7[0] == 0x9A || buf_C1E7[0] == 0x9B || buf_C1E7[0] == 0xA3)
+        if (fragment[0] == 0x9A || fragment[0] == 0x9B || fragment[0] == 0xA3)
             programErrCnt++;
         return;
     }
-    ifwrite(&tx1File, buf_C1E7, bC1E6);
+    ifwrite(&tx1File, fragment, fragLen);
 }
 
 void putTx1Byte(Byte arg1b) {
-    buf_C1E7[bC1E6++] = arg1b;
+    fragment[fragLen++] = arg1b;
 }
 
 void putTx1Word(word arg1w) {
@@ -697,13 +697,13 @@ void putTx1Word(word arg1w) {
     putTx1Byte((Byte)(arg1w >> 8));
 }
 
-Byte arg1b_53D6;
+Byte arg1b;
 
 void encodeFragData(Byte arg1b) {
-    arg1b_53D6 = arg1b;
-    bC1E6      = 0;
-    putTx1Byte(arg1b_53D6);
-    if (bt4029[arg1b_53D6] & 0x80)
+    arg1b   = arg1b;
+    fragLen = 0;
+    putTx1Byte(arg1b);
+    if (bt4029[arg1b] & 0x80)
         putTx1Byte(curOp);
     sub_5410();
     FILL(10, &wC1DC[0], 0);
@@ -715,8 +715,8 @@ Byte bC215;
 
 void sub_5410() {
     bC214 = 0;
-    bC215 = bC1E6;
-    if (((bt4029[arg1b_53D6] >> 4) & 7) != 0) {
+    bC215 = fragLen;
+    if (((bt4029[arg1b] >> 4) & 7) != 0) {
         sub_545D();
         if (wC1DC[bC214] != 0 || wC1DC[0] <= 12)
             sub_545D();
@@ -727,10 +727,10 @@ void sub_545D() {
     Byte j;
     j = (Byte)wC1DC[bC214];
     if (wC1DC[0] <= 12) {
-        if (bC215 == bC1E6)
+        if (bC215 == fragLen)
             putTx1Byte(j);
         else // ROL(buf_C1E7[bC215], 4)
-            buf_C1E7[bC215] = (buf_C1E7[bC215] << 4) | (buf_C1E7[bC215] >> 4) | j;
+            fragment[bC215] = (fragment[bC215] << 4) | (fragment[bC215] >> 4) | j;
     }
     bC214++;
     if (7 < j) {
@@ -752,7 +752,7 @@ void sub_545D() {
 }
 
 void emitTopItem() {
-    bC1E6 = 0;
+    fragLen = 0;
     if (!PRINT)
         if (tx2opc[tx2qp] == T2_LINEINFO || tx2opc[tx2qp] == T2_INCLUDE)
             return;
@@ -835,13 +835,13 @@ void sub_5795(word arg1w) {
         encodeFragData(CF_SPHL);
         if (bC0B5[0] == 3) {
             encodeFragData(CF_XCHG);
-            pc += 7;
+            codeSize += 7;
         } else
-            pc += 5;
+            codeSize += 5;
     } else {
         if (p & 1) {
             encodeFragData(CF_INXSP);
-            pc++;
+            codeSize++;
         }
         while (1 < p) {
             if (bC0B5[0] == 3)
@@ -850,7 +850,7 @@ void sub_5795(word arg1w) {
                 wC1DC[0] = 3; // pop h
             wC1DC[1] = 8;
             encodeFragData(CF_POP);
-            pc++;
+            codeSize++;
             p -= 2;
         }
     }
@@ -861,8 +861,8 @@ void sub_5795(word arg1w) {
 }
 
 Byte enterBlk() {
-    if (blkSP < 0x14) {
-        blkSP++;
+    if (firstCase < 0x14) {
+        firstCase++;
         return 0xff;
     }
     if (blkOverCnt == 0) {
@@ -879,8 +879,8 @@ Byte exitBlk() {
         blkOverCnt--;
         return 0;
     }
-    if (0 < blkSP) {
-        blkSP--;
+    if (0 < firstCase) {
+        firstCase--;
         return 0xff;
     }
     tx2SyntaxError(ERR205); // ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED
@@ -890,21 +890,21 @@ Byte exitBlk() {
 
 void sub_58F5(Byte arg1b) {
     fatalErrorCode = arg1b;
-    buf_C1E7[0]    = 0x9a;
-    buf_C1E7[1]    = fatalErrorCode;
-    buf_C1E7[2]    = 0;
-    bC1E6          = 3;
+    fragment[0]    = 0x9a;
+    fragment[1]    = fatalErrorCode;
+    fragment[2]    = 0;
+    fragLen        = 3;
     wrFragData();
 
-    while (0 < blkSP) {
+    while (0 < firstCase) {
         if (exitBlk()) {
-            if (blkSP < procChainId) {
-                curInfo_p = blkCurInfo[procChainId];
-                setDimension(pc);
-                setBasedOffset(wC1C5);
-                procChainId = procChainNext[procChainId];
-                pc          = wB488[procChainId];
-                wC1C5       = wB4D8[procChainId];
+            if (firstCase < blkId) {
+                curInfo_p = blkInfo[blkId];
+                setDimension(codeSize);
+                setBasedOffset(stackUsage);
+                blkId = blkChain[blkId];
+                codeSize          = blkCode[blkId];
+                stackUsage       = blkStackSize[blkId];
             }
         }
     }
@@ -997,14 +997,14 @@ void sub_5C97(Byte arg1b) {
 }
 
 void sub_5D27(Byte arg1b) {
-    if (wC1C5 < ++wC1C3 * 2)
-        wC1C5 = wC1C3 * 2;
+    if (stackUsage < ++wC1C3 * 2)
+        stackUsage = wC1C3 * 2;
     sub_5C1D(arg1b);
     wC1DC[0] = arg1b;
     wC1DC[1] = 0xA;
     wC1DC[2] = wC1C3;
     encodeFragData(CF_PUSH);
-    pc++;
+    codeSize++;
 }
 
 Byte arg1b_5D6B; // nested
@@ -1073,7 +1073,7 @@ void sub_5E66(Byte arg1b) {
 void sub_5EE8() {
     Byte i;
     sub_5795(wC1C7);
-    if ((curInfo_p = blkCurInfo[procChainId]) != 0) {
+    if ((curInfo_p = blkInfo[blkId]) != 0) {
         if (testInfoFlag(F_INTERRUPT)) {
             for (i = 0; i <= 3; i++) {
                 wC1DC[0] = i; // pop psw, pop b, pop d, pop h
@@ -1081,7 +1081,7 @@ void sub_5EE8() {
                 encodeFragData(CF_POP);
             }
             encodeFragData(CF_EI);
-            pc += 5;
+            codeSize += 5;
         }
     }
 }
@@ -1195,7 +1195,7 @@ void sub_63AC(Byte arg1b) {
                 bC0A8[arg1b]--;
                 encodeFragData(CF_DCX);
             }
-            pc++;
+            codeSize++;
         }
     }
 }
@@ -1205,7 +1205,7 @@ void sub_6416(Byte arg1b) {
     wC1DC[1] = 0xa;
     wC1DC[2] = wC1C3;
     encodeFragData(CF_POP);
-    pc++;
+    codeSize++;
     sub_5C97(arg1b);
     wC1C3--;
 }
@@ -1253,17 +1253,17 @@ void sub_652B() {
 void fillTx2Q() {
     Byte i, j, k;
     tx2qp = 4;
-    if (bC1BF < tx2qEnd) {
-        k = tx2qEnd - bC1BF;
-        movemem(k, &tx2opc[bC1BF], &tx2opc[tx2qp]);
-        movemem(k, &tx2Aux1b[bC1BF], &tx2Aux1b[tx2qp]);
-        movemem(k, &tx2Aux2b[bC1BF], &tx2Aux2b[tx2qp]);
-        movemem(k * 2, &tx2op1[bC1BF], &tx2op1[tx2qp]);
-        movemem(k * 2, &tx2op2[bC1BF], &tx2op2[tx2qp]);
-        movemem(k * 2, &tx2op3[bC1BF], &tx2op3[tx2qp]);
-        movemem(k * 2, &tx2Auxw[bC1BF], &tx2Auxw[tx2qp]);
+    if (tx2qNxt < tx2qEnd) {
+        k = tx2qEnd - tx2qNxt;
+        movemem(k, &tx2opc[tx2qNxt], &tx2opc[tx2qp]);
+        movemem(k, &tx2Aux1b[tx2qNxt], &tx2Aux1b[tx2qp]);
+        movemem(k, &tx2Aux2b[tx2qNxt], &tx2Aux2b[tx2qp]);
+        movemem(k * 2, &tx2op1[tx2qNxt], &tx2op1[tx2qp]);
+        movemem(k * 2, &tx2op2[tx2qNxt], &tx2op2[tx2qp]);
+        movemem(k * 2, &tx2op3[tx2qNxt], &tx2op3[tx2qp]);
+        movemem(k * 2, &tx2Auxw[tx2qNxt], &tx2Auxw[tx2qp]);
         tx2qp = k + 4;
-        bC1BF += k;
+        tx2qNxt += k;
     }
     i = 0xff;
     j = 0;
@@ -1298,15 +1298,15 @@ void sub_67A9() {
     Byte i;
     skipBB(tx2qEnd, 0xff);
     i = 0;
-    if (bC1BF == 4 && !eofSeen)
-        bC1BF = tx2qEnd;
+    if (tx2qNxt == 4 && !eofSeen)
+        tx2qNxt = tx2qEnd;
     else
-        for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
+        for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
             bC1D2 = b5124[tx2opc[tx2qp]];
             if (bC1D2 & 0x10) {
                 if (i + 4 < tx2qp) {
                     if (tx2opc[tx2qp] == T2_LOCALLABEL)
-                        bC1BF = tx2qp;
+                        tx2qNxt = tx2qp;
                     else
                         skipBB(tx2qp, 0xff);
                     return;
@@ -1323,13 +1323,13 @@ void sub_67A9() {
 }
 
 void skipBB(Byte arg1b, Byte arg2b) {
-    bC1BF = arg2b + arg1b;
-    while (tx2opc[bC1BF] != T2_STMTCNT && tx2opc[bC1BF] != T2_EOF && tx2opc[bC1BF] != T2_LOCALLABEL)
-        bC1BF += arg2b;
+    tx2qNxt = arg2b + arg1b;
+    while (tx2opc[tx2qNxt] != T2_STMTCNT && tx2opc[tx2qNxt] != T2_EOF && tx2opc[tx2qNxt] != T2_LOCALLABEL)
+        tx2qNxt += arg2b;
 }
 
 void sub_689E() {
-    for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
+    for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
         curOp = tx2opc[tx2qp];
         bC1D2 = b5124[curOp];
         if ((bC1D2 & 0xc0) == 0)
@@ -1386,7 +1386,7 @@ void sub_69EB(Byte arg1b, word *arg2w) {
     }
 }
 
-Byte b5286[] = { 12, 9, 0, 1, 8, 0, 0 };
+Byte aux1bMap[] = { 12, 9, 0, 1, 8, 0, 0 };
 
 void sub_6AA4() {
     if (curOp == T2_VARIABLE) {
@@ -1400,7 +1400,7 @@ void sub_6AA4() {
             tx2Aux2b[tx2qp] = 4;
         curInfo_p       = tx2op1[tx2qp];
         tx2op2[tx2qp]   = getAddr();
-        tx2Aux1b[tx2qp] = b5286[getInfoType()];
+        tx2Aux1b[tx2qp] = aux1bMap[getInfoType()];
     } else if (T2_BIGNUMBER >= curOp) {
         tx2op2[tx2qp]   = tx2op1[tx2qp];
         tx2Aux2b[tx2qp] = 8;
@@ -1422,7 +1422,7 @@ Byte bC25A;
 void sub_6BD6() {
     bC259 = 4;
     bC25A = 4;
-    for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
+    for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
         tx2Auxw[tx2qp] = 0;
         curOp          = tx2opc[tx2qp];
         bC1D2          = b5124[curOp];
@@ -1593,12 +1593,12 @@ void sub_7111() {
     }
 }
 
-Byte bC266;
-word wC267;
-word wC269;
-word wC26B;
-word wC26D;
-Byte bC26F;
+Byte arithOp;
+word lhsAcc;
+word lhsAccFlag;
+word rhsAcc;
+word rhsAccFlag;
+Byte operand;
 
 Byte bC272;
 Byte bC273;
@@ -1606,13 +1606,13 @@ Byte bC273;
 void sub_717B() {
     word p;
 
-    bC266 = curOp - 0x12;
-    bC26F = (Byte)tx2op1[tx2qp];
-    sub_5FBF(bC26F, &wC267, &wC269);
-    if (bsub_7254(b5112[bC266] >> 6, wC269)) {
-        bC26F = (Byte)tx2op2[tx2qp];
-        sub_5FBF(bC26F, &wC26B, &wC26D);
-        if (bsub_7254((b5112[bC266] >> 3) & 0x7, wC26D)) {
+    arithOp = curOp - 0x12;
+    operand = (Byte)tx2op1[tx2qp];
+    sub_5FBF(operand, &lhsAcc, &lhsAccFlag);
+    if (bsub_7254(b5112[arithOp] >> 6, lhsAccFlag)) {
+        operand = (Byte)tx2op2[tx2qp];
+        sub_5FBF(operand, &rhsAcc, &rhsAccFlag);
+        if (bsub_7254((b5112[arithOp] >> 3) & 0x7, rhsAccFlag)) {
             sub_611A();
             p = sub_72F2();
             sub_73C5();
@@ -1626,19 +1626,19 @@ void sub_717B() {
 
 Byte bsub_7254(Byte arg1b, word arg2w) {
     if (arg1b == 0) {
-        if (tx2Aux2b[bC26F] != 4)
+        if (tx2Aux2b[operand] != 4)
             return 0;
     } else if (arg1b != 3) {
-        if (tx2Aux2b[bC26F] != 8)
+        if (tx2Aux2b[operand] != 8)
             return 0;
         if (arg2w != 0) {
             if (arg1b == 2)
                 return 0;
             if (arg1b == 4) {
-                if (wC269 != 0)
+                if (lhsAccFlag != 0)
                     return 0;
             } else if (arg1b == 5) {
-                if (wC269 != wC26D)
+                if (lhsAccFlag != rhsAccFlag)
                     return 0;
             }
         }
@@ -1648,43 +1648,43 @@ Byte bsub_7254(Byte arg1b, word arg2w) {
 }
 
 word sub_72F2() {
-    switch (bC266) {
+    switch (arithOp) {
     case 0:
-        return wC267; // T2_DOUBLE
+        return lhsAcc; // T2_DOUBLE
     case 1:
-        return wC26B + wC267; // T2_ADDB
+        return rhsAcc + lhsAcc; // T2_ADDB
     case 2:
-        return wC267 - wC26B; // T2_MINUSSIGN
+        return lhsAcc - rhsAcc; // T2_MINUSSIGN
     case 3:
-        return wC26B * wC267; // T2_STAR
+        return rhsAcc * lhsAcc; // T2_STAR
     case 4:
-        return wC267 / wC26B; // T2_SLASH
+        return lhsAcc / rhsAcc; // T2_SLASH
     case 5:
-        return wC267 % wC26B; // T2_MOD
+        return lhsAcc % rhsAcc; // T2_MOD
     case 6:
-        return wC26B & wC267; // T2_AND
+        return rhsAcc & lhsAcc; // T2_AND
     case 7:
-        return wC26B | wC267; // T2_OR
+        return rhsAcc | lhsAcc; // T2_OR
     case 8:
-        return wC26B ^ wC267; // T2_XOR
+        return rhsAcc ^ lhsAcc; // T2_XOR
     case 9:
-        return wC26B + wC267; // T2_BASED
+        return rhsAcc + lhsAcc; // T2_BASED
     case 10:
-        return wC26B + wC267; // T2_BYTEINDEX
+        return rhsAcc + lhsAcc; // T2_BYTEINDEX
     case 11:
-        return (wC26B * 2) + wC267; // T2_WORDINDEX
+        return (rhsAcc * 2) + lhsAcc; // T2_WORDINDEX
     case 12:
-        return wC26B + wC267; // T2_MEMBER
+        return rhsAcc + lhsAcc; // T2_MEMBER
     case 13:
-        return -wC267; // T2_UNARYMINUS
+        return -lhsAcc; // T2_UNARYMINUS
     case 14:
-        return ~wC267; // T2_NOT
+        return ~lhsAcc; // T2_NOT
     case 15:
-        return wC267 & 0xff; // T2_LOW
+        return lhsAcc & 0xff; // T2_LOW
     case 16:
-        return (wC267 >> 8) & 0xff; // T2_HIGH
+        return (lhsAcc >> 8) & 0xff; // T2_HIGH
     case 17:
-        return wC267; // T2_ADDRESSOF
+        return lhsAcc; // T2_ADDRESSOF
     default:
         return 0; // shouldn't happen
     }
@@ -1695,7 +1695,7 @@ void sub_73C5() {
         bC272 = tx2Aux1b[tx2op2[tx2qp]];
         bC273 = 0x0A;
     } else
-        switch (b5112[bC266] & 7) {
+        switch (b5112[arithOp] & 7) {
         case 0:
             bC272 = 0;
             bC273 = 8;
@@ -1723,9 +1723,9 @@ void sub_73C5() {
             bC272 = sub_5748(tx2Aux1b[tx2op2[tx2qp]]);
             bC273 = 8;
         }
-    if (wC269 == wC26D)
+    if (lhsAccFlag == rhsAccFlag)
         curInfo_p = 0;
-    else if (wC26D == 0)
+    else if (rhsAccFlag == 0)
         curInfo_p = tx2op1[tx2op1[tx2qp]];
     else
         curInfo_p = tx2op1[tx2op2[tx2qp]];
@@ -1758,8 +1758,8 @@ Byte arg2b_765B;
 Byte arg3b_765B;
 
 Byte bC27A;
-word wC27B;
-word wC27D;
+word acc;
+word accFlag;
 Byte bC27F;
 
 Byte bsub_765B(Byte arg1b, Byte arg2b, Byte arg3b) {
@@ -1767,7 +1767,7 @@ Byte bsub_765B(Byte arg1b, Byte arg2b, Byte arg3b) {
     arg1b_765B = arg1b;
     arg2b_765B = arg2b;
     arg3b_765B = arg3b;
-    sub_5FBF(arg2b_765B, &wC27B, &wC27D);
+    sub_5FBF(arg2b_765B, &acc, &accFlag);
     bC27A = 0;
     i     = 0xff;
 
@@ -1805,7 +1805,7 @@ Byte bsub_76E2(Byte arg1b) {
 void sub_7754() {
     Byte i, j;
     i = tx2qp + 1;
-    while (tx2opc[i] == T2_OPTBACKREF && i < bC1BF)
+    while (tx2opc[i] == T2_OPTBACKREF && i < tx2qNxt)
         i++;
     j = tx2qp;
     if (tx2opc[i] == T2_STORE) {
@@ -1826,7 +1826,7 @@ word w502A[] = { 0, 1, 2, 3, 4, 8, 9, 0x0A, 0x10, 0xFD, 0xFE, 0xFF, 0xFFFD, 0xFF
 // look at mod model below
 Byte bsub_7801() {
     word p;
-    if (wC27D != 0 || (curOp < T2_BASED && tx2Aux2b[arg2b_765B] != 8))
+    if (accFlag != 0 || (curOp < T2_BASED && tx2Aux2b[arg2b_765B] != 8))
         return 0;
     if (bC27F & 0x20)
         if (!bsub_76E2(arg3b_765B))
@@ -1836,22 +1836,22 @@ Byte bsub_7801() {
             return 0;
     if (bC27F & 4) {
         if (bC27F & 8) {
-            if (wC27B != 0)
+            if (acc != 0)
                 return 0xFF;
             else
                 return 0;
         }
-        if ((p = w502A[bt5048[arg1b_765B] >> 3]) != wC27B)
+        if ((p = w502A[bt5048[arg1b_765B] >> 3]) != acc)
             return 0;
         if (bC27F & 0x80)
             sub_7754();
         return 0xFF;
     } else if ((bC27F & 0x40) == 0) {
         p     = w502A[bt5048[arg1b_765B] >> 3];
-        bC27A = wC27B % p;
+        bC27A = acc % p;
         return 0xFF;
-    } else if (wC27B <= 4) {
-        bC27A = (Byte)wC27B;
+    } else if (acc <= 4) {
+        bC27A = (Byte)acc;
         return 0xff;
     }
     return 0;
@@ -1863,14 +1863,14 @@ void sub_7925() {
     j = bt5048[arg1b_765B] & 3;
     if (i == 0x0AD) {
         if (j == 0)
-            wC27B = 0;
+            acc = 0;
         sub_611A();
         bC27F = 0;
         k     = 1;
-        if (curOp != T2_STAR && curOp != T2_SLASH && curOp != T2_MOD && wC27B < 0x100 &&
+        if (curOp != T2_STAR && curOp != T2_SLASH && curOp != T2_MOD && acc < 0x100 &&
             bsub_76E2(arg2b_765B) && (arg3b_765B == 0 || bsub_76E2(arg2b_765B)))
-                k = 0;
-        sub_5F4B(wC27B, 0, k, 8);
+            k = 0;
+        sub_5F4B(acc, 0, k, 8);
     } else {
         if (j == 1) {
             tx2op1[tx2qp] = arg3b_765B;
@@ -1951,7 +1951,7 @@ void sub_7A85() {
         if (j != 0 && bC04E[j] != 0) {
             wC1DC[0] = j;
             encodeFragData(CF_MOVLRHR);
-            pc++;
+            codeSize++;
         }
     }
     if (!boC1D8) {
@@ -1971,18 +1971,17 @@ void sub_7A85() {
 
 void sub_7D32() {
     encodeFragData(CF_XCHG);
-    pc++;
+    codeSize++;
     sub_5B96(3, 4);
     sub_5B96(2, 3);
     sub_5B96(4, 2);
 }
 
 void sub_7D54() {
-
     wC1DC[0] = 0xa;
     wC1DC[1] = wC1C3;
     encodeFragData(CF_XTHL);
-    pc++;
+    codeSize++;
     sub_5C97(4);
     sub_5C1D(3);
     sub_5B96(4, 3);
@@ -2035,7 +2034,7 @@ void sub_7DA9() {
         sub_61A9(0);
         sub_61A9(1);
         encodeFragData(i);
-        pc += fragLen(i);
+        codeSize += FragLen(i);
     }
 }
 
@@ -2105,7 +2104,7 @@ void sub_8086() {
 }
 
 void sub_8148(Byte arg1b, Byte arg2b) {
-//    Byte i;
+    //    Byte i;
     if (arg2b == 0)
         return;
     if (arg2b == 1 || arg2b == 2) {
@@ -2122,7 +2121,7 @@ void sub_8148(Byte arg1b, Byte arg2b) {
         wC1DC[bC1DB + 1] = wC1C3;
         bC1DB += 3;
     } else {
-//        i = bC1DB;
+        //        i = bC1DB;
         sub_636A(bC295);
     }
 }
@@ -2219,21 +2218,21 @@ void sub_84ED() {
             wC1DC[bC1DB - 1] += 2;
         sub_8698(b42F9[cfrag1] & 0xf, (bt4029[cfrag1] >> 1) & 7);
         encodeFragData(cfrag1);
-        pc += fragLen(cfrag1);
+        codeSize += FragLen(cfrag1);
         if (cfrag1 == CF_DELAY) {
             ((word *)helpers_p)[105] = 1;
-            if (wC1C5 < (wC1C3 + 1) * 2)
-                wC1C5 = (wC1C3 + 1) * 2;
+            if (stackUsage < (wC1C3 + 1) * 2)
+                stackUsage = (wC1C3 + 1) * 2;
         } else if (cfrag1 > CF_171) {
             i                      = b413B[cfrag1 - CF_174]; // ???
             i                      = b4128[i] + b425D[b4273[curOp]] * 11;
             i                      = (b418C[i] & 3) + b3FCD[b418C[i] >> 2];
             ((word *)helpers_p)[i] = 1;
             if (curOp == T2_SLASH || curOp == T2_MOD || curOp == T2_44) {
-                if (wC1C5 < (wC1C3 + 2) * 2)
-                    wC1C5 = (wC1C3 + 2) * 2;
-            } else if (wC1C5 < (wC1C3 + 1) * 2)
-                wC1C5 = (wC1C3 + 1) * 2;
+                if (stackUsage < (wC1C3 + 2) * 2)
+                    stackUsage = (wC1C3 + 2) * 2;
+            } else if (stackUsage < (wC1C3 + 1) * 2)
+                stackUsage = (wC1C3 + 1) * 2;
         }
     }
 }
@@ -2290,14 +2289,14 @@ void sub_8698(Byte arg1b, Byte arg2b) {
 
 Byte bC2A8;
 word wC2A9;
-word wC2AB;
-word wC2AD;
+word first;
+word last;
 
 void sub_87CB() {
     bC0B7[0] = (Byte)tx2op1[tx2qp];
     bC0B7[1] = (Byte)tx2op2[tx2qp];
-    wC2AB    = wAF54[curOp];
-    wC2AD    = b499B[curOp] + wC2AB - 1;
+    first    = wAF54[curOp];
+    last    = b499B[curOp] + first - 1;
     sub_8CF5();
 
     while (1) {
@@ -2323,7 +2322,7 @@ Byte bC2A6;
 
 Byte bsub_8861() {
     Byte i;
-    for (wC1D6 = wC2AB; wC1D6 <= wC2AD; wC1D6++) {
+    for (wC1D6 = first; wC1D6 <= last; wC1D6++) {
         i = sub_5679(bC2A5);
         if (i >= 0 && 3 >= i)
             return 0xFF;
@@ -2457,12 +2456,12 @@ void sub_8CF5() {
 }
 
 void sub_8DCD() {
-    Byte h = 0, i = 0, j, k, m, n;  // init to appease GCC
+    Byte h = 0, i = 0, j, k, m, n; // init to appease GCC
     j = 198;
-    for (wC1D6 = wC2AB; wC1D6 <= wC2AD; wC1D6++) {
+    for (wC1D6 = first; wC1D6 <= last; wC1D6++) {
         k = sub_8E7E(0);
         m = sub_8E7E(1);
-        n = bt4C45[k] + bt4C45[m] + fragLen(b4A21[wC1D6]);
+        n = bt4C45[k] + bt4C45[m] + FragLen(b4A21[wC1D6]);
         if (n < j) {
             j        = n;
             h        = k;
@@ -2512,12 +2511,12 @@ void sub_8F35() {
             p = (wB53C[procCallDepth] + 1) * 2;
         else
             p = (wB528[procCallDepth] + 1) * 2 + getBasedOffset();
-        if (wC1C5 < p)
-            wC1C5 = p;
+        if (stackUsage < p)
+            stackUsage = p;
     } else if (curOp == T2_CALLVAR) {
         sub_5795(-(wB53C[procCallDepth] * 2));
-        if (wC1C5 < wC1C3 * 2)
-            wC1C5 = wC1C3 * 2;
+        if (stackUsage < wC1C3 * 2)
+            stackUsage = wC1C3 * 2;
     } else if (curOp == T2_RETURN || curOp == T2_RETURNBYTE || curOp == T2_RETURNWORD) {
         boC1CD = true;
         sub_5EE8();
@@ -2527,7 +2526,7 @@ void sub_8F35() {
             cfrag1 = CF_JMPTRUE;
             boC20F = false;
         }
-    } else if (curOp == T2_63)
+    } else if (curOp == T2_CASEBLOCK)
         sub_5795(0);
     else if (curOp == T2_MOVE) {
         if (wB53C[procCallDepth] != wC1C3) {
@@ -2623,22 +2622,22 @@ void sub_940D() {
 
 void sub_9457() {
     if (enterBlk()) {
-        wB488[procChainId]     = pc;
-        wB4B0[procChainId]     = wC1C3;
-        wB4D8[procChainId]     = wC1C5;
-        extProcId[procChainId] = curExtProcId;
-        procChainNext[blkSP]   = procChainId;
-        procChainId            = blkSP;
-        blkCurInfo[blkSP] = curInfo_p = off2Info(tx2op1[tx2qp]);
+        blkCode[blkId]     = codeSize;
+        wB4B0[blkId]     = wC1C3;
+        blkStackSize[blkId]     = stackUsage;
+        extProcId[blkId] = curExtProcId;
+        blkChain[firstCase]   = blkId;
+        blkId            = firstCase;
+        blkInfo[firstCase] = curInfo_p = off2Info(tx2op1[tx2qp]);
         curExtProcId                  = getProcId();
-        pc                            = 0;
+        codeSize                            = 0;
         emitTopItem();
         sub_981C();
     }
 }
 
 void findParamInfo(Byte arg1b) {
-    curInfo_p = blkCurInfo[blkSP];
+    curInfo_p = blkInfo[firstCase];
     while (arg1b != 0) {
         advNextInfo();
         arg1b--;
@@ -2646,48 +2645,48 @@ void findParamInfo(Byte arg1b) {
 }
 
 Byte curParamCnt;
-Byte bC2D1;
-Byte bC2D2;
+Byte reg;
+Byte paramNo;
 
 void sub_9514() {
     if (getInfoType() == ADDRESS_T) {
-        wC1DC[0] = bC2D1;
+        wC1DC[0] = reg;
         encodeFragData(CF_MOVMRPR);
-        pc += 3;
+        codeSize += 3;
     } else {
-        wC1DC[0] = bC2D1;
+        wC1DC[0] = reg;
         encodeFragData(CF_MOVMLR);
-        pc++;
+        codeSize++;
     }
-    if (curParamCnt != bC2D2) {
+    if (curParamCnt != paramNo) {
         encodeFragData(CF_DCXH);
-        pc++;
+        codeSize++;
     }
 }
 
 void sub_9560() {
     Byte i;
     if ((i = curParamCnt) == 1)
-        bC2D1 = 1;
+        reg = 1;
     else
-        bC2D1 = 2;
-    for (bC2D2 = 1; bC2D2 <= curParamCnt; bC2D2++) {
+        reg = 2;
+    for (paramNo = 1; paramNo <= curParamCnt; paramNo++) {
         findParamInfo(i);
-        if (bC2D2 == 2)
-            bC2D1 = 1;
-        else if (bC2D2 == 3) {
+        if (paramNo == 2)
+            reg = 1;
+        else if (paramNo == 3) {
             wC1DC[0] = 2; // pop d
             wC1DC[1] = 8;
             encodeFragData(CF_POP);
             wC1DC[0] = 1; // pop b
             wC1DC[1] = 8;
             encodeFragData(CF_POP);
-            pc += 2;
-        } else if (3 < bC2D2) {
+            codeSize += 2;
+        } else if (3 < paramNo) {
             wC1DC[0] = 1; // pop b
             wC1DC[1] = 8;
             encodeFragData(CF_POP);
-            pc++;
+            codeSize++;
         }
         sub_9514();
         i--;
@@ -2696,7 +2695,7 @@ void sub_9560() {
         wC1DC[0] = 2; // push d
         wC1DC[1] = 8;
         encodeFragData(CF_PUSH);
-        pc++;
+        codeSize++;
     }
 }
 
@@ -2704,45 +2703,45 @@ void sub_9624(word arg1w) {
     wC1DC[0] = 9;
     wC1DC[1] = arg1w;
     encodeFragData(CF_6);
-    pc += 4;
+    codeSize += 4;
 }
 
 void sub_9646(word arg1w) {
     if (5 >= ((arg1w >> 1) + (arg1w & 1))) {
         if (arg1w & 1) {
             encodeFragData(CF_DCXSP);
-            pc++;
+            codeSize++;
         }
         while (1 < arg1w) {
             wC1DC[0] = 3; // push h
             wC1DC[1] = 8;
             encodeFragData(CF_PUSH);
-            pc++;
+            codeSize++;
             arg1w -= 2;
         }
     } else {
         sub_9624(-arg1w);
         encodeFragData(CF_SPHL);
-        pc++;
+        codeSize++;
     }
 }
 
 void inxh() {
     wC1DC[0] = 3;
     encodeFragData(CF_INX);
-    pc++;
+    codeSize++;
 }
 
 void opB(Byte arg1b) {
     wC1DC[0] = 1;
     encodeFragData(arg1b);
-    pc++;
+    codeSize++;
 }
 
 void opD(Byte arg1b) {
     wC1DC[0] = 2;
     encodeFragData(arg1b);
-    pc++;
+    codeSize++;
 }
 
 Byte bC2D3;
@@ -2767,17 +2766,17 @@ void sub_9706() {
 
 void movDEM() {
     opD(CF_MOVRPM);
-    pc += 2;
+    codeSize += 2;
 }
 
 void sub_975F() {
-    wC1DC[0] = bC2D1;
+    wC1DC[0] = reg;
     wC1DC[1] = 8;
     encodeFragData(CF_PUSH);
-    pc++;
+    codeSize++;
     if (getInfoType() == BYTE_T) {
         encodeFragData(CF_INXSP);
-        pc++;
+        codeSize++;
     }
 }
 
@@ -2786,21 +2785,21 @@ word wC2D4; // nested var
 void sub_978E() {
     if ((bC2D3 = curParamCnt) > 2)
         sub_9624(wC2D4);
-    bC2D1 = curParamCnt == 1 ? 1 : 2;
-    for (bC2D2 = 1; bC2D2 <= curParamCnt; bC2D2++) {
+    reg = curParamCnt == 1 ? 1 : 2;
+    for (paramNo = 1; paramNo <= curParamCnt; paramNo++) {
         findParamInfo(bC2D3);
-        if (3 < bC2D2)
+        if (3 < paramNo)
             sub_9706();
-        else if (bC2D2 == 3) {
+        else if (paramNo == 3) {
             movDEM();
             sub_9706();
         } else if (getInfoType() == BYTE_T) {
-            wC1DC[0] = bC2D1;
+            wC1DC[0] = reg;
             encodeFragData(CF_MOVHRLR);
-            pc++;
+            codeSize++;
         }
         sub_975F();
-        bC2D1 = 1;
+        reg = 1;
         bC2D3--;
     }
 }
@@ -2813,7 +2812,7 @@ void sub_981C() {
             wC1DC[0] = (3 - j);
             wC1DC[1] = 8; // push h, push d, push b, push psw
             encodeFragData(CF_PUSH);
-            pc++;
+            codeSize++;
         }
     }
     if (testInfoFlag(F_REENTRANT)) {
@@ -2831,7 +2830,7 @@ void sub_981C() {
         if (curParamCnt > 2)
             wC1C7 += (curParamCnt - 2) * 2;
 
-        wC1C5 = 0;
+        stackUsage = 0;
     } else {
         if (curParamCnt > 0) {
             findParamInfo(curParamCnt); // locate info for first param
@@ -2842,13 +2841,13 @@ void sub_981C() {
             wC1DC[3] = info2Off(curInfo_p); // info for first param
             encodeFragData(CF_7);
             sub_9560();
-            pc += 3;
+            codeSize += 3;
         }
         wC1C7 = 0;
         if (2 < curParamCnt)
-            wC1C5 = (curParamCnt - 2) * 2;
+            stackUsage = (curParamCnt - 2) * 2;
         else
-            wC1C5 = 0;
+            stackUsage = 0;
     }
 }
 
@@ -2858,13 +2857,13 @@ void sub_994D() {
     if (curOp == T2_LABELDEF) {
         boC1CC    = false;
         curInfo_p = off2Info(tx2op1[tx2qp]);
-        setAddr(pc);
+        setAddr(codeSize);
     } else if (curOp == T2_LOCALLABEL) {
         boC1CC                                 = false;
-        ((word *)localLabels_p)[tx2op1[tx2qp]] = pc;
+        ((word *)localLabels_p)[tx2op1[tx2qp]] = codeSize;
         ((Byte *)word_381E)[tx2op1[tx2qp]]     = curExtProcId;
     } else if (curOp == T2_CASELABEL) {
-        ((word *)localLabels_p)[tx2op1[tx2qp]] = pc;
+        ((word *)localLabels_p)[tx2op1[tx2qp]] = codeSize;
         ((Byte *)word_381E)[tx2op1[tx2qp]]     = curExtProcId;
         if ((word_3822 - botMem) / 2 >= wC1CF) {
             ((word *)botMem)[wC1CF] = tx2op1[tx2qp];
@@ -2905,7 +2904,7 @@ void sub_994D() {
     }
 L9B8D:
     emitTopItem();
-    pc += fragLen(curOp);
+    codeSize += FragLen(curOp);
 }
 
 Byte b9BA8[2] = { 0xc, 0xd };
@@ -3013,7 +3012,6 @@ void sub_9EAA(Byte arg1b, Byte arg2b) {
     *pb_C2EB <<= 4;
     if (arg1b != 0)
         *pb_C2EB |= tx2Aux1b[arg1b] == 0 ? b9BAE[arg2b] : b9BAC[arg2b];
-
 }
 
 void sub_9EF8() {
@@ -3024,19 +3022,19 @@ void sub_9EF8() {
 
 void sub_9F14() {
     if (enterBlk())
-        blkCurInfo[blkSP] = wC1CF;
+        blkInfo[firstCase] = wC1CF;
 }
 
 void sub_9F2F() {
     word p, q;
 
-    q = p = blkCurInfo[blkSP];
+    q = p = blkInfo[firstCase];
     if (exitBlk()) {
         while (p < wC1CF) {
             wC1DC[0] = 14;
             wC1DC[1] = ((word *)botMem)[p];
             encodeFragData(CF_DW);
-            pc += 2;
+            codeSize += 2;
             p++;
         }
         if (q == wC1CF) {
@@ -3050,27 +3048,27 @@ void sub_9F2F() {
 
 void sub_9F9F() {
     if (exitBlk()) {
-        curInfo_p = blkCurInfo[procChainId];
+        curInfo_p = blkInfo[blkId];
         if (!boC1CC) {
             sub_5EE8();
             encodeFragData(CF_RET);
-            pc++;
+            codeSize++;
         }
         if (testInfoFlag(F_INTERRUPT))
-            wC1C5 += 8;
+            stackUsage += 8;
 
-        setDimension(pc);
-        setBasedOffset(wC1C7 + wC1C5);
-        pc    = wB488[procChainId = procChainNext[procChainId]];
-        bC1E6 = 0;
+        setDimension(codeSize);
+        setBasedOffset(wC1C7 + stackUsage);
+        codeSize      = blkCode[blkId = blkChain[blkId]];
+        fragLen = 0;
         putTx1Byte(0xa4);
-        putTx1Word(info2Off(blkCurInfo[procChainId]));
-        putTx1Word(pc);
+        putTx1Word(info2Off(blkInfo[blkId]));
+        putTx1Word(codeSize);
         wrFragData();
-        wC1C3        = wB4B0[procChainId];
-        wC1C5        = wB4D8[procChainId];
+        wC1C3        = wB4B0[blkId];
+        stackUsage        = blkStackSize[blkId];
         wC1C7        = 0;
-        curExtProcId = extProcId[procChainId];
+        curExtProcId = extProcId[blkId];
     }
 }
 
@@ -3107,7 +3105,7 @@ void sub_A10A() {
 
 void sub_A153() {
     sub_A266();
-    for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
+    for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
         curOp = tx2opc[tx2qp];
         switch ((bC1D2 = b5124[curOp]) >> 6) {
         case 0:
