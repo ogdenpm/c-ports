@@ -1,14 +1,12 @@
 /****************************************************************************
- *  main0.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  main0.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +18,13 @@
 
 jmp_buf exception;
 
+/*
+    Write the dependency file
+    Note, although under windows file.inc and FILE.INC are treated the same
+    gnu make by default will treat the files as being unique.
+    It is highly recommended that include files be named consistently to 
+    match the name shown in file explorer.
+*/
 static void WriteDepend() {
     mkpath(depFileName);
     FILE *fp = fopen(depFileName, "wt");
@@ -29,6 +34,7 @@ static void WriteDepend() {
     char oname[_MAX_PATH + 1];
     int col = 0;
 
+    // the OS filename is shown e.g. :Fx: is mapped if used
     col += fprintf(fp, "%s:", MapFile(oname, objFileName));
     col += fprintf(fp, " %s", MapFile(oname, srcFileTable[0].fNam));
     for (int i = 0; i < includeCnt; i++) {
@@ -44,6 +50,11 @@ static void WriteDepend() {
     fclose(fp);
 }
 
+
+
+/*
+    Helper to clean up in case of fatal error in a phase
+*/
 void unwindInclude() { // cleanup any open include files
     if (srcFileIdx) {
         while (srcFileIdx)
@@ -57,7 +68,7 @@ static void FinishLexPass() {
     if (afterEOF)
         Wr1SyntaxError(ERR87); /* MISSING 'end' , end-OF-FILE ENCOUNTERED */
     Wr1LineInfo();
-    Wr1Byte(L_EOF);
+    Wr1Byte(T1_EOF);
     vfRewind(&utf1);
     unwindInclude();
     if (DEPEND)
@@ -67,7 +78,7 @@ static void FinishLexPass() {
 static void ParseCommandLine() {
     if (moreCmdLine)
         ParseControlLine(cmdTextP);   // ParseControlLine will move to first char
-    moreCmdLine   = false;            // 0 if no more cmd line
+    moreCmdLine   = false;            // no more cmd line
     inChrP        = (uint8_t *)" \n"; // GNxtCh will see \n and get a non blank line
     scopeSP    = 1;
     scopeChains[1] = 0;
@@ -76,7 +87,7 @@ static void ParseCommandLine() {
 static void LexPass() {
     ParseCommandLine();
     OpenF(&srcFil, "SOURCE", srcFileTable[0].fNam, "rt");
-    GNxtCh(); // get the first char
+
     ParseProgram();
 } /* LexPass() */
 

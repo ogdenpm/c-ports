@@ -1,24 +1,22 @@
 /****************************************************************************
- *  plm1f.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm1f.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 
 static word externalsCnt = 0;
 static word atStmtNum    = 0;
 
-static void Sub_6EF6(word errNum) {
+static void ParseError(word errNum) {
     hasErrors = true;
     Wr2Byte(T2_ERROR);
     Wr2Word(errNum);
-    Wr2Word(infoIdx);
+    Wr2Word(ToIdx(info));
     Wr2Word(atStmtNum);
 }
 
@@ -30,20 +28,20 @@ int32_t RdAtWord() {
     return vfRword(&atf);
 }
 
-word GetElementSize() {
-    switch (info->type) {
+word GetElementSize(info_t *pInfo) {
+    switch (pInfo->type) {
     case BYTE_T:
         return 1; /* byte */
     case ADDRESS_T:
         return 2; /* address */
     case STRUCT_T:
-        return info->totalSize;
+        return pInfo->totalSize;
     }
     return 0;
 }
 
 static word GetVarSize() {
-    return info->flag & F_ARRAY ? info->dim * GetElementSize() : GetElementSize();
+    return info->flag & F_ARRAY ? info->dim * GetElementSize(info) : GetElementSize(info);
 }
 
 static void AdvNextDataInfo() {
@@ -63,10 +61,10 @@ static void SetStructSizes() {
             info->totalSize = 0; /* struct Size() is 0 */
         } else if ((info->flag & F_MEMBER)) {
             varSize = GetVarSize();
-            parent  = &infotab[info->parent];
+            parent  = info->parent;
             oldSize = parent->totalSize;                 /* this gets Size() so far */
             if ((newSize = oldSize + varSize) < varSize) /* add in the new element */
-                Sub_6EF6(ERR208);                        /* LIMIT EXCEEDED: structure Size() */
+                ParseError(ERR208);                      /* LIMIT EXCEEDED: structure Size() */
             parent->totalSize = newSize;                 /* store the running Size() */
             info->linkVal     = oldSize; /* use link value for offset of this member */
         }
@@ -75,15 +73,15 @@ static void SetStructSizes() {
 }
 
 static word AllocVar(word addr) {
-    info->addr = addr; /* allocate this var's address */
+    info->addr = addr;    /* allocate this var's address */
     addr += GetVarSize(); /* reserve it's space */
     if (addr < GetVarSize())
-        Sub_6EF6(ERR207); /* LIMIT EXCEEDED: SEGMENT Size() */
+        ParseError(ERR207); /* LIMIT EXCEEDED: SEGMENT Size() */
     return addr;
 }
 
 static void AllocStkVar() {
-    info_t *pInfo = procInfo[High(info->scope)];
+    info_t *pInfo    = procInfo[High(info->scope)];
     pInfo->totalSize = AllocVar(pInfo->totalSize);
 }
 
@@ -97,9 +95,9 @@ static void DataAllocation() {
         if ((BYTE_T <= info->type && info->type <= STRUCT_T) || info->type == PROC_T ||
             info->type == LABEL_T) {
             if ((info->flag & F_EXTERNAL)) {
-                info->extId = externalsCnt++;   // other limits will kick in before this wraps
-                info->addr = 0;
-                standAlone    = false;
+                info->extId = externalsCnt++; // other limits will kick in before this wraps
+                info->addr  = 0;
+                standAlone  = false;
             } else if ((info->flag & F_PUBLIC))
                 standAlone = false;
         }
@@ -111,8 +109,7 @@ static void DataAllocation() {
     AdvNextDataInfo();
     while (info) {
         if (!(info->flag & (F_MEMBER | F_AT | F_EXTERNAL))) {
-            if (((info->flag & F_PARAMETER) &&
-                 (procInfo[High(info->scope)]->flag & F_EXTERNAL)) ||
+            if (((info->flag & F_PARAMETER) && (procInfo[High(info->scope)]->flag & F_EXTERNAL)) ||
                 (info->flag & F_BASED))
                 info->linkVal = 0; /* external parameter and based var have 0 offset */
             else if ((info->flag & F_DATA))
@@ -126,20 +123,20 @@ static void DataAllocation() {
         }
         AdvNextDataInfo();
     }
-    infoIdx = 0;
 }
 
 union {
     byte str[256];
     struct {
         byte type;
-        offset_t infoP;
+        index_t infoP;
         word stmt;
         var_t var;
     };
 } atFData;
 
 word atOffset;
+
 void RdAtHdr() {
     atFData.infoP = RdAtWord();
     atFData.stmt  = RdAtWord();
@@ -147,48 +144,49 @@ void RdAtHdr() {
 void RdAtData() {
     vfRbuf(&atf, (uint8_t *)&atFData.var, sizeof(var_t));
 }
-static void Sub_7486() {
-    byte atType;
-    if (atFData.var.infoOffset == 0)
-        atType = 0;
-    else if (info->type > STRUCT_T || info->type < BYTE_T) {
-        atType = 0;
-        Sub_6EF6(ERR211); /* INVALID IDENTIFIER IN 'at' RESTRICTED REFERENCE */
+static void FixDataLoc() {
+    byte locType;
+    if (atFData.var.infoIdx == 0)
+        locType = 0;
+    else if (info->type < BYTE_T || info->type > STRUCT_T) { // not BYTE, ADDRESS, STRUCTURE
+        locType = 0;
+        ParseError(ERR211); /* INVALID IDENTIFIER IN 'AT' RESTRICTED REFERENCE */
     } else if ((info->flag & F_EXTERNAL))
-        atType = 1;
+        locType = 1;
     else if ((info->flag & F_DATA))
-        atType = 2;
+        locType = 2;
     else if ((info->flag & F_AUTOMATIC))
-        atType = 3;
+        locType = 3;
     else if ((info->flag & F_MEMORY))
-        atType = 4;
+        locType = 4;
     else if ((info->flag & F_BASED)) {
-        atType = 0;
-        Sub_6EF6(ERR212); /* INVALID RESTRICTED REFERENCE IN 'at' , BASE ILLEGAL */
+        locType = 0;
+        ParseError(ERR212); /* INVALID RESTRICTED REFERENCE IN 'AT' , BASE ILLEGAL */
     } else if ((info->flag & F_ABSOLUTE))
-        atType = 0;
+        locType = 0;
     else
-        atType = 5;
+        locType = 5;
 
-    info_t *savInfo = info; // incase external
-    SetInfo(atFData.infoP);
+    info_t *savInfo = info; // in case external
+    info            = FromIdx(atFData.infoP);   // start of restricted references
 
+    // process any packed declarations. structure members are skipped
     do {
-        if (!(info->flag & F_MEMBER)) {
+        if (!(info->flag & F_MEMBER)) {  // members inherit parent info and retain offsets
             if ((info->flag & F_DATA)) { // convert DATA to INITIAL
-                info->flag &= ~F_DATA;
+                info->flag &= ~F_DATA;   // as may not be in usual DATA space
                 info->flag |= F_INITIAL;
             }
-            info->linkVal = atOffset;
+            info->addr = atOffset;
             atOffset += GetVarSize();
-            switch (atType) {
+            switch (locType) {
             case 0:
                 info->flag |= F_ABSOLUTE;
                 break;
             case 1:
                 if ((info->flag & F_PUBLIC))
-                    Sub_6EF6(ERR178); /* INVALID 'at' RESTRICTED REFERENCE, external
-                                ATTRIBUTE CONFLICTS WITH public ATTRIBUTE */
+                    ParseError(ERR178); /* INVALID 'AT' RESTRICTED REFERENCE, EXTERNAL
+                                ATTRIBUTE CONFLICTS WITH PUBLIC ATTRIBUTE */
                 info->flag |= F_EXTERNAL;
                 info->extId = savInfo->extId;
                 break;
@@ -208,25 +206,23 @@ static void Sub_7486() {
         AdvNextDataInfo();
     } while (info && (info->flag & (F_PACKED | F_MEMBER)));
 }
-static void Sub_73DC() {
+static void ApplyAt() {
     RdAtHdr();
     RdAtData();
-    if (atFData.infoP == 0)
+    if (atFData.infoP == 0)     // nothing to do
         return;
-    atFData.infoP = atFData.infoP;
-    atStmtNum     = atFData.stmt;
-    atOffset      = atFData.var.val;
-    if (atFData.var.infoOffset) {
-        SetInfo(atFData.var.infoOffset);
-        if ((info->flag & F_MEMBER)) {
-            atOffset += GetElementSize() * atFData.var.nestedArrayIndex + info->linkVal;
-            SetInfo(info->parent);
+    atStmtNum = atFData.stmt;
+    atOffset  = atFData.var.val;    // at location offset
+    if ((info = FromIdx(atFData.var.infoIdx))) {    // using reference
+        if ((info->flag & F_MEMBER)) {  // if member adjust offset from structure
+            atOffset += GetElementSize(info) * atFData.var.memberSubscript + info->linkVal;
+            info = info->parent;
         }
-        atOffset += info->linkVal + GetElementSize() * atFData.var.arrayIndex;
-        if ((info->flag & F_AT) && infoIdx >= atFData.infoP)
-            Sub_6EF6(ERR213); /* UNDEFINED RESTRICTED REFERENCE IN 'at' */
+        atOffset += info->linkVal + GetElementSize(info) * atFData.var.subscript;   // adjust for indexing
+        if ((info->flag & F_AT) && info >= FromIdx(atFData.infoP))  // AT but no  at location
+            ParseError(ERR213); /* UNDEFINED RESTRICTED REFERENCE IN 'AT' */
     }
-    Sub_7486();
+    FixDataLoc();   // with AT, DATA/INITIAL locations need fixup
 }
 
 static void ProcAtFile() {
@@ -234,7 +230,7 @@ static void ProcAtFile() {
         atFData.type = RdAtByte();
         switch (atFData.type) {
         case ATI_AHDR:
-            Sub_73DC();
+            ApplyAt();
             break;
         case ATI_DHDR:
             atFData.infoP = RdAtWord();
@@ -271,12 +267,10 @@ static void InitAllocation() {
 }
 
 static void EndT2File() {
-    vfRewind(&atf); /* used for string data */
     Wr2Byte(T2_EOF);
-    vfRewind(&utf2);
 }
 
-void Sub_6EE0() {
+void AllocateVars() {
     InitAllocation();
     SetStructSizes();
     DataAllocation();

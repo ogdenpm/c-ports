@@ -1,14 +1,13 @@
 /****************************************************************************
- *  main4.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  main4.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
+#include "../shared/cmdline.h"
 #include "plm.h"
 
 // static char copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
@@ -22,7 +21,7 @@ static byte b4304[]  = { 0x24, 0x24, 0x24, 0x24, 0x13, 0x13, 0x18, 0x18, 0x18, 0
 static void Sub_3FC8() {
     if (PRINT) {
         EjectNext();
-        lstStr("ISIS-II PL/M-80 " VERSION " COMPILATION OF MODULE ");
+        lstStr("PL/M-80 " VERSION " COMPILATION OF MODULE ");
         curSym = procInfo[1]->sym;
         if (curSym)
             lstStr(curSym->name->str);
@@ -59,19 +58,17 @@ static void Sub_408B() {
 }
 
 static void Sub_4162() {
-    byte helperModId, endHelperId;
-
     if (!standAlone)
         return;
-    for (helperModId = 0; helperModId <= 45; helperModId++) {
-        helperId    = b42D6[helperModId];
-        endHelperId = helperId + b42A8[helperModId];
+    for (byte helperMod = 0; helperMod < 46; helperMod++) {
+        helperId    = modHelperId[helperMod];          // helper module first helper id
+        byte endHelperId = helperId + modHelperIdCnt[helperMod]; // helper module last helpers id (+1)
         while (helperId < endHelperId) {
-            if (helpers[helperId] != 0) {
-                baseAddr = helpers[helperId];
-                b969C    = b4304[helperModId];
+            if (helperAddr[helperId]) {
+                baseAddr = helperAddr[helperId];
+                b969C    = b4304[helperMod];
                 b969D    = b4273[b969C];
-                Sub_5FE7(w4919[helperId], b4A03[helperId]);
+                EmitCodeSeq(helperStart[helperId], helperLen[helperId]);
                 break;
             }
             helperId++;
@@ -93,7 +90,6 @@ static void Sub_4208() {
 static void Sub_423C() {
     linesRead = lineNo;
     Sub_4208();
-    vfReset(&utf1);
 
     if (OBJECT) {
         if (fwrite(objEOF, 1, 4, objFile.fp) != 4)
@@ -107,7 +103,7 @@ word Start4() {
     recCodeFixup[REC_DATA] = 2; // data seg
     recDataFixup[REC_DATA] = 3; // stack seg
 
-    dump(&utf1, "utf1_main4");
+ //   dump(&utf1, "utf1_main4"); // diagnostic dump
     vfRewind(&utf1);
     if (setjmp(exception) == 0) {
         Sub_408B();

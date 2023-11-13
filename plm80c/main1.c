@@ -1,15 +1,13 @@
 /****************************************************************************
- *  main1.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  main1.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
+#include "../shared/os.h"
 #include "plm.h"
-#include "os.h"
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
@@ -23,50 +21,45 @@ bool regetTx1Item    = false;
 bool tx2LinfoPending = false;
 linfo_t linfo;
 tx1item_t tx1Item;
-byte tx1Aux2;
-byte tx1Aux1;
-
-// byte atBuf[512]; use version in plm3a.c
-byte b91C0;
+byte tx1Attr;
+byte tx1ICode;
 
 static void PrepFiles() {
-    scopeSP    = 1;
+    scopeSP        = 1;
     scopeChains[1] = 0;
-    /* the opening of all output files has been moved here */
+    /* the opening of all output files has been moved here after command line processing */
     if (IXREF)
         OpenF(&ixiFile, "IXREF", ixiFileName, "wb+");
     if (OBJECT) {
         OpenF(&objFile, "OBJECT", objFileName, "wb+");
-        DelOnError(objFileName);
+        RmOnError(objFileName);
     }
     if (PRINT)
         OpenF(&lstFile, isList ? "LIST" : "PRINT", lstFileName, "wt");
 }
 
-static void Sub_3F8B() {
+static void FinaliseAt() {
     if (tx2LinfoPending)
         Wr2Item(linfo.type, &linfo.lineCnt, sizeof(struct _linfo));
     vfReset(&utf1);
-    if (XREF || IXREF || SYMBOLS) {
-        vfWbyte(&xrff, '\0');
-        vfRewind(&xrff);
-    }
-
     WrAtByte(ATI_END);
     WrAtByte(ATI_EOF);
-    vfRewind(&atf);
+    vfRewind(&atf); // rewind for var allocation
 }
 
 word Start1() {
+#ifdef TRACE
+    DumpT1Stream();
+#endif
     if (setjmp(exception) == 0) {
-        PrepFiles(); /* create files and preload tx1 */
-        dump(&utf1, "uft1_main1");
+        PrepFiles(); /* create files */
+                     //        dump(&utf1, "uft1_main1");    // diagnostic dump
         ParseLexItems();
     } else {
         /* here longjmp(exception, -1) */
-        WrTx2ExtError(b91C0);
-        while (tx1Item.type != L_EOF) {
-            if (tx1Item.type == L_STMTCNT) {
+        Wr2TokError(fatalErrorCode);
+        while (tx1Item.type != T1_EOF) {
+            if (tx1Item.type == T1_STMTCNT) {
                 stmtT2Cnt = 0;
                 MapLToT2();
                 curStmtNum = tx1Item.dataw[0];
@@ -74,8 +67,8 @@ word Start1() {
             GetTx1Item();
         }
     }
-    Sub_3F8B();
-    Sub_6EE0();
+    FinaliseAt();
+    AllocateVars();
 
     if (hasErrors)
         return 6; // Chain(overlay[6]);

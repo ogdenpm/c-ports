@@ -1,22 +1,19 @@
 /****************************************************************************
- *  plm3a.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm3a.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
-byte b4813[] = { 3, 7, 3, 7,   2, 3,   8, 1, 3,   1, 8,    2, 3, 8,   1, 3,    1, 8, 3,   7,
-                 3, 7, 2, 3,   8, 1,   3, 1, 8,   2, 0x1D, 3, 1, 7,   2, 0x12, 2, 1, 0xA, 2,
-                 1, 8, 2, 1,   8, 2,   1, 7, 3,   7, 3,    7, 2, 3,   8, 1,    3, 1, 8,   1,
-                 6, 3, 1, 0xB, 1, 6,   3, 1, 0xB, 1, 6,    1, 6, 3,   7, 3,    7, 2, 3,   8,
-                 3, 8, 3, 9,   1, 6,   3, 1, 6,   1, 7,    3, 1, 0xC, 3, 7,    3, 7, 2,   3,
-                 8, 3, 8, 3,   9, 0xC, 3, 7, 3,   7, 2,    3, 8, 1,   3, 1,    8 };
-
+byte helperCodeLen[] = { 3, 7, 3, 7,   2, 3,   8, 1, 3,   1, 8,    2, 3, 8,   1, 3,    1, 8, 3,   7,
+                         3, 7, 2, 3,   8, 1,   3, 1, 8,   2, 0x1D, 3, 1, 7,   2, 0x12, 2, 1, 0xA, 2,
+                         1, 8, 2, 1,   8, 2,   1, 7, 3,   7, 3,    7, 2, 3,   8, 1,    3, 1, 8,   1,
+                         6, 3, 1, 0xB, 1, 6,   3, 1, 0xB, 1, 6,    1, 6, 3,   7, 3,    7, 2, 3,   8,
+                         3, 8, 3, 9,   1, 6,   3, 1, 6,   1, 7,    3, 1, 0xC, 3, 7,    3, 7, 2,   3,
+                         8, 3, 8, 3,   9, 0xC, 3, 7, 3,   7, 2,    3, 8, 1,   3, 1,    8 };
 
 word curOffset;
 byte printOrObj;
@@ -40,14 +37,15 @@ void FlushRecGrp() {
     WriteRec(recExtFixup, 1);
 }
 
-void RecAddName(pointer recP, byte offset, byte len, char const *str) {
-    RecAddByte(recP, offset, len);
-    for (int i = 0; i != len; i++)
-        RecAddByte(recP, offset, (byte)str[i]);
+void RecAddName(pointer recP, byte offset, pstr_t const *pstr) {
+    word rlen    = getWord(&recP[REC_LEN]);
+    pointer outP = recP + REC_DATA + rlen + offset;
+    memcpy(outP, pstr, pstr->len + 1);
+    putWord(&recP[REC_LEN], rlen + pstr->len + 1);
 }
 
 void ExtendChk(pointer recP, word limit, byte toAdd) {
-    if (getWord(recP + 1) + toAdd >= limit) {
+    if (getWord(&recP[REC_LEN]) + toAdd >= limit) {
         FlushRecGrp();
         putWord(&recInitContent[CONTENT_OFF], curOffset);
     }
@@ -62,11 +60,11 @@ word CalcMaxStack() {
     return maxStack;
 }
 
-void p3Error(word errNum, info_t  *tokInfo, word stmt) {
+void p3Error(word errNum, info_t *tokInfo, word stmt) {
     if (printOrObj) {
         Wr1Byte(T2_ERROR);
         Wr1Word(errNum);
-        Wr1Word(ToIdx(tokInfo)); // scale to index
+        Wr1Info(tokInfo); // scale to index
         Wr1Word(stmt);
     } else
         programErrCnt++;
@@ -89,11 +87,11 @@ static bool moreToInit;
 static info_t *atInfo;
 
 static void Sub_4B6C() {
-    if (infoIdx == 0 || !(info->flag & F_MEMBER)) {
+    if (!info || !(info->flag & F_MEMBER)) {
         if (structDim > 1) {
             structDim--;
-            SetInfo(atFData.infoP); // restart for next iteration
-        } else if (infoIdx == 0) {
+            info = FromIdx(atFData.infoP); // restart for next iteration
+        } else if (!info) {
             moreToInit = false;
             return;
         } else {
@@ -103,7 +101,7 @@ static void Sub_4B6C() {
                 if ((info->flag & F_ARRAY))
                     structDim = info->dim;
                 AdvNxtInfo();
-                atFData.infoP = infoIdx;
+                atFData.infoP = ToIdx(info);
             }
         }
     }
@@ -165,42 +163,38 @@ static void Sub_4D85() {
 
 static void Sub_4DA8() {
 
-    if (atFData.var.infoOffset == 0)
+    if (atFData.var.infoIdx == 0)
         Sub_4D85();
     else if (info->type == BYTE_T)
         BadInit();
     else {
-        index_t savIdx = infoIdx;
-        SetInfo(atFData.var.infoOffset);
-        if ((info->flag & F_MEMBER)) {
-            atFData.var.val =
-                atFData.var.val + GetElementSize() * atFData.var.nestedArrayIndex + info->linkVal;
-            SetInfo(info->parent);
+        info_t *atInfo = FromIdx(atFData.var.infoIdx);
+        if ((atInfo->flag & F_MEMBER)) {
+            atFData.var.val = atFData.var.val +
+                              GetElementSize(atInfo) * atFData.var.memberSubscript +
+                              atInfo->linkVal;
+            atInfo = atInfo->parent;
         }
 
-        atFData.var.val += GetElementSize() * atFData.var.arrayIndex + info->linkVal;
-        if ((info->flag & F_EXTERNAL)) {
-            word extId = info->extId;
-            SetInfo(savIdx);
+        atFData.var.val += GetElementSize(atInfo) * atFData.var.subscript + atInfo->linkVal;
+        if ((atInfo->flag & F_EXTERNAL)) {
             ExtendChk(recExtFixup, 149, 4);
             EmitInitItem();
-            RecAddWord(recExtFixup, 1, extId);
+            RecAddWord(recExtFixup, 1, atInfo->extId);
             RecAddWord(recExtFixup, 1, curOffset - 2);
-        } else if ((info->flag & F_ABSOLUTE)) {
-            SetInfo(savIdx);
+        } else if ((atInfo->flag & F_ABSOLUTE)) {
             EmitInitItem();
         } else {
             pointer fixupRec;
-            if (info->type == PROC_T || info->type == LABEL_T || (info->flag & F_DATA))
+            if (atInfo->type == PROC_T || atInfo->type == LABEL_T || (atInfo->flag & F_DATA))
                 fixupRec = recCodeFixup;
-            else if ((info->flag & F_MEMORY))
+            else if ((atInfo->flag & F_MEMORY))
                 fixupRec = recMemoryFixup;
             else
                 fixupRec = recDataFixup;
             if (recInitContent[CONTENT_SEG] == fixupRec[FIXUP_SEG]) // see if self ref fixup
                 fixupRec = recSelfFixup;
 
-            SetInfo(savIdx);
             ExtendChk(fixupRec, 149, 2);
             EmitInitItem();
             RecAddWord(fixupRec, fixupRec == recSelfFixup ? 1 : 2, curOffset - 2); // add fixup
@@ -225,8 +219,8 @@ static void Sub_4C7A() {
 }
 
 static void EmitInitData() {
-    SetInfo(atFData.infoP = RdAtWord());
-    atFData.stmt  = RdAtWord();
+    info         = FromIdx(atFData.infoP = RdAtWord());
+    atFData.stmt = RdAtWord();
     atInfo       = info;
     structDim = itemDim = stringLen = stringIdx = 0;
     if ((info->flag & F_DATA))
@@ -238,12 +232,11 @@ static void EmitInitData() {
     else
         recInitContent[CONTENT_SEG] = S_DATA;
 
-    curOffset = putWord(&recInitContent[CONTENT_OFF], info->linkVal);
-    if (infoIdx == 0)
+    curOffset = putWord(&recInitContent[CONTENT_OFF], info->addr);
+    if (!info)
         moreToInit = false;
     else if ((info->flag & F_EXTERNAL)) {
-        p3Error(ERR217, atInfo,
-                atFData.stmt); /* ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE */
+        p3Error(ERR217, atInfo, atFData.stmt); /* ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE */
         moreToInit = false;
     } else {
         Sub_4B6C();

@@ -270,21 +270,27 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\shared\cmdline.h" />
+    <ClInclude Include="..\shared\os.h" />
     <ClInclude Include="errors.h" />
     <ClInclude Include="int.h" />
-    <ClInclude Include="os.h" />
     <ClInclude Include="plm.h" />
     <ClInclude Include="vfile.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\shared\cmdline.c" />
+    <ClCompile Include="..\shared\os.c" />
     <ClCompile Include="data.c" />
+    <ClCompile Include="debug.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="endcom.c" />
     <ClCompile Include="fatal.c" />
     <ClCompile Include="fi.c" />
     <ClCompile Include="lookup.c" />
-    <ClCompile Include="lstinf.c" />
     <ClCompile Include="lstsup.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="main0.c" />
@@ -294,10 +300,8 @@
     <ClCompile Include="main4.c" />
     <ClCompile Include="main5.c" />
     <ClCompile Include="main6.c" />
-    <ClCompile Include="os.c" />
     <ClCompile Include="page.c" />
     <ClCompile Include="pdata4.c" />
-    <ClCompile Include="pdata6.c" />
     <ClCompile Include="plm0a.c" />
     <ClCompile Include="plm0b.c" />
     <ClCompile Include="plm0e.c" />
@@ -324,22 +328,17 @@
     <ClCompile Include="plm4a.c" />
     <ClCompile Include="plm4b.c" />
     <ClCompile Include="plm4c.c" />
-    <ClCompile Include="plm6a.c">
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
-    </ClCompile>
     <ClCompile Include="plma.c" />
-    <ClCompile Include="plmb.c" />
     <ClCompile Include="plmfile.c" />
     <ClCompile Include="prints.c" />
-    <ClCompile Include="putlst.c" />
     <ClCompile Include="symtab.c" />
     <ClCompile Include="vfile.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Custom</Optimization>
     </ClCompile>
-    <ClCompile Include="wrclst.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\intel.licenseheader" />
+    <None Include="plm80c.licenseheader" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

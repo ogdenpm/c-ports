@@ -1,14 +1,12 @@
 /****************************************************************************
- *  main3.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  main3.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
@@ -62,32 +60,25 @@ static void AdjustLocalLabels() {
         localLabels[i] += procInfo[procIds[i]]->addr;
 }
 
-static void Sub_4105() {
-    byte i, j, k;
-    bool m;
-    word p;
-
+static void AppendHelpers() {
     if (!standAlone)
         return;
     Wr1Byte(T2_SETADDR);    // back to top level
-    Wr1Word(ToIdx(procInfo[1]));
+    Wr1Info(procInfo[1]);
 
-    p = curOffset - procInfo[1]->addr;
-    Wr1Word(p);
-    for (i = 0; i <= 45; i++) {
-        k = b42D6[i];
-        j = k + b42A8[i];
-        m = false;
-        while (k < j) {
-            if (m) {
-                helpers[k] = curOffset;
-                curOffset += b4813[k];
-            } else if (helpers[k] != 0) {
-                m          = true;
-                helpers[k] = curOffset;
-                curOffset += b4813[k];
+    Wr1Word(curOffset - procInfo[1]->addr);
+    for (byte i = 0; i <= 45; i++) {        // emit any needed helper modules
+        byte helperId = modHelperId[i];
+        byte endHelperId = helperId + modHelperIdCnt[i];
+        bool required = false;
+        while (helperId < endHelperId) {
+            if (helperAddr[helperId])   // check if used i.e. needed
+                required = true;
+            if (required) {     // have started module so need to emit rest
+                helperAddr[helperId] = curOffset;
+                curOffset += helperCodeLen[helperId];
             }
-            k++;
+            helperId++;
         }
     }
 }
@@ -97,7 +88,7 @@ static void emitModHdr() {
     if (curSym == 0)
         RecAddByte(recModHdr, 0, 0);
     else
-        RecAddName(recModHdr, 0, curSym->name->len, curSym->name->str);
+        RecAddName(recModHdr, 0, curSym->name);
     RecAddByte(recModHdr, 0, 1);                                      // translator is PL/M
     RecAddByte(recModHdr, 0, (version[1] << 4) | (version[3] & 0xf)); // the encoded version
     RecAddByte(recModHdr, 0, S_CODE);
@@ -118,7 +109,7 @@ static void emitModHdr() {
 static void Sub_436C() {
     pointer rec;
     word curRecLen, s;
-    byte seg, k;
+    byte seg;
 
     s       = 0;
     info = infotab;
@@ -130,7 +121,7 @@ static void Sub_436C() {
                 if (getWord(&recExternals[REC_LEN]) + curSym->name->len + 2 >= 299)
                     WriteRec(recExternals, 0);
                 s++;
-                RecAddName(recExternals, 0, curSym->name->len, curSym->name->str);
+                RecAddName(recExternals, 0, curSym->name);
                 RecAddByte(recExternals, 0, 0);
             } else if (!(info->flag & (F_AUTOMATIC | F_BASED | F_MEMBER))) {
                 if ((info->flag & F_DATA) || info->type == LABEL_T || info->type == PROC_T) {
@@ -154,8 +145,8 @@ static void Sub_436C() {
                 if ((info->flag & F_PUBLIC)) {
                     if (curRecLen + curSym->name->len + 4 >= 299)
                         WriteRec(rec, 1);
-                    RecAddWord(rec, 1, info->linkVal);
-                    RecAddName(rec, 1, curSym->name->len, curSym->name->str);
+                    RecAddWord(rec, 1, info->addr);
+                    RecAddName(rec, 1, curSym->name);
                     RecAddByte(rec, 1, 0);
                 }
                 bool isExtern;
@@ -171,9 +162,8 @@ static void Sub_436C() {
                             getWord(&recLocals[REC_LEN]) + curSym->name->len + 4 >= 1019)
                             WriteRec(recLocals, 1);
                         recLocals[REC_DATA] = seg;
-                        RecAddWord(recLocals, 1, info->linkVal);
-                        RecAddName(recLocals, 1, curSym->name->len,
-                                   curSym->name->str);
+                        RecAddWord(recLocals, 1, info->addr);
+                        RecAddName(recLocals, 1, curSym->name);
                         RecAddByte(recLocals, 1, 0);
                     }
                 }
@@ -183,14 +173,14 @@ static void Sub_436C() {
     } /* of while */
 
     if (!standAlone) {
-        for (k = 0; k < 117; k++) {
-            if (helpers[k]) {
-                helpers[k] = s++;
+        for (byte helperId = 0; helperId < 117; helperId++) {
+            if (helperAddr[helperId]) {
+                helperAddr[helperId] = s++;
                 if (getWord(&recExternals[REC_LEN]) + 8 >= 299)
                     WriteRec(recExternals, 0);
-                char t[7];
-                sprintf(t, "@P%04d", k);
-                RecAddName(recExternals, 0, 6, t);
+                char t[8];
+                t[0] = sprintf(t + 1, "@P%04d", helperId);
+                RecAddName(recExternals, 0,(pstr_t *)t);
                 RecAddByte(recExternals, 0, 0);
             }
         }
@@ -210,7 +200,7 @@ static void Sub_46B7() {
         info_t *pInfo = procInfo[i];
         if ((pInfo->flag & F_INTERRUPT)) {
             putWord(&recInitContent[CONTENT_OFF], intVecLoc + intVecNum * pInfo->intno);
-            RecAddByte(recInitContent, 3, 0xC3);
+            RecAddByte(recInitContent, 3, 0xC3);    // jmp instruction
             RecAddWord(recInitContent, 3, pInfo->addr);
             WriteRec(recInitContent, 3);
             RecAddWord(recCodeFixup, 2, getWord(&recInitContent[CONTENT_OFF]) + 1);
@@ -221,14 +211,13 @@ static void Sub_46B7() {
 
 static void Sub_4746() {
     if (printOrObj || IXREF) {
-        Wr1Byte(0x9c);
+        Wr1Byte(T2_EOF);
         vfRewind(&utf1);
     }
-    vfReset(&atf);
 }
 
 word Start3() {
-    dump(&atf, "atf_main3");
+ //   dump(&atf, "atf_main3"); // diagnostic dump
     vfRewind(&atf);
 
     Sub_3F3C();
@@ -237,7 +226,7 @@ word Start3() {
     AdjustLabels();
     if (printOrObj || IXREF) {
         AdjustLocalLabels();
-        Sub_4105();
+        AppendHelpers();
         csegSize = curOffset;
     }
     if (OBJECT) {
@@ -250,7 +239,6 @@ word Start3() {
     if (printOrObj)
         return 4; // Chain(overlay[4]);
     else {
-        vfReset(&utf1);
         if (IXREF)
             return 5; // Chain(overlay[5]);
         else {

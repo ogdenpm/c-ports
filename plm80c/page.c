@@ -1,13 +1,11 @@
 /****************************************************************************
- *  page.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  page.c: part of the C port of Intel's ISIS-II plm80                     *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
 void NewPgl() {
@@ -15,12 +13,15 @@ void NewPgl() {
     if (!PAGING)
         return;
     linLft         = PAGELEN;
-    int titleWidth = PWIDTH - 30 - (int)strlen(DATE);
-    int titlelen   = TITLELEN <= titleWidth ? TITLELEN : titleWidth;
-    if (titleWidth > titlelen)
-        pad = titleWidth - titlelen;
-    fprintf(lstFile.fp, "\fPL/M-80 COMPILER  %*s%.*s%*s  %s  PAGE %3d\n\n\n", pad / 2, "",
-            titlelen, TITLE, pad - pad / 2, "", DATE, ++pageNo);
+    int dateWidth  = DATELEN;     // will be > 10 for auto generated date
+    if (dateWidth > 10 && PWIDTH - 30 - TITLELEN < dateWidth)   // remove time if it doesn't fit
+        dateWidth = 10;
+    int titleWidth = PWIDTH - 30 - dateWidth;
+    int titleLen   = TITLELEN <= titleWidth ? TITLELEN : titleWidth;
+    if (titleWidth > titleLen)
+        pad = titleWidth - titleLen;
+    fprintf(lstFile.fp, "\fPL/M-80 COMPILER  %*s%.*s%*s  %*s  PAGE %3d\n\n\n", pad / 2, "",
+            titleLen, TITLE, pad - pad / 2, "", dateWidth, DATE, ++pageNo);
     skipCnt = 0;
 }
 

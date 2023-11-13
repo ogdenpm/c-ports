@@ -1,14 +1,12 @@
 /****************************************************************************
- *  main.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  main.c: part of the C port of Intel's ISIS-II plm80                     *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 // static byte copyRight[] = "[C] 1976, 1977, 1982 INTEL CORP";
 
@@ -30,29 +28,30 @@ void usage() {
     printf("Usage: %s (-h | -v | -V | inputFile [pl/m-80 option]*)\n"
            "Where the - options are  (h) show help, (v) show simple version, (V) show extended version\n"
            "and the case insensitive pl/m-80 options are (* indicates default):\n"
-           "PRINT* [(file)]  | NOPRINT     Listing file. File defaults to {src}.lst\n"
-           "OBJECT* [(file)] | NOOBJECT    Object file. Default OBJECT({src}.obj)\n"
-           "SYMBOLS          | NOSYMBOLS*  Symbol table in listing file.\n"
-           "XREF             | NOXREF*     Cross ref in listing file.\n"
-           "PAGING           | NOPAGING*   Listing is paginated.Default NOPAGING\n"
-           "DEBUG            | NODEBUG*    Include local symbols and line information in object file.\n"
-           "DATE [(dateString)]            Set date to show in listing header. Default string today in yyyy-mm-nn format\n"
-           "TITLE (titleString)            Optional title to show in listing header.\n"
-           "PAGEWIDTH (width)              Change width of page listing from 120\n"
-           "PAGELENGTH (length)            Change length of page for listing from 60\n"
-           "INTVECTOR(interval, location)\n"
-           "                 | NOINTVECTOR Interrupt vector for Intel 8259. Default INTVECTOR(8,0)\n"
-           "WORKFILES(device, device)      Ignored as no longer needed\n"
-           "IXREF [(file)]   | NOIXREF*    Controls generation of ixref file. File defaults to {src}.ixi,\n"
-           "LIST*            | NOLIST      Turn on/off listing. Default LIST\n"
            "CODE             | NOCODE*     Turn on/off listing of generated code\n"
            "COND*            | NOCOND      Turn on/off listing of conditional lines in listing.\n"
-           "SET (switch list)              Each var [= number] in the list is to the specified value, default 0FFH\n"
-           "RESET (switch list)            Set each var in the comma separated list to 0\n"
+           "DATE [(dateString)]            Set date to show in listing header. Default string is today in yyyy-mm-nn format\n"
+           "                               and also the current time in hh:mm:ss format if there is room\n"
+           "DEBUG            | NODEBUG*    Include local symbols and line information in object file.\n"
            "EJECT                          Eject listing to next page\n"
            "INCLUDE (file)                 Set an initial include file to read\n"
+           "INTVECTOR(interval, location)\n"
+           "                 | NOINTVECTOR Interrupt vector for Intel 8259. Default INTVECTOR(8,0)\n"
+           "IXREF [(file)]   | NOIXREF*    Controls generation of ixref file. File defaults to {src}.ixi,\n"
            "LEFTMARGIN (column)            Changes initial column on a line from 1.\n"
-           "MAKEDEPEND (file)              Generate makefile dependencies. File defaults to .deps/{src}.d\n"
+           "LIST*            | NOLIST      Turn on/off listing. Default LIST\n"
+           "MAKEDEPEND [(file)]            Generate makefile dependencies. File defaults to .deps/{src}.d\n"
+           "OBJECT* [(file)] | NOOBJECT    Object file. Default OBJECT({src}.obj)\n"
+           "PAGELENGTH (length)            Change length of page for listing from 60\n"
+           "PAGEWIDTH (width)              Change width of page listing from 120\n"
+           "PAGING           | NOPAGING*   Listing is paginated.Default NOPAGING\n"
+           "PRINT* [(file)]  | NOPRINT     Listing file. File defaults to {src}.lst\n"
+           "RESET (switch list)            Set each var in the comma separated list to 0\n"
+           "SET (switch list)              Each var [= number] in the list is set to the specified value, default 0FFH\n"
+           "SYMBOLS          | NOSYMBOLS*  Symbol table in listing file.\n"
+           "TITLE (titleString)            Optional title to show in listing header.\n"
+           "WORKFILES(device, device)      Ignored as no longer needed\n"
+           "XREF             | NOXREF*     Cross ref in listing file.\n"
            "See Intel PL/M-80 documentation for more details, other than MAKEDEPEND extension\n"
            "Notes:\n"
            "* {src} is source file name minus any extent\n"

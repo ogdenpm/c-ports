@@ -1,17 +1,14 @@
 /****************************************************************************
- *  data.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  data.c: part of the C port of Intel's ISIS-II plm80                     *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
 sym_t *curSym;
-index_t infoIdx;
 info_t *info;
 bool moreCmdLine = true;
 word LEFTMARGIN;
@@ -21,7 +18,7 @@ sym_t *hashTab[64]; // offset is to pointer to array of offsets
 word scopeSP;
 word *localLabels;
 byte *procIds;
-word helpers[117];
+word helperAddr[117];
 word linesRead;
 word programErrCnt;
 word procCnt;
@@ -35,7 +32,6 @@ file_t objFile;
 vfile_t utf1;
 vfile_t utf2;
 vfile_t atf;
-vfile_t xrff;
 file_t ixiFile;
 word scopeChains[35];
 info_t *procInfo[255];
@@ -44,7 +40,7 @@ bool standAlone          = true;
 
 bool afterEOF            = false;
 bool haveModuleLevelUnit = false;
-byte fatalErrorCode      = 0;
+word fatalErrorCode;
 byte controls[9];
 byte srcStemName[10];
 bool debugSwitches[26];
@@ -65,14 +61,13 @@ byte tWidth   = 4;
 byte PAGELEN  = 57;
 byte PWIDTH   = 120;
 byte margin   = 0xFF;
-char DATE[11];  // max yyyy-mm-dd\0
-byte TITLELEN;
-char TITLE[60];
+char DATE[20];  // max yyyy-mm-dd hh:mm:ss\0
+word DATELEN;
+word TITLELEN;
+char TITLE[61]; // allow to be '\0' terminated
 
 byte intVecNum = 8;
 word intVecLoc = 0;
 bool hasErrors = false;
 char version[] = VERSION;
 
-char const **includes;
-uint16_t includeCnt;

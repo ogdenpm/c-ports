@@ -1,13 +1,11 @@
 /****************************************************************************
- *  debug.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  debug.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 #include <stdio.h>
 
@@ -25,90 +23,91 @@ int infoMode = 0;
     "SHL", "SHR", "SIGN", "SIZE", "STACKPTR", "TIME", "ZERO"
 };
 
+ #if 0
  void dumpAllInfo()
  {
-     offset_t p;
+     index_t p;
      for (p = botInfo + (infoMode == 0 ? 2 : procInfo[1]); p < topInfo; p += InfoP(p)->len) {
          showInfo(p, stdout);
          putchar('\n');
      }
 
 }
-void showInfo(offset_t off, FILE *fp)
-{
-    ninfo_t *info;
-    sym_t *sym;
-    lit_t *lit;
-    pstr_t *ps;
+ #endif
+ char *flagsstr[] = { "F_PUBLIC",    "F_EXTERNAL",  "F_BASED",    "F_INITIAL",   "F_REENTRANT",
+                   "F_DATA",      "F_INTERRUPT", "F_AT",       "F_ARRAY",     "F_STARDIM",
+                   "F_PARAMETER", "F_MEMBER",    "F_LABEL",    "F_AUTOMATIC", "F_PACKED",
+                   "F_ABSOLUTE",  "F_MEMORY",    "F_DECLARED", "F_DEFINED",   "F_MODGOTO" };
 
-    info = InfoP(off);
-    fprintf(fp,"len = %d", info->len);
+ void showFlags(uint32_t flags, FILE *fp) {
+     for (int i = 0; i < 20; i++) {
+        if (flags & (1 << i))
+            fprintf(fp, " %s", flagsstr[i]);
+     }
+ }
+     
+     
+     
+ void showInfo(index_t idx, FILE *fp) {
+    info_t *info = FromIdx(idx);
+
     switch (info->type) {
-    case 0: fprintf(fp,", LIT"); break;
-    case 1: fprintf(fp,", LABEL"); break;
-    case 2: fprintf(fp,", BYTE"); break;
-    case 3: fprintf(fp,", ADDRESS"); break;
-    case 4: fprintf(fp,", STRUCT"); break;
-    case 5: fprintf(fp,", PROC"); break;
-    case 6: fprintf(fp,", BUILTIN"); break;
-    case 7: fprintf(fp,", MACRO"); break;
-    case 8: fprintf(fp,", UNKNOWN"); break;
-    case 9: fprintf(fp,", TEMP"); break;
-    default: fprintf(fp,", OOPS type = %d\n", info->type);
+    case 0: fprintf(fp,": LIT"); break;
+    case 1: fprintf(fp,": LABEL"); break;
+    case 2: fprintf(fp,": BYTE"); break;
+    case 3: fprintf(fp,": ADDRESS"); break;
+    case 4: fprintf(fp,": STRUCT"); break;
+    case 5: fprintf(fp,": PROC"); break;
+    case 6: fprintf(fp,": BUILTIN"); break;
+    case 7: fprintf(fp,": MACRO"); break;
+    case 8: fprintf(fp,": UNKNOWN"); break;
+    case 9: fprintf(fp,": COND"); break;
+    default: fprintf(fp,": OOPS type = %d\n", info->type);
     }
-    switch (symMode) {
-    case 0: fprintf(fp,", sym = %04X", topInfo - info->sym); break;
-    case 1: sym = SymbolP(topSymbol - info->sym);
-            fprintf(fp,", sym = %.*s", sym->name.len, sym->name.str);
-            break;
-    case 2: ps = PstrP(topSymbol - 1 - info->sym);
-            fprintf(fp,", sym = %.*s", ps->len, ps->str);
-            break;
-    }
+    fprintf(fp, " '%s'", info->sym ? info->sym->name->str : "(Null)");
     fprintf(fp,", scope = %04X", info->scope);
-    fprintf(fp,", ilink = %04X", info->ilink);
+
     switch (info->type) {
     case LIT_T:
-        lit = LitP(off);
-        if (symMode == 0)
-            fprintf(fp,", lit = %04X", lit->litAddr);
-        else {
-            ps = PstrP(lit->litAddr + 1);
-            fprintf(fp,", lit = %.*s", ps->len, ps->str);
-        }
+        fprintf(fp, ", lit = '");
+        for (char const *s = info->lit->str; s[1] && s[1] != '\n'; s++)
+            putc(*s, fp);
+        putc('\'', fp);
+
         break;
     case LABEL_T: case BYTE_T: case ADDRESS_T: case STRUCT_T:
     case PROC_T:
-        fprintf(fp,", flags =  %02X %02X %02X", info->flag[0], info->flag[1], info->flag[2]);
+        fprintf(fp, ", flags =");
+        showFlags(info->flag, fp);
         break;
     case BUILTIN_T:
-        fprintf(fp,", builtin = %s, paramCnt = %d, data type = %d", builtinStr[info->flag[0]], info->flag[1], info->flag[2]);
+        fprintf(fp,", builtin = %s, paramCnt = %d, data type = %d", builtinStr[info->builtinId], info->paramCnt, info->returnType);
         break;
     case MACRO_T:
-        fprintf(fp,", flags =  %02X %02X", info->flag[0], info->flag[1]);
+        fprintf(fp, ", flags =");
+        showFlags(info->flag, fp);
         break;
     case CONDVAR_T:
-        fprintf(fp,", flag =  %02X", info->flag[0]);
+        fprintf(fp,", flag =  %02X", info->condFlag);
         break;
     case UNK_T:
         break;
     }
     if (LABEL_T <= info->type && info->type <= PROC_T) {
-        fprintf(fp,", extId = %d", info->extId);
+        if (info->flag & F_EXTERNAL)
+            fprintf(fp,", extId = %d", info->extId);
         if (info->type >= BYTE_T) {
-            fprintf(fp,", dim = %d", info->dim);
-            fprintf(fp,", baseoff = %04X", info->baseoff);
-            fprintf(fp,", parent = %04X", info->parent);
+            if (info->parent)
+                fprintf(fp, ", parent = %s", info->parent->sym ? info->parent->sym->name->str : "unknown");
         }
     }
     if (info->type == PROC_T) {
-        fprintf(fp,", dtype = %d", info->dtype);
         fprintf(fp,", intno = %d", info->intno);
-        fprintf(fp,", pcnt = %d", info->pcnt);
         fprintf(fp,", procId = %d", info->procId);
     }
 }
 
+#if 0
 void dumpBuf(file_t *fp)
 {
     printf("%.6s: %.16s\n", fp->sNam, fp->fNam);
@@ -172,113 +171,107 @@ char *tx2Name(byte op)
     return tx2NameTable[op];
 }
 
-
-char *lexItems[] = {
-    "L_LINEINFO", "L_SYNTAXERROR", "L_TOKENERROR", "L_LIST", "L_NOLIST",
-    "L_CODE", "L_NOCODE", "L_EJECT", "L_INCLUDE", "L_STMTCNT",
-    "L_LABELDEF", "L_LOCALLABEL", "L_JMP", "L_JMPFALSE", "L_PROCEDURE",
-    "L_SCOPE", "L_END", "L_DO", "L_DOLOOP", "L_WHILE",
-    "L_CASE", "L_CASELABEL", "L_IF", "L_STATEMENT", "L_CALL",
-    "L_RETURN", "L_GO", "L_GOTO", "L_SEMICOLON", "L_ENABLE",
-    "L_DISABLE", "L_HALT", "L_EOF", "L_AT", "L_INITIAL",
-    "L_DATA", "L_IDENTIFIER", "L_NUMBER", "L_STRING", "L_PLUSSIGN",
-    "L_MINUSSIGN", "L_PLUS", "L_MINUS", "L_STAR", "L_SLASH",
-    "L_MOD", "L_COLONEQUALS", "L_AND", "L_OR", "L_XOR",
-    "L_NOT", "L_LT", "L_LE", "L_EQ", "L_NE",
-    "L_GE", "L_GT", "L_COMMA", "L_LPAREN", "L_RPAREN",
-    "L_PERIOD", "L_TO", "L_BY", "L_INVALID", "L_MODULE",
-    "L_XREFUSE", "L_XREFDEF", "L_EXTERNAL"
+#endif
+char *t1Items[] = {
+    "T1_LINEINFO", "T1_SYNTAXERROR", "T1_TOKENERROR", "T1_LIST", "T1_NOLIST",
+    "T1_CODE", "T1_NOCODE", "T1_EJECT", "T1_INCLUDE", "T1_STMTCNT",
+    "T1_LABELDEF", "T1_LOCALLABEL", "T1_JMP", "T1_JMPFALSE", "T1_PROCEDURE",
+    "T1_SCOPE", "T1_END", "T1_DO", "T1_DOLOOP", "T1_WHILE",
+    "T1_CASE", "T1_CASELABEL", "T1_IF", "T1_STATEMENT", "T1_CALL",
+    "T1_RETURN", "T1_GO", "T1_GOTO", "T1_SEMICOLON", "T1_ENABLE",
+    "T1_DISABLE", "T1_HALT", "T1_EOF", "T1_AT", "T1_INITIAL",
+    "T1_DATA", "T1_IDENTIFIER", "T1_NUMBER", "T1_STRING", "T1_PLUSSIGN",
+    "T1_MINUSSIGN", "T1_PLUS", "T1_MINUS", "T1_STAR", "T1_SLASH",
+    "T1_MOD", "T1_COLONEQUALS", "T1_AND", "T1_OR", "T1_XOR",
+    "T1_NOT", "T1_LT", "T1_LE", "T1_EQ", "T1_NE",
+    "T1_GE", "T1_GT", "T1_COMMA", "T1_LPAREN", "T1_RPAREN",
+    "T1_PERIOD", "T1_TO", "T1_BY", "T1_INVALID", "T1_MODULE",
+    "T1_XREFUSE", "T1_XREFDEF", "T1_EXTERNAL"
 };
 
 
-void DumpLexStream() // to be used after Start1
+void DumpT1Stream() // to be used after Start1
 {
-    FILE *fp;
     FILE *fpout;
-    int c;
     int w1, w2, w3;
     sym_t *sym;
-    char inc[18];
-    size_t ignore;     // gcc complains if result of fread is ignored
-    byte len;
-    vfile_t *vf = &utf1;
+    vfile_t *vf  = &utf1;
+    uint32_t pos = vf->pos;
 
-    vfRewind(vf);
-    if ((fpout = fopen("lex.dmp", "w")) == NULL) {
-        fprintf(stderr, "can't create lex.dmp\n");
+
+    if ((fpout = fopen("t1.dmp", "w")) == NULL) {
+        fprintf(stderr, "can't create t1.dmp\n");
         return;
     }
-    while ((c = vfRbyte(vf)) != EOF) {
-        if (c > L_EXTERNAL)
+    vfRewind(&utf1);
+    while (vf->pos < vf->size) {
+        int c = vfRbyte(&utf1);
+        if (c > T1_EXTERNAL)
             fprintf(fpout, "Invalid lex item %d\n", c);
         else {
-            fprintf(fpout, "%s", lexItems[c]);
+            fprintf(fpout, "%s", t1Items[c]);
             switch (c) {
-            case L_LINEINFO:
+            case T1_LINEINFO:
                 w1 = vfRword(vf);
                 w2 = vfRword(vf);
                 w3 = vfRword(vf);
-                fprintf(fpout, " line %d, stmt %d, blk %d", w1, w2, w3);
+                fprintf(fpout, ": line %d, stmt %d, blk %d", w1, w2, w3);
                 break;
-            case L_SYNTAXERROR:
-                fprintf(fpout, " %d", vfRword(vf));
+            case T1_SYNTAXERROR:
+                fprintf(fpout, ": %d", vfRword(vf));
                 break;
-            case L_TOKENERROR:
+            case T1_TOKENERROR:
                 w1 = vfRword(vf);
-                sym = SymbolP(vfRword(vf));
+                sym = &symtab[vfRword(vf)];
                 if (sym == NULL)
-                    fprintf(fpout, " %d -NULL-", w1);
+                    fprintf(fpout, ": %d -NULL-", w1);
                 else
-                    fprintf(fpout, "%d %.*s", w1, sym->name.len, sym->name.str);
+                    fprintf(fpout, ": %d %.*s", w1, sym->name->len, sym->name->str);
                 break;
-            case L_STRING:
+            case T1_STRING:
                 w1 = vfRword(vf);
                 fprintf(fpout, " %d '", w1);
-                while (w1-- > 0 && (c = vfRbyte(vf)) != EOF)
-                    putc(c, fpout);
+                while (w1--)
+                    putc(vfRbyte(vf), fpout);
                 putc('\'', fpout);
                 break;
-            case L_NUMBER: case L_STMTCNT: case L_LABELDEF: case L_LOCALLABEL: case L_JMP: case L_JMPFALSE:
-            case L_SCOPE: case L_CASELABEL:
+            case T1_NUMBER: case T1_STMTCNT: case T1_LABELDEF: case T1_LOCALLABEL: case T1_JMP: case T1_JMPFALSE:
+            case T1_SCOPE: case T1_CASELABEL:
                 w1 = vfRword(vf);
-                if (c != L_SCOPE)
+                if (c != T1_SCOPE)
                     fprintf(fpout, " %d", w1);
-                if (c == L_SCOPE || (c == L_NUMBER && w1 > 9))
+                if (c == T1_SCOPE || (c == T1_NUMBER && w1 > 9))
                     fprintf(fpout, " [%04X]", w1);
                 break;
-            case L_IDENTIFIER:
-                sym = SymbolP(vfRword(vf));
+            case T1_IDENTIFIER:
+                sym = &symtab[vfRword(vf)];
                 if (sym == NULL)
                     fprintf(fpout, " -NULL-");
                 else
-                    fprintf(fpout, " %.*s", sym->name.len, sym->name.str);
+                    fprintf(fpout, " %.*s", sym->name->len, sym->name->str);
                 break;
-            case L_AT: case L_INITIAL: case L_DATA:
-                //w1 = vfRword(vf);
-                //fprintf(fpout, " info [%04X]", w1);
-                //break;
-            case L_PROCEDURE:
-            case L_XREFUSE: case L_XREFDEF: case L_EXTERNAL:
+            case T1_AT: case T1_INITIAL: case T1_DATA:
+            case T1_PROCEDURE:
+            case T1_XREFUSE: case T1_XREFDEF: case T1_EXTERNAL:
                 w1 = vfRword(vf);
                 if (w1 == 0)
                     fprintf(fpout, " -NULL-");
                 else {
-                    putc(' ', fpout);
-                    showInfo(w1 + botInfo, fpout);
+                    if (c == T1_XREFUSE && FromIdx(w1)->sym)
+                        fprintf(fpout, ": %s", FromIdx(w1)->sym->name->str);
+                    else
+                        showInfo(w1, fpout);
                 }
                 break;
-            case L_INCLUDE:
-                {
-                    int c;
-                    while ((c = vfRbyte(vf)) > 0)
-                        fputc(c, fpout);
-                }
+            case T1_INCLUDE:
+                w1 = vfRword(vf);
+                fprintf(fpout, "(%s)", includes[w1]);
                 break;
             }
             putc('\n', fpout);
         }
     }
-    fclose(fp);
     fclose(fpout);
+    vf->pos = pos;
 }
 #endif

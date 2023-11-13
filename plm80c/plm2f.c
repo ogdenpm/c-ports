@@ -1,13 +1,11 @@
 /****************************************************************************
- *  plm2f.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm2f.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
 static byte bC2A5, bC2A6, bC2A7;
@@ -55,9 +53,9 @@ static void Sub_89D1() {
     word p;
 
     if (bC0B5[bC2A5] == 0xA)
-        wC2A9 = tx2[bC2A6].op2;
+        wC2A9 = tx2[bC2A6].right;
     else if (bC0B5[bC2A5] == 9) {
-        wC2A9 = tx2[bC2A6].op3;
+        wC2A9 = tx2[bC2A6].extra;
         if ((!boC069[0] && boC072[0]) || bC0B1 > 0 || wC2A9 != wC1C3) {
             i = bC0B1 + bC0B2;
             for (p = wC2A9; p <= wC1C3; p++) {
@@ -82,21 +80,21 @@ static void Sub_8A9C() {
         p  = wC2A9;
         q  = 0x100;
         ii = 4;
-        j  = Sub_5748(bC0B3[bC2A5]);
+        j  = IndirectAddr(bC0B3[bC2A5]);
     } else if (bC0B5[bC2A5] == 8 && bC0B3[bC2A5] == 1) {
         GetVal(bC0B7[bC2A5], &p, &q);
         ii = 2;
-        j  = 1;
+        j  = ADDRESS_A;
     } else if (bC0B5[bC2A5] == 4 && (bC0B3[bC2A5] == 0 || bC0B3[bC2A5] == 8 || !Sub_8861())) {
         GetVal(bC0B7[bC2A5], &p, &q);
         ii = 2;
-        j  = Sub_5748(bC0B3[bC2A5]);
+        j  = IndirectAddr(bC0B3[bC2A5]);
     } else
         return;
 
     for (int i = 1; i < 4; i++) {
         if (boC069[i]) {
-            if (bC0B7[0] == bC0B7[1] && curOp != T2_COLONEQUALS)
+            if (bC0B7[0] == bC0B7[1] && curNodeType != T2_COLONEQUALS)
                 if (bC0B5[bC2A5] > 3)
                     bC0B5[bC2A5] = i;
         } else if (!boC072[i] && wC096[i] == q && boC057[i] && 1 <= bC045[i] && bC045[i] <= 6) {
@@ -124,13 +122,13 @@ static void Sub_8CF5() {
     for (bC2A5 = 0; bC2A5 <= 1; bC2A5++) {
         if ((bC2A6 = bC0B7[bC2A5]) == 0)
             bC0B3[bC2A5] = 0xC;
-        else if ((bC2A7 = tx2[bC2A6].opc) == T2_STACKPTR)
+        else if ((bC2A7 = tx2[bC2A6].nodeType) == T2_STACKPTR)
             bC0B3[bC2A5] = 0xA;
         else if (bC2A7 == T2_LOCALLABEL)
             bC0B3[bC2A5] = 9;
         else {
-            bC0B3[bC2A5] = tx2[bC2A6].aux1;
-            bC0B5[bC2A5] = tx2[bC2A6].aux2;
+            bC0B3[bC2A5] = tx2[bC2A6].exprAttr;
+            bC0B5[bC2A5] = tx2[bC2A6].exprLoc;
             Sub_88C1();
             Sub_894A(); /*  checked */
         }
@@ -191,35 +189,36 @@ static void Sub_8F16() {
 static void Sub_8F35() {
     word p;
 
-    if (curOp == T2_STKARG || curOp == T2_STKBARG || curOp == T2_STKWARG) {
+    if (curNodeType == T2_STKARG || curNodeType == T2_STKBARG || curNodeType == T2_STKWARG) {
         Sub_5795(-(wB53C[procCallDepth] * 2));
         wB53C[procCallDepth]++;
         wC1C3++;
-    } else if (curOp == T2_CALL) {
+    } else if (curNodeType == T2_CALL) {
         Sub_5795(-(wB53C[procCallDepth] * 2));
-        SetInfo(tx2[tx2qp].op3);
+        info = FromIdx(tx2[tx2qp].extra);
         if ((info->flag & F_EXTERNAL))
             p = (wB53C[procCallDepth] + 1) * 2;
         else
             p = (wB528[procCallDepth] + 1) * 2 + info->stackUsage;
         if (p > stackUsage)
             stackUsage = p;
-    } else if (curOp == T2_CALLVAR) {
+    } else if (curNodeType == T2_CALLVAR) {
         Sub_5795(-(wB53C[procCallDepth] * 2));
         if (stackUsage < wC1C3 * 2)
             stackUsage = wC1C3 * 2;
-    } else if (curOp == T2_RETURN || curOp == T2_RETURNBYTE || curOp == T2_RETURNWORD) {
+    } else if (curNodeType == T2_RETURN || curNodeType == T2_RETURNBYTE ||
+               curNodeType == T2_RETURNWORD) {
         boC1CD = true;
         Sub_5EE8();
-    } else if (curOp == T2_JMPFALSE) {
+    } else if (curNodeType == T2_JMPFALSE) {
         Sub_5795(0);
         if (boC20F) {
             cfrag1 = CF_JMPTRUE;
             boC20F = false;
         }
-    } else if (curOp == T2_CASEBLOCK)
+    } else if (curNodeType == T2_CASEBLOCK)
         Sub_5795(0);
-    else if (curOp == T2_MOVE) {
+    else if (curNodeType == T2_MOVE) {
         if (wB53C[procCallDepth] != wC1C3) {
             Sub_5795(-((wB53C[procCallDepth] + 1) * 2));
             Sub_6416(3);
@@ -244,10 +243,10 @@ static void Sub_90EB() {
     p = w48DF[bC1D9] * 16;
     q = w493D[bC1D9];
     k = 0;
-    if (curOp == T2_COLONEQUALS) {
+    if (curNodeType == T2_COLONEQUALS) {
         Sub_940D();
-        if (tx2[bC0B7[1]].auxw == 0)
-            if (tx2[bC0B7[0]].auxw > 0) {
+        if (tx2[bC0B7[1]].cnt == 0)
+            if (tx2[bC0B7[0]].cnt > 0) {
                 if (cfrag1 == CF_MOVMLR || cfrag1 == CF_STA) {
                     bC045[bC0B5[1]] = 0;
                     bC04E[bC0B5[1]] = bC0B7[0];
@@ -256,7 +255,7 @@ static void Sub_90EB() {
                     bC04E[bC0B5[1]] = bC0B7[0];
                 }
             }
-    } else if (T2_51 <= curOp && curOp <= T2_56)
+    } else if (T2_51 <= curNodeType && curNodeType <= T2_56)
         Sub_940D();
     for (int n = 5; n < 9; n++) {
         byte i = p >> 13;
@@ -277,10 +276,10 @@ static void Sub_90EB() {
             }
         } else if (j == 4) {
             boC057[k = n] = 0;
-            if (0 < tx2[tx2qp].auxw) {
+            if (0 < tx2[tx2qp].cnt) {
                 bC04E[n] = tx2qp;
-                bC045[n] = tx2[tx2qp].aux1 = b43F8[cfrag1] >> 5;
-                bC0A8[n]                   = 0;
+                bC045[n] = tx2[tx2qp].exprAttr = b43F8[cfrag1] >> 5;
+                bC0A8[n]                       = 0;
             } else
                 bC04E[n] = 0;
         } else if (j == 5) {
@@ -295,18 +294,18 @@ static void Sub_90EB() {
             boC057[n] = 0;
         }
     }
-    if (k == 0 && tx2[tx2qp].auxw > 0) {
+    if (k == 0 && tx2[tx2qp].cnt > 0) {
         for (int n = 5; n < 9; n++) {
             if (bC04E[n] == 0)
                 if (!boC057[k = n])
                     break;
         }
         if (k != 0) {
-            bC04E[k]        = tx2qp;
-            boC057[k]       = 0;
-            bC045[k]        = 0;
-            tx2[tx2qp].aux1 = 0;
-            bC0A8[k]        = 0;
+            bC04E[k]            = tx2qp;
+            boC057[k]           = 0;
+            bC045[k]            = 0;
+            tx2[tx2qp].exprAttr = BYTE_A;
+            bC0A8[k]            = 0;
         }
     }
     for (int n = 0; n <= 3; n++)
@@ -314,10 +313,10 @@ static void Sub_90EB() {
 } /* Sub_90EB() */
 
 void Sub_87CB() {
-    bC0B7[0] = (byte)tx2[tx2qp].op1;
-    bC0B7[1] = (byte)tx2[tx2qp].op2;
-    first    = wAF54[curOp];
-    last     = first + b499B[curOp] - 1;
+    bC0B7[0] = (byte)tx2[tx2qp].left;
+    bC0B7[1] = (byte)tx2[tx2qp].right;
+    first    = wAF54[curNodeType];
+    last     = first + b499B[curNodeType] - 1;
     Sub_8CF5();
 
     while (1) {
@@ -339,15 +338,15 @@ void Sub_87CB() {
 
 void Sub_9457() {
     if (EnterBlk()) {
-        blk[blkId].codeSize     = codeSize;
+        blk[blkId].codeSize  = codeSize;
         blk[blkId].wB4B0     = wC1C3;
-        blk[blkId].stackSize     = stackUsage;
+        blk[blkId].stackSize = stackUsage;
         blk[blkId].extProcId = curExtProcId;
-        blk[blkSP].next   = blkId;
-        blkId            = blkSP;
-        SetInfo(blk[blkSP].info = tx2[tx2qp].op1);
-        curExtProcId = info->procId;
-        codeSize           = 0;
+        blk[firstCase].next  = blkId;
+        blkId                = firstCase;
+        info = blk[firstCase].info = FromIdx(tx2[tx2qp].left);
+        curExtProcId               = info->procId;
+        codeSize                   = 0;
         EmitTopItem();
         Sub_981C();
     }

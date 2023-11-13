@@ -1,13 +1,11 @@
 /****************************************************************************
- *  plm1b.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm1b.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
 void GetTx1Item() {
@@ -17,48 +15,48 @@ void GetTx1Item() {
     }
     while (1) {
         RdTx1Item();
-        if (tx1Item.type == L_TOKENERROR) {
-            if ((curSym = symtab + tx1Item.dataw[1])) {       // check we have symbol info
-                if (curSym->infoChain >= 0xff00) // is it a keyword?
-                    curSym->infoChain = 0;           // reset info link
-                if ((infoIdx = curSym->infoChain) == 0)
+        if (tx1Item.type == T1_TOKENERROR) {
+            if ((curSym = symtab + tx1Item.dataw[1])) {     // check we have symbol info
+                if (curSym->infoChain >= infotab + MAXINFO) // is it a keyword?
+                    curSym->infoChain = NULL;               // reset info link
+                if ((info = curSym->infoChain) == NULL)
                     CreateInfo(0, UNK_T, curSym); // allocate an UNK_T info block
-                tx1Item.dataw[1] = infoIdx;       // replace sym ref with info offset
+                tx1Item.dataw[1] = ToIdx(info);   // replace sym ref with info offset
             }
             MapLToT2();
-        } else if ((tx1Item.type == L_XREFUSE && XREF) ||
-                   (tx1Item.type == L_XREFDEF && (IXREF || XREF || SYMBOLS))) {
-            tx1Item.dataw[1] = curStmtNum;
-            vfWbyte(&xrff,
-                    tx1Item.type); // write the L_XREFUSE/L_XREFDEF infoP and stmtNum to xrfFile
-            vfWword(&xrff, tx1Item.dataw[0]);
-            vfWword(&xrff, tx1Item.dataw[1]);
-        } else if (tx1Item.type == L_LINEINFO) {
+        } else if ((tx1Item.type == T1_XREFUSE && XREF) ||
+                   (tx1Item.type == T1_XREFDEF && (IXREF || XREF || SYMBOLS))) {
+            // write the T1_XREFUSE/T1_XREFDEF infoP and stmtNum to xrfFile
+            info_t *xrInfo = FromIdx(tx1Item.dataw[0]);
+            xrInfo->xref   = newXref(xrInfo->xref, tx1Item.type == T1_XREFDEF
+                                                       ? -curStmtNum
+                                                       : curStmtNum); /* make defn line -ve */
+        } else if (tx1Item.type == T1_LINEINFO) {
             if (tx2LinfoPending) // write any pending lInfo
                 Wr2Item(linfo.type, &linfo.lineCnt, sizeof(struct _linfo));
             memcpy(&linfo.lineCnt, tx1Item.dataw, sizeof(struct _linfo));
-            linfo.type      = T2_LINEINFO; // update T2 code
-            tx2LinfoPending = true;        // flag as pending
-        } else if ((tx1Aux2 & 0x20) != 0)  // pass through
+            linfo.type      = T2_LINEINFO;          // update T2 code
+            tx2LinfoPending = true;                 // flag as pending
+        } else if ((tx1Attr & F_PASSTHROUGH)) // pass through
             MapLToT2();
-        else if (tx1Item.type == L_STMTCNT && tx1Item.dataw[0] == 0) // pass through null stmt cnts
+        else if (tx1Item.type == T1_STMTCNT && tx1Item.dataw[0] == 0) // pass through null stmt cnts
             MapLToT2();
-        else if (tx1Item.type != L_XREFDEF &&
-                 tx1Item.type != L_XREFUSE) // break if not handled (or ignored)
+        else if (tx1Item.type != T1_XREFDEF &&
+                 tx1Item.type != T1_XREFUSE) // break if not handled (or ignored)
             break;
     }
-    if (tx1Item.type == L_IDENTIFIER) // set symbolP up
+    if (tx1Item.type == T1_IDENTIFIER) // set symbolP up
         curSym = symtab + tx1Item.dataw[0];
 }
 
 bool MatchTx1Item(byte type) // check for requested Lex item. If present return true else return
-                              // false and don't consume item
+                             // false and don't consume item
 {
     GetTx1Item();
     if (tx1Item.type == type)
         return true;
     else {
-        SetRegetTx1Item();
+        UngetTx1Item();
         return false;
     }
 }
@@ -69,12 +67,12 @@ bool NotMatchTx1Item(byte arg1b) /// check for requested Lex item. If present co
     return !MatchTx1Item(arg1b);
 }
 
-bool MatchTx2AuxFlag(byte arg1b) {
+bool MatchTx2AuxFlag(byte flag) {
     GetTx1Item();
-    if ((tx1Aux2 & arg1b))
+    if ((tx1Attr & flag))
         return true;
     else {
-        SetRegetTx1Item();
+        UngetTx1Item();
         return false;
     }
 }
@@ -82,18 +80,18 @@ bool MatchTx2AuxFlag(byte arg1b) {
 void RecoverRPOrEndExpr() {
     do {
         GetTx1Item();
-    } while ((tx1Aux2 & 0x80) && tx1Item.type != L_RPAREN);
-    SetRegetTx1Item();
+    } while ((tx1Attr & F_EXPRITEM) && tx1Item.type != T1_RPAREN);
+    UngetTx1Item();
 }
 
 void ResyncRParen() {
     RecoverRPOrEndExpr();
-    MatchTx1Item(L_RPAREN); // consume the RP if seen
+    MatchTx1Item(T1_RPAREN); // consume the RP if seen
 }
 
 void ExpectRParen(byte arg1b) {
-    if (NotMatchTx1Item(L_RPAREN)) {
-        WrTx2ExtError(arg1b);
+    if (NotMatchTx1Item(T1_RPAREN)) {
+        Wr2TokError(arg1b);
         ResyncRParen();
     }
 }
@@ -105,23 +103,22 @@ void ChkIdentifier() {
     OptWrXrf();
     // check if declared, labels ok since forward ref allowed
     if (info->type != BUILTIN_T && !(info->flag & F_LABEL) && !(info->flag & F_DECLARED)) {
-        WrTx2ExtError(105);       /* UNDECLARED IDENTIFIER */
+        Wr2TokError(105);         /* UNDECLARED IDENTIFIER */
         info->flag |= F_DECLARED; // flag as now declared
     }
 }
 
 void ChkStructureMember() {
-    offset_t parent;
 
-    parent = infoIdx;                  // save parent info
+    info_t *parent = info;             // save parent info
     FindMemberInfo();                  // get the member info
-    if (infoIdx == 0) {                // oops not there
+    if (!info) {                       // oops not there
         CreateInfo(0, BYTE_T, curSym); // create a member to allow compiler to continue
         info->parent = parent;
         info->flag |= F_MEMBER;
     }
     if (!(info->flag & F_LABEL) && !(info->flag & F_DECLARED)) { // warn once if not declared
-        WrTx2ExtError(112);                                      /* UNDECLARED STRUCTURE MEMBER */
+        Wr2TokError(112);                                        /* UNDECLARED STRUCTURE MEMBER */
         info->flag |= F_DECLARED;
     }
     OptWrXrf();
@@ -129,11 +126,11 @@ void ChkStructureMember() {
 
 void GetVariable() {
     ChkIdentifier();
-    if (MatchTx1Item(L_PERIOD)) {
+    if (MatchTx1Item(T1_PERIOD)) {
         if (info->type != STRUCT_T)
-            WrTx2ExtError(110); /* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
-        else if (NotMatchTx1Item(L_IDENTIFIER))
-            WrTx2ExtError(111); /* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
+            Wr2TokError(110); /* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
+        else if (NotMatchTx1Item(T1_IDENTIFIER))
+            Wr2TokError(111); /* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
         else
             ChkStructureMember();
     }

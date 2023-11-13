@@ -1,13 +1,11 @@
 /****************************************************************************
- *  plm2g.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm2g.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
 static byte curParamCnt;
@@ -19,7 +17,7 @@ static word wC2D4;
 #define R_DE 2
 
 void FindParamInfo(byte arg1b) {
-    SetInfo(blk[blkSP].info);
+    info = blk[firstCase].info;
     while (arg1b-- != 0)
         AdvNxtInfo();
 }
@@ -219,7 +217,7 @@ void Sub_981C() {
             wC1DC[0] = 3;
             wC1DC[1] = 0xb;
             wC1DC[2] = i;
-            wC1DC[3] = infoIdx; /*  info for first param */
+            wC1DC[3] = ToIdx(info); /*  info for first param */
             EncodeFragData(CF_7);
             Sub_9560();
             codeSize += 3;
@@ -233,26 +231,26 @@ void Sub_981C() {
 }
 
 void Sub_994D() {
-    byte opc;
+    byte nodeType;
 
-    if (curOp == T2_LABELDEF) {
+    if (curNodeType == T2_LABELDEF) {
         boC1CC = false;
-        SetInfo(tx2[tx2qp].op1);
+        info = FromIdx(tx2[tx2qp].left);
         info->linkVal = codeSize;
-    } else if (curOp == T2_LOCALLABEL) {
+    } else if (curNodeType == T2_LOCALLABEL) {
         boC1CC                     = false;
-        localLabels[tx2[tx2qp].op1] = codeSize;
-        procIds[tx2[tx2qp].op1]     = curExtProcId;
-    } else if (curOp == T2_CASELABEL) {
-        localLabels[tx2[tx2qp].op1] = codeSize;
-        procIds[tx2[tx2qp].op1]     = curExtProcId;
-        newCase(tx2[tx2qp].op1);
-    } else if (curOp == T2_JMP || curOp == T2_JNC || curOp == T2_JNZ || curOp == T2_GOTO) {
-        opc = tx2[tx2qp - 1].opc;
-        if (opc == T2_RETURN || opc == T2_RETURNBYTE || opc == T2_RETURNWORD || opc == T2_GOTO)
+        localLabels[tx2[tx2qp].left] = codeSize;
+        procIds[tx2[tx2qp].left]     = curExtProcId;
+    } else if (curNodeType == T2_CASELABEL) {
+        localLabels[tx2[tx2qp].left] = codeSize;
+        procIds[tx2[tx2qp].left]     = curExtProcId;
+        newCase(tx2[tx2qp].left);
+    } else if (curNodeType == T2_JMP || curNodeType == T2_JNC || curNodeType == T2_JNZ || curNodeType == T2_GOTO) {
+        nodeType = tx2[tx2qp - 1].nodeType;
+        if (nodeType == T2_RETURN || nodeType == T2_RETURNBYTE || nodeType == T2_RETURNWORD || nodeType == T2_GOTO)
             return;
         Sub_5795(0);
-    } else if (curOp == T2_INPUT || (T2_SIGN <= curOp && curOp <= T2_CARRY)) {
+    } else if (curNodeType == T2_INPUT || (T2_SIGN <= curNodeType && curNodeType <= T2_CARRY)) {
         bC0B7[0] = 0;
         bC0B7[1] = 0;
         bC0B5[0] = 8;
@@ -263,21 +261,21 @@ void Sub_994D() {
         bC04E[0]        = tx2qp;
         boC057[0]       = 0;
         bC0A8[0]        = 0;
-        tx2[tx2qp].aux1 = 0;
-        tx2[tx2qp].aux2 = 9;
-    } else if (curOp == T2_STMTCNT) {
+        tx2[tx2qp].exprAttr = BYTE_A;
+        tx2[tx2qp].exprLoc = LOC_SPECIAL;
+    } else if (curNodeType == T2_STMTCNT) {
         bool found = false;
-        for (int j = tx2qp + 1; tx2[j].opc != T2_STMTCNT && tx2[j].opc != T2_EOF && j < 255; j++) {
-            if ((b5124[tx2[j].opc] & 0x20) == 0 || tx2[j].opc == T2_MODULE) {
+        for (int j = tx2qp + 1; tx2[j].nodeType != T2_STMTCNT && tx2[j].nodeType != T2_EOF && j < 255; j++) {
+            if ((nodeControlMap[tx2[j].nodeType] & 0x20) == 0 || tx2[j].nodeType == T2_MODULE) {
                 found = true;
                 break;
             }
         }
         if (!found) {
-            curOp         = CF_134;
-            tx2[tx2qp].opc = CF_134;
+            curNodeType         = CF_134;
+            tx2[tx2qp].nodeType = CF_134;
         }
     }
     EmitTopItem();
-    codeSize += (b43F8[curOp] & 0x1f);
+    codeSize += (b43F8[curNodeType] & 0x1f);
 }

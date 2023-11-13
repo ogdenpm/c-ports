@@ -1,25 +1,19 @@
 /****************************************************************************
- *  plm2a.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm2a.c: part of the C port of Intel's ISIS-II plm80                  *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 #include <stdlib.h>
 
-byte b3FCD[] = { 0,    2,    4,    7,    0xB,  0xE,  0x12, 0x14, 0x16, 0x19, 0x1D, 0x1F, 0x22, 0x24,
-                 0x27, 0x2A, 0x2D, 0x30, 0x32, 0x34, 0x37, 0x3B, 0x3D, 0x40, 0x42, 0x45, 0x47, 0x49,
-                 0x4B, 0x4D, 0x50, 0x52, 0x54, 0x56, 0x59, 0x5B, 0x5E, 0x60, 0x62, 0x65, 0x67, 0x69,
-                 0x6A, 0x6C, 0x6E, 0x71, 0x24, 0x24, 0x24, 0x24, 0x13, 0x13, 0x18, 0x18, 0x18, 0x18,
-                 0x16, 0x2C, 0x15, 0x1F, 0x1F, 0x20, 0x20, 0x19, 0x19, 0x19, 0x19, 8,    8,    9,
-                 9,    6,    7,    0x25, 0x25, 0x25, 0x25, 0x25, 0xA,  0xA,  0xB,  0xB,  0x14, 0x14,
-                 0x14, 0x14, 0x14, 0x39, 0x1A, 0x1A, 0x1A, 0x1A };
-
+/*
+    indexed by cfCode
+    a bbb ccc 0
+*/
 byte b4029[] = {
     0,    0,    0,    0,    0x26, 0x30, 0x30, 0x26, 0x30, 0x20, 0x30, 0x12, 0x12, 0x12, 0,    0x10,
     0x10, 0x10, 0x10, 0x10, 0x10, 0x60, 0,    0x26, 0x20, 0x20, 0,    0,    0,    0,    0,    0,
@@ -39,50 +33,55 @@ byte b4029[] = {
     0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80
 };
 
-byte b4128[]     = { 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 0xA };
+byte b4128[] = { 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 0xA };
 
-byte b413B[]     = { 0,    2,    4,    6,    8,    0xA,  0xC, 0x10, 0x11, 0xE,  0x12, 0,   2,    4,
-                     6,    8,    0xA,  0xC,  0x10, 0x11, 0xE, 0x12, 0,    2,    4,    6,   8,    0xA,
-                     0xC,  0x10, 0x11, 0xE,  0x12, 0,    2,   4,    6,    8,    0xA,  0xC, 0x10, 0x11,
-                     0xE,  0x12, 0,    2,    4,    6,    8,   0xA,  0xC,  0x10, 0x11, 0xE, 0x12, 0xC,
-                     0x11, 0x12, 0xC,  0x11, 0x12, 2,    6,   0,    4,    6,    8,    0xA, 0xC,  0xE,
-                     0x10, 0x11, 0x12, 0xD,  0xF,  7,    9,   0xB,  1,    5,    3 };
+byte b413B[] = { 0,    2,    4,    6,    8,    0xA,  0xC, 0x10, 0x11, 0xE,  0x12, 0,   2,    4,
+                 6,    8,    0xA,  0xC,  0x10, 0x11, 0xE, 0x12, 0,    2,    4,    6,   8,    0xA,
+                 0xC,  0x10, 0x11, 0xE,  0x12, 0,    2,   4,    6,    8,    0xA,  0xC, 0x10, 0x11,
+                 0xE,  0x12, 0,    2,    4,    6,    8,   0xA,  0xC,  0x10, 0x11, 0xE, 0x12, 0xC,
+                 0x11, 0x12, 0xC,  0x11, 0x12, 2,    6,   0,    4,    6,    8,    0xA, 0xC,  0xE,
+                 0x10, 0x11, 0x12, 0xD,  0xF,  7,    9,   0xB,  1,    5,    3 };
 
-byte b418C[][11] = { /* 11 byte entries */
-                     { 0x90, 0x91, 0x94, 0x95, 0x98, 0x99, 0x9A, 0x9C, 0xA0, 0xA1, 0x9D },
-                     { 0x6C, 0x6D, 0x70, 0x71, 0x74, 0x75, 0x76, 0x78, 0x7C, 0x7D, 0x79 },
-                     { 0, 0, 0, 0, 0, 0, 0x64, 0x65, 0, 0, 0 },
-                     { 0, 0, 0, 0, 0, 0, 0x68, 0x69, 0, 0, 0 },
-                     { 0, 0x58, 0, 0, 0x59, 0x5A, 0x54, 0x55, 0, 0, 0 },
-                     { 0, 0x60, 0, 0, 0x61, 0x62, 0x5C, 0x5D, 0, 0, 0 },
-                     { 0, 0x84, 0, 0, 0x85, 0x86, 0x80, 0x81, 0, 0, 0 },
-                     { 0, 0x8C, 0, 0, 0x8D, 0x8E, 0x88, 0x89, 0, 0, 0 },
-                     { 0, 0, 0, 0, 0x10, 0x11, 0x12, 0x14, 0x15, 0x16, 0x17 },
-                     { 0, 1, 4, 5, 8, 9, 0xA, 0xC, 0xD, 0xE, 0xF },
-                     { 0, 0x30, 0, 0x31, 0, 0, 0, 0, 0, 0, 0 },
-                     { 0, 0x28, 0, 0x29, 0, 0, 0, 0, 0, 0, 0 },
-                     { 0x18, 0x19, 0x1C, 0x1D, 0x20, 0x21, 0x22, 0x24, 0x25, 0x26, 0x27 },
-                     { 0x44, 0x45, 0x48, 0x49, 0x4C, 0x4D, 0x4E, 0x50, 0x51, 0x52, 0x53 },
-                     { 0xA8, 0xA9, 0xAC, 0xAD, 0xB0, 0xB1, 0xB2, 0xB4, 0xB5, 0xB6, 0xB7 },
-                     { 0x34, 0x36, 0x35, 0x38, 0x39, 0x3A, 0, 0, 0, 0, 0 },
-                     { 0x3C, 0x3D, 0x3E, 0x40, 0x41, 0x42, 0, 0, 0, 0, 0 },
-                     { 0, 0x2C, 0, 0, 0x2D, 0x2E, 0, 0, 0, 0, 0 },
-                     { 0xA4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+/*
+    each entry is encoded as
+    (module id << 2) + relative helper id
+*/
+byte helperMap[][11] = {
+    /* 11 byte entries */
+    { 94, 95, 96, 97, 98, 99, 100, 101, 103, 104, 102 },
+    { 73, 74, 75, 76, 77, 78, 79, 80, 82, 83, 81 },
+    { 0, 0, 0, 0, 0, 0, 69, 70, 0, 0, 0 },
+    { 0, 0, 0, 0, 0, 0, 71, 72, 0, 0, 0 },
+    { 0, 61, 0, 0, 62, 63, 59, 60, 0, 0, 0 },
+    { 0, 66, 0, 0, 67, 68, 64, 65, 0, 0, 0 },
+    { 0, 86, 0, 0, 87, 88, 84, 85, 0, 0, 0 },
+    { 0, 91, 0, 0, 92, 93, 89, 90, 0, 0, 0 },
+    { 0, 0, 0, 0, 11, 12, 13, 14, 15, 16, 17 },
+    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
+    { 0, 34, 0, 35, 0, 0, 0, 0, 0, 0, 0 },
+    { 0, 29, 0, 30, 0, 0, 0, 0, 0, 0, 0 },
+    { 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28 },
+    { 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58 },
+    { 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 },
+    { 36, 38, 37, 39, 40, 41, 0, 0, 0, 0, 0 },
+    { 42, 43, 44, 45, 46, 47, 0, 0, 0, 0, 0 },
+    { 0, 31, 0, 0, 32, 33, 0, 0, 0, 0, 0 },
+    { 105, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-byte b425D[] = { 8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF,  0x10, 0xD,
-                 9, 2,    3,   4, 5,   6,    7, 0,   0x1E, 0x12, 0xE };
+byte helperGroup[] = { 8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF,  0x10, 0xD,
+                       9, 2,    3,   4, 5,   6,    7, 0,   0x1E, 0x12, 0xE };
 
-byte b4273[] = { 3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0, // was also b457C in
-                                                                      // plm4a.c
-                 0, 0, 0, 0, 0, 0, 0, 0x12, 7, 4, 4, 2, 0xA, 0x15, 0, 0, 0, 0, 8, 9, 0, 0, 0, 0xB,
-                 6, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 5, 1, 1, 1, 0x13, 0x13, 0x13, 1, 1, 1, 0x13,
-                 0x13, 0x13, 0x14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0xC,
-                 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0, 0xE,
-                 0xE, 0xE, 0xE, 0xF, 0xF, 0xF, 0xF, 0, 0xF, 0xF, 0xF, 0xF, 0xE, 0xE, 0xE, 0xE, 0,
-                 0x10, 0x10, 0x10, 0x10, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0 };
+byte b4273[]       = { 3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0, // was also b457C in
+                                                                            // plm4a.c
+                       0, 0, 0, 0, 0, 0, 0, 0x12, 7, 4, 4, 2, 0xA, 0x15, 0, 0, 0, 0, 8, 9, 0, 0, 0, 0xB,
+                       6, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 5, 1, 1, 1, 0x13, 0x13, 0x13, 1, 1, 1, 0x13,
+                       0x13, 0x13, 0x14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0xC,
+                       0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0, 0xE,
+                       0xE, 0xE, 0xE, 0xF, 0xF, 0xF, 0xF, 0, 0xF, 0xF, 0xF, 0xF, 0xE, 0xE, 0xE, 0xE, 0,
+                       0x10, 0x10, 0x10, 0x10, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0 };
 
-byte b42F9[] = {
+byte b42F9[]       = {
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0x10, 0,    0,    0,    0,    0,    0,
     0,    0,    0x10, 0,    0x20, 0,    0,    0x13, 0,    0,    0,    0,    0,    0,    0,    0,
     0x50, 0,    0,    0,    0x10, 0x10, 0x20, 0x10, 0x10, 0x10, 0,    0x50, 0x50, 0,    0x50, 0x50,
@@ -340,23 +339,46 @@ byte b5048[] = { 0,    0x2A, 0,    0x2A, 0,    0x32, 0,    0x32, 0,   0x2A, 0x2A
                  0,    1,    1,    1,    0x59, 0x71, 0,    2,    0xA, 0x12, 2,    0xA,  0x12,
                  0,    1,    0,    1,    0,    1,    0,    1,    1,   0 };
 
-byte b50AD[] = { 0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0x62, 0xFF, 0x22,
-                 0xFF, 4,    4,    4,    0xFF, 0x50, 0xFF, 0x64, 0x85, 0x64, 0x85, 0x64, 0x64,
-                 0xA5, 0x64, 0xA5, 0x64, 0x64, 5,    4,    0xFF, 0x64, 5,    0xFF, 0x64, 0x85,
-                 0x64, 0x85, 0x64, 0x64, 0xA5, 0x64, 0xA5, 0x64, 0x64, 5,    4,    0xFF, 4,
-                 4,    4,    4,    4,    4,    0x64, 4,    0xFF, 0x64, 4,    0xFF, 4,    0xFF,
-                 0x25, 0x24, 0x64, 4,    4,    0xFF, 4,    0xFF, 0x64, 5,    4,    0x24, 4,
-                 0xFF, 0x64, 5,    4,    0x25, 0x64, 0xFF, 0x14, 0x14, 0x14, 4,    4,    4,
-                 0xFF, 4,    0xFF, 4,    0xFF, 4,    0xFF, 0x14, 4,    0xFF };
 
+byte stepTable[] = {
+         // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
+ /* 00 */   0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0x62, 0xFF, 0x22, 0xFF, 4,    4,
+ /* 10 */   4,    0xFF, 0x50, 0xFF, 0x64, 0x85, 0x64, 0x85, 0x64, 0x64, 0xA5, 0x64, 0xA5, 0x64, 0x64, 5,
+ /* 20 */   4,    0xFF, 0x64, 5,    0xFF, 0x64, 0x85, 0x64, 0x85, 0x64, 0x64, 0xA5, 0x64, 0xA5, 0x64, 0x64,
+ /* 30 */   5,    4,    0xFF, 4,    4,    4,    4,    4,    4,    0x64, 4,    0xFF, 0x64, 4,    0xFF, 4,
+ /* 40 */   0xFF, 0x25, 0x24, 0x64, 4,    4,    0xFF, 4,    0xFF, 0x64, 5,    4,    0x24, 4,    0xFF, 0x64,
+ /* 50 */   5,    4,    0x25, 0x64, 0xFF, 0x14, 0x14, 0x14, 4,    4,    4,    0xFF, 4,    0xFF, 4,    0xFF,
+ /* 50 */   4,    0xFF, 0x14, 4,    0xFF
+};
+
+
+// indexed by arith op
+// DOUBLE, PLUSSIGN, MINUSSIGN, STAR, SLASH, MOD, AND, OR, XOR
+// BASED, BYTEINDEX, WORDINDEX, MEMBER, UNARYMINUS, NOT, LOW, HIGH, ADDRESSOF
+// xx yyy zzz
+// zzz result attributes
 byte b5112[] = { 0x5A, 0x61, 0x69, 0x92, 0x92, 0x92, 0x91, 0x91, 0x91,
                  0x5D, 0xD3, 0xD3, 0xDC, 0x9B, 0x9B, 0x98, 0x98, 0x1A };
 
 /* clang-format off */
-// note  INCLDUE (162) item changed to have only 1 byte
+// note  INCLUDE (162) item changed to have only 1 word
 // indexed by T2 opcode
+// xxxxxxnn
+// nn -> length of t2 item in words
+// other bits as follows
+// 80: SETSTMTNO PROCEDURE LOCALLABEL CASELABEL LABELDEF INPUT GOTO JMP JNC JNZ SIGN ZERO PARITY CARRY DISABLE ENABLE
+//     HALT STMTCNT LINEINFO MODULE SYNTAXERROR TOKENERROR EOF LIST NOLIST CODE NOCODE EJECT INCLUDE ERROR STACKPTR
+//     SEMICOLON OPTBACKREF CASE ENDCASE ENDPROC BEGCALL
+// 40: IDENTIFIER NUMBER BIGNUMBER 175 STACKPTR SEMICOLON OPTBACKREF CASE ENDCASE ENDPROC LENGTH LAST SIZE BEGCALL
+// 20: STMTCNT LINEINFO MODULE SYNTAXERROR TOKENERROR EOF LIST NOLIST CODE NOCODE EJECT INCLUDE ERROR
+// 10: PROCEDURE LOCALLABEL CASELABEL LABELDEF HALT EOF ENDPROC
+// 08: JMPFALSE RETURNBYTE RETURNWORD RETURN BEGMOVE CALL CALLVAR PROCEDURE GOTO JMP JNC JNZ ENDPROC
+// 04: JMPFALSE CASEBLOCK
+// 
+// 
               // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
-byte b5124[] = { 2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    0xE,  1,    1,    1,    // 00
+byte nodeControlMap[] = {
+                 2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    0xE,  1,    1,    1,    // 00
                  1,    1,    1,    2,    2,    2,    2,    2,    2,    2,    2,    2,    3,    3,    2,    1,    // 10
                  1,    1,    1,    1,    2,    2,    2,    2,    2,    2,    2,    2,    0,    0,    0,    0,    // 20
                  0,    0,    0,    0,    0,    0,    0,    0,    0,    1,    1,    1,    1,    2,    2,    6,    // 30
@@ -369,11 +391,18 @@ byte b5124[] = { 2,    2,    2,    2,    2,    2,    2,    2,    2,    2,    2, 
                  0xA0, 0xA0, 0xA1, 0xA3, 0,    0,    0,    0,    0,    0,    0,    0,    0x41, 0x41, 0x41, 0x40, // a0
                  0,    0,    0,    0,    0,    0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xD8, 0x41, 0x41, 0x41, 0xC0 };     // b0
 
-byte b51E3[] = { 0, 0, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0, 0,    0,    0,   0,
-                 0, 0, 0x12, 0x14, 0x22, 0x33, 0x47, 0x47, 0x41, 0x49, 0x4F, 0, 0x5C, 0x5E, 0x60 };
 
-byte b5202[] = { 0, 0, 0, 0,    0,    0,    1,    3,    5,    7,    9,    0xC,  0xE, 0, 0,   0,
-                 0, 0, 0, 0x14, 0x25, 0x33, 0x3C, 0x3F, 0x41, 0x49, 0x4F, 0x55, 0,   0, 0x62 };
+
+                 // 0     1     2     3     4     5     6     7     8     9 
+byte step2Map[] = { 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,      // LT  LE  NE  EQ GE GT ROL ROR SCL SCR
+                    0,    0,    0,    0,    0,    0,    0,    0,    0x12, 0x14,   // SHL SHR JMPFALSE ..... DOUBLE PLUSSIGN
+                    0x22, 0x33, 0x47, 0x47, 0x41, 0x49, 0x4F, 0,    0x5C, 0x5E,   // MINUSSIGN STAR SLASH MOD AND OR XOR BASED BYTEINDEX WORDINDEX
+                    0x60 };                                                       // MEMBER
+
+byte step1Map[] = { 0,    0,    0,    0,    0,    0,    1,    3,    5,    7,
+                    9,    0xC,  0xE,  0,    0,    0,    0,    0,    0,    0x14,
+                    0x25, 0x33, 0x3C, 0x3F, 0x41, 0x49, 0x4F, 0x55, 0,    0,
+                    0x62 };
 
 byte b5221[] = { 0,    0x4D, 0,    0x55, 0,    0x5D, 0,    0x66, 0,    0x6F, 0x6F, 0,    0x77,
                  0,    0xB6, 0x8D, 0xB6, 0,    0x41, 0,    0x2D, 0x2D, 0x2E, 0x2E, 0x2F, 0x30,
@@ -417,13 +446,13 @@ void WrFragData() {
     vfWbuf(&utf1, fragment, fragLen);
 }
 
-void PutTx1Byte(byte arg1b) {
-    fragment[fragLen++] = arg1b;
+void PutTx1Byte(byte val) {
+    fragment[fragLen++] = val;
 }
 
-void PutTx1Word(word arg1w) {
-    PutTx1Byte(Low(arg1w));
-    PutTx1Byte(High(arg1w));
+void PutTx1Word(word val) {
+    PutTx1Byte(Low(val));
+    PutTx1Byte(High(val));
 }
 
 static byte bC214, bC215;
@@ -457,23 +486,23 @@ static void Sub_545D() {
     }
 } /* Sub_545D() */
 
-static void Sub_5410(byte fragId) {
+static void Sub_5410(byte fragCode) {
     bC214 = 0;
     bC215 = fragLen;
-    if ((b4029[fragId] >> 4) & 7) {
+    if ((b4029[fragCode] >> 4) & 7) {
         Sub_545D();
         if (wC1DC[bC214] != 0 || wC1DC[0] <= 12)
             Sub_545D();
     }
 } /* Sub_5410() */
 
-void EncodeFragData(byte fragId) {
+void EncodeFragData(byte fragCode) {
     /* EncodeFragData() */
     fragLen = 0;
-    PutTx1Byte(fragId);
-    if (b4029[fragId] & 0x80)
-        PutTx1Byte(curOp);
-    Sub_5410(fragId);
+    PutTx1Byte(fragCode);
+    if (b4029[fragCode] & 0x80)
+        PutTx1Byte(curNodeType);
+    Sub_5410(fragCode);
     memset(wC1DC, 0, sizeof(wC1DC));
     WrFragData();
 }
@@ -481,35 +510,35 @@ void EncodeFragData(byte fragId) {
 void EmitTopItem() {
     fragLen = 0;
     if (!PRINT)
-        if (tx2[tx2qp].opc == T2_LINEINFO || tx2[tx2qp].opc == T2_INCLUDE)
+        if (tx2[tx2qp].nodeType == T2_LINEINFO || tx2[tx2qp].nodeType == T2_INCLUDE)
             return;
-    PutTx1Byte(tx2[tx2qp].opc);
-    if (b4029[tx2[tx2qp].opc] & 0x80) {
-        PutTx1Byte((byte)tx2[tx2qp].op2);
-        PutTx1Word(tx2[tx2qp].op1);
+    PutTx1Byte(tx2[tx2qp].nodeType);
+    if (b4029[tx2[tx2qp].nodeType] & 0x80) {
+        PutTx1Byte((byte)tx2[tx2qp].right);
+        PutTx1Word(tx2[tx2qp].left);
     } else
-        switch (b5124[tx2[tx2qp].opc] & 3) {
+        switch (nodeControlMap[tx2[tx2qp].nodeType] & 3) {
         case 0:
             break;
         case 1:
-            PutTx1Word(tx2[tx2qp].op1);
+            PutTx1Word(tx2[tx2qp].left);
             break;
         case 2:
-            PutTx1Word(tx2[tx2qp].op1);
-            PutTx1Word(tx2[tx2qp].op2);
+            PutTx1Word(tx2[tx2qp].left);
+            PutTx1Word(tx2[tx2qp].right);
             break;
         case 3:
-            PutTx1Word(tx2[tx2qp].op1);
-            PutTx1Word(tx2[tx2qp].op2);
-            PutTx1Word(tx2[tx2qp].op3);
+            PutTx1Word(tx2[tx2qp].left);
+            PutTx1Word(tx2[tx2qp].right);
+            PutTx1Word(tx2[tx2qp].extra);
             break;
         }
     WrFragData();
 }
 
 void Tx2SyntaxError(byte arg1b) {
-    tx2[tx2qp].opc = T2_SYNTAXERROR;
-    tx2[tx2qp].op1 = arg1b;
+    tx2[tx2qp].nodeType = T2_SYNTAXERROR;
+    tx2[tx2qp].left     = arg1b;
 }
 
 byte Sub_5679(byte arg1b) {
@@ -520,24 +549,11 @@ void Sub_56A0(byte arg1b, byte arg2b) {
     tx2[arg2b] = tx2[arg1b];
 }
 
-byte Sub_5748(byte arg1b) {
-    if (arg1b == 8)
+byte IndirectAddr(byte attr) {
+    if (attr == STRUCT_A)
         return 2;
     else
-        return arg1b + 2;
-}
-
-word Sub_575E(offset_t arg1w) { // PMO
-
-    SetInfo(arg1w);
-    if (info->type == BYTE_T)
-        return 1;
-    if (info->type == ADDRESS_T)
-        return 2;
-    if (info->type == STRUCT_T)
-        return info->totalSize;
-    /*  fall though appears suspect */
-    return 0;
+        return attr + 2;
 }
 
 void Sub_5795(word arg1w) {
@@ -545,7 +561,7 @@ void Sub_5795(word arg1w) {
 
     p = arg1w + wC1C3 * 2;
     q = ((p + 1) >> 1) + 2; // convert to words
-    if (curOp == T2_RETURNWORD)
+    if (curNodeType == T2_RETURNWORD)
         q -= 2;
     if (q > 7) {
         if (bC0B5[0] == 3)
@@ -582,8 +598,8 @@ void Sub_5795(word arg1w) {
 }
 
 bool EnterBlk() {
-    if (blkSP < 20) {
-        blkSP++;
+    if (firstCase < 20) {
+        firstCase++;
         return true;
     }
     if (blkOverCnt == 0) {
@@ -599,8 +615,8 @@ bool ExitBlk() {
     if (blkOverCnt > 0) {
         blkOverCnt--;
         return false;
-    } else if (blkSP > 0) {
-        blkSP--;
+    } else if (firstCase > 0) {
+        firstCase--;
         return true;
     } else {
         Tx2SyntaxError(ERR205); /*  ILLEGAL NESTING OF BLOCKS, ENDS not BALANCED */
@@ -609,23 +625,23 @@ bool ExitBlk() {
     }
 }
 
-void Sub_58F5(byte arg1b) {
-    fatalErrorCode = arg1b;
-    fragment[0]    = 0x9a;
-    fragment[1]    = fatalErrorCode;
+void Sub_58F5(word err) {
+    fatalErrorCode = err;
+    fragment[0]    = T2_SYNTAXERROR;
+    fragment[1]    = (byte)fatalErrorCode;
     fragment[2]    = 0;
     fragLen        = 3;
     WrFragData();
 
-    while (blkSP > 0) {
+    while (firstCase > 0) {
         if (ExitBlk()) {
-            if (blkId > blkSP) {
-            	SetInfo(blk[blkId].info);
+            if (blkId > firstCase) {
+                info             = blk[blkId].info;
                 info->codeSize   = codeSize;
                 info->stackUsage = stackUsage;
-                blkId                         = blk[blkId].next;
-                codeSize                      = blk[blkId].codeSize;
-                stackUsage                    = blk[blkId].stackSize;
+                blkId            = blk[blkId].next;
+                codeSize         = blk[blkId].codeSize;
+                stackUsage       = blk[blkId].stackSize;
             }
         }
     }
@@ -643,7 +659,7 @@ void Sub_597E() {
         boC072[i] = false;
         boC07B[i] = false;
         k         = bC04E[i];
-        n         = b5124[tx2[k].opc] & 0xc0;
+        n         = nodeControlMap[tx2[k].nodeType] & 0xc0;
         if (k != 0) {
             boC060[i] = true;
             if (bC0B5[0] == i || bC0B5[1] == i) {
@@ -652,9 +668,9 @@ void Sub_597E() {
                     bC0B2++;
             }
             if (n == 0 || n == 0x80) {
-                if (tx2[k].op3 == 0) {
-                    if (tx2[k].aux1 == bC045[i] || (tx2[k].aux1 == 0 && bC045[i] == 6))
-                        if (tx2[k].auxw > 1 || boC069[i] || (bC0B7[0] != k && k != bC0B7[1]))
+                if (tx2[k].extra == 0) {
+                    if (tx2[k].exprAttr == bC045[i] || (tx2[k].exprAttr == BYTE_A && bC045[i] == 6))
+                        if (tx2[k].cnt > 1 || boC069[i] || (bC0B7[0] != k && k != bC0B7[1]))
                             boC072[i] = true;
                 }
             }
@@ -699,7 +715,7 @@ void Sub_5C1D(byte arg1b) {
     Sub_597E();
     i = bC140[wC1C3] = bC04E[arg1b];
     if (boC072[arg1b])
-        tx2[i].op3 = wC1C3;
+        tx2[i].extra = wC1C3;
 
     if (arg1b != 0)
         bC0C3[wC1C3] = (bC045[arg1b] << 4) | (bC0A8[arg1b] & 0xf);
@@ -711,8 +727,8 @@ void Sub_5C97(byte arg1b) {
     byte i;
 
     i = bC04E[arg1b] = bC140[wC1C3];
-    if (wC1C3 == tx2[i].op3)
-        tx2[i].op3 = 0;
+    if (wC1C3 == tx2[i].extra)
+        tx2[i].extra = 0;
 
     boC057[arg1b] = 0;
     bC045[arg1b]  = bC0C3[wC1C3] >> 4;
@@ -734,12 +750,10 @@ void Sub_5D27(byte arg1b) {
 
 static void Sub_5E16(byte arg1b) // modified as passed in arg for nested proc
 {
-    byte i; // avoids nested proc access to bC233
-    for (i = 0; i <= 3; i++) {
-        if (boC072[i])
-            if (!boC069[i])
-                Sub_5D27(i);
-    }
+    for (byte i = 0; i <= 3; i++)
+        if (boC072[i] && !boC069[i])
+            Sub_5D27(i);
+
     if (bC0B5[0] == arg1b)
         bC0B5[0] = 9;
     else
@@ -747,24 +761,19 @@ static void Sub_5E16(byte arg1b) // modified as passed in arg for nested proc
 } /* Sub_5E16() */
 
 void Sub_5D6B(byte arg1b) {
-    byte i; // was bC233
 
     if (boC072[arg1b]) {
         if (boC069[arg1b])
             Sub_5E16(arg1b); // modified to pass as arg for nested proc
         Sub_5D27(arg1b);
     } else if (boC069[arg1b]) {
-        for (i = 0; i <= 3; i++) {
-            if (bC04E[i] == bC04E[arg1b]) {
-                if (i != arg1b) {
-                    if (bC045[i] == bC045[arg1b]) {
-                        if (bC0B5[0] == arg1b)
-                            bC0B5[0] = i;
-                        else
-                            bC0B5[1] = i;
-                        return;
-                    }
-                }
+        for (byte i = 0; i <= 3; i++) {
+            if (bC04E[i] == bC04E[arg1b] && i != arg1b && bC045[i] == bC045[arg1b]) {
+                if (bC0B5[0] == arg1b)
+                    bC0B5[0] = i;
+                else
+                    bC0B5[1] = i;
+                return;
             }
         }
         Sub_5E16(arg1b);
@@ -773,15 +782,13 @@ void Sub_5D6B(byte arg1b) {
 }
 
 void Sub_5E66(byte arg1b) {
-    byte i, j, k;
-
-    j        = bC0B7[0];
-    k        = bC0B7[1];
+    byte j   = bC0B7[0];
+    byte k   = bC0B7[1];
     bC0B7[0] = 0;
     bC0B7[1] = 0;
     arg1b    = (arg1b >> 3) | (arg1b << 5);
     Sub_597E();
-    for (i = 0; i <= 3; i++) {
+    for (byte i = 0; i <= 3; i++) {
         if (arg1b & 1) {
             if (boC072[i])
                 Sub_5D27(i);
@@ -789,7 +796,7 @@ void Sub_5E66(byte arg1b) {
             bC04E[i]  = 0;
             Sub_597E();
         }
-        arg1b = (arg1b << 1) | (arg1b & 0x80 ? 1 : 0);
+        arg1b = (arg1b << 1) | (arg1b >> 7);
     }
     bC0B7[0] = j;
     bC0B7[1] = k;
@@ -797,7 +804,7 @@ void Sub_5E66(byte arg1b) {
 
 void Sub_5EE8() {
     Sub_5795(wC1C7);
-    SetInfo(blk[blkId].info);
+    info = blk[blkId].info;
     if (info && (info->flag & F_INTERRUPT)) {
         for (int i = 0; i < 4; i++) {
             wC1DC[0] = i; /*  pop psw, pop b, pop d, pop h */
@@ -809,19 +816,19 @@ void Sub_5EE8() {
     }
 }
 
-void Sub_5F4B(word val, word infoIdx, byte isWord, byte opFlag) {
-    tx2[tx2qp].op2  = val;
-    tx2[tx2qp].op1  = infoIdx;
-    tx2[tx2qp].aux1 = isWord;
-    tx2[tx2qp].aux2 = opFlag;
-    tx2[tx2qp].opc  = opFlag == 8 ? T2_NUMBER : T2_IDENTIFIER;
+void Sub_5F4B(word val, info_t *pInfo, byte exprAttr, byte exprLoc) {
+    tx2[tx2qp].right    = val;
+    tx2[tx2qp].left     = ToIdx(pInfo);
+    tx2[tx2qp].exprAttr     = exprAttr;
+    tx2[tx2qp].exprLoc     = exprLoc;
+    tx2[tx2qp].nodeType = exprLoc == LOC_REG ? T2_NUMBER : T2_IDENTIFIER;
 }
 
 void GetVal(byte slot, wpointer pAcc, wpointer pAccFlag) {
-    if (tx2[slot].opc == T2_IDENTIFIER || tx2[slot].opc == T2_NUMBER) {
-        *pAcc = tx2[slot].op2;
-        SetInfo(tx2[slot].op1);
-        if (!infoIdx || (info->flag & (F_MEMBER | F_BASED | F_ABSOLUTE)))
+    if (tx2[slot].nodeType == T2_IDENTIFIER || tx2[slot].nodeType == T2_NUMBER) {
+        *pAcc = tx2[slot].right;
+        info  = FromIdx(tx2[slot].left);
+        if (!info || (info->flag & (F_MEMBER | F_BASED | F_ABSOLUTE)))
             *pAccFlag = 0;
         else if ((info->flag & F_AUTOMATIC))
             *pAccFlag = 0x100;
@@ -835,26 +842,21 @@ void GetVal(byte slot, wpointer pAcc, wpointer pAccFlag) {
             *pAccFlag = 0x200;
         else
             *pAccFlag = 0x2000;
-    } else if (slot == 0) {
-        *pAcc     = 0;
-        *pAccFlag = 0;
     } else {
         *pAcc     = 0;
-        *pAccFlag = 0x4000;
+        *pAccFlag = slot ? 0x4000 : 0;
     }
 }
 
 void Sub_611A() {
-    byte i, j, k;
-
-    for (i = 0; i <= 1; i++) {
-        j = bC0B7[i];
-        if (j && --tx2[j].auxw == 0) {
-            for (k = 0; k <= 3; k++) {
+    for (byte i = 0; i <= 1; i++) {
+        byte j = bC0B7[i];
+        if (j && --tx2[j].cnt == 0) {
+            for (byte k = 0; k <= 3; k++) {
                 if (bC04E[k] == j)
                     bC04E[k] = 0;
             }
-            bC140[tx2[j].op3] = 0;
+            bC140[tx2[j].extra] = 0;
         }
     }
 }
@@ -864,20 +866,20 @@ void Sub_61A9(byte arg1b) {
 }
 
 void Sub_61E0(byte arg1b) {
-    if ((b5124[tx2[arg1b].opc] & 0xc0) == 0) {
+    if ((nodeControlMap[tx2[arg1b].nodeType] & 0xc0) == 0) {
         wC1DC[bC1DB++] = 0xa;
-        wC1DC[bC1DB++] = tx2[arg1b].op3;
-        wC1DC[bC1DB++] = (wC1C3 - tx2[arg1b].op3) * 2;
-    } else if (tx2[arg1b].op1) {
-        SetInfo(tx2[arg1b].op1);
+        wC1DC[bC1DB++] = tx2[arg1b].extra;
+        wC1DC[bC1DB++] = (wC1C3 - tx2[arg1b].extra) * 2;
+    } else if (tx2[arg1b].left) {
+        info           = FromIdx(tx2[arg1b].left);
         wC1DC[bC1DB++] = info->flag & F_AUTOMATIC ? 0xc : 0xb;
-        wC1DC[bC1DB++] = tx2[arg1b].op2 - info->linkVal;
-        wC1DC[bC1DB++] = infoIdx;
+        wC1DC[bC1DB++] = tx2[arg1b].right - info->linkVal;
+        wC1DC[bC1DB++] = ToIdx(info);
         if ((info->flag & F_AUTOMATIC))
-            wC1DC[bC1DB++] = tx2[arg1b].op2 + wC1C3 * 2;
+            wC1DC[bC1DB++] = tx2[arg1b].right + wC1C3 * 2;
     } else {
-        wC1DC[bC1DB++] = tx2[arg1b].op2 < 0x100 ? 8 : 9;
-        wC1DC[bC1DB++] = tx2[arg1b].op2;
+        wC1DC[bC1DB++] = tx2[arg1b].right < 0x100 ? 8 : 9;
+        wC1DC[bC1DB++] = tx2[arg1b].right;
     }
 }
 
@@ -916,65 +918,63 @@ void Sub_6416(byte arg1b) {
 }
 
 void GetTx2Item() {
-    tx2[tx2qp].opc = Rd2Byte();
+    tx2[tx2qp].nodeType = Rd2Byte();
 
-    switch (3 & b5124[tx2[tx2qp].opc]) {
+    switch (3 & nodeControlMap[tx2[tx2qp].nodeType]) {
     case 0:
-        if (tx2[tx2qp].opc == T2_EOF)
+        if (tx2[tx2qp].nodeType == T2_EOF)
             eofSeen = true;
         break;
     case 1:
-        tx2[tx2qp].op1 = Rd2Word();
+        tx2[tx2qp].left = Rd2Word();
         break;
     case 2:
-        tx2[tx2qp].op1 = Rd2Word();
-        tx2[tx2qp].op2 = Rd2Word();
+        tx2[tx2qp].left  = Rd2Word();
+        tx2[tx2qp].right = Rd2Word();
         break;
     case 3:
-        tx2[tx2qp].op1 = Rd2Word();
-        tx2[tx2qp].op2 = Rd2Word();
-        tx2[tx2qp].op3 = Rd2Word();
+        tx2[tx2qp].left  = Rd2Word();
+        tx2[tx2qp].right = Rd2Word();
+        tx2[tx2qp].extra = Rd2Word();
         break;
     }
 }
 
-void Sub_652B() {
-    if (curOp == T2_MODULE) {
-        if (tx2[tx2qp - 1].opc == T2_LABELDEF) {
-            SetInfo(tx2[tx2qp - 1].op1);
-            if (!(info->flag & (F_MODGOTO | F_PUBLIC)))
-                tx2qp--;
+void chkMerge() {
+    /* T2_MODULE not needed if previous was public level label */
+    if (curNodeType == T2_MODULE) {
+        if (tx2[tx2qp - 1].nodeType == T2_LABELDEF &&
+            !(FromIdx(tx2[tx2qp - 1].left)->flag & (F_MODGOTO | F_PUBLIC)))
+            tx2qp--; // ignore this item
+    } else
+        // merge consecutive T2_LINEINFO which have no statements
+        if (curNodeType == T2_LINEINFO && tx2[tx2qp].right == 0 &&
+            tx2[tx2qp - 1].nodeType == T2_LINEINFO && tx2[tx2qp - 1].right == 0) {
+            tx2[tx2qp - 1].extra = tx2[tx2qp].left; // set first blkCnt to new lineCnt
+            tx2qp--;                                // and ignore this item
         }
-    } else if (curOp == T2_LINEINFO) {
-        if (tx2[tx2qp].op2 == 0) {
-            if (tx2[tx2qp - 1].opc == T2_LINEINFO) {
-                if (tx2[tx2qp - 1].op2 == 0) {
-                    tx2[tx2qp - 1].op3 = tx2[tx2qp].op1;
-                    tx2qp--;
-                }
-            }
-        }
-    }
 }
 
 void FillTx2Q() {
 
-    tx2qp = 4;
+    tx2qp = 4; // leave fixed at bottom
+    // remove any used items from the queue, moving down the others
     if (tx2qEnd > tx2qNxt) {
         byte k = tx2qEnd - tx2qNxt;
         memmove(&tx2[tx2qp], &tx2[tx2qNxt], k * sizeof(tx2_t));
-        tx2qp += k;   // note byte arith
-        tx2qNxt += k; // note byte arith
+        tx2qp += k;
+        // tx2qNxt += k; // removed as updated before used
     }
     bool exceeded = false;
+    bool endblk   = false;
     while (tx2qp < 255 && !eofSeen) {
         GetTx2Item();
-        curOp = tx2[tx2qp].opc;
-        Sub_652B();
-        if (tx2qp == 4) {
-            if (curOp == T2_STMTCNT || curOp == T2_LOCALLABEL || curOp == T2_EOF)
+        curNodeType = tx2[tx2qp].nodeType;
+        chkMerge();
+        if (tx2qp == 4) { //  first node of statement
+            if (curNodeType == T2_STMTCNT || curNodeType == T2_LOCALLABEL || curNodeType == T2_EOF)
                 tx2qp++;
-            else if ((b5124[curOp] & 0x20))
+            else if ((nodeControlMap[curNodeType] & 0x20)) // meta node so emit
                 EmitTopItem();
             else if (!exceeded) {
                 exceeded = true;
@@ -983,44 +983,49 @@ void FillTx2Q() {
             }
         } else
             tx2qp++;
-
-        if ((b5124[curOp] & 8) &&
-            (curOp == T2_STMTCNT || curOp == T2_EOF || curOp == T2_LOCALLABEL))
+        // T2_BEGMOVE, T2_CALL, T2_CALLVAR, T2_PROCEDURE, T2_GOTO, T2_JMP, T2_JNC, T2_JNZ, T2_ENDPROC
+        if (nodeControlMap[curNodeType] & 8)
+            endblk = true;
+        if (endblk &&
+            (curNodeType == T2_STMTCNT || curNodeType == T2_EOF || curNodeType == T2_LOCALLABEL))
             break;
     }
-    tx2qEnd = tx2qp;
+    tx2qEnd = tx2qp; // new end of queue
 }
 
-static void SkipBB(byte startIdx, int8_t direction) {
+static void SkipStmt(byte startIdx, int8_t direction) {
     tx2qNxt = startIdx + direction;
-    while (tx2[tx2qNxt].opc != T2_STMTCNT && tx2[tx2qNxt].opc != T2_EOF &&
-           tx2[tx2qNxt].opc != T2_LOCALLABEL)
+    while (tx2[tx2qNxt].nodeType != T2_STMTCNT && tx2[tx2qNxt].nodeType != T2_EOF &&
+           tx2[tx2qNxt].nodeType != T2_LOCALLABEL)
         tx2qNxt += direction;
 }
 
-void Sub_67A9() {
-    SkipBB(tx2qEnd, -1);
-    if (tx2qNxt == 4 && !eofSeen)
+void setEndFirstStmt() {
+    SkipStmt(tx2qEnd, -1);      // find the start of the last stmt in the queue (may be partial)
+    if (tx2qNxt == 4 && !eofSeen)   // start seen so assume its after tx2qEnd 
         tx2qNxt = tx2qEnd;
     else {
-        byte i = 0;
-        for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
-            bC1D2 = b5124[tx2[tx2qp].opc];
-            if ((bC1D2 & 0x10)) {
-                if (i + 4 < tx2qp) {
-                    if (tx2[tx2qp].opc == T2_LOCALLABEL)
+        //
+        for (byte i = tx2qp = 4; tx2qp < tx2qNxt; tx2qp++) {
+            nodeControlFlags = nodeControlMap[tx2[tx2qp].nodeType];
+            if ((nodeControlFlags & 0x10)) {    // label or halt
+                // PROCEDURE LOCALLABEL CASELABEL LABELDEF HALT EOF ENDPROC
+                if (i < tx2qp) {    // we have items that generate code
+                    if (tx2[tx2qp].nodeType == T2_LOCALLABEL)
                         tx2qNxt = tx2qp;
                     else
-                        SkipBB(tx2qp, -1);
+                        SkipStmt(tx2qp, -1);    // backup
                     return;
                 }
                 i++;
             }
-            if ((bC1D2 & 8)) {
-                SkipBB(tx2qp, 1);
+            if ((nodeControlFlags & 8)) {   // Basic block end
+                // JMPFALSE RETURNBYTE RETURNWORD RETURN BEGMOVE CALL CALLVAR PROCEDURE GOTO JMP JNC JNZ ENDPROC
+                SkipStmt(tx2qp, 1); // skip to next statement
                 return;
             }
-            if ((bC1D2 & 0x20))
+            if ((nodeControlFlags & 0x20))  // none code item
+                // STMTCNT LINEINFO MODULE SYNTAXERROR TOKENERROR EOF LIST NOLIST CODE NOCODE EJECT INCLUDE ERROR
                 i++;
         }
     }

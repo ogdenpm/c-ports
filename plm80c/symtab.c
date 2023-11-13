@@ -1,6 +1,13 @@
-#include "os.h"
+/****************************************************************************
+ *  symtab.c: part of the C port of Intel's ISIS-II plm80                   *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *                                                                          *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
+ *                                                                          *
+ *  It is released for academic interest and personal use only              *
+ ****************************************************************************/
+#include "../shared/os.h"
 #include "plm.h"
-
 
 
 
@@ -22,7 +29,7 @@ sym_t *newSymbol(pstr_t const *ps) {
     if (topSym >= &symtab[MAXSYM])
             FatalError("Out of symbol space");
     topSym->link           = 0;
-    topSym->infoChain        = 0;
+    topSym->infoChain        = NULL;
     topSym->name           = pstrdup(ps);
 
     return topSym++;
@@ -35,70 +42,55 @@ void newInfo(byte type) {
     if (topInfo >= &infotab[MAXINFO])
             FatalError("Out of info space");
     topInfo->type = type;
-    info = topInfo;
-    infoIdx = topInfo++ - infotab;
+    info = topInfo++;
 }
 
-#define DICHUNK 1024
-index_t dictSize;
-index_t dictCnt;
-index_t *dicttab;
 
-index_t newDict(index_t idx) {
-    if (dictCnt >= dictSize) {
-        if (dictSize + DICHUNK >= 0x10000)
+info_t *dicttab[MAXSYM];
+info_t **topDict = dicttab;
+
+void newDict(info_t *info) {
+    if (topDict >= dicttab + MAXSYM)
             FatalError("Out of dictionary space");
-        else
-            dicttab = xrealloc(dicttab, (dictSize += DICHUNK) * sizeof(index_t));
-    }
-    dicttab[dictCnt] = idx;
 
-    return dictCnt++;
+    *topDict++ = info;
 }
 
-#define CACHUNK 1024
-index_t caseSize;
-index_t caseCnt;
-index_t *casetab;
 
-index_t newCase(word val) {
-    if (caseCnt >= caseSize) {
-        if (caseSize + DICHUNK >= 0x10000)
+index_t casetab[MAXCASE];
+index_t topCase = 0;
+
+index_t newCase(index_t val) {
+    if (topCase >= MAXCASE)
             FatalError("Too many case statements");
-        else
-            casetab = xrealloc(casetab, (caseSize += DICHUNK) * sizeof(word));
-    }
-    casetab[caseCnt] = val;
-
-    return caseCnt++;
+    casetab[topCase] = val;
+    return topCase++;
 }
 
-#define XRCHUNK 1024
-index_t xrefSize;
-index_t xrefCnt = 1;
-xref_t *xreftab;
 
-index_t newXref(index_t scope, word line) {
-    if (xrefCnt >= xrefSize) {
-        if (xrefSize + XRCHUNK >= 0x10000)
-            FatalError("Out of xref space");
-        else
-            xreftab = xrealloc(xreftab, (xrefSize += XRCHUNK) * sizeof(xref_t));
-    }
-    xreftab[xrefCnt].next = scope;
-    xreftab[xrefCnt].line = line;
 
-    return xrefCnt++;
+xref_t xreftab[MAXXREF];
+xref_t *topXref = xreftab;
+
+xref_t *newXref(xref_t *xrefNext, word line) {
+    if (topXref >= xreftab + MAXXREF)
+            FatalError("Out of cross reference space");
+    topXref->next = xrefNext;
+    topXref->line = line;
+
+    return topXref++;
 }
 
-#define ICHUNK 20
+char const *includes[MAXINCLUDES];
+uint16_t includeCnt;
+
+
 int newInclude(char const *fname) {
-    for (int i = 0; i < includeCnt; i++) {
-        if (strcmp(includes[i], fname) == 0)
+    for (int i = 0; i < includeCnt; i++)
+        if (strcmp(includes[i], fname) == 0)    // already known
             return i;
-    }
-    if (includeCnt % ICHUNK == 0)
-        includes = xrealloc(includes, (includeCnt + ICHUNK) * sizeof(char *));
+    if (includeCnt == MAXINCLUDES)
+        FatalError("Too many include files");
     includes[includeCnt] = fname;
     return includeCnt++;
 }

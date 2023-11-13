@@ -1,97 +1,90 @@
 /****************************************************************************
- *  plm2b.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm2b.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
-static byte bC252; // lifted to file scope
+static byte nodeSize; // lifted to file scope
 
-static void Sub_69EB(byte arg1b, word *pw) {
+static void cvtFromRel(byte rel, word *ploc) {
     word p;
 
-    if (*pw) {
-        if (arg1b > bC252)
-            *pw = 0;
+    if (*ploc) {
+        if (rel > nodeSize)
+            *ploc = 0;
         else {
-            p   = *pw;
-            *pw = tx2qp;
+            p     = *ploc;
+            *ploc = tx2qp;
 
             while (p--) {
-                if (tx2[--*pw].opc == T2_LINEINFO && tx2[*pw].op2 == 0 && tx2[*pw].op3 != 0)
-                    p -= (tx2[*pw].op3 - tx2[*pw].op1);
+                // backup, adjusting for lineinfo with just block counts (extra)
+                if (tx2[--*ploc].nodeType == T2_LINEINFO && tx2[*ploc].right == 0 &&
+                    tx2[*ploc].extra != 0)
+                    p -= (tx2[*ploc].extra - tx2[*ploc].left); // skip block nesting data
             }
         }
     }
 } /* sub69EB */
 
-static void Sub_68E8() {
-    byte i;
-
-    bC252 = bC1D2 & 3;
-    if ((bC1D2 & 4) != 0) {
-        tx2[1].op2     = tx2[tx2qp].op1;
-        tx2[tx2qp].op1 = 1;
+static void DeRelNode() {
+    nodeSize = nodeControlFlags & 3;
+    if ((nodeControlFlags & 4)) {          // JMPFALSE CASEBLOCK
+        tx2[1].right    = tx2[tx2qp].left; // set up dummy locallabel entry
+        tx2[tx2qp].left = 1;               // reference the dummy
     } else
-        Sub_69EB(1, &tx2[tx2qp].op1);
+        cvtFromRel(1, &tx2[tx2qp].left);
 
-    Sub_69EB(2, &tx2[tx2qp].op2);
-    if (bC252 == 3) {
-        if (curOp == T2_CALL)
-            tx2[tx2qp].op3 = tx2[tx2qp].op3;
-        else if (curOp == T2_BYTEINDEX || curOp == T2_WORDINDEX) {
-            i = (byte)tx2[tx2qp].op1;
-            tx2[i].op2 += tx2[tx2qp].op3 * Sub_575E(tx2[i].op1);
-        } else
-            Sub_69EB(3, &tx2[tx2qp].op3);
+    cvtFromRel(2, &tx2[tx2qp].right);
+    if (nodeSize == 3) {
+        if (curNodeType == T2_BYTEINDEX || curNodeType == T2_WORDINDEX) {
+            word leftLoc = (byte)tx2[tx2qp].left;
+            tx2[leftLoc].right += tx2[tx2qp].extra * GetElementSize(FromIdx(tx2[leftLoc].left));
+        } else if (curNodeType != T2_CALL)    // T2_CALL convert to info pointer done elsewhere
+            cvtFromRel(3, &tx2[tx2qp].extra); // otherwise convert from rel
     }
-    tx2[tx2qp].aux1 = 0xc;
-    tx2[tx2qp].aux2 = 9;
+    tx2[tx2qp].exprAttr = LIT_A;
+    tx2[tx2qp].exprLoc   = LOC_SPECIAL;
 }
 
-
-static byte aux1bMap[] = {
+static byte typeExprMap[] = {
     LIT_A, LABEL_A, BYTE_A, ADDRESS_A, STRUCT_A, BYTE_A, BYTE_A
-}; // index by info_t
+}; // index by info->type (excludes Macro, unk and condvar
 
-static void Sub_6AA4() {
-    if (curOp == T2_IDENTIFIER) {
-        SetInfo(tx2[tx2qp].op1);
-        if ((info->flag & F_MEMBER)) {
-            tx2[tx2qp].aux2 = 4;
-        } else if ((info->flag & F_AUTOMATIC))
-            tx2[tx2qp].aux2 = 0xa;
-        else
-            tx2[tx2qp].aux2 = 4;
-        tx2[tx2qp].op2   = info->linkVal;
-        tx2[tx2qp].aux1 = aux1bMap[info->type];
-    } else if (curOp <= T2_BIGNUMBER) {
-        tx2[tx2qp].op2   = tx2[tx2qp].op1;
-        tx2[tx2qp].aux2 = 8;
-        tx2[tx2qp].op1   = 0;
-        if (curOp == T2_BIGNUMBER) {
-            tx2[tx2qp].aux1 = true; // flag as word op
-            tx2[tx2qp].opc   = T2_NUMBER;
-        } else
-            tx2[tx2qp].aux1 = false; // flag as byte op
+static void simpleVal() {
+    if (curNodeType == T2_IDENTIFIER) {
+        info                = FromIdx(tx2[tx2qp].left);
+        tx2[tx2qp].right    = info->linkVal;
+        tx2[tx2qp].exprAttr = typeExprMap[info->type];
+        tx2[tx2qp].exprLoc =
+            (info->flag & (F_MEMBER | F_AUTOMATIC)) == F_AUTOMATIC ? LOC_STACK : LOC_MEM;
+    } else if (curNodeType <= T2_BIGNUMBER) {
+        tx2[tx2qp].nodeType = T2_NUMBER;
+        tx2[tx2qp].right    = tx2[tx2qp].left;
+        tx2[tx2qp].left     = 0;
+        tx2[tx2qp].exprAttr = curNodeType == T2_BIGNUMBER ? ADDRESS_A : BYTE_A;
+        tx2[tx2qp].exprLoc   = LOC_REG;
     } else {
-        tx2[tx2qp].aux1 = false;
-        tx2[tx2qp].op2   = 0;
+        tx2[tx2qp].exprAttr = BYTE_A;
+        tx2[tx2qp].right    = 0;
     }
 }
 
-void Sub_689E() {
-    for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
-        curOp = tx2[tx2qp].opc;
-        bC1D2 = b5124[curOp];
-        if ((bC1D2 & 0xc0) == 0)
-            Sub_68E8();
-        else if ((bC1D2 & 0xc0) == 0x40)
-            Sub_6AA4();
+void DeRelStmt() {
+    for (tx2qp = 4; tx2qp < tx2qNxt; tx2qp++) {
+        curNodeType      = tx2[tx2qp].nodeType;
+        nodeControlFlags = nodeControlMap[curNodeType];
+        if ((nodeControlFlags & 0xc0) == 0)
+            // LT LE NE EQ GE GT ROL ROR SCL SCR SHL SHR JMPFALSE DOUBLE PLUSSIGN MINUSSIGN STAR
+            // SLASH MOD AND OR XOR BASED BYTEINDEX WORDINDEX MEMBER UNARYMINUS NOT LOW HIGH
+            // ADDRESSOF PLUS MINUS TIME STKBARG STKWARG DEC COLONEQUALS OUTPUT CASEBLOCK STKARG
+            // MOVE RETURNBYTE RETURNWORD RETURN ADDW BEGMOVE CALL CALLVAR SETADDR
+            DeRelNode();
+        else if ((nodeControlFlags & 0xc0) == 0x40)
+            // IDENTIFIER NUMBER BIGNUMBER LENGTH LAST SIZE
+            simpleVal();
     }
 }

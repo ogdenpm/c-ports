@@ -1,14 +1,12 @@
 /****************************************************************************
- *  plm4b.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm4b.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 #include <stdlib.h>
 
@@ -241,15 +239,15 @@ void FlushRecs() {
     putWord(&recExec[CONTENT_OFF], baseAddr);
 }
 
-void AddWrdDisp(pstr_t *pstr, word arg2w) {
-    if (arg2w != 0) {
-        if (arg2w > 0x8000) {
+void AddWrdDisp(pstr_t *pstr, word disp) {
+    if (disp != 0) {
+        if (disp > 0x8000) {
             pstr->str[pstr->len] = '-';
-            arg2w                = -arg2w;
+            disp                = -disp;
         } else
             pstr->str[pstr->len] = '+';
         pstr->len++;
-        pstrcat(pstr, hexfmt(0, arg2w));
+        pcstrcat(pstr, hexfmt(0, disp));
     }
 }
 
@@ -315,7 +313,7 @@ void EmitError() {
             lprintf("STATEMENT #%d, ", errData.stmt);
         if (errData.info) {
             lstStr("NEAR '");
-            SetInfo(errData.info);
+            info = FromIdx(errData.info);
             curSym = info->sym;
             if (curSym != 0)
                 lstStr(curSym->name->str);
@@ -335,7 +333,7 @@ void FatalError_ov46(byte arg1b) {
     longjmp(exception, -1);
 }
 
-void ListCodeBytes() {
+void ListInstruction(void) {
     if (codeOn) {
         if (opByteCnt > 0) {
             TabLst(-12);

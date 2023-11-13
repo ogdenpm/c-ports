@@ -1,3 +1,11 @@
+/****************************************************************************
+ *  errors.h: part of the C port of Intel's ISIS-II plm80                   *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *                                                                          *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
+ *                                                                          *
+ *  It is released for academic interest and personal use only              *
+ ****************************************************************************/
 #pragma once
 /* Error codes */
 #define ERR1   1   /* INVALID PL/M-80 CHARACTER */

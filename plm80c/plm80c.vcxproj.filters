@@ -27,13 +27,16 @@
     <ClInclude Include="vfile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="os.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="errors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="int.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\cmdline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\os.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -53,19 +56,10 @@
     <ClCompile Include="lookup.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lstinf.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="lstsup.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="prints.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="putlst.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="wrclst.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main2.c">
@@ -84,9 +78,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="plma.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="plmb.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="plmfile.c">
@@ -167,13 +158,7 @@
     <ClCompile Include="plm4a.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="plm6a.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="pdata4.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="pdata6.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main5.c">
@@ -188,14 +173,21 @@
     <ClCompile Include="vfile.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="os.c">
+    <ClCompile Include="symtab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="symtab.c">
+    <ClCompile Include="debug.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\cmdline.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\os.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\intel.licenseheader" />
+    <None Include="plm80c.licenseheader" />
   </ItemGroup>
 </Project>

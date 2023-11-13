@@ -1,18 +1,16 @@
 /****************************************************************************
- *  lstsup.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  lstsup.c: part of the C port of Intel's ISIS-II plm80                   *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 #include <stdarg.h>
 /* common source for lstsp[456].plm */
 
-void NewLineLst() {
+void NewLineLst(void) {
     if (col == 0 && linLft == 0)
         NewPgl();
     WrLstC('\n');
@@ -77,13 +75,10 @@ void lstPstr(pstr_t *ps) {
     lprintf("%.*s", ps->len, ps->str);
 }
 
-pstr_t const *hexfmt(byte digits, word val) {
-    static char str[8];
+char const *hexfmt(byte digits, word val) {
+    static char str[7] = "0";
     if (digits > 4)
         digits = 4;
-    str[0] = sprintf(str + 1, "0%0*XH", digits, val);
-    if (str[2] > '9')
-        return (pstr_t *)str;
-    str[1] = str[0] - 1;
-    return (pstr_t *)(str + 1);
+    sprintf(str + 1, "%0*XH", digits, val);
+    return str[1] <= '9' ? str + 1 : str;
 }

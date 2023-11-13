@@ -1,132 +1,69 @@
 /****************************************************************************
- *  main5.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  main5.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 #include <stdlib.h>
 
 byte maxSymLen;
-offset_t xrefIdx;
 byte groupingChar = 0;
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 void LoadDictionary() {
-    dictCnt = maxSymLen = 0;
-    info                = infotab;
+    maxSymLen = 0;
+    info      = infotab;
     AdvNxtInfo();
     while (info) {
-        if (info->type < MACRO_T && info->sym != 0) {
-            newDict(infoIdx);
-            info->scope = 0; /* used for xref Chain() */
-            curSym      = info->sym;
-            if (curSym->name->len > maxSymLen)
-                maxSymLen = curSym->name->len;
+        if (info->type < MACRO_T && info->sym) {
+            newDict(info);
+            if (info->sym->name->len > maxSymLen)
+                maxSymLen = info->sym->name->len;
         }
         AdvNxtInfo();
     }
 }
 
 int CmpSym(void const *a, void const *b) {
-    index_t ia = *(index_t *)a;
-    index_t ib = *(index_t *)b;
-
-    int cmp    = strcmp(infotab[ia].sym->name->str, infotab[ib].sym->name->str);
-    return cmp ? cmp : ia - ib;
+    int cmp = strcmp((*(info_t **)a)->sym->name->str, (*(info_t **)b)->sym->name->str);
+    return cmp ? cmp : (int)((uint8_t *)a - (uint8_t *)b);
 }
 
 void SortDictionary() {
-    qsort(dicttab, dictCnt, sizeof(index_t), CmpSym);
-}
-
-static void LoadXref() {
-    byte xrefType;
-
-    vfRewind(&xrff);
-    while ((xrefType = vfRbyte(&xrff))) {
-        word xrInfo = vfRword(&xrff);
-        word stmt   = vfRword(&xrff);
-        if (xrefType == 'B' || XREF) {
-            SetInfo(xrInfo);
-            xrefIdx = newXref(info->scope, xrefType == 'B' ? -stmt : stmt); /* make defn line -ve */
-            info->scope = xrefIdx;
-        }
-    }
-    vfRewind(&xrff);
-}
-
-static void XrefDef2Head() {
-    word p;
-    offset_t q, r;
-
-    for (p = 0; p < dictCnt; p++) {
-        SetInfo(dicttab[p]);
-        xrefIdx = info->scope;
-        if (xrefIdx) {
-            q           = 0;
-            info->scope = 0;
-            while (xrefIdx) {
-                r = xreftab[xrefIdx].next;
-                if ((xreftab[xrefIdx].line & 0x8000))
-                    q = xrefIdx; /* definition */
-                else {
-                    xreftab[xrefIdx].next = info->scope;
-                    info->scope           = xrefIdx;
-                }
-                xrefIdx = r;
-            }
-
-            if (q) { /* insert definition at head */
-                xrefIdx               = q;
-                xreftab[xrefIdx].next = info->scope;
-                info->scope           = xrefIdx;
-            }
-        }
-    }
-}
-
-void PrepXref() {
-    LoadXref();
-    XrefDef2Head();
+    qsort(dicttab, topDict - dicttab, sizeof(info_t *), CmpSym);
 }
 
 // file scope due to nested procedure lift;
 static byte defnCol, addrCol, sizeCol, nameCol, attribCol, refContCol;
 
 static void PrintXrefs() {
-    word p;
 
     if (!XREF) {
         NewLineLst();
         return;
     }
 
-    xrefIdx = info->scope;
-    if (xrefIdx == 0) {
+    if (!info->xref) {
         NewLineLst();
         return;
     }
     lstStr(": ");
-    p = 0;
-
-    while (xrefIdx) {
-        if (p != xreftab[xrefIdx].line) {
+    word line = 0;
+    for (xref_t *xref = info->xref; xref; xref = xref->next) {
+        if (line != xref->line && !(xref->line & 0x8000)) { // ignore def & duplicates
             if (PWIDTH < col + 5) {
                 NewLineLst();
                 TabLst(-refContCol);
             }
             TabLst(1);
-            lprintf("%d", xreftab[xrefIdx].line);
-            p = xreftab[xrefIdx].line;
+            lprintf("%d", xref->line);
+            line = xref->line;
         }
-        xrefIdx = xreftab[xrefIdx].next;
     }
     if (col)
         NewLineLst();
@@ -142,7 +79,7 @@ static void DescribeName() {
 
 static void DescribeAddressAndSize(word addr, word size) {
     TabLst(-addrCol);
-    lstStr(hexfmt(4, addr)->str);
+    lstStr(hexfmt(4, addr));
     if (size != 0) {
         TabLst(-sizeCol);
         lprintf("%5d", size);
@@ -150,28 +87,30 @@ static void DescribeAddressAndSize(word addr, word size) {
 }
 
 static void DescribeDefinition() {
-    xrefIdx = info->scope;
     if (info->type == BUILTIN_T)
         return;
-    if (xrefIdx && (xreftab[xrefIdx].line & 0x8000) != 0) {
+    xref_t *definition;
+    // find any definition
+    for (definition = info->xref; definition && !(definition->line & 0x8000);
+         definition = definition->next)
+        ;
+    if (definition) {
         TabLst(-defnCol);
-        lprintf("%5d", 0x10000 - xreftab[xrefIdx].line); /* defn stored as -ve */
-        info->scope = xreftab[xrefIdx].next;
+        lprintf("%5d", 0x10000 - definition->line); /* defn stored as -ve */
     } else if (!(info->flag & F_LABEL)) {
         TabLst(-defnCol);
         lstStr("-----");
     }
 }
 
-
 static void DescribeBased() {
     sym_t *baseSym, *member;
     info_t *baseInfo;
 
-    baseInfo = &infotab[info->baseInfo];
+    baseInfo = info->baseInfo;
     if ((baseInfo->flag & F_MEMBER)) {
         member  = baseInfo->sym;
-        baseSym = infotab[baseInfo->parent].sym;
+        baseSym = baseInfo->parent->sym;
     } else {
         baseSym = baseInfo->sym;
         member  = 0;
@@ -188,7 +127,7 @@ static void DescribeBased() {
 }
 
 static void DescribeMember() {
-    curSym = infotab[info->parent].sym;
+    curSym = info->parent->sym;
     lprintf(" MEMBER(%.*s)", curSym->name->len, curSym->name->str);
 }
 
@@ -218,7 +157,7 @@ static void DescribeProc() {
     if ((info->flag & F_INTERRUPT))
         lprintf(" INTERRUPT(%d)", info->intno);
     if (!(info->flag & F_EXTERNAL))
-        lprintf(" STACK=%s", hexfmt(4, info->stackUsage)->str);
+        lprintf(" STACK=%s", hexfmt(4, info->stackUsage));
 
     PrintXrefs();
 }
@@ -308,7 +247,6 @@ static void DoOneXref() {
 } /* Sub_4C84() */
 
 void PrintRefs() {
-    word p;
 
     /* PrintRefs() */
     defnCol    = 3;
@@ -344,12 +282,9 @@ void PrintRefs() {
     TabLst(-nameCol);
     lstStr("--------------------------------\n\n");
 
-    for (p = 0; p < dictCnt; p++) {
-        SetInfo(dicttab[p]);
-        if (info->type == BUILTIN_T) {
-            if (info->scope != 0)
-                DoOneXref();
-        } else
+    for (info_t **p = dicttab; p < topDict; p++) {
+        info = *p;
+        if (info->type != BUILTIN_T || info->xref)
             DoOneXref();
     }
 } /* PrintRefs() */
@@ -368,33 +303,61 @@ static void WrIxiWord(word v) {
     fputc(v / 256, ixiFile.fp);
 }
 
+
+
+#define IX_MOD      0xFF
+#define IX_LONGNAME 0xFE
+#define IX_PUBLIC   0
+#define IX_EXTERNAL 1
+
 void CreateIxrefFile() {
-    curSym =  procInfo[1]->sym;
+    curSym = procInfo[1]->sym;
     if (curSym) { /* Write() the module info */
         pstr_t const *pstr = curSym->name;
-        WrIxiByte(0xff); // module header
+        WrIxiByte(IX_MOD); // module header
         WrIxiByte(22 + pstr->len);
         WrIxiByte(pstr->len);                      /* module name len */
         WrIxiBuf((uint8_t *)pstr->str, pstr->len); /* module name */
     }
-    // as name may be more than 10 characters and diskette name is always dashes
-    // as an extension if the name is > 10 chars allow up to 19, overwriting
-    // the diskette name
-    // note only the file name and not the directory are used
+    // For IXREF, the PL/M compilers write the file name padded with spaces
+    // for a total of 10 chars.
+    // Pre V4.0 this would be followed by the volume label, for V4.0
+    // it is ten dashes
+    // As this version supports longer filenames and is based on V4.0
+    // If the file name has <= 10 chars, then the format is as per V4.0
+    // 
+    // 
+    // For longer names up to the first 16 characters are written in a
+    // padded with spaces if needed. This is then followed by a 0 to stop
+    // the dot in the diskette name and two more spaces.
+    // 
+    // By doing this old versions of IXREF will show up to 16 char filenames
+    // although there will be a couple of spaces following the first 10 chars
+    // with the remaining chars being shown under diskette name
+    // 
+    // Additionally a new record type is written at the end of the
+    // ixi file that contains the full filename.
+    // Older versions of IXREF will report an unknown record and ignore it
+    // the newer version will use it as the full filename
+    // 
+    // note only the file name and not the directory is used
     char const *name = basename(srcFileTable[0].fNam);
-    int nameLen      = (int)strlen(name);
-    if (nameLen > 19)
-        nameLen = 19;
-    char ixname[] = "          ---------";
-    memcpy(ixname, name, nameLen);
-    WrIxiBuf((uint8_t *)ixname, 19);
+    uint16_t nameLen = (uint16_t)strlen(name);
+    char nameRec[20];
+    if (nameLen <= 10)  // original format
+        sprintf(nameRec, "%-10s---------", name);
+    else {
+        sprintf(nameRec, "%-16.16s   ", name);
+        nameRec[16] = '\0';     // prevent . in diskette name field
+    }
+    WrIxiBuf(nameRec, 19);
 
-    for (int p = 0; p < dictCnt; p++) {
-        info      = &infotab[infoIdx = dicttab[p]];
+    for (info_t **p = dicttab; p < topDict; p++) {
+        info      = *p;
         byte type = info->type;
         if (LABEL_T <= type && type <= PROC_T &&
             ((info->flag & (F_PUBLIC | F_EXTERNAL)) && !(info->flag & F_AT))) {
-            WrIxiByte((info->flag & F_PUBLIC) ? 0 : 1);
+            WrIxiByte((info->flag & F_PUBLIC) ? IX_PUBLIC : IX_EXTERNAL);
             curSym             = info->sym;
             pstr_t const *pstr = curSym->name;
             WrIxiByte(6 + pstr->len);
@@ -408,13 +371,23 @@ void CreateIxrefFile() {
                 WrIxiWord((info->flag & F_ARRAY) ? info->dim : 0);
         }
     }
+    // for long names i.e. > 10 chars append a special record that contains
+    // the full name
+    // older versions of IXREF will report an invalid record and will terminate
+    // processing the file. As it is at the end it is safe to ignore
+
+    if (nameLen > 10) {
+        WrIxiByte(IX_LONGNAME);
+        WrIxiWord(nameLen);
+        WrIxiBuf((uint8_t *)name, nameLen);    
+    }
     CloseF(&ixiFile);
 }
 
 void ProcessXref() {
     LoadDictionary();
     SortDictionary();
-    PrepXref();
+    //    XrefDef2Head();
     if ((XREF || SYMBOLS) && PRINT)
         PrintRefs();
     if (IXREF)

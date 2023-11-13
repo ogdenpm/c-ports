@@ -1,20 +1,18 @@
 /****************************************************************************
- *  plm0b.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  plm0b.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-#include "os.h"
+#include "../shared/os.h"
 #include "plm.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <time.h>
 
-#define BADINFO 0xffff
+#define BADINFO (infotab + MAXINFO + 100)   // after table and keywords
 
 // forward references
 static byte InGetC();
@@ -32,10 +30,10 @@ static struct {
     byte primaryId;  // index into primaryCtrlSeen
 } *tknFlagsP, optTable[] = { { 5, "PRINT", 0, 0, 0xFF, 7, 0 },
                              { 7, "NOPRINT", 0, 0, 0xFF, 8, 0 },
-                             { 4, "LIST", L_LIST, 1, 0, 0, 0 },
-                             { 6, "NOLIST", L_NOLIST, 1, 0, 0, 0 },
-                             { 4, "CODE", L_CODE, 1, 0, 0, 0 },
-                             { 6, "NOCODE", L_NOCODE, 1, 0, 0, 0 },
+                             { 4, "LIST", T1_LIST, 1, 0, 0, 0 },
+                             { 6, "NOLIST", T1_NOLIST, 1, 0, 0, 0 },
+                             { 4, "CODE", T1_CODE, 1, 0, 0, 0 },
+                             { 6, "NOCODE", T1_NOCODE, 1, 0, 0, 0 },
                              { 4, "XREF", 0, 0, 1, 1, 1 },
                              { 6, "NOXREF", 0, 0, 1, 0, 1 },
                              { 7, "SYMBOLS", 0, 0, 2, 1, 2 },
@@ -48,7 +46,7 @@ static struct {
                              { 9, "PAGEWIDTH", 0, 0, 0xFF, 1, 6 },
                              { 4, "DATE", 0, 0, 0xFF, 2, 7 },
                              { 5, "TITLE", 0, 0, 0xFF, 3, 8 },
-                             { 5, "EJECT", L_EJECT, 1, 0, 0, 0 },
+                             { 5, "EJECT", T1_EJECT, 1, 0, 0, 0 },
                              { 10, "LEFTMARGIN", 0, 1, 0xFF, 4, 0 },
                              { 6, "OBJECT", 0, 0, 0xFF, 5, 9 },
                              { 8, "NOOBJECT", 0, 0, 0xFF, 9, 9 },
@@ -115,8 +113,6 @@ static void NxtCh() {
         chrClass = CC_NEWLINE;
     else if ((chrClass = cClass[*(uint8_t *)curChP]) == CC_NONPRINT)
         *curChP = ' ';
-    //    if (*curChP >= 'a')
-    //        *curChP &= 0x5f;
 } /* NxtCh() */
 
 static void BadCmdTail(byte err) {
@@ -183,12 +179,12 @@ static word Asc2Num(char *firstChP, char *lastChP, byte radix) {
     if (lastChP < firstChP || radix == 0)
         return 0xffff;
 
-    unsigned num = 0; // 32 bit to simplify overflow test
+    uint32_t num = 0; // 32 bit to simplify overflow test
     byte digit;
     for (; firstChP <= lastChP; firstChP++) {
-        if (cClass[*(pointer)firstChP] <= CC_DECDIGIT)
+        if (cClass[*(pointer)firstChP] == CC_DIGIT)
             digit = *firstChP - '0';
-        else if (cClass[*(pointer)firstChP] < CC_ALPHA)
+        else if (cClass[*(pointer)firstChP] == CC_HEXCHAR)
             digit = *firstChP - 'A' + 10;
         else
             return 0xffff;
@@ -202,7 +198,7 @@ static byte ChkRadix(char **pLastCh) {
     byte *p;
 
     p = (byte *)*pLastCh;
-    if (cClass[*p] <= CC_DECDIGIT)
+    if (cClass[*p] == CC_DIGIT)
         return 10;
     --*pLastCh;
     if (*p == 'B')
@@ -268,8 +264,7 @@ static void GetVar() {
     char *tmp = curChP - 1;
     ParseId(32);
     if (optVal.pstr->len == 0) {
-        infoIdx  = BADINFO;
-        info     = NULL;
+        info     = BADINFO;
         curChP   = tmp;
         chrClass = 0;
         NxtCh();
@@ -280,9 +275,8 @@ static void GetVar() {
         BadCmdTail(ERR184); /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
     }
     Lookup(optVal.pstr);
-    if (curSym->infoChain >= 0xFF00) { /* special */
-        infoIdx  = BADINFO;
-        info     = NULL;
+    if (curSym->infoChain >= infotab + MAXINFO) { /* special */
+        info     = BADINFO;
         curChP   = tmp;
         chrClass = 0;
         NxtCh();
@@ -365,12 +359,12 @@ static word GetIfVal() {
         return Low(val);
     } else {
         GetVar(); // variable
-        if (infoIdx == BADINFO) {
+        if (info >= BADINFO) {
             BadCmdTail(ERR180); /* MISSING OF INVALID CONDITIONAL COMPILATION PARAMETER */
             SkipToRPARorEOL();
             return 256; // error value
         } else
-            return infoIdx ? info->condFlag : 0; // return current value or false if not defined
+            return info ? info->condFlag : 0; // return current value or false if not defined
     }
 }
 
@@ -398,24 +392,25 @@ static bool ParseIfCond() {
             val2 = not2 ^ val2;
             switch (relOp) {
             case 1: // =
-                val1 = val1 == val2 ? 0xff : 0;
+                val1 = val1 == val2;
                 break;
             case 2: // <
-                val1 = val1 < val2 ? 0xff : 0;
+                val1 = val1 < val2;
                 break;
             case 3: // <=
-                val1 = val1 <= val2 ? 0xff : 0;
+                val1 = val1 <= val2;
                 break;
             case 4: // >
-                val1 = val1 > val2 ? 0xff : 0;
+                val1 = val1 > val2;
                 break;
             case 5: // >=
-                val1 = val1 >= val2 ? 0xff : 0;
+                val1 = val1 >= val2;
                 break;
             case 6: // <>
-                val1 = val1 != val2 ? 0xff : 0;
+                val1 = val1 != val2;
                 break;
             }
+            val1 = val1 ? 0xff : 0; // convert to PL/M true/false
         }
         val1      = (not1 ^ val1) & andFactor;
         andFactor = 0xff;
@@ -434,7 +429,7 @@ static bool ParseIfCond() {
             orFactor  = 0;
             break;
         case 4:          // Bad
-            return true; // bad so assume true
+            return true; // assume true
         }
     }
 }
@@ -455,21 +450,30 @@ static void OptPageWidth() {
         PWIDTH = (byte)optNumValue;
 }
 
+/*
+    Parse DATE value
+    Original variant is enclosed in ( ) and nesting of () is supported. Truncated to 10 chars (was 9)
+    New variant has no explicit value and the current date/time in yyyy-mm-dd hh:mm:ss format is
+    used as the value. In listings the time element is removed if there isn't sufficient room
+*/
+
 static void OptDate() {
     SkipWhite();
     if (*curChP != '(') {
         time_t nowTime;
         time(&nowTime);
         struct tm *now = localtime(&nowTime);
-        sprintf(DATE, "%04d-%02d-%02d", now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
+        DATELEN        = sprintf(DATE, "%04d-%02d-%02d %02d:%02d:%02d", now->tm_year + 1900,
+                                 now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min, now->tm_sec);
     } else {
         byte nesting = 0;
         NxtCh();
         optVal.str = curChP;
         for (;;) {
-            if (chrClass == CC_NEWLINE || *curChP == '\'')
+            // new line or ' terminates
+            if (chrClass == CC_NEWLINE || *curChP == '\r' || *curChP == '\'')
                 break;
-            if (*curChP == '(')
+            if (*curChP == '(')     // not sure why nesting is supported for what was 9 char limit
                 nesting++;
             else if (*curChP == ')') {
                 if (nesting-- == 0)
@@ -477,15 +481,20 @@ static void OptDate() {
             }
             NxtCh();
         }
-        optVal.len = (word)(curChP - optVal.str);
-        if (optVal.len > 10)
-            optVal.len = 10;
+        optVal.len = curChP - optVal.str > 10 ? 10 : (word)(curChP - optVal.str);
         AcceptRP();
         memcpy(DATE, optVal.str, optVal.len);
+        DATELEN          = optVal.len;
         DATE[optVal.len] = '\0';
     }
 }
 
+/*
+    parse TITLE value
+    value is enclosed in ( ) and has opening and closing single quotes
+    two adjacent single quotes are treated as a single quote as part of the value
+    the value is truncated to the first 60 characters
+*/
 static void OptTitle() {
     TITLELEN = 0;
     SkipWhite();
@@ -497,14 +506,14 @@ static void OptTitle() {
     if (*curChP == '\'') {
         while (1) {
             NxtCh();
-            if (*curChP == '\r' || *curChP == '\n')
+            if (*curChP == '\r' || *curChP == '\n') // end of line ('\r' for continuation line)
                 break;
-            if (*curChP == '\'') {
+            if (*curChP == '\'') { // double '
                 NxtCh();
                 if (*curChP != '\'')
                     break;
             }
-            if (TITLELEN <= 59) {
+            if (TITLELEN < 60) {
                 TITLE[TITLELEN++] = *curChP;
             }
         }
@@ -533,7 +542,7 @@ static void OptLeftMargin() {
 
 static void OptIXRef() {
     AcceptFileName();
-    if (optVal.len) {
+    if (optVal.len) {   // use supplied name rather than auto generated name
         free(ixiFileName);
         ixiFileName = optVal.str;
     }
@@ -543,7 +552,7 @@ static void OptIXRef() {
 
 static void OptMakeDepend() {
     AcceptFileName();
-    if (optVal.len) {
+    if (optVal.len) {   // use supplied name rather than auto generated name
         free(depFileName);
         depFileName = optVal.str;
     }
@@ -552,13 +561,24 @@ static void OptMakeDepend() {
 
 static void OptObject() {
     AcceptFileName();
-    if (optVal.len) {
+    if (optVal.len) {   // use supplied name rather than auto generated name
         free(objFileName);
         objFileName = optVal.str;
     }
     OBJECT = true;
 }
 
+
+/*
+    parse INCLUDE  filename
+    As filenames can be longer than the ISIS :Fx:nnnnnn.eee format
+    The names are saved in an array of unique filenames and the index is passed
+    between the various compiler phases. This array is also used to determine
+    the makedepend dependencies
+    However, no check is made on whether names alias each other e.g.
+    :F0:file.plm, file.plm and FILE.PLM will be assumed to be different even if :F0: is
+    defined to be the current directory
+*/
 static void OptInclude() {
     AcceptFileName();
     if (optVal.len == 0) {
@@ -574,7 +594,7 @@ static void OptInclude() {
             free(optVal.str);
         srcFileTable[srcFileIdx++] = srcFil;
         OpenF(&srcFil, "SOURCE", includes[includeIdx], "rt");
-        Wr1Byte(L_INCLUDE);
+        Wr1Byte(T1_INCLUDE);
         Wr1Word(includeIdx);
     }
     SkipWhite();
@@ -673,13 +693,13 @@ static void OptRestore() {
         COND       = saveStack[saveDepth].cond;
         LEFTMARGIN = saveStack[saveDepth].leftMargin;
         if (CODE)
-            Wr1Byte(L_CODE);
+            Wr1Byte(T1_CODE);
         else
-            Wr1Byte(L_NOCODE);
+            Wr1Byte(T1_NOCODE);
         if (LIST)
-            Wr1Byte(L_LIST);
+            Wr1Byte(T1_LIST);
         else
-            Wr1Byte(L_NOLIST);
+            Wr1Byte(T1_NOLIST);
     }
 }
 
@@ -693,12 +713,12 @@ static void OptSetReset(bool isSet) {
         while ((1)) {
             NxtCh();
             GetVar();
-            if (infoIdx == BADINFO) {
+            if (info >= BADINFO) {
                 BadCmdTail(ERR180); /* MISSING or INVALID CONDITIONAL COMPILATION PARAMETER */
                 SkipToRPARorEOL();
                 return;
             }
-            if (infoIdx == 0)
+            if (!info)
                 CreateInfo(1, CONDVAR_T, curSym);
             SkipWhite();
             if (*curChP == '=' && isSet) {
@@ -725,7 +745,7 @@ static void OptIf() {
         inIFpart        = true;
         skippingIfDepth = ifDepth; // record depth for unwind
         if (!COND && LIST)         // if COND false and currently listing - surpress listing
-            Wr1Byte(L_NOLIST);
+            Wr1Byte(T1_NOLIST);
     }
 }
 
@@ -738,7 +758,7 @@ static void OptElseElseIf() {
         skippingIfDepth = ifDepth;
         if (!COND)
             if (LIST)
-                Wr1Byte(L_NOLIST);
+                Wr1Byte(T1_NOLIST);
     }
     while (*curChP != '\r') {
         NxtCh();
@@ -882,13 +902,13 @@ static void ParseControl() {
                     controls[tknFlagsP->controlId] = tknFlagsP->controlVal;
                 else { // write control to lexical stream
                     Wr1Byte(tknFlagsP->tokenId);
-                    if (tknFlagsP->tokenId == L_CODE) // update values for CODE and LIST
+                    if (tknFlagsP->tokenId == T1_CODE) // update values for CODE and LIST
                         CODE = true;
-                    else if (tknFlagsP->tokenId == L_NOCODE)
+                    else if (tknFlagsP->tokenId == T1_NOCODE)
                         CODE = false;
-                    else if (tknFlagsP->tokenId == L_LIST)
+                    else if (tknFlagsP->tokenId == T1_LIST)
                         LIST = true;
-                    else if (tknFlagsP->tokenId == L_NOLIST)
+                    else if (tknFlagsP->tokenId == T1_NOLIST)
                         LIST = false;
                 }
             } else
@@ -931,7 +951,7 @@ static void ChkEndSkipping(byte *pch) {
         if (!skippingCOND) // no longer skipping so record any change of listing status
             if (!COND)
                 if (LIST)
-                    Wr1Byte(L_LIST);
+                    Wr1Byte(T1_LIST);
     }
 }
 
@@ -1003,7 +1023,7 @@ static void GetCodeLine() {
             if (skippingCOND) // is skipping check to see if finished
                 ChkEndSkipping(inChrP);
             else if (*inChrP == '$') { // control line
-                Wr1Byte(L_STMTCNT);    // note zero stmts on this line
+                Wr1Byte(T1_STMTCNT);    // note zero stmts on this line
                 Wr1Word(0);
                 if (trunc) {
                     Wr1SyntaxError(ERR86); /* LIMIT EXCEEDED: SOURCE LINE LENGTH */
@@ -1029,10 +1049,10 @@ static void GetCodeLine() {
 }
 
 static void GetLin() {
-    if (macroDepth != 0) {              // last line was a nested lit expansion
-        infotab[macroIdx].type = LIT_T; // reset info entry to LIT_T from MACRO_T
-        macroIdx               = macroPtrs[macroDepth].macroIdx;
-        inChrP = macroPtrs[macroDepth--].text; // get the curent loc in the expansion
+    if (macroDepth != 0) {       // last line was a nested lit expansion
+        macroInfo->type = LIT_T; // reset info entry to LIT_T from MACRO_T
+        macroInfo       = macroPtrs[macroDepth].macroInfo;
+        inChrP          = macroPtrs[macroDepth--].text; // get the curent loc in the expansion
     } else
         GetCodeLine();
 }

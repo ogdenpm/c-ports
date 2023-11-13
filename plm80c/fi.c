@@ -1,13 +1,11 @@
 /****************************************************************************
- *  fi.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  fi.c: part of the C port of Intel's ISIS-II plm80                       *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 
 bool FindInfo() {
@@ -18,53 +16,42 @@ bool FindInfo() {
                 return true;
         }
     }
-    infoIdx = 0;
     info    = NULL;
     return false;
 }
 
 void AdvNxtInfo() {
     while (++info < topInfo) {
-        if (info->type != CONDVAR_T) {
-            infoIdx = ToIdx(info);
+        if (info->type != CONDVAR_T)
             return;
-        }
     }
     info    = NULL;
-    infoIdx = 0;
     return;
 }
 
 void FindMemberInfo() {
-    offset_t parent;
+    info_t *parent;
 
-    parent = infoIdx;
-    for (infoIdx = curSym->infoChain; infoIdx; infoIdx = infotab[infoIdx].ilink)
-        if ((infotab[infoIdx].flag & F_MEMBER) && parent == infotab[infoIdx].parent) {
-            info = &infotab[infoIdx];
+    parent = info;
+    for (info = curSym->infoChain; info; info = info->ilink)
+        if ((info->flag & F_MEMBER) && parent == info->parent)
             return;
-        }
-    info = NULL;
 }
 
 bool FindScopedInfo(word scope) {
-    offset_t prev = 0;
-    for (index_t idx = curSym->infoChain; idx; prev = idx, idx = infotab[idx].ilink) {
-        info_t *inf = FromIdx(idx);
-        if (scope == inf->scope) {
-            if (inf->type == LIT_T || inf->type == MACRO_T || !(inf->flag & F_MEMBER)) {
+    info_t *prev = 0;
+    for (info = curSym->infoChain; info; prev = info, info = info->ilink) {
+        if (scope == info->scope) {
+            if (info->type == LIT_T || info->type == MACRO_T || !(info->flag & F_MEMBER)) {
                 if (prev) {                                       /* not at start of Chain() */
-                    infotab[prev].ilink = inf->ilink;             /* Move() to head of Chain() */
-                    inf->ilink          = curSym->infoChain; /* set its link to current head */
-                    curSym->infoChain = idx;                 /* set head to found info */
+                    prev->ilink = info->ilink;             /* Move() to head of Chain() */
+                    info->ilink          = curSym->infoChain; /* set its link to current head */
+                    curSym->infoChain = info;                 /* set head to found info */
                 }
-                SetInfo(idx);
                 return true;
             }
         }
     }
-    infoIdx = 0;
-    info    = NULL;
     return false;
 }
 
@@ -72,7 +59,7 @@ void CreateInfo(word scope, byte type, sym_t *sym) {
     newInfo(type);
     if (sym) {
         info->ilink         = sym->infoChain;
-        sym->infoChain = infoIdx;
+        sym->infoChain = info;
     }
     info->scope = scope;
     info->sym   = sym;

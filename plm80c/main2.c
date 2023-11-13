@@ -1,13 +1,11 @@
 /****************************************************************************
- *  main2.c: part of the C port of Intel's ISIS-II plm80c             *
+ *  main2.c: part of the C port of Intel's ISIS-II plm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "plm.h"
 #include <setjmp.h>
 
@@ -64,14 +62,14 @@ word codeSize            = 0;
 word wC1C3         = 0;
 word stackUsage         = 0;
 word wC1C7         = 0;
-byte blkSP         = 0;
+byte firstCase         = 0;
 byte blkOverCnt    = 0;
 byte procCallDepth = 0;
 bool boC1CC        = false;
 bool boC1CD;
 bool eofSeen = false;
-byte curOp;
-byte bC1D2;
+byte curNodeType;
+byte nodeControlFlags;
 byte padC1D3;
 byte curExtProcId = 1;
 byte blkId  = 0;
@@ -88,35 +86,34 @@ bool boC20F      = false;
 
 byte copyRight[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
-static void Sub_3F27() {
+static void InitPass() {
     vfReset(&utf1);
     vfRewind(&utf2);
-    memset(wC1DC, 0, 10);
-    blk[0].info = ToIdx(procInfo[1]);
+    blk[0].info =procInfo[1];
     programErrCnt = 0;
 } /* Sub_3F27() */
 
-static void Sub_3F7D() {
-    infoIdx = ToIdx(info = procInfo[1]);
+static void CodeAndStackSize() {
+    info = procInfo[1];
     info->codeSize   = codeSize;
     info->stackUsage = stackUsage;
 } /* Sub_3F7D() */
 
 word Start2() {
-    dump(&utf2, "utf2_main2");
+ //   dump(&utf2, "utf2_main2");  // diagnostic dump
     if (setjmp(exception) == 0) {
-        Sub_3F27();
+        InitPass();
         while (1) {
             FillTx2Q();
-            Sub_67A9();
-            if (tx2[4].opc == T2_EOF)
+            setEndFirstStmt();
+            if (tx2[4].nodeType == T2_EOF)
                 break;
-            Sub_689E();
+            DeRelStmt();
             Sub_6BD6();
             Sub_A153();
         }
     }
     /* longjmp comes here */
-    Sub_3F7D();
+    CodeAndStackSize();
     return 3; // Chain(overlay[3]);
 }
