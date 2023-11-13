@@ -8,10 +8,10 @@
  *                                                                          *
  ****************************************************************************/
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
 #include <string.h>
 
 #include <showVersion.h>
@@ -48,16 +48,17 @@ uint16_t getAddress(FILE *fp) {
 // return the trailing filename part of the passed in path
 const char *basename(const char *path) {
     const char *t;
-    while ((t = strpbrk(path, DIRSEP)))       // allow windows & unix separators - will fail for unix if : in filename!!
+    while ((t = strpbrk(
+                path,
+                DIRSEP))) // allow windows & unix separators - will fail for unix if : in filename!!
         path = t + 1;
     return path;
 }
 
 int main(int argc, char **argv) {
-
     CHK_SHOW_VERSION(argc, argv);
 
-    if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0)) ) {
+    if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0))) {
         fprintf(stderr, "usage: %s -v | -V | objfile [to] hexfile\n", basename(argv[0]));
         exit(1);
     }
@@ -90,7 +91,7 @@ int main(int argc, char **argv) {
         if (type == MODEND) {
             getByte(fpin);
             getByte(fpin);
-            addr = getAddress(fpin);
+            addr  = getAddress(fpin);
             error = fprintf(fpout, ":00%04X01%02X\n", addr, 0xff & -((addr >> 8) + addr + 1)) < 0;
             break;
         }
@@ -104,7 +105,7 @@ int main(int argc, char **argv) {
                 uint8_t hexlen = reclen > MAXHEX ? MAXHEX : reclen;
                 reclen -= hexlen;
                 uint8_t crc = hexlen + (addr >> 8) + addr;
-                error = fprintf(fpout, ":%02X%04X00", hexlen, addr) < 0;
+                error       = fprintf(fpout, ":%02X%04X00", hexlen, addr) < 0;
 
                 for (int i = 0; !error && i < hexlen; i++) {
                     uint8_t c = getByte(fpin);
@@ -115,7 +116,7 @@ int main(int argc, char **argv) {
                     error = fprintf(fpout, "%02X\n", (-crc) & 0xff) < 0;
                 addr += hexlen;
             }
-            getByte(fpin);  // junk crc
+            getByte(fpin); // junk crc
         }
     }
     if (error)
