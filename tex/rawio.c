@@ -14,7 +14,6 @@
 
 #include <stdbool.h>
 
-
 bool usedRawMode = false;
 
 #ifdef _WIN32
@@ -45,7 +44,7 @@ void disable_raw_mode(void) {
 }
 
 void enable_raw_mode(void) {
-    HANDLE inHandle  = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE inHandle = GetStdHandle(STD_INPUT_HANDLE);
 
     if (!usedRawMode) {
         GetConsoleMode(inHandle, &initIn);

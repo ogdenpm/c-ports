@@ -11,15 +11,14 @@
 #define _CRT_NONSTDC_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 
-
 #include <ctype.h>
 #include <memory.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
 
 #include <showVersion.h>
 #ifndef _MSC_VER
@@ -76,7 +75,7 @@ const char breakChar[] = "\n\t ?*=:!=|_[]";
 byte ii;
 byte jj;
 byte tabstops[]         = { 9,  17, 25,  33,  41,  49,  57,  65,  73,  81,
-                    89, 97, 105, 113, 121, 129, 137, 145, 153, 255 };
+                            89, 97, 105, 113, 121, 129, 137, 145, 153, 255 };
 
 char undefinedCommand[] = "Undefined    Command";
 #define cmdChr1 undefinedCommand[10]
@@ -94,8 +93,6 @@ FCB defFCB;
 FCB prnFCB;
 FCB ixFCB;
 FCB texFCB;
-
-
 
 /* tex21a.c */
 void wrapup(void);
@@ -173,9 +170,6 @@ byte getLeadInCH(byte c);
 void condNewPage(byte n);
 void procDotCmd(void);
 void mkName(FCB *fcb, char *ext);
-
-
-
 
 byte tline, wline, eline, nline, sline;
 byte lineOutBuf[256];
@@ -264,17 +258,13 @@ int argIdx;  // index into current arg string
 
 char *cmdLine;
 
-
 #ifdef _WIN32
 
 #endif
 
-
-
-
 void waitKey() {
     fputs("Hit any key to continue:", stdout);
-    if (getch() == '\x3')  // allow abort using control C
+    if (getch() == '\x3') // allow abort using control C
         wrapup();
     putchar('\n');
 }
@@ -393,7 +383,7 @@ byte getCmdLine() {
 char *getCmdParameter() {
     if (arg < _argc) {
         char *s = _argv[arg] + (argIdx == 0 ? 0 : 2);
-        argIdx = (int)strlen(_argv[arg]);
+        argIdx  = (int)strlen(_argv[arg]);
         return s;
     } else
         return NULL;
@@ -651,13 +641,12 @@ void centre(byte n) {
     int extra = (n - (byte)(nline - sline)) / 2;
     if (DOpt)
         putDstEscCode('='); /* auto centre */
-    else 
+    else
         leadingSpaceN(leftMargin + (extra >= 0 ? extra : 0));
     spacingText(nline);
 }
 
 void emitPageNum(bool centreNum) {
-
     uint16_t num = pageNum;
     tline        = nline;
     nline        = sline;
@@ -747,7 +736,6 @@ void emitHeadingIfAtTop() {
 }
 
 void spacing(byte n) {
-
     emitHeadingIfAtTop();
     n *= lineSpacing;
     if (roomOnPage(n + 1))
@@ -903,7 +891,6 @@ void finishPage() {
 }
 
 bool openSrc(FCB *fcb) {
-
     txtBreak();
     if (initFCB(fcb)) {
         if ((fcb->fp = fopen(fcb->name, "rt")))
@@ -947,7 +934,6 @@ char getNext(FCB *fcb) {
 }
 
 byte getTex() {
-
     if ((inputChar = getNext(&texFCB)) == CPMEOF) {
         nextSrcOrDone();
         cgetc();
@@ -1281,7 +1267,8 @@ void getOptions() {
                     fatalError("InvalidParameter");
                 fileOptChar = 0;
             }
-        } else if (inputChar == '$'|| (inputChar == '-' && srcFileOpt == SRCCMDLINE)) // -param support
+        } else if (inputChar == '$' ||
+                   (inputChar == '-' && srcFileOpt == SRCCMDLINE)) // -param support
             dollarSeen = true;
         if (inputChar == '\n')
             break;
@@ -1719,15 +1706,10 @@ void procDotCmd() {
         skipToEOL();
 }
 
-
-
-
-
-
 void mkName(FCB *fcb, char *ext) {
     char *s;
     if (fcb->path) {
-        strcpy(fcb->name, fcb->path);   // copy dir / fullpath
+        strcpy(fcb->name, fcb->path); // copy dir / fullpath
         s = basename(fcb->name);
         if (strcmp(s, ".") == 0 || strcmp(s, "..") == 0)
             strcat(strcat(s, "/"), basename(texFCB.name));
@@ -1740,7 +1722,7 @@ void mkName(FCB *fcb, char *ext) {
             return; /* device*/
 #endif
     } else
-        strcpy(fcb->name, texFCB.name); // use input file name as basis
+        strcpy(fcb->name, texFCB.name);          // use input file name as basis
     if ((s = strrchr(basename(fcb->name), '.'))) // remove input ext
         *s = 0;
     strcat(fcb->name, ext); // append mkName specified ext
@@ -1750,10 +1732,7 @@ void signalHandler(int signal) { // cleanup
     wrapup();
 }
 
-
-
 int main(int argc, char **argv) {
-    
     CHK_SHOW_VERSION(argc, argv);
 
     _argc = argc;
