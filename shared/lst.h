@@ -1,28 +1,20 @@
 /****************************************************************************
- *  appinfo.h: part of the C port of Intel's ISIS-II ixref             *
+ *  lst.h: part of the C port of Intel's ISIS-II 8085 toolchain             *
  *  The original ISIS-II application is Copyright Intel                     *
  *                                                                          *
  *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
+#pragma once
+#include <stdarg.h>
+#include <stdio.h>
+extern FILE *lstFp;
+extern char *lstName;
 
-// static version information
-// overrides are in _appinfo.h in the source directory
-#ifndef _APPINFO_H_
-#define _APPINFO_H_
-#include <_appinfo.h>
-#ifndef APP_PRODUCT
-#define APP_PRODUCT APP_NAME
-#endif
-#ifndef APP_OWNER
-#define APP_OWNER "Intel"
-#endif
-#ifndef APP_MODS
-#define APP_MODS "port Mark Ogden"
-#endif
-#ifndef APP_DESCRIPTION
-#define APP_DESCRIPTION APP_PRODUCT " reverse engineered to modern C"
-#endif
-#define APP_EMAIL "support@mark-ogden.uk"
-#endif
+void openLst(char const *signon); // opens lstName
+void closeLst(void);
+void Putc(int c);
+int Printf(char const *fmt, ...);
+int vPrintf(char const *fmt, va_list args);
+int PrintfAndLog(char const *fmt, ...);
