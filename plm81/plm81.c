@@ -144,14 +144,12 @@
             has been previously specified with an identical
             interrupt attribute.
 
-
        41   Procedure appears on left-hand-side of an assignment.
 
        42   Attempted 'call' of a typed procedure.
 
        43   Attempted use of an untyped procedure as a function
             or a variable.
-
 
        44   This procedure is untyped and should not return a value.
 
@@ -307,7 +305,6 @@
 
       good luck...
 
-
        f  i  l  e     d  e  f  i  n  i  t  i  o  n  s
               input                        output
        num   device  unit        num   device    unit
@@ -325,22 +322,17 @@
      subroutines gnc, cmptm and writel (these are the only oc-
      currences of references to these units).
 
-
-
       0 1 2 3 4 5 6 7 8 9
       0 0 0 0 0 0 0 0 1 1
       2 3 4 5 6 7 8 9 0 1
-
 
       $ = . / ( ) + - ' * , < > : ;
       3 3 4 4 4 4 4 4 4 4 4 4 5 5 5
       8 9 0 1 2 3 4 5 6 7 8 9 0 1 2
 
-
       A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
       1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3
       2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7
-
 
     seqno              sub/func name
     15410000      subroutine exitb
@@ -1300,7 +1292,7 @@ void initFiles(char *fname) {
 }
 
 FILE *getfile(int i, int direction) {
-    char fname[17];     // artificially increased from 8 to appease GCC
+    char fname[17]; // artificially increased from 8 to appease GCC
 
     if (i > 9) {
         fprintf(stderr, "logical file number > 9\n");
@@ -2132,7 +2124,6 @@ int wrdata(const int sy) {
     dflag = (l == LABEL) || (l == VARB) || (l == PROC);
     l     = right(k >> 4, 4);
     if (l <= 2 && !dflag) {
-
         /*     single or double byte constant */
         kp     = k >> 8;
         k      = 16;
@@ -3211,7 +3202,6 @@ void synth(const int prod, const int symm) {
 static uint8_t ibuff[INMAX + 1];
 
 int gnc(/*const int q */) {
-
     int _gnc, lp, i, j;
 
     /*     get next character from the input stream (or 0 if */
@@ -3331,7 +3321,6 @@ void writel(int nspac) {
 
     np = C_YPAD - 1;
     if (obp > np) {
-
         while (obp > 1 && obuff[obp] == ' ') // trim off trailling spaces
             obp--;
 
