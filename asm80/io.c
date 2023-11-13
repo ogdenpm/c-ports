@@ -11,34 +11,32 @@
 // vim:ts=4:shiftwidth=4:expandtab:
 #include <ctype.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdarg.h>
 #include <showVersion.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <time.h>
-
 
 #ifdef _WIN32
 #include <io.h>
 #else
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
 #define _MAX_PATH 4096
-#define O_BINARY    0
-#define _stricmp    strcasecmp
+#define O_BINARY  0
+#define _stricmp  strcasecmp
 #endif
 
 #include "asm80.h"
 
-
 int _argc;
 char **_argv;
-bool useLC = true;
+bool useLC       = true;
 bool killObjFile = true;
-char dateStr[22] = {0};  // [yyyy-mm-dd hh:mm]
+char dateStr[22] = { 0 }; // [yyyy-mm-dd hh:mm]
 
 char *deviceMap[10];
 #ifdef _WIN32
@@ -60,17 +58,17 @@ char *basename(char *path) {
 
 static char *MapFile(char *osName, const char *isisPath) {
     char *s;
-    char dev[5] = { ":Fx:" };
+    char dev[] = { "ISIS_Fx" };
 
     if (isisPath[0] == ':' && toupper(isisPath[1]) == 'F' && isdigit(isisPath[2]) &&
         isisPath[3] == ':') {
         int i  = isisPath[2] - '0';
-        dev[2] = isisPath[2];
+        dev[6] = isisPath[2];
         if (!deviceMap[i] && !(deviceMap[i] = getenv(dev)))
             deviceMap[i] = "";
         if (strlen(deviceMap[i]) + strlen(isisPath + 4) + 1 > _MAX_PATH)
             FatalError("Mapped path name too long:\n %s", isisPath);
-        
+
         strcpy(osName, deviceMap[i]);
         s = strchr(osName, '\0');
         if (s != osName && !strchr(DIRSEP, s[-1]) && !strchr(DIRSEP, isisPath[3]))
@@ -93,14 +91,13 @@ void wrapUp(void) { // called on exit
     }
 }
 
-
 int main(int argc, char **argv) {
     size_t len;
     char *s;
 
     CHK_SHOW_VERSION(argc, argv);
 
-    _argc = argc;   // used in reporting the command line
+    _argc = argc; // used in reporting the command line
     _argv = argv;
 
 #ifdef _WIN32
@@ -120,21 +117,20 @@ int main(int argc, char **argv) {
     if (*s)
         useLC = true;
 
-    len = 0;   
-    for (int i = 2; i < argc; i++)	// add args lengths with space between
-            len += strlen(argv[i]) + 1;
+    len = 0;
+    for (int i = 2; i < argc; i++) // add args lengths with space between
+        len += strlen(argv[i]) + 1;
 
     s = cmdchP = cmdLineBuf = xmalloc(len + 3);
-    
-    *s = 0;
-    for (int i = 2; i < argc; i++)  { // add args with space between
+
+    *s                      = 0;
+    for (int i = 2; i < argc; i++) { // add args with space between
         strcat(s, " ");
         strcat(s, argv[i]);
     }
     strcat(s, "\n");
     atexit(wrapUp);
 
-    
     time_t now;
     time(&now);
     strftime(dateStr, sizeof(dateStr), " [%F %R]", localtime(&now));
@@ -157,7 +153,6 @@ FILE *Fopen(char const *pathP, char *access) {
 #endif
     return fopen(name, access);
 }
-
 
 _Noreturn void IoError(char const *path, char const *msg) {
     fprintf(stderr, "%s: %s: %s", path, msg, strerror(errno));

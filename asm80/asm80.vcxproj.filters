@@ -51,9 +51,6 @@
     <ClCompile Include="initm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="io.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="listm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -70,6 +67,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="memory.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\cmdline.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\os.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -96,6 +99,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="_version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\cmdline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\os.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

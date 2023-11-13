@@ -1,24 +1,20 @@
 /****************************************************************************
- *  asm4m.c: part of the C port of Intel's ISIS-II asm80             *
+ *  asm4m.c: part of the C port of Intel's ISIS-II asm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "asm80.h"
 
-bool StrUcEqu(char const *s, char const *t)
-{
+bool StrUcEqu(char const *s, char const *t) {
     while (*s) {
         if (*s++ != (*t++ & 0x5f))
             return false;
     }
     return true;
 }
-
 
 bool IsSkipping(void) {
     return (mSpoolMode & 1) || skipIf[0];
@@ -32,22 +28,19 @@ void Sub546F(void) {
         if (!(tokenStk[spIdx].type == O_DATA || lineNumberEmitted))
             SyntaxError();
     if (inDB || inDW) {
-            if (tokenIdx == 1 && ! BlankAsmErrCode() && token.size != 1)
+        if (tokenIdx == 1 && !BlankAsmErrCode() && token.size != 1)
             token.size = 2;
-    }
-    else if (! BlankAsmErrCode() && HaveTokens())
+    } else if (!BlankAsmErrCode() && HaveTokens())
         if (tokenStk[spIdx].size > 3)
             tokenStk[spIdx].size = 3;
 }
 
-
 void FinishLine(void) {
-
     Sub546F();
-    if (IsPhase2Print()) {    /* update the line number */
+    if (IsPhase2Print()) { /* update the line number */
         lineNo++;
 
-        if (ShowLine() || ! BlankAsmErrCode())
+        if (ShowLine() || !BlankAsmErrCode())
             PrintLine();
     }
 
@@ -55,16 +48,14 @@ void FinishLine(void) {
         exit(1);
     }
 
-    if (!isControlLine)
-    {
-        int i = tokenIdx < 2 || inDB || inDW ? 0 : 2;
-
+    if (!isControlLine) {
+        int i     = tokenIdx < 2 || inDB || inDW ? 0 : 2;
 
         int w6BCE = IsSkipping() || !isInstr ? 0 : tokenStk[i].start + tokenStk[i].size;
 
         if (ChkGenObj())
             Ovl8();
-        b6B2C = true;
+        b6B2C                  = true;
         segLocation[activeSeg] = effectiveAddr = (word)(segLocation[activeSeg] + w6BCE);
     }
 
@@ -78,8 +69,7 @@ void FinishLine(void) {
     }
 
     InitLine();
-    if (b6B33)
-    {
+    if (b6B33) {
         finished = true;
         if (IsPhase2Print() && controls.symbols)
             PrintSymbols();

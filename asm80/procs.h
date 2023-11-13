@@ -1,14 +1,11 @@
 /****************************************************************************
- *  procs.h: part of the C port of Intel's ISIS-II asm80             *
+ *  procs.h: part of the C port of Intel's ISIS-II asm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
-
 void AsmComplete(FILE *fp);
 void BalanceError(void);
 bool BlankAsmErrCode(void);
@@ -43,7 +40,6 @@ void InitLine(void);
 void InitRecTypes(void);
 void InsertByteInMacroTbl(byte c);
 void InsertByteInMacroTbl(byte c);
-_Noreturn void IoError(char const *path, char const *msg);
 bool IsComma(void);
 bool IsEOL(void);
 bool IsGT(void);
@@ -76,7 +72,7 @@ void PackToken(void);
 void ParseControls(void);
 void PhaseError(void);
 void PopToken(void);
-void PrintCmdLine(void);
+void AsmPrintCmdLine(void);
 void PrintLine(void);
 void PushToken(byte type);
 void ReadM(word blk);
@@ -92,8 +88,8 @@ void SkipWhite(void);
 void SkipNextWhite(void);
 void SourceError(byte errCh);
 void StackError(void);
-void Start(char *srcName);
-bool StrUcEqu(char const *s, char const * t);
+void Start();
+bool StrUcEqu(char const *s, char const *t);
 void ResultType(void);
 void Sub546F(void);
 void InsertMacroSym(word val, byte type);
@@ -124,7 +120,7 @@ void WriteModend(void);
 void WriteModhdr(void);
 void WriteRec(pointer recP);
 
-#define move(cnt, src, dst)	memcpy(dst, src, cnt)
+#define move(cnt, src, dst) memcpy(dst, src, cnt)
 
 void DumpSymbols(byte tableId);
 void DumpOpStack(void);
@@ -139,18 +135,17 @@ word getWord(pointer buf);
 word addRecLen(pointer buf, word val);
 word getRecLen(pointer buf);
 
-void wrapUp(void);
 int Printf(char const *fmt, ...);
 
 void InsertXref(bool isDef, const char *name, word lineNum);
-_Noreturn void FatalError(char const *fmt, ...);
-char *basename(char *path);
 
 tokensym_t *in_word_set(register const char *str);
 
 char const *AllocStr(char const *s, bool isTemp);
 void resetTmpStrings();
-void *xmalloc(size_t n);
-void *xrealloc(void *p, size_t n);
-void Warn(char const *fmt, ...);
 void PrintChar(char c);
+
+
+
+char const *newInclude(char const *fname);
+void WriteDepend(char *depFileName);

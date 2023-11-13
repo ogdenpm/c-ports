@@ -1,11 +1,10 @@
 /****************************************************************************
- *  asm3m.c: part of the C port of Intel's ISIS-II asm80             *
+ *  asm3m.c: part of the C port of Intel's ISIS-II asm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 
 // vim:ts=4:expandtab:shiftwidth=4:
@@ -59,15 +58,15 @@ void HandleOp(void) {
     case 1:
         FinishLine(); /* EOLCH */
         break;
-    case 2:                                            /* ( */
-    case 3:                                            /* ) */
+    case 2:                                        /* ( */
+    case 3:                                        /* ) */
         if (!(topOp == LPAREN && curOp == RPAREN)) // incorrectly nested ()
             BalanceError();
 
         if (token.type == O_DATA) {
             token.size = 1;
             token.attr = 0;
-            b6B36         = true;
+            b6B36      = true;
         }
 
         expectOp = inNestedParen;
@@ -165,7 +164,7 @@ void HandleOp(void) {
             }
         } else {
             acc1RelocFlags = 0;      // abs bytes
-            token.type  = O_DATA; // flag as data
+            token.type     = O_DATA; // flag as data
         }
 
         if (IsReg(acc1ValType)) // db of register is not valid
@@ -219,8 +218,8 @@ void HandleOp(void) {
 
             showAddr = true;
         }
-        byte origSpoolMode         = mSpoolMode;
-        mSpoolMode = 0;
+        byte origSpoolMode = mSpoolMode;
+        mSpoolMode         = 0;
 
         if (macroCondSP > 0 || (origSpoolMode & 1))
             NestingError();
@@ -484,9 +483,9 @@ void Parse(void) {
         if (!hasVarRef)
             hasVarRef = IsVar(acc1ValType) || IsVar(acc2ValType);
 
-        nextTokType = O_NUMBER;               // assume next token is a number, HandleOp may change
+        nextTokType = O_NUMBER;           // assume next token is a number, HandleOp may change
         if (topOp > RPAREN && topOp < DB) /* expression topOp */
-            ResultType();                     // check and set result type
+            ResultType();                 // check and set result type
         else {
             UpdateIsInstr();
             ChkInvalidRegOperand();
@@ -519,9 +518,9 @@ void Parse(void) {
 
         token.attr  = acc1RelocFlags;
         token.symId = acc1RelocVal;
-        if (curOpFlags & 0x40)      /* -x------ -> list */
+        if (curOpFlags & 0x40)    /* -x------ -> list */
             if (curOp == COMMA) { // if comma then make the operator (topOp) as
-                yyType   = topOp;   // the next item to read and mark as operator
+                yyType   = topOp; // the next item to read and mark as operator
                 expectOp = true;
             }
 #ifdef TRACE

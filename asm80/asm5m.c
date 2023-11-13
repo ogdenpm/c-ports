@@ -1,13 +1,11 @@
 /****************************************************************************
- *  asm5m.c: part of the C port of Intel's ISIS-II asm80             *
+ *  asm5m.c: part of the C port of Intel's ISIS-II asm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "asm80.h"
 
 static byte b5666[] = { 9, 0x2D, 0x80 }; /* bit vector 10 -> 00101101 10 */
@@ -24,7 +22,7 @@ static byte op16[] = {
 static byte chClass[] = {
     /*  0/8     1/9     2/A     3/B     4/C     5/D     6/E     7/F */
     /*00*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
-    /*08*/ CC_BAD, CC_WS,  CC_EOL,   CC_BAD,  CC_WS,     CC_BAD,  CC_BAD, CC_BAD,
+    /*08*/ CC_BAD, CC_WS,  CC_EOL,   CC_BAD,  CC_WS,     CC_BAD, CC_BAD, CC_BAD,
     /*10*/ CC_BAD, CC_BAD, CC_BAD,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*18*/ CC_BAD, CC_BAD, CC_BAD,   CC_ESC,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD,
     /*20*/ CC_WS,  CC_BAD, CC_BAD,   CC_BAD,  CC_DOLLAR, CC_BAD, CC_BAD, CC_QUOTE,
@@ -34,15 +32,15 @@ static byte chClass[] = {
     /*40*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*48*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*50*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
-    /*58*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_LET,
+    /*58*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAR,
     /*60*/ CC_BAD, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*68*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*70*/ CC_LET, CC_LET, CC_LET,   CC_LET,  CC_LET,    CC_LET, CC_LET, CC_LET,
     /*78*/ CC_LET, CC_LET, CC_LET,   CC_BAD,  CC_BAD,    CC_BAD, CC_BAD, CC_BAD
 };
 
-static int macroLineSize;   // current size of buffer allocated to macro expansion
-#define MCHUNK  256         // grows by this many bytes as needed
+static int macroLineSize; // current size of buffer allocated to macro expansion
+#define MCHUNK 256        // grows by this many bytes as needed
 
 void InsertSym(int tableId) {
     /* move up the top block of the symbol tables to make room */
@@ -52,11 +50,11 @@ void InsertSym(int tableId) {
     memmove(token.symbol + 1, token.symbol, nSymbols * sizeof(tokensym_t));
     /* insert the new symbol name */
     if (tableId == TID_SYMBOL) {
-        endSymTab[TID_SYMBOL]++;    // new end of symbols
+        endSymTab[TID_SYMBOL]++; // new end of symbols
         symTab[TID_MACRO]++;     // and macros moves up as well
     }
     token.symbol->name = AllocStr((char *)tokenStart, tableId == TID_MACRO);
-    token.symbol->type = 0;    /* clear the type */
+    token.symbol->type = 0; /* clear the type */
     if ((int)strlen((char *)tokenStart) > maxSymWidth)
         maxSymWidth = (int)strlen((char *)tokenStart);
 }
@@ -139,7 +137,6 @@ void UpdateSymbolEntry(word value, byte type) {
             token.type = O_SETEQUNAME;
         else
             SetTokenType(type, isSetOrEqu);
-
     } else if (passCnt == 2 && token.type == O_NAME && acc1ValType != O_NAME && isSetOrEqu) {
         SetTokenType(type, isSetOrEqu);
         if (token.symbol->type < 128) {
@@ -156,7 +153,8 @@ void UpdateSymbolEntry(word value, byte type) {
             flags &= ~(UF_RBOTH | UF_SEGMASK); /* mask off seg, and relocate info*/
             if (labelUse == L_SETEQU)          /* set or equ */
                 flags = acc1RelocFlags | UF_PUBLIC;
-            else if (labelUse == L_TARGET && activeSeg != SEG_ABS) /* label: then add seg and relocation info */
+            else if (labelUse == L_TARGET &&
+                     activeSeg != SEG_ABS) /* label: then add seg and relocation info */
                 flags |= activeSeg | (UF_PUBLIC + UF_RBOTH);
         }
     } else if (IsPhase1() && type == O_REF && TestBit(token.type, b5666)) {
@@ -196,8 +194,8 @@ void UpdateSymbolEntry(word value, byte type) {
         token.symbol->value = value;
 
     token.symbol->flags = flags;
-    inPublic         = false;
-    inExtrn          = false;
+    inPublic            = false;
+    inExtrn             = false;
     if (token.symbol->type == O_REF)
         UndefinedSymbolError();
 
@@ -240,12 +238,10 @@ void UpdateSymbolEntry(word value, byte type) {
 */
 
 byte Lookup(byte tableId) {
-
     tokensym_t *entryOffset;
 
     byte i;
     //    symEntry based entryOffset KEYWORD_T
-
 
     /* Keyword() lookup */
     if (tableId == TID_KEYWORD) { /* hash chain look up key word */
@@ -272,20 +268,19 @@ byte Lookup(byte tableId) {
 
     /* MACRO and User() tables are stored sorted 8 bytes per entry */
     /* use binary chop to find entry */
-    tokensym_t *lowOffset = symTab[tableId];
+    tokensym_t *lowOffset  = symTab[tableId];
     tokensym_t *highOffset = endSymTab[tableId];
     tokensym_t *midOffset;
-    entryOffset           = highOffset;
-
+    entryOffset = highOffset;
 
     /* binary chop search for id */
 
     while ((midOffset = lowOffset + ((highOffset - lowOffset) >> 1)) != entryOffset) {
         entryOffset = midOffset;
-        int cmp       = strcmp(entryOffset->name, (char *)tokenStart);
+        int cmp     = strcmp(entryOffset->name, (char *)tokenStart);
         if (cmp == 0) {
-            token.symbol     = entryOffset;
-            token.type = token.symbol->type;
+            token.symbol = entryOffset;
+            token.type   = token.symbol->type;
             if (token.type == O_SETEQUNAME)
                 token.type = O_NAME;
 
@@ -331,12 +326,11 @@ byte Lookup(byte tableId) {
 */
 byte GetCh(void) {
     static byte curCH, prevCH;
-    static byte irpcChr[3] = { 0, 0, 0x81 }; // where irpc char is built (0x81 is end marker)
-    static char localVarName[7]    = {
+    static byte irpcChr[3]      = { 0, 0, 0x81 }; // where irpc char is built (0x81 is end marker)
+    static char localVarName[7] = {
         '?', '?', 0, 0, 0, 0, 0x80
     }; // where DoLocal vars are constructed (0x80 is end marker)
     static pointer savedMacroBufP;
-
 
     while (!reget) {
         prevCH = curCH;
@@ -371,22 +365,22 @@ byte GetCh(void) {
                     curMacro.bufP =
                         savedMacroBufP; // back to macro as macro parameter expansion has finished
                 else {
-                    savedMacroBufP = curMacro.bufP;       // is parameter or Local
-                    if (curCH == MACROPARAM) {            // parameter
-
+                    savedMacroBufP = curMacro.bufP; // is parameter or Local
+                    if (curCH == MACROPARAM) {      // parameter
                         if (savedMtype == M_IRPC) {
                             curMacro.bufP = irpcChr;
                             irpcChr[0]    = curMacro.pCurArg[0];
-                            irpcChr[1] = irpcChr[0] == '!' ? curMacro.pCurArg[1] : 0x81;
+                            irpcChr[1]    = irpcChr[0] == '!' ? curMacro.pCurArg[1] : 0x81;
                         } else {
-                            curMacro.bufP = curMacro.pCurArg;     // parameter text
+                            curMacro.bufP = curMacro.pCurArg;  // parameter text
                             while ((byte)(--lookAhead) != 0) { // skip to required parameter
                                 curMacro.bufP += (*curMacro.bufP & 0x7F);
                             }
                             curMacro.bufP++; // skip over the length
                         }
                     } else { // Local
-                        curMacro.bufP = (pointer)localVarName; // generate Local id from instance & current DoLocal base
+                        curMacro.bufP = (pointer)
+                            localVarName; // generate Local id from instance & current DoLocal base
                         // generate DoLocal variable name
                         sprintf(localVarName, "??%04d", (lookAhead + curMacro.localIdBase) % 10000);
                         localVarName[6] = 0x80;
@@ -405,8 +399,8 @@ byte GetCh(void) {
                 macroLine[macroPIdx++] = curCH;
             }
 
-        if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line EOLCH for
-                               none empty line */
+        if (mSpoolMode & 1) /* spool char if not in excluded comments or is the end of line EOLCH
+                               for none empty line */
             if ((startMacroLineIdx != macroInIdx && curCH == EOLCH) || !excludeCommentInExpansion)
                 InsertByteInMacroTbl(curCH);
 
@@ -428,4 +422,3 @@ byte GetChClass(void) {
 
     return inMacroBody ? CC_MAC : chClass[curChar];
 }
-

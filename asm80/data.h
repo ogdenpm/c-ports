@@ -1,13 +1,13 @@
 /****************************************************************************
- *  data.h: part of the C port of Intel's ISIS-II asm80             *
+ *  data.h: part of the C port of Intel's ISIS-II asm80                     *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "plm80types.h"
+#include "../shared/os.h"
 // defined in asm2m.c
 extern byte opFlags[];
 // defined in asm5m.c
@@ -17,11 +17,11 @@ extern byte b3782[2];
 
 extern char moduleName[];
 
-
 // defined in globlm.c
 
-#define MAXFILENAME	260
-#define MAXTOKENS	20
+#define MAXFILENAME _MAX_PATH
+#define MAXTOKENS   20
+#define MAXSYMSIZE  31
 
 extern char *macroLine;
 extern int macroPIdx;
@@ -65,13 +65,13 @@ extern byte alignTypes[4];
 extern word externId;
 
 extern bool badExtrn;
-extern byte startDefined;	/* 0 or 1 */
+extern byte startDefined; /* 0 or 1 */
 extern word startOffset;
 extern byte tokenIdx;
 extern byte *lineBuf;
 
 extern token_t tokenStk[];
-#define token  tokenStk[0]
+#define token      tokenStk[0]
 #define tokenStart (lineBuf + token.start)
 extern byte ifDepth;
 extern bool skipIf[9];
@@ -81,8 +81,8 @@ extern byte macroCondStk[17];
 extern byte opSP;
 extern byte opStack[17];
 extern word accum1, accum2;
-#define Low(n)   ((n) & 0xff)
-#define High(n)  (((n) >> 8) & 0xff)
+#define Low(n)       ((n)&0xff)
+#define High(n)      (((n) >> 8) & 0xff)
 #define MkWord(h, l) (((h) << 8) | (l))
 extern byte acc1RelocFlags;
 extern byte acc2RelocFlags;
@@ -132,16 +132,15 @@ extern word srcLineCnt;
 extern word lineNo;
 extern byte spIdx;
 extern controls_t controls;
-extern word pageWidth;		// allows for > 255
-extern word pageLength;		// allows for > 255
+extern word pageWidth;  // allows for > 255
+extern word pageLength; // allows for > 255
 extern bool ctlListChanged;
-extern bool controlSeen[12];
+extern bool controlSeen[21];
 extern byte saveStack[8][3];
 extern byte saveIdx;
 extern char titleStr[];
 extern word tokBufLen;
 extern byte tokType;
-extern byte controlId;
 extern char tokBuf[];
 extern word tokBufIdx;
 extern word tokNumVal;
@@ -162,7 +161,7 @@ extern bool finished;
 extern bool inNestedParen;
 extern bool expectOperand;
 extern bool expectOpcode;
-extern bool condAsmSeen;    /* true when IF, ELSE, ENDIF seen [also macro to check] */
+extern bool condAsmSeen; /* true when IF, ELSE, ENDIF seen [also macro to check] */
 extern bool b6B33;
 extern bool isInstr;
 extern bool expectOp;
@@ -178,21 +177,20 @@ extern bool nestedMacroSeen;
 extern char *curFileNameP;
 
 /*
-	The symbol table and macro arg handling is left as per the original
-	Changing the symbol table handling to use say hashed lookup would
-	change the order of symbols in the object file
-	Changing the handling of macro arg text requires considerable changes
-	and just allowing for a large expansion area is easier.
-	It you get an out of space error, just increase the value of MAXMACROARGTEXT
-	and recompile
-	Other tables now grow automatically
+    The symbol table and macro arg handling is left as per the original
+    Changing the symbol table handling to use say hashed lookup would
+    change the order of symbols in the object file
+    Changing the handling of macro arg text requires considerable changes
+    and just allowing for a large expansion area is easier.
+    It you get an out of space error, just increase the value of MAXMACROARGTEXT
+    and recompile
+    Other tables now grow automatically
  */
-#define MAXSYMBOLS	8192		// way more than original ASM80 could handle
-#define MAXMACROARGTEXT	4096	// allows for lots of macro arg text
+#define MAXSYMBOLS      8192 // way more than original ASM80 could handle
+#define MAXMACROARGTEXT 4096 // allows for lots of macro arg text
 extern tokensym_t symbols[MAXSYMBOLS];
 extern byte *macroText;
 extern byte macroArgs[MAXMACROARGTEXT];
-
 
 // defined in rdsrc.c
 
@@ -202,10 +200,9 @@ extern byte fileIdx;
 extern FILE *srcfp;
 extern file_t files[6];
 
-
 extern int _argc;
 extern char **_argv;
-extern bool useLC;
 extern bool killObjFile;
 extern int maxSymWidth;
-extern char dateStr[];
+extern char dateStr[22]; // [yyyy-mm-dd hh:mm]
+extern char *depFile;

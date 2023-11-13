@@ -1,20 +1,20 @@
 /****************************************************************************
- *  emitm.c: part of the C port of Intel's ISIS-II asm80             *
+ *  emitm.c: part of the C port of Intel's ISIS-II asm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 
 // vim:ts=4:expandtab:shiftwidth=4:
 //
 #include "asm80.h"
+#include "../shared/os.h"
 
-static byte b6D7E[]           = { 10, 0x12, 0x40 }; /* 11 bits 00010010010 index left to right */
+static byte b6D7E[] = { 10, 0x12, 0x40 }; /* 11 bits 00010010010 index left to right */
 
-static byte rModhdr[MODHDR_MAX + 4]         = { 2 };
+static byte rModhdr[MODHDR_MAX + 4] = { 2 };
 static byte *dtaP;
 static pointer recSymP;
 static pointer contentBytePtr;
@@ -29,14 +29,14 @@ static byte fixIdxs[4] = { 0, 0, 0, 0 };
 #define fix20Idx   fixIdxs[2]
 #define contentIdx fixIdxs[3]
 
-static byte extNamIdx                   = 0;
-static bool initFixupReq[4]             = { true, true, true, true };
-static bool firstContent                = true;
-static byte rEof[4]                     = { OMF_EOF, 0, 0 };
-byte rExtnames[EXTNAMES_MAX + 4] = { OMF_EXTNAMES };
+static byte extNamIdx                 = 0;
+static bool initFixupReq[4]           = { true, true, true, true };
+static bool firstContent              = true;
+static byte rEof[4]                   = { OMF_EOF, 0, 0 };
+byte rExtnames[EXTNAMES_MAX + 4]      = { OMF_EXTNAMES };
 
-static byte rContent[CONTENT_MAX + 4]   = { OMF_CONTENT };
-static byte rPublics[PUBLICS_MAX + 4]   = { OMF_PUBLICS, 1, 0 };
+static byte rContent[CONTENT_MAX + 4] = { OMF_CONTENT };
+static byte rPublics[PUBLICS_MAX + 4] = { OMF_PUBLICS, 1, 0 };
 #define rReloc rPublics // shared
 static byte rInterseg[INTERSEG_MAX + 4];
 static byte rExtref[EXTREF_MAX + 4];
@@ -54,7 +54,7 @@ int minStrlen(char const *s) {
     int len = (int)strlen(s);
     return len < 6 ? 6 : len;
 }
-    // portability helper functions
+// portability helper functions
 word setWord(pointer buf, word val) {
     buf[0] = val & 0xff;
     buf[1] = val >> 8;
@@ -104,7 +104,7 @@ void ReinitFixupRecs(void) {
 
     for (i = 0; i < 4; i++) {
         int rec = recOrder[i];
-        recP = fixupRecPtrs[rec];
+        recP    = fixupRecPtrs[rec];
         if (getRecLen(recP) > fixupInitialLen[rec])
             WriteRec(recP);
 
@@ -113,7 +113,8 @@ void ReinitFixupRecs(void) {
         if (curFixupType != rec)
             initFixupReq[rec] = true;
     }
-    setWord(&rContent[CONTENT_OFFSET], itemOffset + segLocation[rContent[CONTENT_SEGID] = activeSeg]);
+    setWord(&rContent[CONTENT_OFFSET],
+            itemOffset + segLocation[rContent[CONTENT_SEGID] = activeSeg]);
     rPublics[PUBLICS_SEGID]   = curFixupHiLoSegId;
     rInterseg[INTERSEG_SEGID] = tokenStk[spIdx].attr & 7;
     rInterseg[INTERSEG_HILO] = rExtref[EXTREF_HILO] = curFixupHiLoSegId;
@@ -124,12 +125,14 @@ static void AddFixupRec(void) {
     pointer recP; // to check doesn't conflict with plm global usage
 
     recP = fixupRecPtrs[curFixupType = GetFixupType()];
-    if (getRecLen(recP) > fixupRecLenChks[curFixupType] || getRecLen(rContent) + tokenStk[spIdx].size > 124)
+    if (getRecLen(recP) > fixupRecLenChks[curFixupType] ||
+        getRecLen(rContent) + tokenStk[spIdx].size > 124)
         ReinitFixupRecs();
 
     if (firstContent) {
         firstContent = false;
-        setWord(&rContent[CONTENT_OFFSET], segLocation[rContent[CONTENT_SEGID] = activeSeg] + itemOffset);
+        setWord(&rContent[CONTENT_OFFSET],
+                segLocation[rContent[CONTENT_SEGID] = activeSeg] + itemOffset);
     } else {
         // code lifted out of condition to force calculation
         effectiveOffset = getWord(&rContent[CONTENT_OFFSET]) + contentIdx;
@@ -215,22 +218,20 @@ static void Sub7131(void) {
 }
 
 void WriteExtName(void) {
-
     if (getRecLen(rExtnames) + nameLen + 3 > PUBLICS_MAX) { /* check room for name */
-        WriteRec(rExtnames);           /* flush existing extNam Record() */
+        WriteRec(rExtnames);                                /* flush existing extNam Record() */
         rExtnames[HDR_TYPE] = OMF_EXTNAMES;
         setWord(&rExtnames[HDR_LEN], 0);
         extNamIdx = 0;
     }
-    addRecLen(rExtnames, nameLen + 2);                /* update length for this ref */
+    addRecLen(rExtnames, nameLen + 2);             /* update length for this ref */
     rExtnames[EXTNAMES_DATA(extNamIdx)] = nameLen; /* Write() len */
     extNamIdx++;
     strcpy((char *)&rExtnames[EXTNAMES_DATA(extNamIdx)], name);
-    extNamIdx += nameLen + 1;                          /* update where next ref writes */
+    extNamIdx += nameLen + 1; /* update where next ref writes */
 }
 
 void AddSymbol(void) {
-
     if ((token.symbol->flags & UF_EXTRN) != 0)
         return;
 
@@ -250,20 +251,19 @@ void FlushSymRec(byte segId, byte isPublic) /* args because procedure is no long
     recSymP                 = rPublics + PUBLICS_DATA;
 }
 
-
-
 static void WriteSymbols(byte isPublic) /* isPublic= true -> PUBLICs else LOCALs */
 {
     byte segId;
 
     recSymP = rPublics + PUBLICS_DATA;
     for (segId = 0; segId <= 4; segId++) {
-        FlushSymRec(segId, isPublic);       /* also sets up segid for new record */
+        FlushSymRec(segId, isPublic);          /* also sets up segid for new record */
         token.symbol = symTab[TID_SYMBOL] - 1; /* point to type byte of user symbol (-1) */
 
         while (++token.symbol < endSymTab[TID_SYMBOL]) {
             if (recSymP > &rPublics[PUBLICS_MAX + 3] -
-                              (minStrlen(token.symbol->name) + 4)) /* make sure there is room offset, len, symbol, 0 */
+                              (minStrlen(token.symbol->name) +
+                               4)) /* make sure there is room offset, len, symbol, 0 */
                 FlushSymRec(segId, isPublic);
 
             if ((token.symbol->flags & UF_SEGMASK) == segId && token.symbol->type != MACRONAME &&
@@ -290,7 +290,7 @@ void WriteModhdr(void) {
         segLocation[SEG_DATA] = maxSegSize[SEG_DATA];
 
     for (i = 1; i <= 4; i++) {
-        *++dtaP = i;                                /* seg id */
+        *++dtaP = i;                     /* seg id */
         setWord(++dtaP, segLocation[i]); /* seg size */
         dtaP += 2;
         *dtaP = alignTypes[i - 1]; /* aln typ */
@@ -344,7 +344,6 @@ void Ovl11(void) {
     if (controls.debug)
         WriteSymbols(false); /* EMIT LOCALS */
 }
-
 
 void InitRecTypes(void) {
     rContent[HDR_TYPE] = OMF_CONTENT;

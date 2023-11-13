@@ -1,24 +1,20 @@
 /****************************************************************************
- *  plm80types.h: part of the C port of Intel's ISIS-II asm80             *
+ *  plm80types.h: part of the C port of Intel's ISIS-II asm80               *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #pragma once
-
 
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
 typedef word *wpointer;
-typedef byte leword[2];     // used to force word matches OMF definition
+typedef byte leword[2]; // used to force word matches OMF definition
 
 #pragma pack(push, 1)
-
 
 typedef union {
     word w;
@@ -31,7 +27,6 @@ typedef union {
     word *ap;
 } address;
 
-
 // the record formats
 // to remove need for pack, the notional
 // structures are replaced with offsets into a
@@ -40,11 +35,11 @@ typedef union {
 // at runtime
 
 // header:
-#define HDR_TYPE    0
-#define HDR_LEN     1   // word
+#define HDR_TYPE         0
+#define HDR_LEN          1 // word
 
 // content:
-//typedef struct {
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte segid;
@@ -53,42 +48,42 @@ typedef union {
 //    byte crc;
 //} content_t;
 
-#define CONTENT_SEGID   3
-#define CONTENT_OFFSET  (CONTENT_SEGID + 1)
-#define CONTENT_DATA(n) (CONTENT_OFFSET + 2 + (n))
-#define CONTENT_MAX    124
+#define CONTENT_SEGID    3
+#define CONTENT_OFFSET   (CONTENT_SEGID + 1)
+#define CONTENT_DATA(n)  (CONTENT_OFFSET + 2 + (n))
+#define CONTENT_MAX      124
 
-// eof: 
-//typedef struct {
+// eof:
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte crc;
 //} eof_t;
 
 // extnames:
-//typedef struct {
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte dta[124];
 //    byte crc;
 //} extnames_t;
 #define EXTNAMES_DATA(n) (3 + (n))
-#define EXTNAMES_MAX    126
+#define EXTNAMES_MAX     126
 
 // extref:
-//typedef struct {
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte hilo;
 //    leword dta[30];
 //    byte crc;
 //} extref_t;
-#define EXTREF_HILO 3
-#define EXTREF_DATA(n) (EXTREF_HILO + 1 + 2 * (n))
-#define EXTREF_MAX  61
+#define EXTREF_HILO      3
+#define EXTREF_DATA(n)   (EXTREF_HILO + 1 + 2 * (n))
+#define EXTREF_MAX       61
 
 // interseg:
-//typedef struct {
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte segid;
@@ -96,13 +91,13 @@ typedef union {
 //    leword dta[29];
 //    byte crc;
 //} interseg_t;
-#define INTERSEG_SEGID  3
-#define INTERSEG_HILO   (INTERSEG_SEGID + 1)
-#define INTERSEG_DATA(n)   (INTERSEG_HILO + 1 + 2 * (n))
-#define INTERSEG_MAX    60
+#define INTERSEG_SEGID   3
+#define INTERSEG_HILO    (INTERSEG_SEGID + 1)
+#define INTERSEG_DATA(n) (INTERSEG_HILO + 1 + 2 * (n))
+#define INTERSEG_MAX     60
 
 // modend:
-//typedef struct {
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte modtyp;
@@ -110,45 +105,45 @@ typedef union {
 //    leword offset;
 //    byte crc;
 //} modend_t;
-#define MODEND_TYPE     3
-#define MODEND_SEGID    (MODEND_TYPE + 1)
-#define MODEND_OFFSET   (MODEND_SEGID + 1)
-#define MODEND_MAX      4
+#define MODEND_TYPE      3
+#define MODEND_SEGID     (MODEND_TYPE + 1)
+#define MODEND_OFFSET    (MODEND_SEGID + 1)
+#define MODEND_MAX       4
 
 // modhdr:
 typedef struct {
     byte type;
     leword len;
-    byte dta[48];   // name(1 + 31) + 4 * (1 + 2 + 1)
+    byte dta[48]; // name(1 + 31) + 4 * (1 + 2 + 1)
 } modhdr_t;
-#define MODHDR_DATA(n)  (3 + (n))
-#define MODHDR_MAX      48
+#define MODHDR_DATA(n) (3 + (n))
+#define MODHDR_MAX     48
 
 // publics:
-//typedef struct {
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte segid;
 //    byte dta[124];
 //    byte crc;
 //} publics_t;
-#define PUBLICS_SEGID   3
-#define PUBLICS_DATA    (PUBLICS_SEGID + 1)
-#define PUBLICS_MAX     125
+#define PUBLICS_SEGID  3
+#define PUBLICS_DATA   (PUBLICS_SEGID + 1)
+#define PUBLICS_MAX    125
 
 // reloc:
-//typedef struct {
+// typedef struct {
 //    byte type;
 //    leword len;
 //    byte hilo;
 //    leword dta[62];
 //} reloc_t;
-#define RELOC_HILO      3
-#define RELOC_DATA(n)   (RELOC_HILO + 1 + 2 * (n))
-#define RELOC_MAX       125
+#define RELOC_HILO     3
+#define RELOC_DATA(n)  (RELOC_HILO + 1 + 2 * (n))
+#define RELOC_MAX      125
 
 typedef struct {
-    char *name;
+    char const *name;
     word blk, byt;
     byte b19;
     FILE *fp;
@@ -163,14 +158,14 @@ typedef struct {
     pointer bufP;
     word blk;
     word savedBlk;
-    pointer pCurArg;	// pointer to current IRPC char or IRP arg
-    word cnt;		// IRPC -> char count, IRP -> num args, DoRept -> count
+    pointer pCurArg; // pointer to current IRPC char or IRP arg
+    word cnt;        // IRPC -> char count, IRP -> num args, DoRept -> count
 } macro_t;
 
 typedef struct {
     char const *name;
     union {
-        byte base;  // for new lookup, keeps data aligned
+        byte base; // for new lookup, keeps data aligned
         word addr;
         word line;
         word value;
@@ -184,9 +179,8 @@ typedef struct {
     };
 } tokensym_t;
 
-
 typedef union {
-    byte	all[20];
+    byte all[21];
     struct {
         bool debug;
         bool macroDebug;
@@ -209,6 +203,7 @@ typedef union {
         bool list;
         bool gen;
         bool cond;
+        bool makedepend;
     };
 } controls_t;
 
@@ -219,6 +214,5 @@ typedef struct {
     byte type;
     byte size;
     byte attr;
-    word symId;   
+    word symId;
 } token_t;
-

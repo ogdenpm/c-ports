@@ -1,13 +1,11 @@
 /****************************************************************************
- *  asm8m.c: part of the C port of Intel's ISIS-II asm80             *
+ *  asm8m.c: part of the C port of Intel's ISIS-II asm80                    *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "asm80.h"
 
 static byte b7183[] = { 0x3F, 0, 0x20, 0, 0, 0, 8, 0, 0x10 };

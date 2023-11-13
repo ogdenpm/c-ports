@@ -1,3 +1,12 @@
+/****************************************************************************
+ *  nkeym.c: part of the C port of Intel's ISIS-II asm80                    *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *                                                                          *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
+ *                                                                          *
+ *  It is released for academic interest and personal use only              *
+ ****************************************************************************/
+
 /* base ANSI-C code produced by gperf version 3.1 */
 /* Command-line: gperf -m 20 -7 -t in  */
 /* Computed positions: -k'1-3' */

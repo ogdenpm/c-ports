@@ -1,13 +1,11 @@
 /****************************************************************************
- *  globlm.c: part of the C port of Intel's ISIS-II asm80             *
+ *  globlm.c: part of the C port of Intel's ISIS-II asm80                   *
  *  The original ISIS-II application is Copyright Intel                     *
- *																			*
- *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com> 	    *
  *                                                                          *
- *  It is released for hobbyist use and for academic interest			    *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
  *                                                                          *
+ *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-
 #include "asm80.h"
 
 char *macroLine;
@@ -26,7 +24,6 @@ bool nestMacro;
 byte savedMtype;
 byte macroDepth;
 byte macroSpoolNestDepth;
-
 
 byte argNestCnt = 0;
 
@@ -47,16 +44,14 @@ word curMacroBlk  = 0xFFFF;
 word macroBlkCnt;
 byte macroBuf[129];
 
-
 word localIdCnt;
 int startMacroLineIdx;
 int startMacroTokenIdx;
 
-byte moduleNameLen    = 6;
+byte moduleNameLen = 6;
 
-
-bool inComment               = false;
-bool noOpsYet                = false;
+bool inComment     = false;
+bool noOpsYet      = false;
 byte nameLen;
 byte startSeg = 1;
 byte activeSeg;
@@ -73,7 +68,7 @@ byte tokenIdx     = 0;
 byte *lineBuf;
 
 token_t tokenStk[MAXTOKENS];
-byte ifDepth       = 0;
+byte ifDepth = 0;
 bool skipIf[9];
 bool inElse[9];
 byte macroCondSP = 0;
@@ -100,7 +95,7 @@ byte macroArgs[MAXMACROARGTEXT];
 
 pointer topMacroArg;
 byte haveLabel = 0;
-char name[MAXSYMSIZE + 1];  // '\0' added to end
+char name[MAXSYMSIZE + 1]; // '\0' added to end
 char savName[MAXSYMSIZE + 1];
 bool haveNonLabelSymbol; // true if we have seen a user symbol and confirmed that there is no :
 bool haveUserSymbol;     // true if we have seen a user symbol and  not yet seen a following :
@@ -125,29 +120,28 @@ word effectiveAddr;
 word pageCnt;
 bool showAddr;
 bool lineNumberEmitted = false;
-byte subHeadIdx             = 0;
+byte subHeadIdx        = 0;
 
 char *objFile;
 char *lstFile;
-word srcLineCnt  = 1;
+word srcLineCnt = 1;
 
 word lineNo;
 byte spIdx;
 
 controls_t controls  = { .all = {
                             false, false, false, true,  true, false, true, true, true, true,
-                            120,   66,    0,     false, 0,    0,     0,     true, true, true } };
+                            120,   66,    0,     false, 0,    0,     0,    true, true, true, false } };
 word pageWidth       = 120;
 word pageLength      = 66;
 
 bool ctlListChanged  = true;
-bool controlSeen[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+bool controlSeen[21];
 byte saveStack[8][3];
 byte saveIdx = 0;
 char titleStr[65];
 word tokBufLen;
 byte tokType;
-byte controlId;
 char tokBuf[MAXFILENAME + 1];
 word tokBufIdx = 0;
 word tokNumVal;
@@ -183,3 +177,4 @@ bool skipRuntimeError = false;
 bool nestedMacroSeen;
 char *curFileNameP;
 
+char *depFile;
