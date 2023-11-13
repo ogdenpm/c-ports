@@ -8,7 +8,6 @@
  *                                                                          *
  ****************************************************************************/
 
-
 #include <malloc.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -519,7 +518,6 @@ void GetToken() {
             GetStr();
         } else
             GetSpecial();
-
     } else if (tokType == IDENTIFIER)
         GetId();
     else if (tokType == STRING)
