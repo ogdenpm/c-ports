@@ -8,12 +8,12 @@
  *                                                                          *
  ****************************************************************************/
 
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include <ctype.h>
-#include <stdbool.h>
 
 #include "showVersion.h"
 
@@ -33,7 +33,7 @@ uint16_t readWord(uint8_t *p) {
 
 void writeWord(uint8_t *p, uint16_t val) {
     *p++ = val % 256;
-    *p = val / 256;
+    *p   = val / 256;
 }
 
 /*                                  */
@@ -43,7 +43,7 @@ struct {
     uint8_t type;
     uint8_t length[2];
     uint8_t nameLen;
-    uint8_t name[MAXNAME + 3];  // name + trnId + trnVn + crc
+    uint8_t name[MAXNAME + 3]; // name + trnId + trnVn + crc
 } modhdr = { MODHDR };
 
 /* intermediate storate for length & address */
@@ -92,7 +92,9 @@ uint8_t calcCRC(uint8_t *p, int len) {
 // return the trailing filename part of the passed in path
 const char *basename(const char *path) {
     const char *t;
-    while ((t = strpbrk(path, ":\\/")))       // allow windows & unix separators - will fail for unix if : in filename!!
+    while ((t = strpbrk(
+                path,
+                ":\\/"))) // allow windows & unix separators - will fail for unix if : in filename!!
         path = t + 1;
     return path;
 }
@@ -110,7 +112,6 @@ const char *basename(const char *path) {
 int main(int argc, char **argv) {
     FILE *fpin, *fpout;
     uint16_t length, addr;
-
 
     CHK_SHOW_VERSION(argc, argv);
 
@@ -141,9 +142,9 @@ int main(int argc, char **argv) {
             modhdr.name[i++] = toupper(*name);
     modhdr.nameLen = i;
     writeWord(modhdr.length, i + 4);
-    modhdr.name[i++] = 0;   // TRN ID
-    modhdr.name[i++] = 0;   // TRN VN
-    modhdr.name[i] = -calcCRC((uint8_t *)&modhdr, i + 6);
+    modhdr.name[i++] = 0; // TRN ID
+    modhdr.name[i++] = 0; // TRN VN
+    modhdr.name[i]   = -calcCRC((uint8_t *)&modhdr, i + 6);
     if (fwrite(&modhdr, 1, i + 5, fpout) != i + 5) {
         fprintf(stderr, "failed to write obj file header\n");
         exit(1);
@@ -159,13 +160,13 @@ int main(int argc, char **argv) {
             exit(1);
         }
         length = readWord(binHeader.length);
-        addr = readWord(binHeader.addr);
+        addr   = readWord(binHeader.addr);
         if (length == 0)
             break;
         // now we know length and address of bin block
         // create the corresponding content header
         // type & segId initialised already
-        writeWord(contentHeader.length, length + 4);    // data + addr + crc
+        writeWord(contentHeader.length, length + 4); // data + addr + crc
         writeWord(contentHeader.addr, addr);
         if (fwrite(&contentHeader, 1, 6, fpout) != 6) {
             fprintf(stderr, "failed to write obj file content\n");
@@ -178,7 +179,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "unexpected EOF reading bin file\n");
                 exit(1);
             }
-            crc += c;           // update CRC
+            crc += c; // update CRC
             putc(c, fpout);
         }
         putc(-crc, fpout);
