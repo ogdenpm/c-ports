@@ -1,5 +1,14 @@
+/****************************************************************************
+ *  ixref.c: part of the C port of Intel's ISIS-II ixref                    *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *                                                                          *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
+ *                                                                          *
+ *  It is released for academic interest and personal use only              *
+ ****************************************************************************/
 #include "ixref.h"
-#include "os.h"
+#include "../shared/os.h"
+#include "../shared/cmdline.h"
 #include <stdarg.h>
 #include <string.h>
 
@@ -45,14 +54,6 @@ void ExpectLP(void) {
 
 void ExpectRP(void) {
     ExpectChar(')', "right parenthesis expected"); /* right parenthesis expected */
-}
-
-static void Fill(void *dst, int val, int len) {
-    memset(dst, val, len);
-}
-
-void MemCpy(void const *src, void *dst, int len) {
-    memcpy(dst, src, len);
 }
 
 static void OutNewPage() {
@@ -107,14 +108,13 @@ void OutPrintf(char const *fmt, ...) {
     OutStr(line);
 }
 
-
 void InitPrint() {
     if (!(outFp = Fopen(outFileName, "wt")))
         IoError(outFileName, "Could not create");
     OutNewPage();
     fputs("PL/M IXREF, " VERSION "\nINVOKED BY:\n", outFp);
     outLinesLeft -= 2;
-    printCmdLine(outFp);
+    outLinesLeft -= printCmdLine(outFp, outLineLen, 0);
     OutNewLine();
 }
 
@@ -158,12 +158,24 @@ static void ParsePrint() {
     havePrint = true;
 }
 
+char *reserved[] = { "", "TITLE", "PRINT", "PUBLICS", "EXTERNALS", "PAGEWIDTH" };
+
+bool morefiles() {
+    if (*cmdP++ == ',')
+        return true;
+    char *ntoken = PeekToken();
+    for (int i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
+        if (stricmp(reserved[i], ntoken) == 0)
+            return false;
+    return true;
+}
+
 static void ParseCmdLine() {
     GetToken(); // skip invoke name
     startFiles = cmdP;
     do {
         GetToken();
-    } while (*cmdP++ == ',');
+    } while (morefiles());
     cmdP--;
     endFiles = cmdP;
     while (*cmdP != '\n') {
@@ -209,4 +221,21 @@ void Start() {
 }
 
 void usage() {
+    printf("Command line usage: %s (-v | -V | -h) | ixifiles [,ixifile]* options*\n",
+           invokeName);
+    printf("Where:\n"
+           "-h              Show this help\n"
+           "-v / -V         Show simple / extended version information\n"
+           "\n"
+           "and options are:\n"
+           "TITLE(text)     title to show on listings. text can be quoted\n"
+           "PRINT(file)     save listing to file rather than show on the console\n"    
+           "PUBLICS         include Public symbols only, cannot be used with EXTERNALS\n"
+           "EXTERNALS       include external symbols only, cannot be used with PUBLICS\n"
+           "PAGEWIDTH(val)  set page width to val (60-132) rather than 120\n"
+           "\n"
+           "Spaces can be used instead of commas to separate ixi file names\n"
+           "also * and  ? are supported for multiple file selection\n"
+           "File names are of the format [:Fx:]path, where x is a digit and path\n"
+           "The :Fx: maps to a directory prefix from the ISIS_Fx environment variable\n");
 }

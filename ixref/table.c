@@ -1,5 +1,13 @@
+/****************************************************************************
+ *  table.c: part of the C port of Intel's ISIS-II ixref                    *
+ *  The original ISIS-II application is Copyright Intel                     *
+ *                                                                          *
+ *  Re-engineered to C by Mark Ogden <mark.pm.ogden@btinternet.com>         *
+ *                                                                          *
+ *  It is released for academic interest and personal use only              *
+ ****************************************************************************/
 #include "ixref.h"
-#include "os.h"
+#include "../shared/os.h"
 #include <stdlib.h>
 #include <string.h>
 #define MCHUNK 1024
@@ -14,6 +22,12 @@ pstr_t const *pstrdup(pstr_t const *ps) {
     p->str[p->len] = '\0';      // make str also C compatible
     return p;
 }
+char const *mkCStr(int len, char const *str) {
+    char *s = xmalloc(len + 1);
+    memcpy(s, str, len);
+    s[len] = '\0';
+    return s;
+}
 
 bool pstrequ(pstr_t const *ps, pstr_t const *pt) {
     return ps->len == pt->len && strncmp(ps->str, pt->str, ps->len) == 0;
@@ -22,22 +36,24 @@ bool pstrequ(pstr_t const *ps, pstr_t const *pt) {
 char const *newmod(record_t const *rec) {
     if (modCnt >= modtabSize)
         modtab = xrealloc(modtab, (modtabSize += MCHUNK) * sizeof(mod_t));
-    char *name = xmalloc(rec->len - 1);
-    // copy module name to a C string
-    memcpy(name, rec->data + 1, rec->data[0]);
-    name[rec->data[0]]      = '\0';
-    modtab[modCnt].name  = name;
-    name += rec->data[0] + 2;  // append filename
-    memcpy(name, &rec->data[rec->data[0] + 1], 19);
-    // trim the filename;
-    int padCh = '-';
-    char *s   = name + 19;
-    while (s != name && s[-1] == padCh)
-        if (--s == name + 10)
-            padCh = ' ';
-    *s = '\0';
-    modtab[modCnt].fname = name;
+    modtab[modCnt].name = mkCStr(rec->data[0], (char *)rec->data + 1);  // convert the module name
+    modtab[modCnt].fname = mkCStr(rec->len - rec->data[0] - 3, (char *)rec->data + rec->data[0] + 1);
     return modtab[modCnt++].name;
 }
 
-
+void updateFname(FILE *fp) {
+    int c1       = getc(fp);
+    int c2 = getc(fp);
+    if (c1 == EOF || c2 == EOF)
+        return;
+    int nameLen = c1 + 256 * c2;
+    char *fname = xmalloc(nameLen + 2); // allow for ' ' prefix and trailing '\0'
+    if (fread(fname + 1, 1, nameLen, fp) != nameLen) {
+        free(fname);
+        return;
+    }
+    fname[0] = ' ';
+    fname[nameLen + 1] = '\0';
+    free((char *)(modtab[modCnt - 1].fname));
+    modtab[modCnt - 1].fname = fname;
+}

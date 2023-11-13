@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="os.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ixref.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -30,13 +27,31 @@
     <ClCompile Include="table.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="wild.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\cmdline.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\os.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="os.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ixref.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="_appinfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\cmdline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\os.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\intel.licenseheader" />
   </ItemGroup>
 </Project>
