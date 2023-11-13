@@ -4,19 +4,83 @@ This repository contains my ports of several PL/M 80 applications to C and my po
 
 There is also a historical port of the ISIS-II PL/M 80 compiler to C++, directly done from the disassembled code, i.e. before I reversed engineered the compiler into PL/M 80 source.
 
-Originally the code was distributed as part of my [Intel80Tools](https://github.com/ogdenpm/intel80tools) repository, however I have refactored into its own repository as a cleaner option, as the number of ports increases. Prebuilt Windows 32bit binaries of these tools (except the historic C++ port) are still distributed as part of the [Intel80Tools](https://github.com/ogdenpm/intel80tools) repository. 
+Originally the code was distributed as part of my [Intel80Tools](https://github.com/ogdenpm/intel80tools) repository, however I have refactored into its own repository as a cleaner option, as the number of ports increases. Prebuilt Windows 64bit binaries of these tools (except the historic C++ port) are still distributed as part of the [Intel80Tools](https://github.com/ogdenpm/intel80tools) repository.
+Note the [Intel80Tools](https://github.com/ogdenpm/intel80tools) repository build, now uses the cports tools where possible, reverting to the emulation model for older tool versions.
 
-See the doc directory for information on each of the applications, including usage differences from the original applications.
+See the cports documentation file in the doc directory for information on each of the applications, including usage differences from the original applications.
 
-Visual studio solution files are provided for all the tools,  along Linux Makefiles.
+Visual Studio solution files are provided for all the tools,  along with Linux Makefiles.
 
 Note if you get a warning message when building  files, it may be because you are using an older or possibly newer version than I have set the project to. Visual Studio provides simple options to retarget to any version you have.
 
-There are also a three of script files from my [versionTools](https://github.com/ogdenpm/versionTools) repository in the Scripts directory. Of these getVersion.cmd and getVersion.pl are the main ones that creates the version numbers. The other install.cmd is used to auto install Windows executables to your desired directory. This can be replaced with your own installation scripts. For Linux all the built files can be found in the subdirectory Linux/Install, from here you can install to your required directory.
-
-
+There are also three of script files from my [versionTools](https://github.com/ogdenpm/versionTools) repository in the Scripts directory. Of these getVersion.cmd and getVersion.pl are the main ones that creates the version numbers. The other install.cmd is used to auto install Windows executables to your desired directory. This can be replaced with your own installation scripts. For Linux all the built files can be found in the subdirectory Linux/Install, from here you can install to your required directory.
 
 ## Recent major changes
+
+Below is effectively a change log. Features have been added, changed or deleted over time, so please refer to the cports  documentation for the current usage.
+
+### 13-Nov-2023
+
+- ASM80: MAKEDEPEND support added and the assembler now supports continuation lines.
+- LINK & LOCATE: unresolved externals and memory overlap option names changed and align. Also duplicates in Link are now treated as errors.
+- PL/M80: Improved the comments on the earlier passes to make it easier to understand the compiler code. Additional work is needed on the later passes, which will be done when I have time.
+- PL/M80: Fixed a original Intel bugs spotted when I was improving the code commentary. The bug impacted re-entrant code. The main impact was that some optimisations were being missed.
+- LOCATE: Changed the sizing of the MEMORY segment to take into account segments loaded above it. The original code would report memory overlaps.
+- LIB: Changed the approach to create an initial populated library.
+- PL/M80 & IXREF: modified behaviour for long file names.
+- Changed a number of the extension options for consistency and tweaked behaviour.
+- Removed the auto continuation option as it conflicts with lib usage.
+- Refactored the OS and command line handling. Also moved some common files to the shared directory to make maintenance easier.
+
+### 12-Sep-2023
+
+- PL/M80: Cross reference information is no longer spooled with the data chains built directly. The identification of definition and use has also been simplified using a simple scan rather than moving the definition to the head of the list.
+
+### 11-Sep-2023
+
+- The hack using ! to auto insert has been removed. Instead the applications have been modified to accept whitespace or comma as a separator. Commas are now only required for PL/M80 options.
+  In the very rare situation where object files are named the same as the list terminating keyword e.g. TO add a ./ prefix to them. This could also be used if you need to have a file named publics when using link.
+- Other than -v, -V and -h I have removed the dash style options. At some future  point I may write a driver program that accepts them, which would also allow more natural POSIX option ordering.
+- Bug in processing :Fx: prefix has been fixed.
+- ~~When reading the command line from a file, rather than an interactive console, an auto continuation character is assumed on each line, until EOF.~~
+- PL/M80: Changed the dynamic tables to have fixed upper limits. These are comparable with the pl/m-386 limits so should not pose any problem in practice. Related to this, all different information items have been mapped to single structure type, with unused information ignored. This allows a simple array to be allocated and indexed.
+- PL/M80: Removed all the accessor functions to use direct access, rather than setting the global info variable. This change and the use of fixed tables, has allowed some simplification of the source code. There are other opportunities to remove the use of the global info variable, which will be addressed over time.
+- PL/M80: The test for built-ins has been modified to use addresses beyond the end of the info array rather than indexes >= 0FF00H. This allows pointers to be used rather than indexes.
+- PL/M80: Some variables with multiple uses, have been separated, or where in a structure, unions have been used to allow better comprehension of the code.
+- PL/M80: DATE now allows an additional character. Additionally if the string is omitted, today's date is used in the yyyy-mm-dd[ hh:mm:ss], format. The time is only shown if there is  room.
+  For some reason the original date string entry allows nesting using  ( and ), given that the original maximum length was 9 characters, this does seem bizarre.
+
+- PL/M80: Added MAKEDEPEND option to auto generate makefile dependencies for use by make.
+- PL/M80: Although the WORKFILES is validated, it is ignored as it is no longer needed.
+
+### 24-Jul-2023
+
+- PL/M80: Removed need for nms virtual file and simplified xref handling.
+
+- PL/M80: Fixed a number of bugs from initial port
+
+- PL/M80: XREF option, sorts the labels, alphabetically and unlike the ISI S PL/M80 implementation, where labels of the same name occur, these are sorted by earliest location seen.
+
+- IXREF:  Ported to C,  including removing the use of temporary files and converting to use native memory management. There are some minor behaviour differences to the original code
+
+  - Currently wild card names are not handled, however expansion the OS shell does work, using the escape mechanism previously implemented, e.g.
+
+    ```
+    ixref ! *.ixi !		creates a cross reference using all the .ixi files
+    ```
+
+  - Module names are now sorted alphabetically in the cross reference. Additionally for duplicate symbol definitions all cross references are shown against the earliest defining module name. Duplicates are shown in alphabetic order.
+
+  - Diskette name is no longer shown. This allows filenames to be up to 19 characters rather than 10.
+
+  - The module name to file name  map, now sorts using standard alphabetic conventions, i.e. IXREF is before IXREF1.
+
+  - When showing Externals only, the duplicate definition entries are no longer shown.
+
+  - Note when showing Publics only, the unresolved labels are not show as per the original application. I may change this as knowing there are  unresolved publics is I believe helpful.
+
+- PL/M80: IXREF option, modified to generate an ixi file to allow up to 19 character file names. ISIS ixref will treat characters after the first 10 as a diskette name. Names > 19 characters are truncated. Directory paths are excluded. 
+  Note the ISIS PL/M80 pads short file names with spaces and always sets the  diskette name to all dashes. Be aware the new version of IXREF trims trailing dashes and spaces, so filenames > 10 chars ending in a dash will display incorrectly.
 
 ### 13-Jul-2023
 
@@ -234,5 +298,5 @@ I have done the first part of a major rework of asm80, the key changes are noted
 ------
 
 ```
-Updated by Mark Ogden 4-Jul-2023
+Updated by Mark Ogden 13-Nov-2023
 ```
