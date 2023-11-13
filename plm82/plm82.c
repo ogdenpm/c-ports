@@ -420,7 +420,7 @@
 
 #define symAttrib(i)                 symbol[symbol[i] - 1]
 #define symAddr(i)                   symbol[symbol[i]]
-#define symRef(i)                symbol[symbol[i] - 2]
+#define symRef(i)                    symbol[symbol[i] - 2]
 #define symF3(i)                     symbol[symbol[i] - 3]
 #define symIProcDepth(i)             symbol[symbol[i] - 4]
 // VARB e..e ssss 0001   e..e - number of elements, ssss size of element
@@ -1117,7 +1117,6 @@ int main(int argc, char **argv) {
     loadsy();
     readcd();
     if (!errflg) {
-
         /* make sure compiler stack is empty */
         if (sp != 0)
             error(144, 1);
@@ -1360,7 +1359,6 @@ void controlLine(const char *s) {
             if (C_TERMINAL)
                 Printf("\n \n");
             writel(stdout);
-
         } else {
             code = toupper(code);
             j    = itran[code];
@@ -1432,7 +1430,6 @@ void error(const int i, const int level) {
 
     /* check for severe error - level greater than 4 */
     if (level > 4) {
-
         /* terminate compilation */
         Printf("\nCOMPILATION TERMINATED\n");
         errflg = true;
@@ -1446,7 +1443,6 @@ void errors(char const *msg, int level) {
 
     /* check for severe error - level greater than 4 */
     if (level > 4) {
-
         /* terminate compilation */
         Printf("\nCOMPILATION TERMINATED\n");
         errflg = true;
@@ -1953,7 +1949,6 @@ void loadv(int s, int typ) {
                         regv[RL] = LOW(m);
                         return;
                     }
-
                 } else if (m < 0) {
                     /* value stacked, so... */
                     ustack();
@@ -2004,7 +1999,6 @@ void loadv(int s, int typ) {
                             error(147, 1);
                         i = i + 1;
                     } else {
-
                         /* available cpu register is based at k */
                         emit(POP, k - 1, 0);
                         regs[k] = s;
@@ -2039,11 +2033,9 @@ void loadv(int s, int typ) {
         regs[ia] = s;
         regv[ia] = lp;
         if (typ == 1) {
-
             /* check for pending register store */
             jp = regs[RA];
             if (jp != 0) {
-
                 /* store ACC into register before continuing */
                 emit(LD, jp, RA);
                 regs[RA] = 0;
@@ -2096,7 +2088,6 @@ void loadv(int s, int typ) {
 
             /* check for pending register store */
             if (jp != 0) {
-
                 /* have to store ACC into register before reloading */
                 emit(LD, jp, RA);
                 regs[RA] = 0;
@@ -2109,7 +2100,6 @@ void loadv(int s, int typ) {
 
         /* check for double byte variable */
         if (typ != 2 && i > 1) { // avoids goto when typ == 2
-
             /* load high order byte */
             emit(IN, RL, 0);
             regv[RL] = regv[RL] + 1;
@@ -2156,7 +2146,7 @@ int chain(const int sy, const int loc) {
     if (symAddr(sy) < 0)
         return -symAddr(sy) & 0xffff; // absolute address already assigned
 
-    int _chain     = symRef(sy);
+    int _chain = symRef(sy);
     symRef(sy) = loc;
     return _chain;
 }
@@ -2602,7 +2592,6 @@ void emit(const int opr, const int opa, const int opb) {
                         opcode = get(codloc - 1);
                         put(codloc - 1, -opb);
                     }
-
                 } else { // here the lri didn-t follow a lri that we could change
                     lastLoadImm = codloc;
                     lastRegImm  = opa;
@@ -2612,7 +2601,6 @@ void emit(const int opr, const int opa, const int opb) {
                     operand     = -opb;                  /* and the value */
                 }
             } else {
-
                 /* check for possible load register elimination */
                 /* is this a lmr OR lrm instruction... */
                 // if mov m,r followed by mov r,m then optimise 2nd istruction away
@@ -2819,13 +2807,11 @@ void cvcond(const int s) {
     /* we may generate a short sequence */
     if (k <= 2 && ia != 0 && regs[RA] == ia) {
         if (k != 2) {
-
             /* short conversion for true OR false CARRY */
             emit(SB, RA, 0);
             if (j == 0)
                 emit(CMA, 0, 0);
         } else {
-
             /* short conversion for true OR false ZERO */
             if (j == 0)
                 emit(AD, -255, 0);
@@ -2834,7 +2820,6 @@ void cvcond(const int s) {
             emit(SB, RA, 0);
         }
     } else {
-
         /* do we have to assign a register */
         if (ia == 0) {
             genreg(1, &ia, &jp);
@@ -3106,7 +3091,6 @@ int loadin() // modified for V4
 
     else
         while ((i = gnc(symFp)) != '/') {
-
             /* process next symbol table entry */
 
             /* build address of initialized symbol */
@@ -3166,7 +3150,6 @@ void emitbf(const int l) {
     /* emitted. */
     i = biftab[l];
     if (i < 0) {
-
         /* code NOT yet emitted */
         i = -i;
         emit(JMP, 0, 0);
@@ -3255,7 +3238,6 @@ void inldat() {
                         emit(0, k, 0);
                     else
                         break;
-
                 } else { /* define inline data symbol */
                     if (kp != DEF)
                         break;
@@ -3361,7 +3343,6 @@ void unary(const int val) {
                 regs[RA] = ia;
             }
         } else {
-
             /* SFL - clear CARRY AND shift */
             if (val == B_SHL)
                 emit(AD, RA, RA);
@@ -3426,11 +3407,9 @@ void exch() {
 
             /* second elt is pushed, top elt is NOT IN cpu */
             if (st[sp] == 0) {
-
                 /* both are pushed, so go thru 20 twice */
                 j = sp;
                 for (;;) {
-
                     /* POP element (second if drop thru, top if from 30) */
                     genreg(-1, &ia, &ib);
                     if (ia == 0) {
@@ -3474,7 +3453,6 @@ void exch() {
 }
 
 void stack(const int n) {
-
     /* ADD n to current depth, test for stacksize exc maxdepth */
     curdep[prsp] += n;
     if (curdep[prsp] > maxdep[prsp])
@@ -3535,7 +3513,6 @@ void readcd() {
             sp = 0;
         if (C_ANALYSIS != 0)
             if (alter && sp > 0) {
-
                 /* write stack */
                 Printf("\n \n  PR   ST   RASN  LITV\n");
                 for (int ip = sp; ip > 0; ip--) {
@@ -3705,7 +3682,7 @@ void readcd() {
                     if (conloc == xfrloc - 3) {
                         int addr = -symAddr(val);
                         // V4
-                        if ((-symAddr(val))/4 == conloc + 1) {
+                        if ((-symAddr(val)) / 4 == conloc + 1) {
                             /* adjust backstuffing chain for JMP OR call */
                             if (xfrsym > 0)
                                 /* decrement backstuff location by 3 */
@@ -3740,7 +3717,6 @@ void readcd() {
                     }
             int type = INFO_TYPE(i);
             if (type == LABEL) {
-
                 /* LABEL found.  check for reference to LABEL */
                 i = i / 256;
                 if (i == 0)
@@ -3782,7 +3758,6 @@ void readcd() {
                     }
                 }
             } else if (type == PROC) {
-
                 /* set up procedure stack for procedure entry */
                 if (++prsp > prsmax)
                     error(145, 5);
@@ -3807,7 +3782,6 @@ void readcd() {
                     curdep[prsp] = 0;
                     for (int i = 1; i <= 8; i++)
                         if (val == intpro[i]) {
-
                             /* interrupt procedure is marked with ho 1 */
                             prstk[prsp] = j + 65536;
                             emit(PUSH, RH, 0);
@@ -3831,8 +3805,8 @@ void readcd() {
             if (j != 1)
                 error(131, 1);
             // V4
-            symAddr(val)      = -(shl(i, 2) + 3);
-            symRef(val) = k;
+            symAddr(val) = -(shl(i, 2) + 3);
+            symRef(val)  = k;
             /* now check for procedure entry point */
             i = symAttrib(val);
             if (right(i, 4) == PROC) {
@@ -3896,7 +3870,6 @@ void readcd() {
         /* check for condition codes */
         if (val <= intbas) {
             if (val <= 4) {
-
                 /* CARRY ZERO minus PARITY */
                 /* set to true/condition (1*16+val) */
                 rasn[sp] = (16 + val) * 256;
@@ -3908,13 +3881,11 @@ void readcd() {
                 /* check for reference to 'memory' */
                 /* ** note that 'memory' must be at location 5 IN the symbol table ** */
                 if (val != 5) {
-
                     /* ** note that 'stackptr' must be at 6 IN sym tab */
                     if (val != 6)
                         error(129, 1);
 
                     else {
-
                         /* load value of stackpointer to registers immediately */
                         genreg(2, &ia, &ib);
                         if (ib == 0)
@@ -3949,7 +3920,6 @@ void readcd() {
             /* note that this assumes length AND last are symbol numbers */
             /* 18 AND 19 */
             if (lapol != 153 && lapol != 161) {
-
                 /* load value of base variable.  change to load */
                 /* value of base, followed by a LOD op. */
                 ibase = right(shr(-j, 4), 4) + 16;
@@ -3978,7 +3948,6 @@ void readcd() {
 
         /* check for base address which must be loaded */
         if (ibase >= 16) {
-
             /* must be a based variable value reference. */
             /* load the value of the base AND follow it by */
             /* a load operation. */
@@ -4050,7 +4019,7 @@ bool doBuiltin(int val) {
                 if (i == 1)
                     regs[RA] = REGLOW(rasn[sp]);
             }
-            m  = REGLOW(rasn[sp]);
+            m = REGLOW(rasn[sp]);
             if (i != 1 || regs[RA] != m) {
                 if (regs[RA]) {
                     emit(LD, regs[RA], RA);
@@ -4619,7 +4588,6 @@ bool operat(int val) {
         return true;
     case DEL:
         if (st[sp] == 0 && rasn[sp] == 0 && litv[sp] < 0) {
-
             /* value is stacked, so get rid of it */
             emit(POP, RH, 0);
             regv[RH] = regv[RL] = -1;
@@ -4818,7 +4786,6 @@ bool operat(int val) {
                 return true;
             }
         } else if (st[sp] > 0) {
-
             /* load value of base for address ref to a based variable */
             loadv(sp, 3);
             return true;
@@ -4946,7 +4913,6 @@ bool operat(int val) {
                 m = symRef(i);
 
                 if (iop == 1) {
-
                     it = INFO_PREC(abs(symAttrib(i)));
 
                     /* it is type of LABEL... */
@@ -5009,7 +4975,6 @@ bool operat(int val) {
                 }
 
                 if (it == 3 && iop == 1) { // BUG FIX user labels all have 4
-
                     /* we have a TRA to the outer block... */
                     j = C_STACKHANDLING;
                     if (prsp != 0 && j != 1) {
@@ -5064,7 +5029,6 @@ bool operat(int val) {
 
                     /* may be INC TRA combination IN do-loop */
                     if (lastin + 1 == codloc) {
-
                         /* change to jfz to top of loop */
                         emit(JMC, FAL * 32 + ZERO, m);
                         _delete(1);
@@ -5107,7 +5071,6 @@ bool operat(int val) {
 
                     /* may be unchanged from call */
                     if (k != 3) {
-
                         /* compare values */
                         j = right(j, 19);
                         l = j % 256;
@@ -5127,7 +5090,6 @@ bool operat(int val) {
                     /* value at the stack top */
                     j = INFO_PREC(symAttrib(i));
                     if (j > 0) {
-
                         /* set stack top to precision of procedure */
                         sp       = sp + 1;
                         prec[sp] = j;
