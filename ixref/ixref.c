@@ -178,8 +178,9 @@ static void ParseCmdLine() {
     } while (morefiles());
     cmdP--;
     endFiles = cmdP;
-    while (*cmdP != '\n') {
-        char const *token = GetToken();
+
+    char const *token;
+    while (*(token = GetToken())) {
         if (stricmp(token, "TITLE") == 0) {
             if (haveTitle)
                 FatalCmdLineErr("TITLE specified more than once");
