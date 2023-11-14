@@ -137,7 +137,9 @@ This is a port of ixref 1.3. Internally it is a major rewrite, to use an in memo
 
 Simple wildcard file matching is supported to allow its use in response files and continuation lines. On the command line these may need quoting to avoid normal shell expansion.
 
-Note, generating ixi files using the thames emulator with pre pl/m80 v4.0, requires an isis.lab file in the source directory so that the volume label can be read. Also if the ISIS ixref is used with the thames emulator then the file isis.dir is needed;  a tool for creating one can be found at https://github.com/ogdenpm/intel80tools/tree/master/tools/mkisisdir.pl.
+As of 14-Nov-2023, the thames emulator auto generates an ISIS.LAB and ISIS.DIR file so that PL/M3.1 can use IXREF and the emulated versions of IXREF work, although the C port is preferred.
+
+Note PL/M3.0 does not support IXREF.
 
 ## Other ports
 

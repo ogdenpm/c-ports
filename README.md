@@ -19,6 +19,10 @@ There are also three of script files from my [versionTools](https://github.com/o
 
 Below is effectively a change log. Features have been added, changed or deleted over time, so please refer to the cports  documentation for the current usage.
 
+### 14-Nov-2023
+
+- IXREF: Bug fix due to file not found error when no options are used.
+
 ### 13-Nov-2023
 
 - ASM80: MAKEDEPEND support added and the assembler now supports continuation lines.
