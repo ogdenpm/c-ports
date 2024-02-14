@@ -113,7 +113,7 @@ char *MapFile(char *osName, const char *isisPath) {
 
     if (hasIsisDrive(isisPath)) {
         int i  = isisPath[2] - '0';
-        dev[2] = isisPath[2];
+        dev[6] = isisPath[2];
         if (!deviceMap[i] && !(deviceMap[i] = getenv(dev)))
             deviceMap[i] = ".";                                          // give a minimal default
         if (strlen(deviceMap[i]) + strlen(isisPath + 4) + 1 > _MAX_PATH) // will it fit
