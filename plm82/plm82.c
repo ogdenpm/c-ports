@@ -428,7 +428,7 @@
 #define INFO_PREC(a)                 (((a) >> 4) & 0xf)
 #define INFO_ECNT(a)                 ((a) / 256)
 #define PACK_ATTRIB(cnt, prec, type) ((cnt)*256 + (prec)*16 + type)
-#define MAXSYM                       6000
+#define MAXSYM                       16000
 #define MAXMEM                       16000
 FILE *files[20];
 
@@ -5388,13 +5388,14 @@ void sydump() {
                 int j = symbol[symNo];
                 // V4
                 int type = LOWNIBBLE(symbol[j - 1]);
+                ch       = symbol[j - 1] & 0xf;
                 if (ch == PROC || ch == LABEL)
                     j -= 2;
                 int addr = abs(symbol[j]);
                 if (C_BPNF)
-                    fprintf(hexFp, "%-5d %.*s %05XH\n", symNo, ichar, label, addr);
+                    fprintf(hexFp, " %-5d %.*s %05XH\n", symNo, ichar, label, addr);
                 if (C_MAP)
-                    fprintf(lstFp, "%s%04XH\n", label, addr);
+                    fprintf(lstFp, " %s%04XH\n", label, addr);
             }
         }
 }
