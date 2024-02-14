@@ -27,6 +27,15 @@ blk_t blk[20];
 
 word wB528[10];
 word wB53C[10];
+//typedef struct {
+//    byte nodeType;
+//    index_t left;
+//    index_t right;
+//    index_t extra;
+//    byte exprAttr;
+//    byte exprLoc;
+//    word cnt;
+//} tx2_t;
 tx2_t tx2[255] = { { T2_SEMICOLON, 0, 0, 0, LIT_A },
                    { T2_LOCALLABEL, 0, 0, 0, LABEL_A, 0, 1 },
                    { T2_SEMICOLON },
@@ -35,18 +44,18 @@ tx2_t tx2[255] = { { T2_SEMICOLON, 0, 0, 0, LIT_A },
 byte bC045[9];
 byte bC04E[9];
 bool boC057[9];
-bool boC060[9];
+bool boC060[9]; // 4
 bool boC069[9];
 bool boC072[9];
-bool boC07B[9];
+bool boC07B[9]; // 4
 word wC084[9];
 word wC096[9];
 byte bC0A8[9];
 byte bC0B1;
 byte bC0B2;
-byte bC0B3[2];
-byte bC0B5[2];
-byte bC0B7[2];
+byte exprAttr[2];
+byte exprLoc[2];
+byte curExprLoc[2];
 byte bC0B9[2];
 byte bC0BB[2];
 byte bC0BD[2];
@@ -62,7 +71,7 @@ word codeSize            = 0;
 word wC1C3         = 0;
 word stackUsage         = 0;
 word wC1C7         = 0;
-byte firstCase         = 0;
+byte activeGrpCnt         = 0;
 byte blkOverCnt    = 0;
 byte procCallDepth = 0;
 bool boC1CC        = false;
@@ -78,7 +87,7 @@ bool boC1D8 = false;
 byte bC1D9;
 byte cfrag1;
 byte bC1DB;
-word wC1DC[5];
+word iCodeArgs[5];
 byte fragLen;
 byte fragment[34];
 byte bC209[]     = { 4, 5, 3, 2, 0, 1 };

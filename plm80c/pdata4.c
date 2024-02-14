@@ -17,7 +17,7 @@ line_t line;
 
 char locPStr[33]; /* used to hold symbol name + '\0' */
 err_t errData;
-bool bo812B = true;
+bool morePass4 = true;
 word baseAddr;
 byte cfCode;
 word lineNo;

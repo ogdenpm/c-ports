@@ -143,7 +143,7 @@ static void Sub_6D52() {
         if (curNodeType == T2_JMPFALSE && tx2[tx2qp - 1].nodeType == T2_NOT) {
             boC20F        = true;
             tx2[tx2qp].right = tx2[tx2qp - 1].left;
-            Sub_56A0(tx2qp, tx2qp - 1);
+            MoveTx2(tx2qp, tx2qp - 1);
             tx2[tx2qp].nodeType = T2_SEMICOLON;
         }
     }

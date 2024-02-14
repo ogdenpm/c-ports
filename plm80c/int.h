@@ -323,8 +323,8 @@ enum {
     CF_3       = 3,
     CF_POP     = 4,
     CF_XTHL    = 5,
-    CF_6       = 6,
-    CF_7       = 7,
+    CF_SA2HL       = 6,  // effective address on stack to HL
+    CF_LXI       = 7,
     CF_XCHG    = 14,
     CF_MOVRPM  = 16,
     CF_MOVLRM  = 18,
@@ -384,4 +384,9 @@ enum {
 
 enum { F_EXPRITEM = 0x80, F_BINOP = 0x40, F_PASSTHROUGH = 0x20 };
 
-enum { LOC_REG = 8, LOC_STACK = 10, LOC_MEM = 4, LOC_SPECIAL = 9 };
+enum { LOC_MEM = 4, LOC_REG = 8, LOC_SPECIAL = 9, LOC_STACK, LOC_VAR };
+
+// IR_SR stack relative address
+enum {
+    IR_PSW, IR_B, IR_D, IR_H, IR_SR = 9, IR_CASELAB = 14
+};

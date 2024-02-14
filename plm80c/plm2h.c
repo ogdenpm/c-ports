@@ -19,7 +19,7 @@ static bool Sub_9C33() {
             bC140[tx2[i].extra] = tx2qp;
     }
     k = (byte)tx2[tx2qp].cnt;
-    Sub_56A0(i, tx2qp);
+    MoveTx2(i, tx2qp);
     tx2[tx2qp].cnt = k;
     tx2[i].cnt--;
     for (j = 0; j <= 3; j++) {
@@ -30,8 +30,8 @@ static bool Sub_9C33() {
 }
 
 void Sub_9BB0() {
-    bC0B7[0] = (byte)tx2[tx2qp].left;
-    bC0B7[1] = (byte)tx2[tx2qp].right;
+    curExprLoc[Left]  = (byte)tx2[tx2qp].left;
+    curExprLoc[Right] = (byte)tx2[tx2qp].right;
     if (T2_DOUBLE <= curNodeType && curNodeType <= T2_ADDRESSOF)
         Sub_717B();
     if (curNodeType <= T2_MEMBER) {
@@ -48,17 +48,16 @@ void Sub_9BB0() {
         Sub_994D();
 }
 
-
 static byte b9BA8[2] = { 12, 13 };
 static byte b9BAA[2] = { 1, 2 };
 
-void Sub_9D06() {
+void c_call() {
     byte j, k;
     pointer pbyt;
     byte m;
 
     if (procCallDepth <= 10) {
-        info = FromIdx(tx2[tx2qp].extra);
+        info           = FromIdx(tx2[tx2qp].extra);
         wAF54[T2_CALL] = info->returnType == ADDRESS_T ? ADDRESS_A : BYTE_A;
         j = m = info->paramCnt;
         pbyt  = &b44F7[wAF54[T2_CALL]];
@@ -68,7 +67,7 @@ void Sub_9D06() {
             AdvNxtInfo();
             if (--j < 2) {
                 *pbyt = ((*pbyt << 4) | (info->type == ADDRESS_T ? b9BA8[k] : b9BAA[k]));
-                k = 1;
+                k     = 1;
             }
         }
 
@@ -80,61 +79,52 @@ void Sub_9D06() {
     procCallDepth--;
 }
 
-static pointer pb_C2EB;
-
-static byte b9BAC[2] = { 12, 13 };
-static byte b9BAE[2] = { 1, 2 };
-
-static void Sub_9EAA(byte arg1b, byte arg2b) {
-    *pb_C2EB <<= 4;
-    if (arg1b != 0)
-        *pb_C2EB |= tx2[arg1b].exprAttr == BYTE_A ? b9BAE[arg2b] : b9BAC[arg2b];
+static byte Sub_9EAA(byte exprIdx, byte lrIdx) {
+    return exprIdx == 0 ? 0 : tx2[exprIdx].exprAttr == BYTE_A ? b9BAA[lrIdx] : b9BA8[lrIdx];
 }
 
-void Sub_9DD7() {
+void c_callVar() {
     byte i;
 
     if (procCallDepth <= 10) {
+        byte cvVal;
         i = (byte)tx2[tx2qp].extra;
         if (tx2[i].nodeType == T2_IDENTIFIER) {
-            info = FromIdx(tx2[i].left);
-            if ((info->flag & F_AUTOMATIC))
-                wAF54[T2_CALLVAR] = 3;
-            else
-                wAF54[T2_CALLVAR] = 4;
+            info  = FromIdx(tx2[i].left);
+            cvVal = info->flag & F_AUTOMATIC ? 3 : 4;
         } else if (tx2[i].extra == wB53C[procCallDepth]) {
-            wAF54[T2_CALLVAR] = 5;
+            cvVal = 5;
             wB528[procCallDepth]--;
         } else
-            wAF54[T2_CALLVAR] = 2;
+            cvVal = 2;
 
-        pb_C2EB = &b44F7[wAF54[T2_CALLVAR]];
-        Sub_9EAA((byte)tx2[tx2qp].left, 0);
-        Sub_9EAA((byte)tx2[tx2qp].right, 1);
+        wAF54[T2_CALLVAR] = cvVal;
+        b44F7[cvVal] =
+            (Sub_9EAA((byte)tx2[tx2qp].left, Left) << 4) | Sub_9EAA((byte)tx2[tx2qp].right, Right);
         Sub_9BB0();
         wC1C3 = wB528[procCallDepth];
     }
     procCallDepth--;
 }
 
-void Sub_9EF8() {
+void c_begMove() {
     procCallDepth = 1;
     Sub_9BB0();
     wB53C[procCallDepth] = wC1C3;
 }
 
-void Sub_9F14() {
+void c_case() {
     if (EnterBlk())
-        blk[firstCase].firstCase = topCase;
+        blk[activeGrpCnt].activeGrpCnt = topCase;
 }
 
-void Sub_9F2F() {
+void c_endcase() {
     index_t curCase, q;
-    curCase = q = blk[firstCase].firstCase;
+    curCase = q = blk[activeGrpCnt].activeGrpCnt;
     if (ExitBlk()) {
         while (curCase < topCase) {
-            wC1DC[0] = 14;
-            wC1DC[1] = casetab[curCase];
+            iCodeArgs[0] = IR_CASELAB;
+            iCodeArgs[1] = casetab[curCase];
             EncodeFragData(CF_DW);
             codeSize += 2;
             curCase++;
@@ -148,7 +138,7 @@ void Sub_9F2F() {
     }
 }
 
-void Sub_9F9F() {
+void c_endproc() {
     if (ExitBlk()) {
         info = blk[blkId].info;
         if (!boC1CC) {
@@ -161,33 +151,33 @@ void Sub_9F9F() {
 
         info->dim     = codeSize;
         info->baseVal = stackUsage + wC1C7;
-        codeSize            = blk[blkId = blk[blkId].next].codeSize;
+        codeSize      = blk[blkId = blk[blkId].next].codeSize;
         fragLen       = 0;
         PutTx1Byte(0xa4);
         PutTx1Word(ToIdx(blk[blkId].info));
         PutTx1Word(codeSize);
         WrFragData();
         wC1C3        = blk[blkId].wB4B0;
-        stackUsage        = blk[blkId].stackSize;
+        stackUsage   = blk[blkId].stackSize;
         wC1C7        = 0;
         curExtProcId = blk[blkId].extProcId;
     }
 }
 
-void Sub_A072(byte arg1b) {
+void c_length(byte adjust) {
     word p;
     info = FromIdx(tx2[tx2qp].left);
-    p = info->dim - arg1b;
+    p    = info->dim - adjust;
     Sub_5F4B(p, NULL, p < 0x100 ? BYTE_A : ADDRESS_A, LOC_REG);
 }
 
-void Sub_A0C4() {
+void c_size() {
     word p;
     p = GetElementSize(FromIdx(tx2[tx2qp].left));
     Sub_5F4B(p, NULL, p < 0x100 ? BYTE_A : ADDRESS_A, LOC_REG);
 }
 
-void Sub_A10A() {
+void c_begCall() {
     procCallDepth++;
     if (procCallDepth <= 10) {
         Sub_5E66(0xf);
@@ -214,42 +204,42 @@ static void Sub_A266() {
 void Sub_A153() {
     Sub_A266();
     for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
-        curNodeType = tx2[tx2qp].nodeType;
+        curNodeType      = tx2[tx2qp].nodeType;
         nodeControlFlags = nodeControlMap[curNodeType];
         switch (nodeControlFlags >> 6) {
         case 0:
             if (curNodeType == T2_CALL)
-                Sub_9D06();
+                c_call();
             else if (curNodeType == T2_CALLVAR)
-                Sub_9DD7();
+                c_callVar();
             else if (curNodeType == T2_BEGMOVE)
-                Sub_9EF8();
+                c_begMove();
             else
                 Sub_9BB0();
             break;
         case 1:
             if (curNodeType == T2_LENGTH)
-                Sub_A072(0);
+                c_length(0);
             else if (curNodeType == T2_LAST)
-                Sub_A072(1);
+                c_length(1);
             else if (curNodeType == T2_SIZE)
-                Sub_A0C4();
+                c_size();
             break;
         case 2:
             if (curNodeType == T2_PROCEDURE)
-                Sub_9457();
+                c_procedure();
             else
                 Sub_994D();
             break;
         case 3:
             if (curNodeType == T2_CASE)
-                Sub_9F14();
+                c_case();
             else if (curNodeType == T2_ENDCASE)
-                Sub_9F2F();
+                c_endcase();
             else if (curNodeType == T2_ENDPROC)
-                Sub_9F9F();
+                c_endproc();
             else if (curNodeType == T2_BEGCALL)
-                Sub_A10A();
+                c_begCall();
             break;
         }
 

@@ -14,7 +14,7 @@
     indexed by cfCode
     a bbb ccc 0
 */
-byte b4029[] = {
+byte fragControl[] = {
     0,    0,    0,    0,    0x26, 0x30, 0x30, 0x26, 0x30, 0x20, 0x30, 0x12, 0x12, 0x12, 0,    0x10,
     0x10, 0x10, 0x10, 0x10, 0x10, 0x60, 0,    0x26, 0x20, 0x20, 0,    0,    0,    0,    0,    0,
     0x10, 0x80, 0x80, 0x80, 0x90, 0x90, 0x40, 0xA0, 0xA0, 0xA0, 0x80, 0xB0, 0x90, 0x80, 0xB0, 0x90,
@@ -102,7 +102,7 @@ byte b42F9[]       = {
 
 // xxx nnnnn    nnnnn -> code sequence length
 // indexed by curOp
-byte b43F8[] = {
+byte codeAttrLen[] = {
     0,    0x20, 0x40, 0x60, 0x81, 0x81, 0x84, 0x83, 0x83, 1,    0x83, 0x82, 0x83, 0x81, 0x81, 0x82,
     0x83, 0x83, 1,    0x83, 0x81, 0x82, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x21, 0x22, 0x23, 0x24,
     0x82, 0x81, 0x82, 0x83, 1,    2,    2,    0x21, 0x22, 0x23, 1,    2,    1,    2,    3,    2,
@@ -455,55 +455,48 @@ void PutTx1Word(word val) {
     PutTx1Byte(High(val));
 }
 
-static byte bC214, bC215;
+static byte EncodeFragPartArg(byte iArg, byte start) {
+    byte argCode = (byte)iCodeArgs[iArg++];
 
-static void Sub_545D() {
-    byte j;
-
-    j = (byte)wC1DC[bC214];
-    if (wC1DC[0] <= 12) {
-        if (fragLen == bC215)
-            PutTx1Byte(j);
+    if (iCodeArgs[0] <= 12) {
+        if (fragLen == start)
+            PutTx1Byte(argCode);
         else
-            fragment[bC215] = (fragment[bC215] << 4) | (fragment[bC215] >> 4) | j;
+            fragment[start] = (fragment[start] << 4) | argCode;   // merge the icode in high/low
     }
-    bC214++;
-    if (j > 7) {
-        if (j == 8 || j == 13 || j == 10)
-            PutTx1Byte((byte)wC1DC[bC214]);
-        else
-            PutTx1Word(wC1DC[bC214]);
 
-        bC214++;
-        if (j >= 10 && j < 12) {
-            PutTx1Word(wC1DC[bC214]);
-            bC214++;
-        } else if (j == 12) {
-            PutTx1Word(wC1DC[bC214]);
-            PutTx1Word(wC1DC[bC214 + 1]);
-            bC214 += 2;
-        }
+    if (argCode > 7) {
+        if (argCode == 8 || argCode == 13 || argCode == 10)
+            PutTx1Byte((byte)iCodeArgs[iArg++]);
+        else
+            PutTx1Word(iCodeArgs[iArg++]);
+
+        if (argCode >= 10 && argCode <= 12)
+            PutTx1Word(iCodeArgs[iArg++]);
+        if (argCode == 12)
+            PutTx1Word(iCodeArgs[iArg++]);
     }
+    return iArg;
 } /* Sub_545D() */
 
-static void Sub_5410(byte fragCode) {
-    bC214 = 0;
-    bC215 = fragLen;
-    if ((b4029[fragCode] >> 4) & 7) {
-        Sub_545D();
-        if (wC1DC[bC214] != 0 || wC1DC[0] <= 12)
-            Sub_545D();
+static void EncodeFragArgs(byte frag) {
+    byte iArg = 0;
+    byte start = fragLen;
+    if (fragControl[frag] & (7 << 4)) {
+        iArg = EncodeFragPartArg(iArg, start);
+        if (iCodeArgs[iArg] != 0 || iCodeArgs[0] <= 12)
+            EncodeFragPartArg(iArg, start);
     }
 } /* Sub_5410() */
 
-void EncodeFragData(byte fragCode) {
+void EncodeFragData(byte frag) {
     /* EncodeFragData() */
     fragLen = 0;
-    PutTx1Byte(fragCode);
-    if (b4029[fragCode] & 0x80)
+    PutTx1Byte(frag);
+    if (fragControl[frag] & 0x80)
         PutTx1Byte(curNodeType);
-    Sub_5410(fragCode);
-    memset(wC1DC, 0, sizeof(wC1DC));
+    EncodeFragArgs(frag);
+    memset(iCodeArgs, 0, sizeof(iCodeArgs));
     WrFragData();
 }
 
@@ -513,7 +506,7 @@ void EmitTopItem() {
         if (tx2[tx2qp].nodeType == T2_LINEINFO || tx2[tx2qp].nodeType == T2_INCLUDE)
             return;
     PutTx1Byte(tx2[tx2qp].nodeType);
-    if (b4029[tx2[tx2qp].nodeType] & 0x80) {
+    if (fragControl[tx2[tx2qp].nodeType] & 0x80) {
         PutTx1Byte((byte)tx2[tx2qp].right);
         PutTx1Word(tx2[tx2qp].left);
     } else
@@ -541,54 +534,51 @@ void Tx2SyntaxError(byte arg1b) {
     tx2[tx2qp].left     = arg1b;
 }
 
-byte Sub_5679(byte arg1b) {
-    return arg1b == 0 ? b44F7[wC1D6] >> 4 : b44F7[wC1D6] & 0xf;
+byte Sub_5679(byte lrIdx) {
+    return lrIdx == Left ? b44F7[wC1D6] >> 4 : b44F7[wC1D6] & 0xf;
 }
 
-void Sub_56A0(byte arg1b, byte arg2b) {
-    tx2[arg2b] = tx2[arg1b];
+void MoveTx2(byte src, byte dst) {
+    tx2[dst] = tx2[src];
 }
 
 byte IndirectAddr(byte attr) {
-    if (attr == STRUCT_A)
-        return 2;
-    else
-        return attr + 2;
+    return attr == STRUCT_A ? 2 : attr + 2;
 }
 
 void Sub_5795(word arg1w) {
-    word p, q;
+    word offset, q;
 
-    p = arg1w + wC1C3 * 2;
-    q = ((p + 1) >> 1) + 2; // convert to words
+    offset = arg1w + wC1C3 * 2;
+    q = ((offset + 1) >> 1) + 2; // convert to words
     if (curNodeType == T2_RETURNWORD)
         q -= 2;
     if (q > 7) {
-        if (bC0B5[0] == 3)
+        if (exprLoc[0] == 3)
             EncodeFragData(CF_XCHG);
-        wC1DC[0] = 9;
-        wC1DC[1] = p;
-        EncodeFragData(CF_6);
+        iCodeArgs[0] = IR_SR;
+        iCodeArgs[1] = offset;
+        EncodeFragData(CF_SA2HL);
         EncodeFragData(CF_SPHL);
-        if (bC0B5[0] == 3) {
+        if (exprLoc[0] == 3) {
             EncodeFragData(CF_XCHG);
             codeSize += 7;
         } else
             codeSize += 5;
     } else {
-        if (p & 1) {
+        if (offset & 1) {
             EncodeFragData(CF_INXSP);
             codeSize++;
         }
-        while (p > 1) {
-            if (bC0B5[0] == 3)
-                wC1DC[0] = 2; /*  pop d */
+        while (offset > 1) {
+            if (exprLoc[0] == 3)
+                iCodeArgs[0] = IR_D; /*  pop d */
             else
-                wC1DC[0] = 3; /*  pop h */
-            wC1DC[1] = 8;
+                iCodeArgs[0] = IR_H; /*  pop h */
+            iCodeArgs[1] = LOC_REG;
             EncodeFragData(CF_POP);
             codeSize++;
-            p = p - 2;
+            offset -= 2;
         }
     }
     if (arg1w > 0xff00)
@@ -598,8 +588,8 @@ void Sub_5795(word arg1w) {
 }
 
 bool EnterBlk() {
-    if (firstCase < 20) {
-        firstCase++;
+    if (activeGrpCnt < 20) {
+        activeGrpCnt++;
         return true;
     }
     if (blkOverCnt == 0) {
@@ -615,8 +605,8 @@ bool ExitBlk() {
     if (blkOverCnt > 0) {
         blkOverCnt--;
         return false;
-    } else if (firstCase > 0) {
-        firstCase--;
+    } else if (activeGrpCnt > 0) {
+        activeGrpCnt--;
         return true;
     } else {
         Tx2SyntaxError(ERR205); /*  ILLEGAL NESTING OF BLOCKS, ENDS not BALANCED */
@@ -624,6 +614,7 @@ bool ExitBlk() {
         return false;
     }
 }
+
 
 void Sub_58F5(word err) {
     fatalErrorCode = err;
@@ -633,9 +624,9 @@ void Sub_58F5(word err) {
     fragLen        = 3;
     WrFragData();
 
-    while (firstCase > 0) {
+    while (activeGrpCnt > 0) {
         if (ExitBlk()) {
-            if (blkId > firstCase) {
+            if (blkId > activeGrpCnt) {
                 info             = blk[blkId].info;
                 info->codeSize   = codeSize;
                 info->stackUsage = stackUsage;
@@ -662,7 +653,7 @@ void Sub_597E() {
         n         = nodeControlMap[tx2[k].nodeType] & 0xc0;
         if (k != 0) {
             boC060[i] = true;
-            if (bC0B5[0] == i || bC0B5[1] == i) {
+            if (exprLoc[0] == i || exprLoc[1] == i) {
                 boC069[i] = true;
                 if (i > 0)
                     bC0B2++;
@@ -670,7 +661,7 @@ void Sub_597E() {
             if (n == 0 || n == 0x80) {
                 if (tx2[k].extra == 0) {
                     if (tx2[k].exprAttr == bC045[i] || (tx2[k].exprAttr == BYTE_A && bC045[i] == 6))
-                        if (tx2[k].cnt > 1 || boC069[i] || (bC0B7[0] != k && k != bC0B7[1]))
+                        if (tx2[k].cnt > 1 || boC069[i] || (curExprLoc[0] != k && k != curExprLoc[1]))
                             boC072[i] = true;
                 }
             }
@@ -701,24 +692,24 @@ void Sub_597E() {
     }
 }
 
-void Sub_5B96(byte arg1b, byte arg2b) {
-    bC04E[arg2b]  = bC04E[arg1b];
-    bC045[arg2b]  = bC045[arg1b];
-    wC084[arg2b]  = wC084[arg1b];
-    bC0A8[arg2b]  = bC0A8[arg1b];
-    wC096[arg2b]  = wC096[arg1b];
-    boC057[arg2b] = boC057[arg1b];
+void Sub_5B96(byte src, byte dst) {
+    bC04E[dst]  = bC04E[src];
+    bC045[dst]  = bC045[src];
+    wC084[dst]  = wC084[src];
+    bC0A8[dst]  = bC0A8[src];
+    wC096[dst]  = wC096[src];
+    boC057[dst] = boC057[src];
 }
 
-void Sub_5C1D(byte arg1b) {
+void Sub_5C1D(byte irReg) {
     byte i;
     Sub_597E();
-    i = bC140[wC1C3] = bC04E[arg1b];
-    if (boC072[arg1b])
+    i = bC140[wC1C3] = bC04E[irReg];
+    if (boC072[irReg])
         tx2[i].extra = wC1C3;
 
-    if (arg1b != 0)
-        bC0C3[wC1C3] = (bC045[arg1b] << 4) | (bC0A8[arg1b] & 0xf);
+    if (irReg != 0)
+        bC0C3[wC1C3] = (bC045[irReg] << 4) | (bC0A8[irReg] & 0xf);
     else
         bC0C3[wC1C3] = 0xB0;
 }
@@ -737,13 +728,13 @@ void Sub_5C97(byte arg1b) {
         bC0A8[arg1b] = bC0A8[arg1b] | 0xf0;
 }
 
-void Sub_5D27(byte arg1b) {
+void Sub_5D27(byte irReg) {
     if (stackUsage < ++wC1C3 * 2)
         stackUsage = wC1C3 * 2;
-    Sub_5C1D(arg1b);
-    wC1DC[0] = arg1b;
-    wC1DC[1] = 0xA;
-    wC1DC[2] = wC1C3;
+    Sub_5C1D(irReg);
+    iCodeArgs[0] = irReg;
+    iCodeArgs[1] = LOC_STACK;
+    iCodeArgs[2] = wC1C3;
     EncodeFragData(CF_PUSH);
     codeSize++;
 }
@@ -754,10 +745,10 @@ static void Sub_5E16(byte arg1b) // modified as passed in arg for nested proc
         if (boC072[i] && !boC069[i])
             Sub_5D27(i);
 
-    if (bC0B5[0] == arg1b)
-        bC0B5[0] = 9;
+    if (exprLoc[0] == arg1b)
+        exprLoc[0] = 9;
     else
-        bC0B5[1] = 9;
+        exprLoc[1] = 9;
 } /* Sub_5E16() */
 
 void Sub_5D6B(byte arg1b) {
@@ -769,10 +760,10 @@ void Sub_5D6B(byte arg1b) {
     } else if (boC069[arg1b]) {
         for (byte i = 0; i <= 3; i++) {
             if (bC04E[i] == bC04E[arg1b] && i != arg1b && bC045[i] == bC045[arg1b]) {
-                if (bC0B5[0] == arg1b)
-                    bC0B5[0] = i;
+                if (exprLoc[0] == arg1b)
+                    exprLoc[0] = i;
                 else
-                    bC0B5[1] = i;
+                    exprLoc[1] = i;
                 return;
             }
         }
@@ -782,10 +773,10 @@ void Sub_5D6B(byte arg1b) {
 }
 
 void Sub_5E66(byte arg1b) {
-    byte j   = bC0B7[0];
-    byte k   = bC0B7[1];
-    bC0B7[0] = 0;
-    bC0B7[1] = 0;
+    byte j   = curExprLoc[0];
+    byte k   = curExprLoc[1];
+    curExprLoc[0] = 0;
+    curExprLoc[1] = 0;
     arg1b    = (arg1b >> 3) | (arg1b << 5);
     Sub_597E();
     for (byte i = 0; i <= 3; i++) {
@@ -798,17 +789,17 @@ void Sub_5E66(byte arg1b) {
         }
         arg1b = (arg1b << 1) | (arg1b >> 7);
     }
-    bC0B7[0] = j;
-    bC0B7[1] = k;
+    curExprLoc[0] = j;
+    curExprLoc[1] = k;
 }
 
 void Sub_5EE8() {
     Sub_5795(wC1C7);
     info = blk[blkId].info;
     if (info && (info->flag & F_INTERRUPT)) {
-        for (int i = 0; i < 4; i++) {
-            wC1DC[0] = i; /*  pop psw, pop b, pop d, pop h */
-            wC1DC[1] = 8;
+        for (int i = IR_PSW; i <= IR_H; i++) {
+            iCodeArgs[0] = i; /*  pop psw, pop b, pop d, pop h */
+            iCodeArgs[1] = LOC_REG;
             EncodeFragData(CF_POP);
         }
         EncodeFragData(CF_EI);
@@ -850,7 +841,7 @@ void GetVal(byte slot, wpointer pAcc, wpointer pAccFlag) {
 
 void Sub_611A() {
     for (byte i = 0; i <= 1; i++) {
-        byte j = bC0B7[i];
+        byte j = curExprLoc[i];
         if (j && --tx2[j].cnt == 0) {
             for (byte k = 0; k <= 3; k++) {
                 if (bC04E[k] == j)
@@ -862,44 +853,44 @@ void Sub_611A() {
 }
 
 void Sub_61A9(byte arg1b) {
-    bC0C1[arg1b] = b52DD[bC0B3[arg1b]][bC0B5[arg1b]];
+    bC0C1[arg1b] = b52DD[exprAttr[arg1b]][exprLoc[arg1b]];
 }
 
 void Sub_61E0(byte arg1b) {
     if ((nodeControlMap[tx2[arg1b].nodeType] & 0xc0) == 0) {
-        wC1DC[bC1DB++] = 0xa;
-        wC1DC[bC1DB++] = tx2[arg1b].extra;
-        wC1DC[bC1DB++] = (wC1C3 - tx2[arg1b].extra) * 2;
+        iCodeArgs[bC1DB++] = 0xa;
+        iCodeArgs[bC1DB++] = tx2[arg1b].extra;
+        iCodeArgs[bC1DB++] = (wC1C3 - tx2[arg1b].extra) * 2;
     } else if (tx2[arg1b].left) {
         info           = FromIdx(tx2[arg1b].left);
-        wC1DC[bC1DB++] = info->flag & F_AUTOMATIC ? 0xc : 0xb;
-        wC1DC[bC1DB++] = tx2[arg1b].right - info->linkVal;
-        wC1DC[bC1DB++] = ToIdx(info);
+        iCodeArgs[bC1DB++] = info->flag & F_AUTOMATIC ? 0xc : 0xb;
+        iCodeArgs[bC1DB++] = tx2[arg1b].right - info->linkVal;
+        iCodeArgs[bC1DB++] = ToIdx(info);
         if ((info->flag & F_AUTOMATIC))
-            wC1DC[bC1DB++] = tx2[arg1b].right + wC1C3 * 2;
+            iCodeArgs[bC1DB++] = tx2[arg1b].right + wC1C3 * 2;
     } else {
-        wC1DC[bC1DB++] = tx2[arg1b].right < 0x100 ? 8 : 9;
-        wC1DC[bC1DB++] = tx2[arg1b].right;
+        iCodeArgs[bC1DB++] = tx2[arg1b].right < 0x100 ? 8 : 9;
+        iCodeArgs[bC1DB++] = tx2[arg1b].right;
     }
 }
 
 void Sub_636A(byte arg1b) {
-    if (bC0B5[arg1b] <= 3)
-        wC1DC[bC1DB++] = bC0B5[arg1b];
+    if (exprLoc[arg1b] <= 3)
+        iCodeArgs[bC1DB++] = exprLoc[arg1b];
     else
-        Sub_61E0(bC0B7[arg1b]);
+        Sub_61E0(curExprLoc[arg1b]);
 }
 
-void Sub_63AC(byte arg1b) {
-    if (arg1b > 3)
+void Sub_63AC(byte irReg) {
+    if (irReg > IR_H)
         return;
-    if (bC045[arg1b] <= 6) {
-        while (bC0A8[arg1b] != 0) {
-            if (bC0A8[wC1DC[0] = arg1b] > 0x7f) {
-                bC0A8[arg1b]++;
+    if (bC045[irReg] <= 6) {
+        while (bC0A8[irReg] != 0) {
+            if (bC0A8[iCodeArgs[0] = irReg] > 0x7f) {
+                bC0A8[irReg]++;
                 EncodeFragData(CF_INX);
             } else {
-                bC0A8[arg1b]--;
+                bC0A8[irReg]--;
                 EncodeFragData(CF_DCX);
             }
             codeSize++;
@@ -907,13 +898,13 @@ void Sub_63AC(byte arg1b) {
     }
 }
 
-void Sub_6416(byte arg1b) {
-    wC1DC[0] = arg1b;
-    wC1DC[1] = 0xa;
-    wC1DC[2] = wC1C3;
+void Sub_6416(byte irReg) {
+    iCodeArgs[0] = irReg;
+    iCodeArgs[1] = LOC_STACK;
+    iCodeArgs[2] = wC1C3;
     EncodeFragData(CF_POP);
     codeSize++;
-    Sub_5C97(arg1b);
+    Sub_5C97(irReg);
     wC1C3--;
 }
 

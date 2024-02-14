@@ -748,7 +748,7 @@ void Sub_54BA() {
     else if (T2_LIST <= cfCode && cfCode <= T2_INCLUDE)
         MiscControl(&utf1);
     else if (cfCode == T2_EOF)
-        bo812B = false;
+        morePass4 = false;
     else if (cfCode == T2_ERROR)
         EmitFullError();
     else

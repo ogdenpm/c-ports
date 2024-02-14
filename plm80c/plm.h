@@ -49,6 +49,8 @@ typedef uint16_t index_t;
 #define MAXFACTORED   33
 #define MAXXREF       4000
 #define MAXINCLUDES   40
+
+enum { Left, Right};    // left right indexes
 /* flags */
 enum {
     F_PUBLIC    = (1 << 0),
@@ -224,7 +226,7 @@ typedef struct {
     word stackSize;
     byte extProcId;
     byte next;
-    index_t firstCase; // could have used union
+    index_t activeGrpCnt; // could have used union
 } blk_t;
 
 typedef struct _xref {
@@ -429,9 +431,9 @@ extern byte bC04E[];
 extern byte bC0A8[];
 extern byte bC0B1;
 extern byte bC0B2;
-extern byte bC0B3[];
-extern byte bC0B5[];
-extern byte bC0B7[];
+extern byte exprAttr[];
+extern byte exprLoc[];
+extern byte curExprLoc[];
 extern byte bC0B9[];
 extern byte bC0BB[];
 extern byte bC0BD[];
@@ -447,7 +449,7 @@ extern byte bC1DB;
 extern byte fragLen;
 extern byte bC209[];
 extern byte blkOverCnt;
-extern byte firstCase;
+extern byte activeGrpCnt;
 extern bool boC057[];
 extern bool boC060[];
 extern bool boC069[];
@@ -479,18 +481,18 @@ extern word wC1C3;
 extern word stackUsage;
 extern word wC1C7;
 extern word wC1D6;
-extern word wC1DC[5];
+extern word iCodeArgs[5];
 
 /* plm2a.plm */
 extern byte helperModBase[];
-extern byte b4029[];
+extern byte fragControl[];
 extern byte b4128[];
 extern byte b413B[];
 extern byte helperMap[][11];
 extern byte helperGroup[];
 extern byte b4273[];
 extern byte b42F9[];
-extern byte b43F8[];
+extern byte codeAttrLen[];
 extern byte b44F7[];
 extern byte b46EB[];
 extern byte b499B[];
@@ -551,7 +553,7 @@ extern char valPStr[];
 // extern byte b96B1[];
 extern byte fixupType;
 extern word baseAddr;
-extern bool bo812B;
+extern bool morePass4;
 extern bool linePrefixChecked;
 extern bool linePrefixEmitted;
 extern byte cfCode;
@@ -589,7 +591,7 @@ extern bool listOff;
 /* plm4a.plm */
 extern byte modHelperIdCnt[];
 extern byte modHelperId[];
-extern byte b4029[];
+extern byte fragControl[];
 extern byte b4128[];
 extern byte b413B[];
 extern byte helperGroup[];
@@ -925,14 +927,14 @@ void EncodeFragData(byte arg1b);
 void EmitTopItem(void);
 void Tx2SyntaxError(byte arg1b);
 byte Sub_5679(byte arg1b);
-void Sub_56A0(byte arg1b, byte arg2b);
+void MoveTx2(byte src, byte dst);
 byte IndirectAddr(byte arg1b);
 void Sub_5795(word arg1w);
 bool EnterBlk(void);
 bool ExitBlk(void);
 void Sub_58F5(word err);
 void Sub_597E(void);
-void Sub_5B96(byte arg1b, byte arg2b);
+void Sub_5B96(byte src, byte dst);
 void Sub_5C1D(byte arg1b);
 void Sub_5C97(byte arg1b);
 void Sub_5D27(byte arg1b);
@@ -970,34 +972,33 @@ void Sub_84ED(void);
 
 /* plm2f.c */
 void Sub_87CB(void);
-void Sub_9457(void);
+void c_procedure(void);
 
 /* plm2g.c */
 void FindParamInfo(byte arg1b);
-void Sub_9560(void);
-void Sub_9624(word arg1w);
-void Sub_9646(word arg1w);
+void paramsToMem(void);
+void GetEAtoHL(word arg1w);
+void ReserveStkLocals(word arg1w);
 void Inxh(void);
 void OpB(byte arg1b);
 void OpD(byte arg1b);
 void Sub_9706(void);
 void MovDem(void);
-void Sub_975F(void);
 void Sub_978E(void);
 void Sub_981C(void);
 void Sub_994D(void);
 
 /* plm2h.c */
 void Sub_9BB0(void);
-void Sub_9D06(void);
-void Sub_9DD7(void);
-void Sub_9EF8(void);
-void Sub_9F14(void);
-void Sub_9F2F(void);
-void Sub_9F9F(void);
-void Sub_A072(byte arg1b);
-void Sub_A0C4(void);
-void Sub_A10A(void);
+void c_call(void);
+void c_callVar(void);
+void c_begMove(void);
+void c_case(void);
+void c_endcase(void);
+void c_endproc(void);
+void c_length(byte arg1b);
+void c_size(void);
+void c_begCall(void);
 void Sub_A153(void);
 
 /* plm3a.c */

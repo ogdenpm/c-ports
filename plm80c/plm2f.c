@@ -8,26 +8,26 @@
  ****************************************************************************/
 #include "plm.h"
 
-static byte bC2A5, bC2A6, bC2A7;
+static byte bC2A7;
 static word wC2A9, first, last;
 
-static bool Sub_8861() {
+static bool Sub_8861(byte  lrIdx) {
     for (wC1D6 = first; wC1D6 <= last; wC1D6++) {
-        byte i = Sub_5679(bC2A5);
+        byte i = Sub_5679(lrIdx);
         if ((0 <= i && i <= 3) || (12 <= i && i <= 14))
             return true;
     }
     return false;
 } /* Sub_8861() */
 
-static void Sub_88C1() {
-    if (Sub_8861()) {
+static void Sub_88C1(byte exprIdx, byte lrIdx) {
+    if (Sub_8861(lrIdx)) {
         for (int i = 0; i < 4; i++) {
-            if (bC04E[i] == bC2A6) {
+            if (bC04E[i] == exprIdx) {
                 if (bC045[i] == 0 || bC045[i] == 1 || bC045[i] == 6) {
-                    bC0B3[bC2A5] = bC045[i];
-                    bC0B5[bC2A5] = i;
-                    if (bC0B5[1 - bC2A5] != i)
+                    exprAttr[lrIdx] = bC045[i];
+                    exprLoc[lrIdx] = i;
+                    if (exprLoc[1 - lrIdx] != i)
                         return;
                 }
             }
@@ -35,28 +35,28 @@ static void Sub_88C1() {
     }
 } /* Sub_88C1() */
 
-static void Sub_894A() {
-    if (bC0B5[bC2A5] > 3) {
+static void Sub_894A(byte exprIdx, byte lrIdx) {
+    if (exprLoc[lrIdx] > 3) {
         for (int i = 1; i < 4; i++) {
-            if (bC04E[i] == bC2A6 && (bC045[i] == 2 || bC045[i] == 3)) {
-                bC0B3[bC2A5] = bC045[i];
-                bC0B5[bC2A5] = i;
-                if (bC0B5[1 - bC2A5] != i)
+            if (bC04E[i] == exprIdx && (bC045[i] == 2 || bC045[i] == 3)) {
+                exprAttr[lrIdx] = bC045[i];
+                exprLoc[lrIdx] = i;
+                if (exprLoc[1 - lrIdx] != i)
                     return;
             }
         }
     }
 } /* Sub_894A() */
 
-static void Sub_89D1() {
+static void Sub_89D1(byte exprIdx, byte lrIdx) {
     byte i;
     word p;
 
-    if (bC0B5[bC2A5] == 0xA)
-        wC2A9 = tx2[bC2A6].right;
-    else if (bC0B5[bC2A5] == 9) {
-        wC2A9 = tx2[bC2A6].extra;
-        if ((!boC069[0] && boC072[0]) || bC0B1 > 0 || wC2A9 != wC1C3) {
+    if (exprLoc[lrIdx] == 0xA)
+        wC2A9 = tx2[exprIdx].right;
+    else if (exprLoc[lrIdx] == 9) {
+        wC2A9 = tx2[exprIdx].extra;
+        if ((!boC069[Left] && boC072[Left]) || bC0B1 > 0 || wC2A9 != wC1C3) {
             i = bC0B1 + bC0B2;
             for (p = wC2A9; p <= wC1C3; p++) {
                 if (bC140[p] != 0)
@@ -65,94 +65,95 @@ static void Sub_89D1() {
             if (i < 4)
                 boC1D8 = true;
             else
-                bC0B5[bC2A5] = 0xA;
+                exprLoc[lrIdx] = 0xA;
         }
         wC2A9 = -(wC2A9 * 2);
     }
 } /* Sub_89D1() */
 
-static void Sub_8A9C() {
+static void Sub_8A9C(byte lrIdx) {
     word p, q;
     byte ii, j;
     word r;
 
-    if (bC0B5[bC2A5] == 0xA) {
+    if (exprLoc[lrIdx] == 0xA) {
         p  = wC2A9;
         q  = 0x100;
         ii = 4;
-        j  = IndirectAddr(bC0B3[bC2A5]);
-    } else if (bC0B5[bC2A5] == 8 && bC0B3[bC2A5] == 1) {
-        GetVal(bC0B7[bC2A5], &p, &q);
+        j  = IndirectAddr(exprAttr[lrIdx]);
+    } else if (exprLoc[lrIdx] == 8 && exprAttr[lrIdx] == 1) {
+        GetVal(curExprLoc[lrIdx], &p, &q);
         ii = 2;
         j  = ADDRESS_A;
-    } else if (bC0B5[bC2A5] == 4 && (bC0B3[bC2A5] == 0 || bC0B3[bC2A5] == 8 || !Sub_8861())) {
-        GetVal(bC0B7[bC2A5], &p, &q);
+    } else if (exprLoc[lrIdx] == 4 && (exprAttr[lrIdx] == 0 || exprAttr[lrIdx] == 8 || !Sub_8861(lrIdx))) {
+        GetVal(curExprLoc[lrIdx], &p, &q);
         ii = 2;
-        j  = IndirectAddr(bC0B3[bC2A5]);
+        j  = IndirectAddr(exprAttr[lrIdx]);
     } else
         return;
 
     for (int i = 1; i < 4; i++) {
         if (boC069[i]) {
-            if (bC0B7[0] == bC0B7[1] && curNodeType != T2_COLONEQUALS)
-                if (bC0B5[bC2A5] > 3)
-                    bC0B5[bC2A5] = i;
+            if (curExprLoc[Left] == curExprLoc[Right] && curNodeType != T2_COLONEQUALS)
+                if (exprLoc[lrIdx] > 3)
+                    exprLoc[lrIdx] = i;
         } else if (!boC072[i] && wC096[i] == q && boC057[i] && 1 <= bC045[i] && bC045[i] <= 6) {
             r = wC084[i] + bC0A8[i] - p;
             if (r > 0xff)
                 r = -r;
             if (r < ii) {
-                bC0B5[bC2A5] = i;
+                exprLoc[lrIdx] = i;
                 ii           = (byte)r;
             }
         }
     }
-    if (bC0B5[bC2A5] <= 3) {
-        int i    = bC0B5[bC2A5];
-        bC045[i] = bC0B3[bC2A5] = j;
-        bC04E[i]                = bC0B7[bC2A5];
+    if (exprLoc[lrIdx] <= 3) {
+        int i    = exprLoc[lrIdx];
+        bC045[i] = exprAttr[lrIdx] = j;
+        bC04E[i]                = curExprLoc[lrIdx];
         bC0A8[i]                = wC084[i] + bC0A8[i] - p;
         wC084[i]                = p;
     }
 } /* Sub_8A9C() */
 
 static void Sub_8CF5() {
-    bC0B5[0] = 8;
-    bC0B5[1] = 8;
-    for (bC2A5 = 0; bC2A5 <= 1; bC2A5++) {
-        if ((bC2A6 = bC0B7[bC2A5]) == 0)
-            bC0B3[bC2A5] = 0xC;
-        else if ((bC2A7 = tx2[bC2A6].nodeType) == T2_STACKPTR)
-            bC0B3[bC2A5] = 0xA;
+    byte exprIdx, lrIdx;
+    exprLoc[Left] = 8;
+    exprLoc[Right] = 8;
+    for (lrIdx = 0; lrIdx <= 1; lrIdx++) {
+        if ((exprIdx = curExprLoc[lrIdx]) == 0)
+            exprAttr[lrIdx] = 0xC;
+        else if ((bC2A7 = tx2[exprIdx].nodeType) == T2_STACKPTR)
+            exprAttr[lrIdx] = 0xA;
         else if (bC2A7 == T2_LOCALLABEL)
-            bC0B3[bC2A5] = 9;
+            exprAttr[lrIdx] = 9;
         else {
-            bC0B3[bC2A5] = tx2[bC2A6].exprAttr;
-            bC0B5[bC2A5] = tx2[bC2A6].exprLoc;
-            Sub_88C1();
-            Sub_894A(); /*  checked */
+            exprAttr[lrIdx] = tx2[exprIdx].exprAttr;
+            exprLoc[lrIdx] = tx2[exprIdx].exprLoc;
+            Sub_88C1(exprIdx, lrIdx);
+            Sub_894A(exprIdx, lrIdx); /*  checked */
         }
     }
-    for (bC2A5 = 0; bC2A5 <= 1; bC2A5++) {
-        bC2A6 = bC0B7[bC2A5];
+    for (lrIdx = 0; lrIdx <= 1; lrIdx++) {
+        exprIdx = curExprLoc[lrIdx];
         Sub_597E();
-        Sub_89D1();
-        Sub_8A9C();
-        Sub_61A9(bC2A5);
+        Sub_89D1(exprIdx, lrIdx);
+        Sub_8A9C(lrIdx);
+        Sub_61A9(lrIdx);
     }
 } /* Sub_8CF5() */
 
-static byte Sub_8E7E(byte arg1b) {
+static byte Sub_8E7E(byte lrIdx) {
 
-    if (bC0B7[arg1b] == 0 || bC0B7[arg1b] == 1)
+    if (curExprLoc[lrIdx] == 0 || curExprLoc[lrIdx] == 1)
         return 1;
-    return b4D23[bC0C1[arg1b]][Sub_5679(arg1b)];
+    return b4D23[bC0C1[lrIdx]][Sub_5679(lrIdx)];
 } /* Sub_8E7E() */
 
-static void Sub_8ECD(byte arg1b, byte arg2b) {
-    bC0B9[arg1b] = b4C45[arg2b];
-    bC0BB[arg1b] = b4CB4[arg2b];
-    bC0BD[arg1b] = b4FA3[arg2b];
+static void Sub_8ECD(byte lrIdx, byte srcIdx) {
+    bC0B9[lrIdx] = b4C45[srcIdx];
+    bC0BB[lrIdx] = b4CB4[srcIdx];
+    bC0BD[lrIdx] = b4FA3[srcIdx];
 } /* Sub_8ECD() */
 
 static void Sub_8DCD() {
@@ -161,29 +162,29 @@ static void Sub_8DCD() {
 
     j     = 198;
     for (wC1D6 = first; wC1D6 <= last; wC1D6++) {
-        k = Sub_8E7E(0);
-        m = Sub_8E7E(1);
-        n = b4C45[k] + b4C45[m] + (b43F8[b4A21[wC1D6]] & 0x1f);
+        k = Sub_8E7E(Left);
+        m = Sub_8E7E(Right);
+        n = b4C45[k] + b4C45[m] + (codeAttrLen[b4A21[wC1D6]] & 0x1f);
         if (n < j) {
             j        = n;
             h        = k;
             i        = m;
             cfrag1   = b4A21[wC1D6];
             bC1D9    = b46EB[wC1D6];
-            bC0BF[0] = Sub_5679(0);
-            bC0BF[1] = Sub_5679(1);
+            bC0BF[Left] = Sub_5679(Left);
+            bC0BF[Right] = Sub_5679(Right);
         }
     }
-    Sub_8ECD(0, h);
-    Sub_8ECD(1, i);
+    Sub_8ECD(Left, h);
+    Sub_8ECD(Right, i);
 } /* Sub_8DCD() */
 
 static void Sub_8F16() {
-    if (bC0B7[0] != 0)
-        Sub_63AC(bC0B5[0]);
+    if (curExprLoc[Left] != 0)
+        Sub_63AC(exprLoc[Left]);
 
-    if (bC0B7[1] != 0)
-        Sub_63AC(bC0B5[1]);
+    if (curExprLoc[Right] != 0)
+        Sub_63AC(exprLoc[Right]);
 } /* Sub_8F16() */
 
 static void Sub_8F35() {
@@ -230,7 +231,7 @@ static void Sub_8F35() {
 
 static void Sub_940D() {
     for (int i = 0; i < 4; i++) {
-        if (bC04E[i] == bC0B7[0])
+        if (bC04E[i] == curExprLoc[Left])
             if (bC045[i] < 2 || 5 < bC045[i])
                 bC04E[i] = 0;
     }
@@ -245,14 +246,14 @@ static void Sub_90EB() {
     k = 0;
     if (curNodeType == T2_COLONEQUALS) {
         Sub_940D();
-        if (tx2[bC0B7[1]].cnt == 0)
-            if (tx2[bC0B7[0]].cnt > 0) {
+        if (tx2[curExprLoc[Right]].cnt == 0)
+            if (tx2[curExprLoc[Left]].cnt > 0) {
                 if (cfrag1 == CF_MOVMLR || cfrag1 == CF_STA) {
-                    bC045[bC0B5[1]] = 0;
-                    bC04E[bC0B5[1]] = bC0B7[0];
+                    bC045[exprLoc[Right]] = BYTE_A;
+                    bC04E[exprLoc[Right]] = curExprLoc[Left];
                 } else if (cfrag1 == CF_SHLD || cfrag1 == CF_MOVMRP) {
-                    bC045[bC0B5[1]] = 1;
-                    bC04E[bC0B5[1]] = bC0B7[0];
+                    bC045[exprLoc[Right]] = ADDRESS_A;
+                    bC04E[exprLoc[Right]] = curExprLoc[Left];
                 }
             }
     } else if (T2_51 <= curNodeType && curNodeType <= T2_56)
@@ -267,10 +268,10 @@ static void Sub_90EB() {
             if (i == 1)
                 bC0A8[n]++;
             else if (i == 2) {
-                if (bC045[n] == 0) {
+                if (bC045[n] == BYTE_A) {
                     bC045[n] = 6;
                 } else {
-                    bC045[n]  = 1;
+                    bC045[n]  = ADDRESS_A;
                     boC057[n] = 0;
                 }
             }
@@ -278,7 +279,7 @@ static void Sub_90EB() {
             boC057[k = n] = 0;
             if (0 < tx2[tx2qp].cnt) {
                 bC04E[n] = tx2qp;
-                bC045[n] = tx2[tx2qp].exprAttr = b43F8[cfrag1] >> 5;
+                bC045[n] = tx2[tx2qp].exprAttr = codeAttrLen[cfrag1] >> 5;
                 bC0A8[n]                       = 0;
             } else
                 bC04E[n] = 0;
@@ -287,7 +288,7 @@ static void Sub_90EB() {
             wC096[n]  = 0;
             bC0A8[n]  = 0;
             boC057[n] = 0xFF;
-            bC045[n]  = 0;
+            bC045[n]  = BYTE_A;
             wC084[n]  = i;
         } else {
             bC04E[n]  = 0;
@@ -303,7 +304,7 @@ static void Sub_90EB() {
         if (k != 0) {
             bC04E[k]            = tx2qp;
             boC057[k]           = 0;
-            bC045[k]            = 0;
+            bC045[k]            = BYTE_A;
             tx2[tx2qp].exprAttr = BYTE_A;
             bC0A8[k]            = 0;
         }
@@ -313,15 +314,15 @@ static void Sub_90EB() {
 } /* Sub_90EB() */
 
 void Sub_87CB() {
-    bC0B7[0] = (byte)tx2[tx2qp].left;
-    bC0B7[1] = (byte)tx2[tx2qp].right;
+    curExprLoc[Left] = (byte)tx2[tx2qp].left;
+    curExprLoc[Right] = (byte)tx2[tx2qp].right;
     first    = wAF54[curNodeType];
     last     = first + b499B[curNodeType] - 1;
     Sub_8CF5();
 
     while (1) {
         Sub_8DCD(); /*  OK */
-        if (bC0B9[0] == 0 && bC0B9[1] == 0)
+        if (bC0B9[Left] == 0 && bC0B9[Right] == 0)
             break;
         if (boC1D8)
             Sub_7A85();
@@ -336,15 +337,15 @@ void Sub_87CB() {
     Sub_90EB();
 } /* Sub_87CB() */
 
-void Sub_9457() {
+void c_procedure() {
     if (EnterBlk()) {
         blk[blkId].codeSize  = codeSize;
         blk[blkId].wB4B0     = wC1C3;
         blk[blkId].stackSize = stackUsage;
         blk[blkId].extProcId = curExtProcId;
-        blk[firstCase].next  = blkId;
-        blkId                = firstCase;
-        info = blk[firstCase].info = FromIdx(tx2[tx2qp].left);
+        blk[activeGrpCnt].next  = blkId;
+        blkId                = activeGrpCnt;
+        info = blk[activeGrpCnt].info = FromIdx(tx2[tx2qp].left);
         curExtProcId               = info->procId;
         codeSize                   = 0;
         EmitTopItem();

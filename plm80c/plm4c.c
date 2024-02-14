@@ -415,16 +415,16 @@ static void Sub_67AD(byte reg, byte slot) {
 
 static void Sub_6720(void) {
     fixupType = 0;
-    if (b4029[cfCode] & 0x80) {
+    if (fragControl[cfCode] & 0x80) {
         b969C = Rd1Byte();
         b969D = b4273[b969C];
     }
     commentPStr[0] = 0; // clear any existing comment string
-    operandClass   = (b4029[cfCode] >> 4) & 7;
+    operandClass   = (fragControl[cfCode] >> 4) & 7;
     if (operandClass) {
         byte regs = operandClass <= 3 ? Rd1Byte() : 0;
         Sub_67AD((regs >> 4) & 0xf, 0);
-        operandClass = (b4029[cfCode] >> 1) & 7;
+        operandClass = (fragControl[cfCode] >> 1) & 7;
         Sub_67AD(regs & 0xf, 1);
     }
 } /* Sub_6720() */

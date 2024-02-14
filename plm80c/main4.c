@@ -108,7 +108,7 @@ word Start4() {
     if (setjmp(exception) == 0) {
         Sub_408B();
 
-        while (bo812B)
+        while (morePass4)
             Sub_54BA();
         Sub_4162();
         FlushRecs();

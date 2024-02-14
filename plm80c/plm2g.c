@@ -7,28 +7,25 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "plm.h"
+#include "int.h"
 
 static byte curParamCnt;
-static byte reg;
 static byte bC2D3;
 static word wC2D4;
 
-#define R_BC 1
-#define R_DE 2
-
 void FindParamInfo(byte arg1b) {
-    info = blk[firstCase].info;
+    info = blk[activeGrpCnt].info;
     while (arg1b-- != 0)
         AdvNxtInfo();
 }
 
-static void saveParam(byte paramNo) {
+static void saveParam(byte paramNo, byte irReg) {
     if (info->type == ADDRESS_T) {
-        wC1DC[0] = reg;
+        iCodeArgs[0] = irReg;
         EncodeFragData(CF_MOVMRPR);
         codeSize += 3;
     } else {
-        wC1DC[0] = reg;
+        iCodeArgs[0] = irReg;
         EncodeFragData(CF_MOVMLR);
         codeSize++;
     }
@@ -38,84 +35,81 @@ static void saveParam(byte paramNo) {
     }
 }
 
-void Sub_9560() {
+void paramsToMem() {
     byte paramOrder;
+    byte reg = (paramOrder = curParamCnt) == 1 ? IR_B : IR_D;
 
-    if ((paramOrder = curParamCnt) == 1)
-        reg = R_BC;
-    else
-        reg = R_DE;
     for (byte paramNo = 1; paramNo <= curParamCnt; paramNo++) {
         FindParamInfo(paramOrder); // popping stack in reverse parameter order
         if (paramNo == 2)
-            reg = R_BC;
+            reg = IR_B;
         else if (paramNo == 3) {
-            wC1DC[0] = R_DE; /*  pop d */
-            wC1DC[1] = 8;
+            iCodeArgs[0] = IR_D; /*  pop d */
+            iCodeArgs[1] = LOC_REG;
             EncodeFragData(CF_POP);
-            wC1DC[0] = R_BC; /*  pop b */
-            wC1DC[1] = 8;
+            iCodeArgs[0] = IR_B; /*  pop b */
+            iCodeArgs[1] = LOC_REG;
             EncodeFragData(CF_POP);
             codeSize += 2;
         } else if (paramNo > 3) {
-            wC1DC[0] = R_BC; /*  pop b */
-            wC1DC[1] = 8;
+            iCodeArgs[0] = IR_B; /*  pop b */
+            iCodeArgs[1] = LOC_REG;
             EncodeFragData(CF_POP);
             codeSize++;
         }
-        saveParam(paramNo);
+        saveParam(paramNo, reg);
         paramOrder--;
     }
     if (curParamCnt > 2) {
-        wC1DC[0] = 2; /*  push d */
-        wC1DC[1] = 8;
+        iCodeArgs[0] = IR_D; /*  push d */
+        iCodeArgs[1] = LOC_REG;
         EncodeFragData(CF_PUSH);
         codeSize++;
     }
 }
 
-void Sub_9624(word arg1w) {
-    wC1DC[0] = 9;
-    wC1DC[1] = arg1w;
-    EncodeFragData(CF_6);
+void GetEAtoHL(word arg1w) {
+    iCodeArgs[0] = IR_SR;    // get effective address into HL
+    iCodeArgs[1] = arg1w;    // -ve offset from stack
+    EncodeFragData(CF_SA2HL);
     codeSize += 4;
 }
 
-void Sub_9646(word arg1w) {
-    if ((arg1w >> 1) + (arg1w & 1) <= 5) {
-        if (arg1w & 1) {
+void ReserveStkLocals(word localSize) {
+    if (localSize <= 10) {
+        if (localSize & 1) {
             EncodeFragData(CF_DCXSP);
             codeSize++;
         }
-        while (arg1w > 1) {
-            wC1DC[0] = 3; /*  push h */
-            wC1DC[1] = 8;
+        while (localSize > 1) {
+            iCodeArgs[0] = IR_H; /*  push h */
+            iCodeArgs[1] = LOC_REG;
             EncodeFragData(CF_PUSH);
-            codeSize = codeSize + 1;
-            arg1w -= 2;
+            codeSize++;
+            localSize -= 2;
         }
     } else {
-        Sub_9624(-arg1w);
+        GetEAtoHL(-localSize);
         EncodeFragData(CF_SPHL);
         codeSize++;
     }
 }
 
 void Inxh() {
-    wC1DC[0] = 3;
+    iCodeArgs[0] = IR_H;
     EncodeFragData(CF_INX);
     codeSize++;
 }
 
-void OpB(byte arg1b) {
-    wC1DC[0] = 1;
-    EncodeFragData(arg1b);
+void OpB(byte icode) {
+    iCodeArgs[0] = IR_B;
+    EncodeFragData(icode);
     codeSize++;
 }
 
-void OpD(byte arg1b) {
-    wC1DC[0] = 2;
-    EncodeFragData(arg1b);
+void OpD(byte icode) {
+    iCodeArgs[0] = IR_D;
+    EncodeFragData(icode);
     codeSize++;
 }
 
@@ -143,9 +137,9 @@ void MovDem() {
     codeSize += 2;
 }
 
-void Sub_975F() {
-    wC1DC[0] = reg;
-    wC1DC[1] = 8;
+static void Sub_975F(byte irReg) {
+    iCodeArgs[0] = irReg;
+    iCodeArgs[1] = LOC_REG;
     EncodeFragData(CF_PUSH);
     codeSize++;
     if (info->type == BYTE_T) {
@@ -156,11 +150,9 @@ void Sub_975F() {
 
 void Sub_978E() {
     if ((bC2D3 = curParamCnt) > 2)
-        Sub_9624(wC2D4);
-    if (curParamCnt == 1)
-        reg = 1;
-    else
-        reg = 2;
+        GetEAtoHL(wC2D4);
+    byte irReg = curParamCnt == 1 ? IR_B : IR_D;
+
     for (byte paramNo = 1; paramNo <= curParamCnt; paramNo++) {
         FindParamInfo(bC2D3);
         if (paramNo > 3)
@@ -169,23 +161,22 @@ void Sub_978E() {
             MovDem();
             Sub_9706();
         } else if (info->type == BYTE_T) {
-            wC1DC[0] = reg;
+            iCodeArgs[0] = irReg;
             EncodeFragData(CF_MOVHRLR);
             codeSize++;
         }
-        Sub_975F();
-        reg = 1;
+        Sub_975F(irReg);
+        irReg = IR_B;
         bC2D3--;
     }
 }
 
 void Sub_981C() {
-    byte i, j;
     curParamCnt = info->paramCnt;
     if ((info->flag & F_INTERRUPT)) {
-        for (j = 0; j <= 3; j++) {
-            wC1DC[0] = 3 - j;
-            wC1DC[1] = 8; /*  push h, push d, push b, push psw */
+        for (int8_t irReg = IR_H; irReg >= IR_PSW; irReg--) {
+            iCodeArgs[0] = irReg;
+            iCodeArgs[1] = LOC_REG; /*  push h, push d, push b, push psw */
             EncodeFragData(CF_PUSH);
             codeSize++;
         }
@@ -198,10 +189,10 @@ void Sub_981C() {
             wC2D4 = wC1C7 - info->linkVal - 1;
             if (info->type == ADDRESS_T)
                 wC2D4--;
-            Sub_9646(wC2D4);
+            ReserveStkLocals(wC2D4);
             Sub_978E();
         } else
-            Sub_9646(wC1C7);
+            ReserveStkLocals(wC1C7);
 
         if (curParamCnt > 2)
             wC1C7 += (curParamCnt - 2) * 2;
@@ -210,16 +201,12 @@ void Sub_981C() {
     } else {
         if (curParamCnt > 0) {
             FindParamInfo(curParamCnt); /*  locate info for first param */
-            if (info->type == ADDRESS_T)
-                i = 1;
-            else
-                i = 0;
-            wC1DC[0] = 3;
-            wC1DC[1] = 0xb;
-            wC1DC[2] = i;
-            wC1DC[3] = ToIdx(info); /*  info for first param */
-            EncodeFragData(CF_7);
-            Sub_9560();
+            iCodeArgs[0] = IR_H;
+            iCodeArgs[1] = LOC_VAR;
+            iCodeArgs[2] = info->type == ADDRESS_T ? 1 : 0; // offset
+            iCodeArgs[3] = ToIdx(info); /*  info for first param */
+            EncodeFragData(CF_LXI);
+            paramsToMem();
             codeSize += 3;
         }
         wC1C7 = 0;
@@ -251,10 +238,10 @@ void Sub_994D() {
             return;
         Sub_5795(0);
     } else if (curNodeType == T2_INPUT || (T2_SIGN <= curNodeType && curNodeType <= T2_CARRY)) {
-        bC0B7[0] = 0;
-        bC0B7[1] = 0;
-        bC0B5[0] = 8;
-        bC0B5[1] = 8;
+        curExprLoc[0] = 0;
+        curExprLoc[1] = 0;
+        exprLoc[0] = 8;
+        exprLoc[1] = 8;
         Sub_597E();
         Sub_5D6B(0);
         bC045[0]        = 0;
@@ -277,5 +264,5 @@ void Sub_994D() {
         }
     }
     EmitTopItem();
-    codeSize += (b43F8[curNodeType] & 0x1f);
+    codeSize += (codeAttrLen[curNodeType] & 0x1f);
 }
