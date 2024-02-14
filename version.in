@@ -1,2 +1,3 @@
 [Package]
-GIT_VERSION "@@"
+GIT_VERSION  @v@
+Last checked @D@
