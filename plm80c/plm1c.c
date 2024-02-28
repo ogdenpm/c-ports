@@ -170,7 +170,7 @@ word PopParse() {
 
 static void PushOperand(operand_t *operand) {
     if (operandSP == EXPRSTACKSIZE - 1)
-        FatalError_ov1(121); /* LIMIT EXCEEDED: Expression TOO COMPLEX */
+        FatalError_ov1(ERR121); /* LIMIT EXCEEDED: Expression TOO COMPLEX */
     operandStack[++operandSP] = *operand;
 }
 
@@ -277,14 +277,16 @@ byte GetCallArgCnt() {
     word nArgExpected = PopParse();
     word nArgActual   = PopOperator();
 
-    if (nArgExpected < nArgActual) {
-        Wr2TokError(153); /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO MANY */
-        while (nArgActual-- > nArgExpected)
-            PopOperand();
-    } else if (nArgActual > nArgExpected) {
-        Wr2TokError(154); /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW */
-        while (nArgExpected < nArgActual++)
-            PushSimpleOperand(I_NUMBER, 0);
+    if (nArgExpected != nArgActual) {
+        if (nArgExpected < nArgActual) {
+            Wr2TokError(ERR153); /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO MANY */
+            while (nArgActual-- != nArgExpected)
+                PopOperand();
+        } else {
+            Wr2TokError(ERR154); /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW */
+            while (nArgExpected != nArgActual++)
+                PushSimpleOperand(I_NUMBER, 0);
+        }
     }
     return (byte)nArgExpected;
 }
