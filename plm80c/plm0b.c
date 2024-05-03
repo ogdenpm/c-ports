@@ -918,9 +918,10 @@ static void ParseControl() {
 }
 
 void ParseControlLine(char *pch) {
-    curChP   = pch;
+    curChP   = pch - 1;
     chrClass = 0;
 
+    NxtCh();
     while (1) {
         SkipWhite();
         if (chrClass == CC_NEWLINE)
