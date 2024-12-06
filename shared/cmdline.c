@@ -207,7 +207,7 @@ uint16_t GetNumber(void) {
 // print the command line, splitting long lines
 int printCmdLine(FILE *fp, int width, int offset) {
     int col   = offset;
-    char *s   = offset ? commandLine + 1 : commandLine;
+    char *s   = commandLine + 1;    // skip the leading - stored in cmd line
     int nlCnt = 0;
     while (*s) {
         char *brk = strpbrk(s, ", '\n\r");
