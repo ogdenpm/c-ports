@@ -72,6 +72,7 @@ The following additional behaviour changes have been made to asm80
 - MACROFILE and MOD85 are now the default. NOMACROFILE and NOMOD85 have been added to remove the reserved words if needed
 - Labels and module name can now be up to 31 characters to align with PL/M-80.
   Note, as the assembler truncates identifiers, you may see errors reported for older code with identifiers longer than the six character limit, these will need to be fixed manually.
+- A new option ISISNAME, forces names to truncate at 6 characters as per the original assembler. It also disables support for underbar, however the use of $ as a visual separator is still supported.
 - The header lines have been modified to reflect that they are no longer ISIS-II and to enable long module names to be centred in the available space. Additionally, if there is room, the date and time of the assembly in the format [yyyy-mm-dd hh:mm] will also be included. The default header width is now 80 unless the page width is smaller.
 - The Symbol Cross Reference now uses the common new page functionality so page numbers don't restart from 1
 - Symbol and Cross Reference information that cross page boundaries how add a sub heading to indicate that the information is continued.
@@ -253,9 +254,7 @@ a = b(i) xor b(i := i + 1);
 will generate different results depending on whether the  lhs or rhs is evaluated first
 ```
 
-
-
-#### Original Notes
+### Original Notes
 
 Prior to porting it is helpful to make sure that the source code follows a  number of conventions as this makes it easier to spot variables vs. functions and helps with semi automation of the conversion. In particular
 
@@ -546,5 +545,5 @@ In addition to avoiding overlays this also allows for code sharing to be done, h
 ------
 
 ```
-Updated by Mark Ogden 13-Nov-2023
+Updated by Mark Ogden 6-Dec-2024
 ```
