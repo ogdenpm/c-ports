@@ -131,12 +131,12 @@ byte spIdx;
 
 controls_t controls  = { .all = {
                             false, false, false, true,  true, false, true, true, true, true,
-                            120,   66,    0,     false, 0,    0,     0,    true, true, true, false } };
+                            120,   66,    0,     false, 0,    0,     0,    true, true, true, false, false } };
 word pageWidth       = 120;
 word pageLength      = 66;
 
 bool ctlListChanged  = true;
-bool controlSeen[21];
+bool controlSeen[NCONTROL];
 byte saveStack[8][3];
 byte saveIdx = 0;
 char titleStr[65];

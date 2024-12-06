@@ -135,7 +135,7 @@ extern controls_t controls;
 extern word pageWidth;  // allows for > 255
 extern word pageLength; // allows for > 255
 extern bool ctlListChanged;
-extern bool controlSeen[21];
+extern bool controlSeen[NCONTROL];
 extern byte saveStack[8][3];
 extern byte saveIdx;
 extern char titleStr[];
@@ -206,3 +206,5 @@ extern bool killObjFile;
 extern int maxSymWidth;
 extern char dateStr[22]; // [yyyy-mm-dd hh:mm]
 extern char *depFile;
+
+extern int maxSymbolSize;

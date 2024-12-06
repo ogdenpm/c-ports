@@ -6,8 +6,8 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "asm80.h"
 #include "../shared/os.h"
+#include "asm80.h"
 #include <ctype.h>
 #include <stdint.h>
 
@@ -25,7 +25,8 @@ static struct {
                      { 0x39, "MACROFILE" }, { 0x29, "PAGEWIDTH" },  { 0x2A, "PAGELENGTH" },
                      { 0x7, "INCLUDE" },    { 0x5, "TITLE" },       { 0x4, "SAVE" },
                      { 0x7, "RESTORE" },    { 0x5, "EJECT" },       { 0x14, "LIST" },
-                     { 0x13, "GEN" },       { 0x14, "COND" },       { 0x2A, "MAKEDEPEND" } };
+                     { 0x13, "GEN" },       { 0x14, "COND" },       { 0x2A, "MAKEDEPEND" },
+                     { 0x28, "ISISNAME" } };
 
 byte tokVal;
 bool savedCtlList, savedCtlGen;
@@ -35,8 +36,7 @@ bool controlError;
 
 char const *includes[MAXINCLUDES];
 uint16_t includeCnt;
-
-
+int maxSymbolSize = MAXSYMSIZE;
 
 static bool ChkParen(byte parenType) {
     SkipWhite();
@@ -87,7 +87,7 @@ static byte GetTok(void) {
 
 static void GetFileNameOpt(void) {
     SkipNextWhite();
-    int endCh  = ')';
+    int endCh = ')';
 
     if (curChar == '\'') {
         endCh   = '\'';
@@ -267,14 +267,18 @@ static void ProcessControl(byte id) {
         if (ChkParen('(')) {
             GetFileParam();
             if (!depFile)
-            depFile = xstrdup(tokBuf);
+                depFile = xstrdup(tokBuf);
         } else if (!depFile) {
             char const *s = basename((char *)includes[0]);
-            int len = (int)(strrchr(s, '.') ? strrchr(s, '.') - s: strlen(s));
-            depFile = xmalloc(len + 9); //  .deps/{src}.d;
+            int len       = (int)(strrchr(s, '.') ? strrchr(s, '.') - s : strlen(s));
+            depFile       = xmalloc(len + 9); //  .deps/{src}.d;
             sprintf(depFile, ".deps/%.*s.d", len, s);
         }
         controls.makedepend = true;
+        return;
+    case 21: /* ISISNAME */
+        controls.isisName = true;
+        maxSymbolSize   = 6;
         return;
     default:
         return;
@@ -314,8 +318,6 @@ void ParseControls(void) {
 
     reget = 0;
 }
-
-
 
 char const *newInclude(char const *fname) {
     for (uint16_t i = 0; i < includeCnt; i++)

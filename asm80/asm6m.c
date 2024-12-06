@@ -169,10 +169,10 @@ void CollectByte(byte c) {
 
 void GetTokenText(byte type) {
     PushToken(type); /* save any previous token and initialise this one */
-    reget = 1;       /* force re get of first character */
+    reget      = 1;  /* force re get of first character */
     bool isnum = type == O_NUMBER;
-    while ((type = GetChClass()) == CC_DIG || type == CC_LET ||
-           type == CC_DOLLAR || type == CC_BAR) { /* digit || letter */
+    while ((type = GetChClass()) == CC_DIG || type == CC_LET || type == CC_DOLLAR ||
+           (!controls.isisName && type == CC_BAR)) { /* digit || letter */
         if (type != CC_DOLLAR && !(isnum && type == CC_BAR))
             CollectByte(toupper(curChar));
     }
@@ -222,7 +222,7 @@ void GetNum(void) {
     }
     /* replace with packed number */
     token.size = 0;
-    CollectByte((num)&0xff);
+    CollectByte((num) & 0xff);
     CollectByte((num) >> 8);
 }
 

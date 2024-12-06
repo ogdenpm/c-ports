@@ -179,8 +179,9 @@ typedef struct {
     };
 } tokensym_t;
 
+#define NCONTROL    22  // update if new controls added
 typedef union {
-    byte all[21];
+    byte all[NCONTROL];
     struct {
         bool debug;
         bool macroDebug;
@@ -204,6 +205,7 @@ typedef union {
         bool gen;
         bool cond;
         bool makedepend;
+        bool isisName;
     };
 } controls_t;
 

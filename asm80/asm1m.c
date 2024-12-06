@@ -161,11 +161,16 @@ void Tokenise(void) {
             gotValue();
             break;
         case CC_BAR:
+            if (controls.isisName) {
+                IllegalCharError();
+                break;
+            }
+            // FALLTRHOUGH
         case CC_LET:
             startMacroTokenIdx = macroInIdx - 1;
             GetTokenText(O_NAME);        /* assume it's a name */
-            if (token.size > MAXSYMSIZE) /* cap length */
-                token.size = MAXSYMSIZE;
+            if (token.size > maxSymbolSize) /* cap length */
+                token.size = maxSymbolSize;
             tokenStart[token.size] = '\0';
 
             if (controls.xref) {
