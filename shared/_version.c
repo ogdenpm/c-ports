@@ -66,15 +66,14 @@ void showVersion(bool full) {
 #ifdef APP_CONTRIBUTOR
         puts("Contributors: " APP_CONTRIBUTOR);
 #endif
-        printf("%d bit " BUILD "build: " __DATE__ " " __TIME__  "\n",
-                (int)(sizeof(void *) * CHAR_BIT));
-#ifdef APP_LIBS
-        for (char const **p = libvers; *p; p++) {
-            putchar('+');
-            putchar(' ');
-            puts(*p);
-        }
+        printf(BUILD "%d bit build: ", (int)(sizeof(void *) * CHAR_BIT));
+#ifdef _MSC_VER
+        printf("(msvc %d.%d.%d) ", _MSC_VER / 100, _MSC_VER % 100, _MSC_FULL_VER % 100000);
+#elif __GNUC__
+        printf("(gcc %s) ", __VERSION__);
 #endif
+        fputs(__DATE__ " " __TIME__ "\n", stdout); 
+
 #ifdef APP_EMAIL
         puts("Support email: " APP_EMAIL);
 #endif
