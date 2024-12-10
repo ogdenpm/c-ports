@@ -1,0 +1,3 @@
+#!/bin/sh
+gcc -O3 -o getVersion getVersion.c execute.c option.c support.c template.c _appinfo.c
+cp -p getVersion ../Install

@@ -1,4 +1,4 @@
-# common.mk: 2023.5.3.2 [82f1e66]
+# common.mk: 
 # common rules to support Linux make builds
 
 define BOGUS
@@ -44,7 +44,7 @@ Targets:
   rebuild 	- runs distclean and then all
 endef
 
-.PHONY: all mkversion clean distclean 
+.PHONY: all mkversion clean distclean publish
 SRCDIR=$(subst /Linux,,$(realpath .))
 ROOT:=$(realpath ../..)
 INSTALLDIR = $(ROOT)/Linux/Install
@@ -63,8 +63,11 @@ publish: distclean mkversion
 
 # check version and force timestamp change so build
 # information is updated
-mkversion:
-	(cd $(SRCDIR); perl $(ROOT)/Scripts/getVersion.pl -W)
+mkversion: $(INSTALLDIR)/getVersion
+	$(INSTALLDIR)/getVersion -f $(SRCDIR) 
+
+$(INSTALLDIR)/getVersion:
+	(cd $(ROOT)/Linux/bootGetVersion; ./mkGetVersion)
 
 _version.o: _version.h _appinfo.h appinfo.h
 
