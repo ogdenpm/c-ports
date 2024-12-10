@@ -143,9 +143,7 @@
       <Message>
       </Message>
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -175,9 +173,7 @@
       <Message>
       </Message>
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -215,9 +211,7 @@
       <Message>
       </Message>
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -253,9 +247,7 @@
       <Message>
       </Message>
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\cmdline.h" />
