@@ -7,9 +7,9 @@
     <VersionFlag Condition="'$(Configuration)' == 'Debug'">-w</VersionFlag>
     <VersionFlag Condition="'$(Configuration)' != 'Debug'">-f</VersionFlag>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(TargetExt)' == '.exe'">
+  <ItemDefinitionGroup>
     <PreBuildEvent>
-      <Message>Get Version ($(Configuration))</Message>
+      <Message>Get Version ($(ProjectName) - $(Configuration))</Message>
       <Command>$(SolutionDir)Tools\getVersion.exe $(VersionFlag)</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
