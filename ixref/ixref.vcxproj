@@ -97,9 +97,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);setargv.obj</AdditionalDependencies>
     </Link>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
       <Message>Install</Message>
@@ -126,9 +124,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);setargv.obj</AdditionalDependencies>
     </Link>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
       <Message>Install</Message>
@@ -148,9 +144,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);setargv.obj</AdditionalDependencies>
     </Link>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
       <Message>Install</Message>
@@ -174,9 +168,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);setargv.obj</AdditionalDependencies>
     </Link>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
       <Message>Install</Message>
