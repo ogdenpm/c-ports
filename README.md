@@ -19,6 +19,17 @@ There are also three of script files from my [versionTools](https://github.com/o
 
 Below is effectively a change log. Features have been added, changed or deleted over time, so please refer to the cports  documentation for the current usage.
 
+### 10-Dec-2024
+
+- Converted from script based version model to C executables.
+- Moved to use common property files for build
+- Removed showing libs in showVersion and added compiler version for MSVC and GCC builds
+- Updated documentation on versionTools and showVersion
+
+### 6-Dec-2024
+
+- Added ISISNAME option to ASM80 to force names to be truncated to 6 characters and disallow underbar.
+
 ### 14-Nov-2023
 
 - IXREF: Bug fix due to file not found error when no options are used.
@@ -302,5 +313,5 @@ I have done the first part of a major rework of asm80, the key changes are noted
 ------
 
 ```
-Updated by Mark Ogden 13-Nov-2023
+Updated by Mark Ogden 10-Dec-2024
 ```
