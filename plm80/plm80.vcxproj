@@ -181,9 +181,7 @@
       <Message>
       </Message>
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -243,9 +241,7 @@
       <Message>
       </Message>
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Midl>
@@ -305,9 +301,7 @@
       </Inputs>
       <Message />
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -365,9 +359,7 @@
       </Inputs>
       <Message />
     </CustomBuildStep>
-    <PreBuildEvent>
-      <Message>Get Version</Message>
-    </PreBuildEvent>
+    <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="common.cpp">
