@@ -23,7 +23,7 @@
     <PreBuildEvent />
     <PreBuildEvent />
     <PostBuildEvent>
-        <Command>if exist $(SolutionDir)install.cfg $(SolutionDir)Tools/install.exe $(TargetPath) $(SolutionDir)</Command>
+        <Command>if exist "$(SolutionDir)install.cfg" "$(SolutionDir)Tools/install.exe" "$(TargetPath)" "$(SolutionDir)\"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Install</Message>

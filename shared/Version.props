@@ -10,7 +10,7 @@
   <ItemDefinitionGroup>
     <PreBuildEvent>
       <Message>Get Version ($(ProjectName) - $(Configuration))</Message>
-      <Command>$(SolutionDir)Tools\getVersion.exe $(VersionFlag)</Command>
+      <Command>"$(SolutionDir)Tools\getVersion.exe" $(VersionFlag)</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup />
