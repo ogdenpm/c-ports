@@ -161,8 +161,10 @@ static void ParsePrint() {
 char *reserved[] = { "", "TITLE", "PRINT", "PUBLICS", "EXTERNALS", "PAGEWIDTH" };
 
 bool morefiles() {
-    if (*cmdP++ == ',')
+    if (*cmdP == ',') {
+        cmdP++;
         return true;
+    }
     char *ntoken = PeekToken();
     for (int i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
         if (stricmp(reserved[i], ntoken) == 0)
@@ -175,9 +177,9 @@ static void ParseCmdLine() {
     startFiles = cmdP;
     do {
         GetToken();
+        endFiles = cmdP;
     } while (morefiles());
-    cmdP--;
-    endFiles = cmdP;
+    endFiles--;
 
     char const *token;
     while (*(token = GetToken())) {
