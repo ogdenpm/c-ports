@@ -61,10 +61,10 @@ bool MatchTx1Item(byte type) // check for requested Lex item. If present return 
     }
 }
 
-bool NotMatchTx1Item(byte arg1b) /// check for requested Lex item. If present consume item and
+bool NotMatchTx1Item(byte type) /// check for requested Lex item. If present consume item and
                                  /// return false else return true and don't consume item
 {
-    return !MatchTx1Item(arg1b);
+    return !MatchTx1Item(type);
 }
 
 bool MatchTx2AuxFlag(byte flag) {

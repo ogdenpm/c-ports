@@ -23,7 +23,7 @@ void TabLst(byte tabTo) {
         tabTo = -tabTo;
         if (col >= tabTo)
             NewLineLst();
-        tabTo = tabTo - col;
+        tabTo = tabTo - col - 1;
     }
     while (tabTo-- != 0)
         lstc(' ');

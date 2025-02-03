@@ -259,8 +259,6 @@ void EmitLinePrefix() {
         TabLst(-7);
         if (blkCnt)
             lprintf("%2d", blkCnt);
-        else
-            lstStr("  ");
         if (srcFileIdx) {
             TabLst(-11);
             lstc('=');

@@ -21,7 +21,7 @@ static byte b4304[]  = { 0x24, 0x24, 0x24, 0x24, 0x13, 0x13, 0x18, 0x18, 0x18, 0
 static void Sub_3FC8() {
     if (PRINT) {
         EjectNext();
-        lstStr("PL/M-80 " VERSION " COMPILATION OF MODULE ");
+        lstStr("INTEL PL/M-80 " VERSION " COMPILATION OF MODULE ");
         curSym = procInfo[1]->sym;
         if (curSym)
             lstStr(curSym->name->str);

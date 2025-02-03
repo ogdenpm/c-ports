@@ -110,7 +110,7 @@ void T2Phase6() {
 static void NoObjSignOn() {
     if (PRINT) {
         EjectNext();
-        lstStr("PL/M-80 " VERSION " COMPILATION OF MODULE ");
+        lstStr("INTEL PL/M-80 " VERSION " COMPILATION OF MODULE ");
         curSym = procInfo[1]->sym;
         if (curSym)
             lprintf("%s", curSym->name->str);
