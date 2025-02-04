@@ -56,7 +56,7 @@ VPATH = $(SRCDIR):$(ROOT)/shared
 LINKER ?= gcc
 
 all: $(TARGET) | $(INSTALLDIR)
-	cp -p $(TARGET) $(INSTALLDIR)
+	install -D -p -t $(INSTALLDIR) $(TARGET)
 
 publish: distclean mkversion
 	$(MAKE)
@@ -71,8 +71,8 @@ $(INSTALLDIR)/getVersion:
 
 _version.o: _version.h _appinfo.h appinfo.h
 
-$(SRCDIR)/_version.h:
-	(cd $(SRCDIR); perl $(ROOT)/Scripts/getVersion.pl -W)
+$(SRCDIR)/_version.h: $(INSTALLDIR)/getVersion
+	$(INSTALLDIR)/getVersion -f $(SRCDIR)
 
 $(TARGET): $(OBJS) _version.o $(LIBS)
 	$(LINKER) -o $@ $^
