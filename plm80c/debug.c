@@ -231,8 +231,9 @@ void DumpT1Stream() // to be used after Start1
                 break;
             case T1_TOKENERROR:
                 w1  = vfRword(vf);
+
                 sym = &symtab[vfRword(vf)];
-                if (sym == NULL)
+                if (sym == symtab)
                     fprintf(fpout, ": %d -NULL-", w1);
                 else
                     fprintf(fpout, ": %d %.*s", w1, sym->name->len, sym->name->str);

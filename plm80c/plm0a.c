@@ -125,7 +125,7 @@ void Wr1TokenError(word err, sym_t *sym) {
     hasErrors = true;
     Wr1Byte(T1_TOKENERROR);
     Wr1Word(err);
-    Wr1Word((uint16_t)(sym - symtab));
+    Wr1Word((uint16_t)(sym ? sym - symtab : 0));
 } /* TokenError() */
 
 void Wr1TokenErrorAt(word err) {
@@ -162,7 +162,7 @@ void Wr1LexToken() {
     else {
         Wr1Byte(tToLMap[tokenType]);
         if (tokenType == L_IDENTIFIER)
-            Wr1Word((uint16_t)(curSym - symtab));
+            Wr1Word((uint16_t)(curSym ? curSym - symtab : 0));
         else if (tokenType == L_NUMBER)
             Wr1Word(tokenVal);
         else if (tokenType == L_STRING) {

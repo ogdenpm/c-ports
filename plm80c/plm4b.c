@@ -313,7 +313,7 @@ void EmitError() {
             lstStr("NEAR '");
             info = FromIdx(errData.info);
             curSym = info->sym;
-            if (curSym != 0)
+            if (curSym && curSym != symtab)
                 lstStr(curSym->name->str);
             else
                 lstStr("<LONG CONSTANT>");
