@@ -2771,7 +2771,7 @@ void puncod(int start, const int end, const int mode) {
     /* mode = 3 - - V2 punch header AND trailer , V4 punch code only */
     if (mode == 2) {
         // write end of file record
-        int entry = offset == 0 && C_STACKHANDLING != 0 ? 0 : offset + preamb;
+        int entry = offset == 0 && C_STACKHANDLING != 1 ? 0 : offset + preamb;
         crc       = -(1 + entry / 256 + entry % 256);
         fprintf(hexFp, ":00%04X01%02X\n", entry, crc);
     } else {
