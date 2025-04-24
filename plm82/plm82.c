@@ -424,12 +424,12 @@
 #define symF3(i)                     symbol[symbol[i] - 3]
 #define symIProcDepth(i)             symbol[symbol[i] - 4]
 // VARB e..e ssss 0001   e..e - number of elements, ssss size of element
-#define INFO_TYPE(a)                 ((a)&0xf)
+#define INFO_TYPE(a)                 ((a) & 0xf)
 #define INFO_PREC(a)                 (((a) >> 4) & 0xf)
 #define INFO_ECNT(a)                 ((a) / 256)
-#define PACK_ATTRIB(cnt, prec, type) ((cnt)*256 + (prec)*16 + type)
+#define PACK_ATTRIB(cnt, prec, type) ((cnt) * 256 + (prec) * 16 + type)
 #define MAXSYM                       16000
-#define MAXMEM                       16000
+#define MAXMEM                       32000
 FILE *files[20];
 
 /* global variables*/
@@ -829,14 +829,14 @@ int st[16 + 1];
 int rasn[16 + 1];
 
 #define HIGHNIBBLE(n)          (((n) >> 4) & 0xf)
-#define LOWNIBBLE(n)           ((n)&0xf)
+#define LOWNIBBLE(n)           ((n) & 0xf)
 #define REGPAIR(h, maxToWrite) (((h) << 4) + maxToWrite)
 #define REGLOW(hl)             LOWNIBBLE(hl)
 #define REGHIGH(hl)            HIGHNIBBLE(hl)
 #define HIGH(n)                (((n) >> 8) & 0xff)
-#define LOW(n)                 ((n)&0xff)
+#define LOW(n)                 ((n) & 0xff)
 #define HIGHWORD(n)            (((n) >> 16) & 0xffff)
-#define LOWWORD(n)             ((n)&0xffff)
+#define LOWWORD(n)             ((n) & 0xffff)
 
 int litv[16 + 1];
 int sp    = 0;
@@ -2399,9 +2399,11 @@ void litadd(const int s) {
                         break;
                     }
                     /* place link into code */
-                    emit(0, LOW(HIGHWORD(symAddr(it))), 0);
-                    emit(0, HIGH(HIGHWORD(symAddr(it))), 0);
+                    int target = HIGHWORD(symAddr(it));
                     symAddr(it) = ((codloc + 1) << 16) + LOWWORD(symAddr(it));
+                    emit(0, LOW(target), 0);
+                    emit(0, HIGH(target), 0);
+
                 }
             }
             /* fix values IN stack AND reg */
