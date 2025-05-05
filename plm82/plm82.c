@@ -2399,11 +2399,10 @@ void litadd(const int s) {
                         break;
                     }
                     /* place link into code */
-                    int target = HIGHWORD(symAddr(it));
+                    int target  = HIGHWORD(symAddr(it));
                     symAddr(it) = ((codloc + 1) << 16) + LOWWORD(symAddr(it));
                     emit(0, LOW(target), 0);
                     emit(0, HIGH(target), 0);
-
                 }
             }
             /* fix values IN stack AND reg */
@@ -5010,20 +5009,44 @@ bool operat(int val) {
                     //        the convienance of the h/l optimization
                     //        ************************************************
                     //        make sure if saved h/l is already marked no good
-                    //        /   1b   /   1b   /   9b   /   8b   /
-                    //        /h valid /l valid /h value /l value /
+                    //           1b   |   1b    |   9b    |   8b
+                    //        h valid | l valid | h value | l value
+                    //
+
                     int lsym = symF3(i);
+
+#define LVALUE ((lsym) & 0xff)
+#define HVALUE (((lsym) >> 8) & 0x1ff)
+#define LVALID (((lsym) >> 17) & 1)
+#define HVALID (((lsym) >> 18) & 1)
+
                     if (lsym != -1) {
-                        int ktotal = 0;
-                        if (0 <= regv[RH] && regv[RH] < 512)
-                            if (lsym == 0 || ((lsym & 0x40000) && lsym / 256 % 512 == regv[RH]))
-                                ktotal += 0x40000 + regv[RH] * 256;
-                        if (0 <= regv[RL] && regv[RL] < 256)
-                            if (lsym == 0 || ((lsym & 0x20000) && lsym % 256 == regv[RL]))
-                                ktotal += 0x20000 + regv[RL];
-                        symF3(i) = ktotal ? ktotal : -1;
+                        int ktotal  = 0;
+                        bool nflagh = false, nflagl = false;
+                        if (0 <= regv[RL] && regv[RL] < 256) {
+                            nflagl = 1;
+                            ktotal = regv[RL] + 0x20000;
+                        }
+                        if (0 <= regv[RH] && regv[RH] < 512) {
+                            nflagh = 1;
+                            ktotal += regv[RH] * 256 + 0x40000;
+                        }
+                        if (lsym != 0) {
+                            bool hpok = false;
+                            if (!HVALID || !nflagh || regv[RH] != HVALUE) {
+                                hpok = true;
+                                ktotal -= 0x40000;
+                            }
+                            if (!LVALID || !nflagl || regv[RL] != LVALUE)
+                                ktotal = hpok ? -1 : ktotal - 0x20000;
+                        }
+                        symF3(i) = ktotal;
                     }
                 }
+#undef LVALUE
+#undef HVALUE
+#undef LVALID
+#undef HVALID
 
                 /* TRA, TRC, PRO, AX2 (case TRA) */
                 switch (iop) {
