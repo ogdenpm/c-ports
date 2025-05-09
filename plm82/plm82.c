@@ -5015,38 +5015,28 @@ bool operat(int val) {
 
                     int lsym = symF3(i);
 
-#define LVALUE ((lsym) & 0xff)
-#define HVALUE (((lsym) >> 8) & 0x1ff)
-#define LVALID (((lsym) >> 17) & 1)
-#define HVALID (((lsym) >> 18) & 1)
 
+#define LVALID 0x20000
+#define HVALID 0x40000
+/* PMO simplified the code to propagate HL info also fixed a bug in the original Fortran code which
+   could incorrectly subtract the valid flag value from ktotal even if it hadn't been set.
+*/
                     if (lsym != -1) {
                         int ktotal  = 0;
-                        bool nflagh = false, nflagl = false;
                         if (0 <= regv[RL] && regv[RL] < 256) {
-                            nflagl = 1;
-                            ktotal = regv[RL] + 0x20000;
+                            ktotal = regv[RL];
+                            if (lsym == 0 || ((lsym & LVALID) && regv[RL] == (lsym & 0xff)))
+                                ktotal |= LVALID;
                         }
                         if (0 <= regv[RH] && regv[RH] < 512) {
-                            nflagh = 1;
-                            ktotal += regv[RH] * 256 + 0x40000;
+                            ktotal += regv[RH] << 8;
+                            if (lsym == 0 || ((lsym & HVALID) && regv[RH] == ((lsym >> 8) & 0x1ff)))
+                                ktotal |= HVALID;
+
                         }
-                        if (lsym != 0) {
-                            bool hpok = false;
-                            if (!HVALID || !nflagh || regv[RH] != HVALUE) {
-                                hpok = true;
-                                ktotal -= 0x40000;
-                            }
-                            if (!LVALID || !nflagl || regv[RL] != LVALUE)
-                                ktotal = hpok ? -1 : ktotal - 0x20000;
-                        }
-                        symF3(i) = ktotal;
+                        symF3(i) = ktotal & (HVALID | LVALID) ? ktotal : -1;
                     }
                 }
-#undef LVALUE
-#undef HVALUE
-#undef LVALID
-#undef HVALID
 
                 /* TRA, TRC, PRO, AX2 (case TRA) */
                 switch (iop) {
