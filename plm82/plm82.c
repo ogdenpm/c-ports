@@ -418,16 +418,16 @@
 #define abs(a) ((a) >= 0 ? (a) : -(a))
 #endif
 
-#define symAttrib(i)                 symbol[symbol[i] - 1]
-#define symAddr(i)                   symbol[symbol[i]]
-#define symRef(i)                    symbol[symbol[i] - 2]
-#define symF3(i)                     symbol[symbol[i] - 3]
-#define symIProcDepth(i)             symbol[symbol[i] - 4]
+#define symAttrib(ch)                 symbol[symbol[ch] - 1]
+#define symAddr(ch)                   symbol[symbol[ch]]
+#define symRef(ch)                    symbol[symbol[ch] - 2]
+#define symF3(ch)                     symbol[symbol[ch] - 3]
+#define symIProcDepth(ch)             symbol[symbol[ch] - 4]
 // VARB e..e ssss 0001   e..e - number of elements, ssss size of element
 #define INFO_TYPE(a)                 ((a) & 0xf)
 #define INFO_PREC(a)                 (((a) >> 4) & 0xf)
 #define INFO_ECNT(a)                 ((a) / 256)
-#define PACK_ATTRIB(cnt, prec, type) ((cnt) * 256 + (prec) * 16 + type)
+#define PACK_ATTRIB(extra, prec, type) ((extra) * 256 + (prec) * 16 + type)
 #define MAXSYM                       16000
 #define MAXMEM                       32000
 FILE *files[20];
@@ -830,9 +830,9 @@ int rasn[16 + 1];
 
 #define HIGHNIBBLE(n)          (((n) >> 4) & 0xf)
 #define LOWNIBBLE(n)           ((n) & 0xf)
-#define REGPAIR(h, maxToWrite) (((h) << 4) + maxToWrite)
-#define REGLOW(hl)             LOWNIBBLE(hl)
-#define REGHIGH(hl)            HIGHNIBBLE(hl)
+#define REGPAIR(h, shift)      (((h) << 4) + (shift))
+#define REGLOW(hl)             ((hl) & 0x7)
+#define REGHIGH(hl)            (((hl) >> 4) & 0x7)
 #define HIGH(n)                (((n) >> 8) & 0xff)
 #define LOW(n)                 ((n) & 0xff)
 #define HIGHWORD(n)            (((n) >> 16) & 0xffff)
@@ -962,6 +962,12 @@ FILE *setFile(char const *name, char const *ext, char const *mode, int fortId);
 #define C_ZMARGIN       contrl[CHZ]
 #define C_STACKHANDLING contrl[STAR]
 
+
+// HL tracking uses the following flags
+// the LVALUE is in bits 0-7, the HVALUE is in bits 8-16 (9 bits wide)
+#define LVALID          0x20000
+#define HVALID          0x40000
+
 FILE *inFp;
 FILE *hexFp;
 FILE *outFp;
@@ -974,9 +980,20 @@ char *basename(char *path) {
 #ifdef _WIN32
     if (path[0] && path[1] == ':') // skip leading device
         path += 2;
+#ifdef UNC
+    else if (path[0] == '\\' && path[1] == '\\') // skip \\computer\share\ part
+        if ((s = strchr(path + 2, '\\')) && (s = strchr(s, '\\')))
+            path = s + 1; 
+        else
+            path = strchr(path, '\0');
 #endif
-    while ((s = strpbrk(path, DIRSEP))) // skip all directory components
+#endif
+    if ((s = strrchr(path, '/')))
         path = s + 1;
+#if _WIN32
+    if ((s = strrchr(path, '\\')))
+        path = s + 1;
+#endif
     return path;
 }
 
@@ -985,10 +1002,12 @@ bool isBase32(int n) {
 }
 
 int base32ToInt(int n) {
-    int i = 33;
-    if (isalnum(n))
-        i = isdigit(n) ? n - '0' : toupper(n) - 'A' + 10;
-    return i < 32 ? i : -1;
+    n = toupper(n);
+    if (isdigit(n))
+        return n - '0';
+    if (isalpha(n) && n <= 'V')
+        return n - 'A' + 10;
+    return -1;
 }
 
 /*
@@ -1094,7 +1113,8 @@ int main(int argc, char **argv) {
     memset(itran, SPACE, sizeof(itran)); // default is char maps to SPACE
     for (i = 1; i <= 52; i++) {
         itran[otran[i]]          = i;
-        itran[tolower(otran[i])] = i; // map lower case to same as upper case
+        if (isupper(otran[i]))
+            itran[tolower(otran[i])] = i; // map lower case to same as upper case
     }
 
     // allow for a configuration file
@@ -1380,21 +1400,17 @@ int imin(const int i, const int j) {
     return i < j ? i : j;
 }
 
+
+
+
 void Printf(char *fmt, ...) {
-    va_list marker;
+    va_list args;
     char buf[128];
-    char *s;
-    va_start(marker, fmt);
-    vsprintf(buf, fmt, marker);
-    va_end(marker);
-    s = buf;
-    while (*s) {
-        if (*s != '\n')
-            obuff[++obp] = *s;
-        if (*s++ == '\n' || obp >= C_WIDTH)
-            writel(lstFp);
-        ;
-    }
+    va_start(args, fmt);
+    vsprintf(buf, fmt, args);
+    va_end(args);
+    for (char *s = buf; *s; s++)
+        putch(*s);
 }
 
 void putch(const int chr) {
@@ -1404,6 +1420,7 @@ void putch(const int chr) {
         writel(lstFp);
     ;
 }
+
 
 void writel(FILE *fp) {
     int np;
@@ -1424,17 +1441,11 @@ void writel(FILE *fp) {
 }
 
 void error(const int i, const int level) {
-    /* print error message - level is severity code (terminate at 5) */
-    errorCnt++;
-    Printf("\n(%05d)  ERROR %d\n", C_COUNT, i);
-
-    /* check for severe error - level greater than 4 */
-    if (level > 4) {
-        /* terminate compilation */
-        Printf("\nCOMPILATION TERMINATED\n");
-        errflg = true;
-    }
+    char buf[10];
+    sprintf(buf, "%d", i);
+    errors(buf, level);
 }
+
 // string msg variant of error
 void errors(char const *msg, int level) {
     /* print error message - level is severity code (terminate at 5) */
@@ -1466,16 +1477,16 @@ void _delete(int n) /* _delete the top n elements from the stack */
     int i;
     while (n-- > 0) {
         if (sp <= 0) {
-            error(106, 1);
+            errors("106: register allocation table underflow", 1);
             return;
         }
-        if ((i = (rasn[sp] >> 4) & 0xf)) {
+        if ((i = (rasn[sp] >> 4) & 0x7)) {
             if (regs[RA] == i)
                 regs[RA] = 0;
             lock[i] = false;
             regs[i] = 0;
         }
-        if ((i = rasn[sp] & 0xf)) {
+        if ((i = rasn[sp] & 0x7)) {
             if (regs[RA] == i)
                 regs[RA] = 0;
             lock[i] = false;
@@ -1535,7 +1546,7 @@ void apply(const int op, const int op2, const bool com, const int cyflag) {
                     continue;
             }
         } else if ((ia = REGLOW(rasn[sp - 1])) == 0) { /* reg assigned, lock regs containing var */
-            error(107, 5);
+            errors("107: register allocation error. No registers available", 5);
             return;
         } else {
             lock[ia] = true;
@@ -1586,21 +1597,22 @@ void apply(const int op, const int op2, const bool com, const int cyflag) {
         /* (loadv will load the low order byte into the ACC) */
         loadv(sp - 1, 1);
         if ((ia = REGLOW(rasn[sp - 1])) == 0) {
-            error(107, 5);
+            errors("107: register allocation error. No registers available", 5);
             return;
         }
         lock[ia] = true;
-        ib       = REGHIGH(rasn[sp - 1]);
+        ib       = rasn[sp - 1] / 16;
 
         /* is this a single byte / double byte operation */
         if (ib <= 0 && prec[sp] != 1) {
             /* get a spare register */
             if ((ib = ia - 1) == 0) { // ia was A reg so can't double byte
-                error(107, 5);
+                errors("107: register allocation error. No registers available", 5);
                 return;
             }
             lock[ib] = true;
-        }
+        } else
+            ib &= 7;
 
         /* now ready to perform operation */
         /* l.o. byte is IN AC, h.o. byte is IN ib. */
@@ -1756,41 +1768,42 @@ void genreg(const int np, int *ia, int *ib) {
 }
 
 void loadsy() {
-    int l, i, j, k;
+    int ch;
     bool ok = false;
 
     gnc(NULL); /// make sure line refresh is done
-    while ((i = gnc(symFp)) == ' ')
+    while ((ch = gnc(symFp)) == ' ')
         ;
 
     /* look for initial '/' */
-    if (i == '/') {
-        while ((i = gnc(symFp)) != '/') {
+    if (ch == '/') {
+        while ((ch = gnc(symFp)) != '/') {
             /* load the interrupt vector */
-            if (i < '0' || i > '7')
+            if (ch < '0' || ch > '7')
                 goto badData;
-            i -= '0'; // convert to index into intpro
+            int intproIdx = ch - '0'; // convert to index into intpro
 
             /* get the procedure name corresponding to interrupt i */
-            for (j = 0, l = 1; (k = gnc(symFp)) != '/'; l *= 32) {
-                if (isBase32(k))
-                    j += base32ToInt(k) * l; // add in next base 32 digit
+            int symId = 0;
+            for (int shift = 1; (ch = gnc(symFp)) != '/'; shift *= 32) {
+                if (isBase32(ch))
+                    symId += base32ToInt(ch) * shift; // add in next base 32 digit
                 else
                     goto badData;
             }
-            intpro[i + 1] = j; // store assuming 1 based
+            intpro[intproIdx + 1] = symId; // store assuming 1 based
             if (C_SYMBOLS >= 2)
-                Printf("\n I%d=S%05d\n", i, j);
+                Printf("\n I%d=S%05d\n", intproIdx, symId);
         }
 
         /* interrupt procedures are handled. */
-        while ((i = gnc(symFp)) == ' ')
+        while ((ch = gnc(symFp)) == ' ')
             ;
 
-        if (i == '/') {
-            while ((i = gnc(symFp)) != '/') { // process next symbol table entry
+        if (ch == '/') {
+            while ((ch = gnc(symFp)) != '/') { // process next symbol table entry
                 if (++sytop >= syinfo) {
-                    error(108, 5);
+                    errors("108: pass-2 symbol table overflow", 5);
                     syinfo = symax;
                 }
                 if (C_SYMBOLS >= 2) // write symbol number AND symbol table address
@@ -1799,44 +1812,40 @@ void loadsy() {
                 symbol[sytop] = syinfo;
                 int attribIdx = --syinfo;
                 for (;;) {
-                    int sign = i;
-                    if (i != ' ' && i != '-')
+                    if (ch != ' ' && ch != '-')
                         goto badData;
-                    for (l = 1, k = 0; isBase32(i = gnc(symFp)); l *= 32)
+                    int sign = ch;
+                    int info = 0;
+                    for (int shift = 1; isBase32(ch = gnc(symFp)); shift *= 32)
                         /* get next digit */
-                        k += base32ToInt(i) * l;
+                        info += base32ToInt(ch) * shift;
 
                     /* END of number */
                     if (syinfo <= sytop) {
-                        error(109, 5);
+                        errors("109: symbol table overflow", 5);
                         syinfo = symax;
                     }
                     if (C_SYMBOLS >= 2) // write symbol table address AND entry
-                        Printf("\n    %05d %c%08XH", syinfo, sign, k);
-                    symbol[syinfo--] = sign == ' ' ? k : -k;
+                        Printf("\n    %05d %c%08XH", syinfo, sign, info);
+                    symbol[syinfo--] = sign == ' ' ? info : -info;
 
                     /* look for '/' */
-                    if (i == '/') {
+                    if (ch == '/') {
                         /* check for special case at END of an entry */
                         int attrib = abs(symbol[attribIdx]);
-                        int pad;
-                        // determine additional cell count
-                        switch (attrib % 16) {
+                        // allocate additional cell count
+                        switch (attrib & 0xf) {
                         case VARB:
-                            pad = 1;
+                            syinfo -= 1;
                             break;
                         case PROC:
-                            pad = 3;
+                            syinfo -= 3;
                             break;
                         case LABEL:
-                            pad = HIGH(attrib) == 1 ? 2 : 1;
+                            syinfo -= HIGH(attrib) == 1 ? 2 : 1;
                             break; // check for single reference to the label
-                        default:
-                            pad = 0;
-                            break;
+
                         }
-                        while (pad-- != 0)
-                            symbol[syinfo--] = 0; // clear the additional cells
                         break;
                     }
                 }
@@ -1859,7 +1868,7 @@ void loadsy() {
                             lmem &= ~1;
 
                         if ((lmem -= prec * ecnt) < 0) {
-                            errors("Data storage too big", 1);
+                            errors("110: Data storage too big", 1);
                             lmem = 0xff00;
                         }
                         addr = lmem;
@@ -1874,12 +1883,12 @@ void loadsy() {
     }
 badData:
     if (!ok)
-        error(111, 1);
+        errors("111: inline data format error", 1);
 
     /* now assign the last address to the variable 'memory' */
     /* ** note that 'memory' must be at location 5 IN the symbol table ** */
     symAddr(5) = 0xff00;
-    if (C_SYMBOLS != 0)
+    if (C_SYMBOLS)
         writel(lstFp);
     ;
 }
@@ -2052,6 +2061,7 @@ void loadv(int s, int typ) {
         } else {
             /* typ = 0, load directly into registers */
             /* may be possible to LXI */
+            ib &= 7;    // avoid compiler warning
             if (ib != ia - 1) {
                 emit(LD, ia, -lp);
                 if (ib != 0) {
@@ -2683,7 +2693,7 @@ void emit(const int opr, const int opa, const int opb) {
             operand = opb;
             /* fall through to common cc adjustment */
         case RTC: /* conditional return */
-            opcode += cc[opa / 32 - FAL][opa % 32 - CARRY];
+            opcode += cc[(opa / 32 - FAL) & 1][(opa % 32 - CARRY) & 3];
             break;
         case RST: /* rst xx */
             opcode += opa % 8 * 8;
@@ -2873,7 +2883,7 @@ void saver() {
                     wordChain = j;
                     wordCnt++;
                 }
-            } else if (regPair > 0 && !lock[regPair]) { /* single byte */
+            } else if (regPair > 0 && !lock[REGLOW(regPair)]) { /* single byte */
                 st[j]     = byteChain;
                 byteChain = j;
                 byteCnt++;
@@ -3523,7 +3533,7 @@ void readcd() {
                     else
                         Printf("      ");
 
-                    Printf("  %c %c", rmap[REGHIGH(rasn[ip])], rmap[REGLOW(rasn[ip])]);
+                    Printf("  %c %c", rmap[HIGHNIBBLE(rasn[ip])], rmap[LOWNIBBLE(rasn[ip])]);
                     if (litv[ip] >= 0)
                         Printf(" %c%05d", HIGHWORD(litv[ip]) ? 'R' : ' ', LOWWORD(litv[ip]));
                     writel(lstFp);
@@ -3747,14 +3757,8 @@ void readcd() {
                         /* compare old hl with new hl */
                         lock[RH] = false;
                         lock[RL] = false;
-                        k        = regv[RH];
-                        regv[RH] = -1;
-                        if (k == (-255) || k == j)
-                            regv[RH] = j;
-                        k        = regv[RL];
-                        regv[RL] = -1;
-                        if (k == (-255) || k == l)
-                            regv[RL] = l;
+                        regv[RH] = (regv[RH] == (-255) || regv[RH] == j) ? j : -1;
+                        regv[RL] = (regv[RL] == (-255) || regv[RL] == l) ? l : -1;
                         goto L370;
                     }
                 }
@@ -4741,7 +4745,7 @@ bool operat(int val) {
 
         /* casjmp will be used to update the length field */
         if (--syinfo <= sytop)
-            error(108, 5);
+            errors("108: pass-2 symbol table overflow", 5);
         lock[ib] = false;
         regv[RH] = regv[RL] = -255; /* mark as nil */
         return true;
@@ -5016,8 +5020,7 @@ bool operat(int val) {
                     int lsym = symF3(i);
 
 
-#define LVALID 0x20000
-#define HVALID 0x40000
+
 /* PMO simplified the code to propagate HL info also fixed a bug in the original Fortran code which
    could incorrectly subtract the valid flag value from ktotal even if it hadn't been set.
 */
@@ -5082,22 +5085,13 @@ bool operat(int val) {
                     /* now fix the h AND l values upon return */
                     // V4
                     j = symF3(i);
-                    k = shr(j, 19);
-
+                    if (j < 0)
+                        j = 0;  // will force regv values to -1
                     /* may be unchanged from call */
-                    if (k != 3) {
+                    if ((j >> 19) != 3) {
                         /* compare values */
-                        j = right(j, 19);
-                        l = j % 256;
-                        j = j / 256;
-                        k = j % 512;
-                        j = j / 512;
-                        if (j % 2 != 1)
-                            l = -1;
-                        if ((j / 2) % 2 != 1)
-                            k = -1;
-                        regv[RH] = k;
-                        regv[RL] = l;
+                        regv[RL]   = (j & LVALID) ? j & 0xff : -1;
+                        regv[RH]   = (j & HVALID) ? (j >> 8) & 0x1ff : -1;
                     }
                     _delete(1);
 
@@ -5106,7 +5100,7 @@ bool operat(int val) {
                     j = INFO_PREC(symAttrib(i));
                     if (j > 0) {
                         /* set stack top to precision of procedure */
-                        sp       = sp + 1;
+                        sp++;
                         prec[sp] = j;
                         st[sp]   = 0;
                         i        = RC;
@@ -5166,10 +5160,12 @@ void updateHL(int jp) {
     int lp, kp;
 
     alter = 1; // hoisted here to simplify return
-    if ((symbol[i] >> 19) != 3) {
+    if (j < 0)
+        j = 0;
+    if ((j >> 19) != 3) {
         /* otherwise merge values of h AND l */
-        lp = (j & 0x20000) ? j & 0xff : -1;
-        kp = (j & 0x40000) ? (j >> 8) & 0x1ff : -1;
+        lp = (j & LVALID) ? j & 0xff : -1;
+        kp = (j & HVALID) ? (j >> 8) & 0x1ff : -1;
     } else if (dsym == -254 && l == -254)
         return;
     else { /* h AND l have been altered IN the procedure */
@@ -5178,8 +5174,9 @@ void updateHL(int jp) {
     }
 
     /* compare k with kp AND l with lp */
-    j = (l >= 0 && lp == l) ? 0x20000 + l : 0;
-    j += (dsym >= 0 && kp == dsym) ? 0x40000 + (dsym * 256) : 0;
+    j = (l >= 0 && lp == l) ? LVALID + l : 0;
+    if (dsym >= 0 && kp == dsym)
+        j += HVALID + (dsym << 8);
     symbol[i] = j;
     regv[RH] = regv[RL] = -255;
 }
@@ -5188,7 +5185,7 @@ void updateHL(int jp) {
 void compare16(bool icom, int flag, int iq) {
     apply(SU, SB, icom, 1);
     int ip = rasn[sp] & 0xf; /* change to condition code */
-    int j  = (rasn[sp] >> 4) & 0xf;
+    int j  = (rasn[sp] >> 4) & 0x7; // > 7 would cause memory access error for lock etc.
     if (iq == 1)
         emit(OR, ip, 0);
 
