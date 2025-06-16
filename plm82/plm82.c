@@ -1791,7 +1791,7 @@ void loadsy() {
                 else
                     goto badData;
             }
-            intpro[intproIdx + 1] = symId; // store assuming 1 based
+            intpro[intproIdx] = symId; // store assuming 1 based
             if (C_SYMBOLS >= 2)
                 Printf("\n I%d=S%05d\n", intproIdx, symId);
         }
