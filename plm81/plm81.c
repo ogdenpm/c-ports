@@ -398,12 +398,12 @@ FILE *files[20];
 #define ZPAD     0
 /* stacks */
 #define MSTACK   75
-#define MVAR     256
+#define MVAR     1024
 int sp;
 int mp = 0;
 // int mpp1 = 1;
 int vartop = 1;
-int pstack[MSTACK + 1];
+uint8_t pstack[MSTACK + 1];
 struct {
     int loc : 12, len : 12;
 } var[MSTACK + 1];
@@ -509,19 +509,49 @@ int symbol[SYMABS + 1] = {
 };
 
 /* some inline definitions to help make the code more readable */
-int iabs(int a);
+#define SymInts(symIdx)         ((symIdx) + 2)
+#define Info(symIdx)            ((symIdx) + 1) /* index to symbol info word */
+#define Sym(symIdx)             ((symIdx))     /* index to symbol sizing word */
+#define Id(symIdx)              ((symIdx) - 1) /* index to symbol id word */
+#define Hash(symIdx)            ((symIdx) - 2) /* index to symbol hash word */
 
-inline int sym_id(int i) {
-    return symbol[i - 1] >> 16;
+#define MkInfo(len, prec, type) (((len) << 8) | ((prec) << 4) | (type))
+
+inline unsigned iabs(int a) {
+    return a < 0 ? -a : a;
 }
-inline int sym_infoLen(int i) {
-    return iabs(symbol[i + 1]) >> 8;
+
+inline int id_num(int i) {
+    return symbol[Id(i)] >> 16;
 }
-inline int sym_prec(int i) {
-    return (iabs(symbol[i + 1]) >> 4) & 0xf;
+
+inline int id_next(int i) {
+    return symbol[Id(i)] & 0xffff;
 }
-inline int sym_type(int i) {
-    return iabs(symbol[i + 1]) & 0xf;
+inline int info_len(int i) {
+    return iabs(symbol[Info(i)]) >> 8;
+}
+inline int info_prec(int i) {
+    return (iabs(symbol[Info(i)]) >> 4) & 0xf;
+}
+inline int info_type(int i) {
+    return iabs(symbol[Info(i)]) & 0xf;
+}
+
+inline int hash_hcode(int i) {
+    return symbol[Hash(i)] >> 16; /* hash value */
+}
+
+inline int hash_next(int i) {
+    return symbol[Hash(i)] & 0xffff; /* next symbol in chain */
+}
+
+inline sym_len(int i) {
+    return iabs(symbol[Sym(i)]) & 0xfff;
+}
+
+inline sym_ints(int i) {
+    return iabs(symbol[Sym(i)]) >> 12; /* number of ints used for symbol */
 }
 
 inline int symHash(int i) {
@@ -551,6 +581,7 @@ inline int symPrec(int i) {
 inline int symType(int i) {
     return i % 16;
 }
+char b32Digit(int c);
 
 int symtop = 120;
 int maxsym = SYMABS;
@@ -824,9 +855,9 @@ enum {
     SLISTV = 82
 };
 
-const unsigned char vindx[]  = { ZPAD, 1, 14, 20, 26, 35, 39, 41, 45, 47, 50, 50, 50, 51 };
+const uint8_t vindx[]  = { ZPAD, 1, 14, 20, 26, 35, 39, 41, 45, 47, 50, 50, 50, 51 };
 
-const unsigned char c1[][13] = {
+const uint8_t c1[][13] = {
     /*   1 */ { 0x08, 0x00, 0x00, 0xA0, 0x02, 0x0A, 0x20, 0xA2, 0x00, 0x80, 0x2A, 0x08, 0x20 },
     /*   2 */ { 0xA8, 0xAA, 0xAA, 0x02, 0xA8, 0xA0, 0x88, 0x00, 0xEC, 0x08, 0xC0, 0x02, 0x00 },
     /*   3 */ { 0xC0, 0x00, 0x30, 0x0C, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x3C, 0x30 },
@@ -982,68 +1013,92 @@ const int c1tri[] = {
     TRI(97, 71, 1), TRI(104, 4, 3),  TRI(104, 4, 50)
 };
 
-const int prtb[] = { 0,       5592629, 5582637, 21813,   21846,   3933,  3916,  3919,  85,    15,
-                     71,      55,      103,     96,      83,      92,    104,   26,    39,    41,
-                     0,       17727,   20031,   22322,   24144,   20799, 840,   23112, 32,    106,
-                     44,      13,      50,      0,       0,       22322, 17727, 24144, 20031, 20799,
-                     23112,   62,      50,      45,      7,       8,     0,     0,     0,     7,
-                     0,       16,      0,       0,       0,       3656,  91,    0,     0,     0,
-                     50,      0,       0,       0,       57,      0,     12849, 0,     97,    21,
-                     57,      88,      0,       0,       4861186, 106,   26889, 26890, 26914, 26917,
-                     10,      0,       21586,   97,      73,      13835, 13836, 13849, 0,     30,
-                     13,      0,       13,      0,       16963,   82,    73,    66,    0,     50,
-                     70,      3360820, 15932,   51,      56,      29,    40,    97,    0,     98,
-                     0,       0,       25874,   25878,   0,       97,    0,     24,    0,     0,
-                     4078664, 22807,   0,       4064518, 0,       26628, 42,    26944, 0 };
+#define QUAD(a, b, c, d) (((a) << 24) + ((b) << 16) + ((c) << 8) + (d))
 
-const unsigned char prdtb[] = {
-    0,   38,  39,  36,  37,  25,  26,  27,  35,  24,  6,   7,   8,   9,   10,  11,  12,  13,  14,
-    15,  16,  61,  78,  41,  72,  114, 117, 121, 62,  70,  79,  118, 122, 42,  73,  43,  63,  74,
-    80,  119, 123, 84,  47,  48,  100, 101, 96,  83,  97,  99,  98,  54,  126, 127, 44,  21,  22,
-    55,  67,  69,  77,  128, 49,  68,  53,  125, 59,  124, 40,  45,  52,  76,  75,  120, 65,  64,
-    103, 104, 105, 106, 107, 102, 34,  46,  23,  109, 110, 111, 108, 51,  116, 115, 113, 112, 19,
-    3,   28,  18,  2,   60,  82,  31,  81,  30,  32,  33,  50,  20,  5,   66,  71,  1,   88,  89,
-    87,  17,  4,   93,  92,  58,  29,  91,  90,  86,  85,  57,  56,  95,  94
+const int prtb[] = {
+    QUAD(0, 0, 0, 0),    QUAD(0, 85, 86, 53), QUAD(0, 85, 47, 45), QUAD(0, 0, 85, 53),
+    QUAD(0, 0, 85, 86),  QUAD(0, 0, 15, 93),  QUAD(0, 0, 15, 76),  QUAD(0, 0, 15, 79),
+    QUAD(0, 0, 0, 85),   QUAD(0, 0, 0, 15),   QUAD(0, 0, 0, 71),   QUAD(0, 0, 0, 55),
+    QUAD(0, 0, 0, 103),  QUAD(0, 0, 0, 96),   QUAD(0, 0, 0, 83),   QUAD(0, 0, 0, 92),
+    QUAD(0, 0, 0, 104),  QUAD(0, 0, 0, 26),   QUAD(0, 0, 0, 39),   QUAD(0, 0, 0, 41),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 69, 63),  QUAD(0, 0, 78, 63),  QUAD(0, 0, 87, 50),
+    QUAD(0, 0, 94, 80),  QUAD(0, 0, 81, 63),  QUAD(0, 0, 3, 72),   QUAD(0, 0, 90, 72),
+    QUAD(0, 0, 0, 32),   QUAD(0, 0, 0, 106),  QUAD(0, 0, 0, 44),   QUAD(0, 0, 0, 13),
+    QUAD(0, 0, 0, 50),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 87, 50),
+    QUAD(0, 0, 69, 63),  QUAD(0, 0, 94, 80),  QUAD(0, 0, 78, 63),  QUAD(0, 0, 81, 63),
+    QUAD(0, 0, 90, 72),  QUAD(0, 0, 0, 62),   QUAD(0, 0, 0, 50),   QUAD(0, 0, 0, 45),
+    QUAD(0, 0, 0, 7),    QUAD(0, 0, 0, 8),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 7),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 16),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 14, 72),
+    QUAD(0, 0, 0, 91),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
+    QUAD(0, 0, 0, 50),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
+    QUAD(0, 0, 0, 57),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 50, 49),  QUAD(0, 0, 0, 0),
+    QUAD(0, 0, 0, 97),   QUAD(0, 0, 0, 21),   QUAD(0, 0, 0, 57),   QUAD(0, 0, 0, 88),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 74, 45, 2),  QUAD(0, 0, 0, 106),
+    QUAD(0, 0, 105, 9),  QUAD(0, 0, 105, 10), QUAD(0, 0, 105, 34), QUAD(0, 0, 105, 37),
+    QUAD(0, 0, 0, 10),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 84, 82),  QUAD(0, 0, 0, 97),
+    QUAD(0, 0, 0, 73),   QUAD(0, 0, 54, 11),  QUAD(0, 0, 54, 12),  QUAD(0, 0, 54, 25),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 30),   QUAD(0, 0, 0, 13),   QUAD(0, 0, 0, 0),
+    QUAD(0, 0, 0, 13),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 66, 67),  QUAD(0, 0, 0, 82),
+    QUAD(0, 0, 0, 73),   QUAD(0, 0, 0, 66),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 50),
+    QUAD(0, 0, 0, 70),   QUAD(0, 51, 72, 52), QUAD(0, 0, 62, 60),  QUAD(0, 0, 0, 51),
+    QUAD(0, 0, 0, 56),   QUAD(0, 0, 0, 29),   QUAD(0, 0, 0, 40),   QUAD(0, 0, 0, 97),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 98),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
+    QUAD(0, 0, 101, 18), QUAD(0, 0, 101, 22), QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 97),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 24),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
+    QUAD(0, 62, 60, 72), QUAD(0, 0, 89, 23),  QUAD(0, 0, 0, 0),    QUAD(0, 62, 5, 6),
+    QUAD(0, 0, 0, 0),    QUAD(0, 0, 104, 4),  QUAD(0, 0, 0, 42),   QUAD(0, 0, 105, 64),
+    QUAD(0, 0, 0, 0)
 };
 
-const unsigned char hdtb[] = {
-    0,   84,  84,  84,  84,  73,  73,  73, 84, 73,  91, 91,  91,  91, 91, 91,  91, 91,  91,
-    91,  91,  68,  77,  86,  106, 61,  61, 62, 69,  74, 78,  81,  90, 87, 94,  87, 69,  94,
-    78,  81,  90,  70,  97,  97,  64,  64, 64, 60,  64, 64,  64,  57, 51, 52,  58, 66,  67,
-    57,  53,  53,  88,  56,  96,  53,  92, 63, 102, 63, 85,  58,  92, 80, 80,  62, 98,  98,
-    105, 105, 105, 105, 105, 105, 103, 58, 55, 54,  54, 54,  54,  83, 61, 61,  61, 61,  75,
-    82,  73,  75,  82,  102, 71,  99,  71, 99, 76,  79, 96,  75,  65, 98, 106, 59, 101, 101,
-    101, 91,  65,  100, 100, 102, 93,  89, 89, 72,  72, 104, 104, 95, 95
-};
-const unsigned char prlen[] = { 0, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 3,
-                                3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 3, 3, 3, 3, 3, 3, 2, 2, 2,
-                                2, 2, 1, 1, 1, 2, 1, 2, 1, 1, 1, 3, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1,
-                                3, 1, 2, 2, 2, 2, 1, 1, 4, 2, 3, 3, 3, 3, 2, 1, 3, 2, 2, 3, 3, 3,
-                                1, 2, 2, 1, 2, 1, 3, 2, 2, 2, 1, 2, 2, 4, 3, 2, 2, 2, 2, 2, 1, 2,
-                                1, 1, 3, 3, 1, 2, 1, 2, 1, 1, 4, 3, 1, 4, 1, 3, 2, 3, 1 };
+const uint8_t prdtb[] = { 0,   38,  39,  36,  37,  25,  26,  27,  35,  24,  6,   7,   8,   9,   10,
+                          11,  12,  13,  14,  15,  16,  61,  78,  41,  72,  114, 117, 121, 62,  70,
+                          79,  118, 122, 42,  73,  43,  63,  74,  80,  119, 123, 84,  47,  48,  100,
+                          101, 96,  83,  97,  99,  98,  54,  126, 127, 44,  21,  22,  55,  67,  69,
+                          77,  128, 49,  68,  53,  125, 59,  124, 40,  45,  52,  76,  75,  120, 65,
+                          64,  103, 104, 105, 106, 107, 102, 34,  46,  23,  109, 110, 111, 108, 51,
+                          116, 115, 113, 112, 19,  3,   28,  18,  2,   60,  82,  31,  81,  30,  32,
+                          33,  50,  20,  5,   66,  71,  1,   88,  89,  87,  17,  4,   93,  92,  58,
+                          29,  91,  90,  86,  85,  57,  56,  95,  94 };
 
-const unsigned char contc[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-const unsigned char leftc[] = { ZPAD, 105, 4, 42, 94, 85 };
-const unsigned char lefti[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-                                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 5,
-                                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
+const uint8_t hdtb[]  = { 0,  84,  84,  84,  84,  73,  73,  73,  84,  73,  91, 91, 91,  91,  91,
+                          91, 91,  91,  91,  91,  91,  68,  77,  86,  106, 61, 61, 62,  69,  74,
+                          78, 81,  90,  87,  94,  87,  69,  94,  78,  81,  90, 70, 97,  97,  64,
+                          64, 64,  60,  64,  64,  64,  57,  51,  52,  58,  66, 67, 57,  53,  53,
+                          88, 56,  96,  53,  92,  63,  102, 63,  85,  58,  92, 80, 80,  62,  98,
+                          98, 105, 105, 105, 105, 105, 105, 103, 58,  55,  54, 54, 54,  54,  83,
+                          61, 61,  61,  61,  75,  82,  73,  75,  82,  102, 71, 99, 71,  99,  76,
+                          79, 96,  75,  65,  98,  106, 59,  101, 101, 101, 91, 65, 100, 100, 102,
+                          93, 89,  89,  72,  72,  104, 104, 95,  95 };
+const uint8_t prlen[] = { 0, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 3,
+                          3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 3, 3, 3, 3, 3, 3, 2, 2, 2,
+                          2, 2, 1, 1, 1, 2, 1, 2, 1, 1, 1, 3, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1,
+                          3, 1, 2, 2, 2, 2, 1, 1, 4, 2, 3, 3, 3, 3, 2, 1, 3, 2, 2, 3, 3, 3,
+                          1, 2, 2, 1, 2, 1, 3, 2, 2, 2, 1, 2, 2, 4, 3, 2, 2, 2, 2, 2, 1, 2,
+                          1, 1, 3, 3, 1, 2, 1, 2, 1, 1, 4, 3, 1, 4, 1, 3, 2, 3, 1 };
 
-const unsigned char prind[] = {
-    1,   21,  28,  35,  42,  44,  48,  49,  51,  51,  51,  51,  51,  51,  51,  51,  51,  53,
-    53,  54,  54,  55,  55,  55,  55,  55,  55,  56,  57,  57,  57,  58,  58,  59,  59,  60,
-    61,  61,  62,  62,  63,  63,  63,  64,  64,  66,  68,  68,  69,  69,  74,  74,  74,  76,
-    82,  82,  82,  82,  85,  85,  85,  89,  92,  94,  94,  99,  99,  99,  100, 100, 100, 101,
-    107, 107, 107, 109, 109, 110, 110, 110, 111, 111, 112, 112, 112, 112, 112, 112, 112, 115,
-    115, 117, 117, 117, 117, 119, 119, 119, 120, 121, 123, 125, 127, 127, 127, 129, 129
-};
+const uint8_t contc[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+const uint8_t leftc[] = { ZPAD, 105, 4, 42, 94, 85 };
+const uint8_t lefti[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+                          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 5,
+                          5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
 
-int nt  = 50;
-int vil = 12;
+const uint8_t prind[] = { 1,   21,  28,  35,  42,  44,  48,  49,  51,  51,  51,  51,  51,  51,
+                          51,  51,  51,  53,  53,  54,  54,  55,  55,  55,  55,  55,  55,  56,
+                          57,  57,  57,  58,  58,  59,  59,  60,  61,  61,  62,  62,  63,  63,
+                          63,  64,  64,  66,  68,  68,  69,  69,  74,  74,  74,  76,  82,  82,
+                          82,  82,  85,  85,  85,  89,  92,  94,  94,  99,  99,  99,  100, 100,
+                          100, 101, 107, 107, 107, 109, 109, 110, 110, 110, 111, 111, 112, 112,
+                          112, 112, 112, 112, 112, 115, 115, 117, 117, 117, 117, 119, 119, 119,
+                          120, 121, 123, 125, 127, 127, 127, 129, 129 };
+
+int nt                = 50;
+int vil               = 12;
 // const int nc1tri = sizeof(c1tri) / sizeof(c1tri[0]) - 2;    // - ZPAD - 1
 
 #define PACK   5 // number of packed chars per int
@@ -1061,15 +1116,18 @@ char obuff[132 + 1];
 int ibp   = 81;
 int obp   = 0;
 int inptr = 0;
-int instk[7 + 1];
+struct {
+    uint8_t id;
+    FILE *fp;
+} instk[7 + 1];
 char itran[256];
 const uint8_t otran[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$=./()+-'*,<>:;            ";
 /* asc */
 /*     translation table from internal to ascii*/
-const unsigned char ascii[64] = { 32, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69,
-                                  70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
-                                  86, 87, 88, 89, 90, 36, 61, 46, 47, 40, 41, 43, 45, 39, 42, 44,
-                                  60, 62, 58, 59, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 };
+const uint8_t ascii[64] = { 32, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69,
+                            70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
+                            86, 87, 88, 89, 90, 36, 61, 46, 47, 40, 41, 43, 45, 39, 42, 44,
+                            60, 62, 58, 59, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 };
 /* pole */
 int poltop = 0;
 /* scanc */
@@ -1079,7 +1137,6 @@ int type;
 enum { EOFLAG = 1, IDENT, NUMB, SPECL, STR };
 int stype      = 0;
 const int CONT = 1;
-int value;
 /* hash */
 int hentry[127 + 1] = { ZPAD, 0,  54, 0, 0, 0,  0,  112, 0,  106, 0,   0, 0,  28, 0,  0, 0, 90, 0,
                         0,    49, 0,  0, 0, 0,  0,  96,  0,  0,   101, 0, 0,  0,  0,  0, 0, 0,  0,
@@ -1092,10 +1149,9 @@ int hcode;
 
 /* function declarations */
 int main(int argc, char **argv);
-int iabs(int a);
 void exitb();
 int lookup(const int iv);
-int enter(int info);
+int enter(int Info);
 void dumpsy();
 void recov();
 bool stack(/*const int q */);
@@ -1112,13 +1168,13 @@ int gnc();
 void parseOptions(char *s);
 void writel(int nspac);
 void decibp();
-void conv(const int prec);
+int conv(int radix);
 int imin(const int i, const int j);
 void form(char *fmt, ...); // ascii version using printf formats
 // void conout(const int cc, const int k, const int n, const int base);
 // void pad(const int cc, const int chr, const int i);
 void putch(const int chr);
-void stackc(const int i);
+void stackc(int i, char *fname);
 void enterb();
 void dumpin();
 void error(const int i, const int level);
@@ -1129,10 +1185,6 @@ void sdump();
 void redpr(const int prod, const int sym);
 void emit(const int val, const int typ);
 void cmpuse();
-
-int iabs(int a) {
-    return a < 0 ? -a : a;
-}
 
 enum {
     SPACE = 1,
@@ -1245,90 +1297,75 @@ void dumpTable() {
 #define C_WIDTH     contrl[CHW]
 #define C_YPAD      contrl[CHY]
 
-// get the file to use
-// auto open file if first use
-
 /*
-    although fort.nn is still supported, this routine presets up several files based
-    on fname. This allows a command line to specify plm81 file.plm and the fort.nn files
-    are named to reflect the file stem
+ file management is changed from the original cross compiler
+ If the user specifies a file, its name prefix is used to create other files, otherwise the
+ files are opened/created using the numeric values specified in the control table
+ srcFp   - uses file.plm or fort.nn - where nn = control[C_INPUT]
+ polFp   - creates file.pol or fort.nn where nn = control[C_JFILE + 10]
+ symFp   - creates file.sym or fort.nn where nn = control[C_USYMBOL + 10]
+ lstFp   - creates file.lst or fort.nn where nn = control[C_OUTPUT + 10]
+
+ To support include files $I=filename can be used with the previous file being stacked
+ Note if filename is a number < 10, it is assumed to be a fort.nn file
+
 */
-void initFiles(char *fname) {
-    char path[_MAX_PATH];
-    char *s, *t;
+FILE *srcFp;
+FILE *polFp;
+FILE *symFp;
+FILE *lstFp;
+char path[_MAX_PATH];
+char *plmFile;
+int autoId = 100;
 
-    FILE *fp;
-    if ((fp = fopen(fname, "rt")) == NULL) {
-        fprintf(stderr, "can't open %s\n", fname);
-        exit(1);
-    }
-    files[C_INPUT] = fp;
-    strcpy(path, fname);
-    for (s = path; (t = strpbrk(s, DIRSEP)); s = t + 1) // find the filename
-        ;
-    if ((t = strrchr(s, '.'))) // replace extent
-        *t = 0;
-    else
-        t = strchr(s, '\0');
-    strcpy(t, ".pol");
-    if ((fp = fopen(path, "wt")) == NULL) {
-        fprintf(stderr, "can't create %s\n", path);
-        exit(1);
-    }
-    files[C_JFILE + 10] = fp;
-    strcpy(t, ".sym");
-    if ((fp = fopen(path, "wt")) == NULL) {
-        fprintf(stderr, "can't create %s\n", path);
-        exit(1);
-    }
-    files[C_USYMBOL + 10] = fp;
+FILE *openFile(char *fname, uint8_t type) {
 
-    strcpy(t, ".lst");
-    if ((fp = fopen(path, "wt")) == NULL) {
-        fprintf(stderr, "can't create %s\n", path);
-        exit(1);
-    }
-    files[C_OUTPUT + 10] = fp;
-}
-
-FILE *getfile(int i, int direction) {
-    char fname[17]; // artificially increased from 8 to appease GCC
-
-    if (i > 9) {
-        fprintf(stderr, "logical file number > 9\n");
-        exit(1);
-    }
-    if (direction > 0)
-        i += 10;
-    if (files[i] == NULL) {
-        if (i == 1)
-            files[i] = stdin;
-        else if (i == 11)
-            files[i] = stdout;
-        else {
-            sprintf(fname, "fort.%d", i);
-            if ((files[i] = fopen(fname, i < 10 ? "rt" : "wt")) == NULL) {
-                fprintf(stderr, "can't %s %s\n", i < 10 ? "open" : "create", fname);
-                exit(1);
-            }
+    char *ext;
+    if (fname) {
+        strcpy(path, fname);
+        if (!(ext = strrchr(path, '.')) || strpbrk(ext, DIRSEP))
+            ext = strchr(path, '\0');
+        switch (type) {
+        case CHI:
+            if (!*ext)
+                strcpy(ext, ".plm");
+            break;
+        case CHJ:
+            strcpy(ext, ".pol");
+            break;
+        case CHU:
+            strcpy(ext, ".sym");
+            break;
+        case CHO:
+            strcpy(ext, ".lst");
+            break;
+        default:
+            strcpy(ext, ".???");
+            return NULL;
         }
-    }
-    return files[i];
+    } else if (contrl[type] == 1)
+        return type == CHI ? stdin : stdout;
+    else
+        sprintf(path, "fort.%d", type == CHI ? contrl[type] : contrl[type] + 10);
+    return fopen(path, type == CHI ? "rt" : type == CHJ ? "wt" : "wt");
 }
 
 void closefiles() {
-    int i;
-    for (i = 0; i < 20; i++)
-        if (files[i] != NULL && i != 1 && i != 11)
-            fclose(files[i]);
+    if (srcFp)
+        fclose(srcFp);
+    if (polFp)
+        fclose(polFp);
+    if (symFp)
+        fclose(symFp);
+    if (lstFp)
+        fclose(lstFp);
 }
 
 int main(int argc, char **argv) {
-    int i, j, k;
 
     CHK_SHOW_VERSION(argc, argv);
 
-    if (argc > 2 || strcasecmp(argv[1], "-h") == 0) {
+    if (argc > 2 || (argc == 2 && strcasecmp(argv[1], "-h") == 0)) {
         printf("\nUsage: plm81 -v | -V  | -h | [plmfile]\n"
                "Where\n"
                "-v/-V      provide version infomation\n"
@@ -1340,7 +1377,7 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    for (i = 1; i <= 64; i++)
+    for (int i = 1; i <= 64; i++)
         contrl[i] = -1;
     errorCnt    = 0;
     C_ANALYZE   = 0;
@@ -1364,130 +1401,125 @@ int main(int argc, char **argv) {
     C_WIDTH     = 132; /* changed from original 132 */
     C_YPAD      = 1;
 
-    if (argc > 1)
-        initFiles(argv[1]);
+    if (argc > 1) {
+        C_INPUT = autoId; // mark as autoId
+        plmFile = argv[1];
+    }
+    if (!(srcFp = openFile(plmFile, CHI))) {
+        fprintf(stderr, "can't open source file %s\n", path);
+        exit(1);
+    }
 
     // setup input translation table
     memset(itran, SPACE, 256);
-    for (i = SPACE; i <= SEMICOLON; i++) {
+    for (int i = SPACE; i <= SEMICOLON; i++) {
         itran[otran[i - 1]] = i;
         if (isalpha(otran[i - 1]))
             itran[tolower(otran[i - 1])] = i;
     }
     time_t now;
     time(&now);
-    form("\n         pl/m-8080  version 4.0 - %s", ctime(&now));
-    writel(1);
-    for (i = 1; i <= 3; i++)
+    form("\n         pl/m-8080  version 4.0 - %s\n", ctime(&now));
+    for (int i = 1; i <= 3; i++)
         pstack[i] = 0;
     pstack[4] = EOFILE;
     sp        = 4;
     scan();
     cloop();
-    emit(NOP, OPR);
-    while (poltop != 0)
+    do {
         emit(NOP, OPR);
-    /*     print error count */
-    i = errorCnt;
-    j = C_OUTPUT;
-    k = j;
-    for (;;) {
-        writel(0);
-        C_OUTPUT = j;
-        if (i == 0)
-            form("\nNO");
-        else
-            form("%d", i);
-        form(" PROGRAM ERROR");
-        if (i != 1)
-            form("S");
-        form("\n \n");
-        /*     check for terminal control of a batch run */
-        if (j != 1 && C_TERMINAL != 0)
-            /*     arrive here if terminal toggle gt 0, and output not console */
-            j = 1;
-        else {
-            C_OUTPUT = k;
-            dumpsy();
-            /*     may want a symbol table for the simulator */
-            if (C_MEMORY == 0)
-                symbol[2] = 0;
-            dumpch();
-            dumpin();
-            closefiles();
-            cmpuse();
-            return errorCnt;
-        }
-    }
+    } while (poltop != 0);
+
+    writel(0);
+    char cnt[8] = "\nNO";
+    if (errorCnt)
+        sprintf(cnt + 1, "%d", errorCnt);
+    form("%s PROGRAM ERROR%s\n \n", cnt, errorCnt != 1 ? "S" : "");
+    if (lstFp != stdout && C_TERMINAL)
+        printf("%s PROGAM ERROR%s\n\n", cnt, errorCnt != 1 ? "S" : "");
+
+    dumpsy();
+    /*     may want a symbol table for the simulator */
+    if (C_MEMORY == 0)
+        symbol[2] = 0;
+    dumpch();
+    dumpin();
+    closefiles();
+    cmpuse();
+    return errorCnt;
 }
 
 void exitb() {
-    int np, kp, lp, i, j, k, l, n;
-    bool erred;
+
     /*     goes through here upon block exit */
     /*      global tables */
-    erred = false;
     if (curblk > 2) {
-        i = block[curblk];
+        bool erred = false;
+        int i      = block[curblk];
         /* de-allocate those macro definitions whose scope we are leaving,
          * and check if any of these are currently in expansion.
          */
         mactop = macblk[curblk];
 
-        for (n = curmac; n <= MAXMAC; n++) {
-            j = right(macros[n], MACBITS);
+        for (int n = curmac; n <= MAXMAC; n++) {
+            int j = right(macros[n], MACBITS);
             if (mactop <= j) {
                 macros[n] = j + (j << MACBITS);
                 error(49, 1);
             }
         }
         curblk--;
-        for (j = symbol[symtop]; j >= i; j = right(symbol[j], 16)) {
-            if (symbol[j + 1] >= 0) {
-                k  = iabs(symbol[j + 2]); // info
-                kp = symType(k);
-                lp = symInfoLen(kp); // always 0!. possibly fortran should be lp = shr(k, 8)
-                if (kp < LITER) {
-                    if (kp == VARB || kp == LABEL) {
-                        if (symPrec(k) == 0) {
-                            if (kp == LABEL && curblk > 1) // labels may be non local
-                                continue;                  // only fail if not defined at all
+        for (int symIdx = symbol[symtop] + 1; symIdx > i; symIdx = id_next(symIdx) + 1) {
+            if (symbol[Sym(symIdx)] >= 0) {
+                int type = info_type(symIdx);
+
+                if (type < LITER) {
+                    if (type == VARB || type == LABEL) {
+                        if (info_prec(symIdx) == 0) {
+                            if (type == LABEL && curblk > 1) // labels may be non local
+                                continue;                    // only fail if not defined at all
                             if (!erred) {
                                 error(1, 1);
                                 erred = true;
                             }
                             form("\n     ");
-                            if ((n = symInts(symbol[j + 1])) != 0) {
-                                for (kp = 1; kp <= n; kp++) {
-                                    l = symbol[j + 2 + kp];
-                                    for (lp = 1; lp <= PACK; lp++)
-                                        putch(otran[right(l >> (30 - lp * 6), 6)]);
+                            int n;
+                            if ((n = symbol[Sym(symIdx)]) != 0) {
+                                for (int j = 1; j <= n; j++) {
+                                    int l = symbol[Info(symIdx) + j];
+                                    for (int i = 1; i <= PACK; i++)
+                                        putch(otran[right(l >> (30 - i * 6), 6)]);
                                 }
                                 putch('\n');
                             }
                         }
                     }
-                    symbol[j + 1] = -symbol[j + 1]; // negate length fields
-                                                    // to mark out of scope
+                    symbol[Sym(symIdx)] = -symbol[Sym(symIdx)]; // negate length fields
+                                                                // to mark out of scope
                     /* may want to fix the hash code chain */
-                    if (lp > 0) {
+                    // code below is faulty and doesn't appear to be necessary
+#if 0
+
+                    int sLen = sym_len(symIdx); // original code odd, it would be 0, unless label missing!!
+                    if (symbol[Info(symIdx)] > 0) { // has a hash chain
                         /* find match on the entry */
-                        k     = j - 1;
-                        kp    = symbol[k];
-                        hcode = symHash(kp);
-                        ;
-                        kp = symChainNext(kp);
-                        n  = hentry[hcode];
-                        if (n == k)
+                        int hcode = hash_hcode(symIdx);
+                        int next  = hash_next(symIdx);
+                        int n     = hentry[hcode];
+                        if (n == Hash(symIdx))
                             /* this entry is directly connected */
-                            hentry[hcode] = kp;
+                            hentry[hcode] = next;
+
                         else {
                             /* look through some literals in the symbol table above */
-                            while ((np = right(symbol[n], 16)) != k)
+                            int np;
+                            while ((np = hash_hcode(n + 1)) != Hash(symIdx))
                                 n = np;
-                            symbol[n] = (hcode >> 16) + kp;
+                            symbol[n] = (hcode >> 16) + next;
                         }
+
                     }
+#endif
                 }
             }
         }
@@ -1496,109 +1528,142 @@ void exitb() {
 }
 
 int lookup(const int iv) {
-    int jp, lp, j, k, m;
+    /*     jp is identifier, m is variable, LABEL, or procedure. */
     /*     syntax analyzer tables */
     /*      global tables */
-    bool sflag = pstack[iv] != NUMBV;
 
-    symlen     = var[iv].len;
-    symloc     = var[iv].loc;
-    j          = symloc;
-    k          = PACK * 6;
-    m          = 0;
-    if (varc[j] <= 52) {
-        for (jp = 0; jp < symlen; jp++) {
-            if ((k -= 6) < 0) {
-                varc[j++] = m;
-                m         = 0;
-                k         = PACK * 6 - 6;
+    symlen = var[iv].len;
+    symloc = var[iv].loc;
+
+    if (pstack[iv] == NUMBV)
+        hcode = fixv[iv] % 127 + 1; // hash code for numbers
+    else {
+
+        if (varc[symloc] <= 52) {
+            int dstIdx = symloc;
+            int shift  = PACK * 6;
+            int packedVal      = 0;
+            for (int srcIdx = symloc; srcIdx < symloc + symlen; srcIdx++) {
+                if ((shift -= 6) < 0) {
+                    varc[dstIdx++] = packedVal;
+                    packedVal              = 0;
+                    shift          = PACK * 6 - 6;
+                }
+                packedVal += ((varc[srcIdx] - 1) << shift);
             }
-            m = ((varc[jp + symloc] - 1) << k) + m;
+            varc[dstIdx] = packedVal;
         }
-        varc[j] = m;
+        /*     varc is now in packed form ready for lookup */
+        /*     compute hash code (reduce numbers mod 127, use first 5 chars of */
+        /*     identifiers and strings ) */
+        hcode = varc[symloc] % 127 + 1; // hash code for identifiers and strings
     }
-    /*     varc is now in packed form ready for lookup */
-    /*     compute hash code (reduce numbers mod 127, use first 5 chars of */
-    /*     identifiers and strings ) */
-    hcode = sflag ? varc[symloc] : fixv[iv];
-    hcode = hcode % 127 + 1;
     /*     hcode is in the range 1 to 127 */
-    lp = (symlen - 1) / PACK + 1;
-    for (k = hentry[hcode]; k > 0; k = symChainNext(symbol[k])) {
-        if (!sflag) {
-            /*     compare numbers in internal form rather than characters */
-            if (symType(j = symbol[k + 3]) > LITER && symInfoLen(j) == fixv[iv])
-                break;
-        } else if (symSymLen(symbol[k + 2]) == symlen) {
-            j          = k + 3;
-            jp         = symloc;
-            bool match = true;
-            for (m = 1; m <= lp && match; m++, jp++) {
-                match = varc[jp] == symbol[j + m];
-            }
-            /*     symbol found */
-            if (match) {
+    // hentry items point to hash chain, symbol base is +2 from this
+    int intCnt = (symlen - 1) / PACK + 1;
+
+    for (int symIdx = hentry[hcode] + 2; symIdx > 2; symIdx = hash_next(symIdx) + 2) {
+
+        if (pstack[iv] == NUMBV) {
+            if (info_type(symIdx) > LITER && info_len(symIdx) == fixv[iv])
+                return symIdx;
+        } else if (symbol[symIdx] > 0 && sym_len(symIdx) == symlen) {
+            if (memcmp(&varc[symloc], &symbol[SymInts(symIdx)], intCnt * sizeof(varc[0])) == 0) {
                 /*     make sure the types match. */
-                jp = pstack[iv];
-                m  = right(iabs(symbol[k + 3]), 4);
-                if ((jp == STRV && m == LITER) || (jp == IDENTV && m < LITER))
-                    break;
+                if ((pstack[iv] == STRV && info_type(symIdx) == LITER) ||
+                    (pstack[iv] == IDENTV && info_type(symIdx) < LITER))
+                    return symIdx;
             }
         }
     }
-    /*     jp is identifier, m is variable, LABEL, or procedure. */
-    return (k <= 0) ? 0 : k + 2;
+
+    return 0;
 }
 
 int enter(int info) {
-    int ihash, i, j, q, link;
+    bool hasHash = info >= 0; // if info is negative, no hash code
     /*     syntax analyzer tables */
 
     /*      global tables */
     /*      enter assumes a previous call to lookup (either that, or set up */
     /*      the values of symloc and symlen in the varc array). */
     /*         also set-up hash code value (see lookup), if necessary */
-    i    = symtop;
-    link = symbol[i];
-    if (info >= 0) {
-        /*     compute hash table entry */
-        /*     fix collision chain */
-        symbol[i]     = (hcode << 16) + hentry[hcode];
-        hentry[hcode] = i++;
-        ihash         = 1;
-        q             = (symlen - 1) / PACK + 1;
+    int symIdx = symtop;
+    int prev   = symbol[symIdx];
+    int intCnt = 0;
+
+    if (hasHash) {
+        intCnt = (symlen - 1) / PACK + 1;
+        symtop += intCnt + 4;
+        symIdx++;
     } else {
         /*     entry with no external name */
         info = -info;
-        q = symlen = hcode = ihash = 0;
+        symtop += 3;
     }
-
-    symtop = symtop + q + ihash + 3;
 
     if (symtop > maxsym) {
-        i      = ihash;
-        symtop = q + ihash + 3;
+        symIdx = hasHash ? 1 : 0;
+        symtop = symIdx + intCnt + 3;
         error(2, 5);
     }
-    symbol[symtop] = i;
-    symbol[i]      = (++symcnt << 16) + link;
-    symbol[++i]    = (q << 12) + symlen;
-    symbol[i + 1]  = info;
-    for (j = 0; j < q; j++)
-        symbol[i + 2 + j] = varc[symloc + j];
 
-    return i;
+    symbol[symtop]       = symIdx++;
+    symbol[Id(symIdx)]   = (++symcnt << 16) + prev;
+    symbol[Sym(symIdx)]  = (intCnt << 12) + symlen;
+    symbol[Info(symIdx)] = info;
+    for (int j = 0; j < intCnt; j++)
+        symbol[SymInts(symIdx) + j] = varc[symloc + j];
+    /*     compute hash table entry */
+    /*     fix collision chain */
+    if (hasHash) {
+        symbol[Hash(symIdx)] = (hcode << 16) + hentry[hcode];
+        hentry[hcode]        = Hash(symIdx);
+    }
+    return symIdx;
+}
+
+void putSym(char c) {
+    static char symline[120];
+    static uint8_t pos;
+    if (c != '\n')
+        symline[pos++] = c;
+    if (c == '\n' || pos >= C_VWIDTH) {
+        while (pos && symline[pos - 1] == ' ') // remove trailing spaces
+            pos--;
+        fprintf(symFp, " %.*s\n", pos, symline);
+        pos = 0;
+    }
+}
+
+void putSymStr(const char *s) {
+    while (*s) {
+        putSym(*s);
+        s++;
+    }
+}
+
+void putSymInt(int n, int width) {
+    char buf[12];
+    int i = 0;
+    do {
+        int digit = n % 32; // convert to base 32
+        putSym(digit < 10 ? '0' + digit : 'A' + digit - 10); // convert to ASCII
+        width--;
+    } while (n /= 32);
+    while (width-- > 0)
+        putSym('0'); // pad with zeros
 }
 
 void dumpsy() {
-    int kp, lp, ic, mc, ip, it, i, j, k, _k, l, m, n;
+    int lp, ic, mc, ip, it, i, j, k, l, n;
     /*      global tables */
     ic = C_SYMBOLS;
     if (ic != 0) {
         writel(0);
         if (ic > 1)
             form("\nSYMBOL  ADDR WDS CHRS   LENGTH PR TY");
-        for (i = symbol[symtop] & 0xffff, it = symtop; i > 0; it = i, i = symbol[i] & 0xffff) {
+        for (i = symChainNext(it = symtop); i; i = symChainNext(it = i)) {
             /*     quick check for zero length name */
             if (ic >= 2 || iabs(symbol[i + 1]) >> 12 > 0)
                 form("\nS%05d", symId(symbol[i]));
@@ -1619,19 +1684,19 @@ void dumpsy() {
             k  = iabs(symbol[i + 1]);
             n  = symInts(k);
             if (n != 0) { // has size
-                mc = symSymLen(k);
-                m  = symType(iabs(symbol[i + 2]));
-                if (m == LITER)
+                mc       = symSymLen(k);
+                int type = symType(iabs(symbol[i + 2]));
+                if (type == LITER)
                     putch('\'');
-                for (kp = 1; kp <= n; kp++) {
+                for (int kp = 1; kp <= n; kp++) {
                     l = symbol[kp + ip];
                     for (lp = 1; lp <= PACK && mc-- > 0; lp++)
                         putch(otran[(l >> (30 - lp * 6)) & 0x3f]);
                 }
-                if (m == LITER)
+                if (type == LITER)
                     putch('\'');
             }
-            ip = ip + n;
+            ip += n;
             if (ic >= 2)
                 while (++ip < it) {
                     k = symbol[ip];
@@ -1641,88 +1706,88 @@ void dumpsy() {
         writel(0);
     }
     writel(0);
-    _k       = C_OUTPUT; // bug in original code
-    C_OUTPUT = C_USYMBOL;
-    kp       = C_WIDTH;
-    C_WIDTH  = C_VWIDTH;
+
+    if (!symFp && !(symFp = openFile(plmFile, CHU))) {
+        fprintf(stderr, "can't create sym file %s\n", path);
+        exit(1);
+    }
+
     /*     write the interrupt procedure names */
-    form("/");
-    for (i = 1; i <= 8; i++) {
-        if ((j = intpro[i]) > 0) { /* write intnumber symbolnum (4 base-32 digits) */
-            putch(otran[i]);
-            for (l = 0; l < 3; l++) {
-                putch(otran[j % 32 + 1]);
-                j /= 32;
-            }
-            form("/");
+    putSym('/');
+    for (int intProcNum = 1; intProcNum <= 8; intProcNum++) {
+        int intProcAddr = intpro[intProcNum]; /* interrupt procedure address */
+        if (intProcAddr > 0) {                /* write intnumber symbolnum (4 base-32 digits) */
+            putSym(intProcNum + '0');
+            putSymInt(intProcAddr, 3);
+            putSym('/');
         }
     }
-    form("/");
-    writel(0);
+    putSymStr("/\n");
 
     /*     reverse the symbol table pointers */
     /*     set the length field of compiler-generated labels to 1 */
 
     i         = symtop;
-    j         = symbol[i];
+    j         = symbol[i]; // will have no symbol #
     symbol[i] = 0;
     while (j != 0) {
-        k = symbol[j + 2];
+        /* note j is the symbol - 1 location. See symbol format */
         /* set length to 1 and prec to 5 (for comp generated labels) */
-        if (symType(k) == LABEL && symInfoLen(k) == 0)
-            symbol[j + 2] = (1 << 8) + (CompilerLabel << 4) + LABEL;
-        m         = symbol[j];
+        if (info_type(j + 1) == LABEL && info_len(j + 1) == 0)
+            symbol[Info(j + 1)] = (1 << 8) + (CompilerLabel << 4) + LABEL;
+        int packedVal     = symbol[j];
         symbol[j] = i;
         i         = j;
-        j         = m & 0xffff;
+        j         = packedVal & 0xffff; // strip the symbol #
     }
 
-    putch('/');
-    for (j = 2; symbol[j]; j = symbol[j]) {
-        lp = symbol[j + 2]; /* sym info */
-        putch(lp < 0 ? '-' : ' ');
-        lp = iabs(lp);
-        do {
-            putch(otran[lp % 32 + 1]);
-        } while ((lp /= 32) != 0);
+    putSym('/');
+    for (int j = 2; symbol[j]; j = symbol[j]) {
+        /* note j is the symbol - 1 location. See symbol format */
+        int symIdx = j + 1;
+        int lp     = symbol[Info(symIdx)]; /* sym info */
+        if (lp < 0) {
+            lp = -lp;
+            putSym('-');
+        } else
+            putSym(' ');
+        putSymInt(lp, 0); // print the Info word
 
-        if (symbol[j + 2] < 0) {
-            lp = symbol[j + symInts(iabs(symbol[j + 1])) + 3];
-            putch(lp < 0 ? '-' : ' ');
-            lp = iabs(lp);
-            do {
-                putch(otran[lp % 32 + 1]);
-            } while ((lp /= 32) != 0);
+        if (symbol[Info(symIdx)] < 0) {
+            lp = symbol[SymInts(symIdx) + sym_ints(symIdx)];
+            if (lp < 0) {
+                lp = -lp;
+                putSym('-');
+            } else
+                putSym(' ');
+            putSymInt(lp, 0); // print the length
+
         }
-        putch('/');
+        putSym('/');
     }
 
-    putch('/');
-    writel(0);
-    C_OUTPUT = _k;
-    C_WIDTH  = kp;
+    putSym('/');
+    putSym('\n');
 }
 
 void recov() {
-    int i;
-    /*      global tables */
     for (;;) {
         /*     find something solid in the text */
         if (token == DECL || token == PROCV || token == ENDV || token == DOV || token == SEMIV ||
             token == EOFILE)
             for (;;) {
                 /*     and in the stack */
-                i = pstack[sp];
-                if (failsf && getc1(i, token) != 0) {
+                int top = pstack[sp];
+                if (failsf && getc1(top, token) != 0) {
                     failsf = false;
                     return;
                 }
-                if (i == EOFILE && token == EOFILE) {
+                if (top == EOFILE && token == EOFILE) {
                     failsf = compil = false;
                     return;
                 }
-                if ((i == GROUPV || i == SLISTV || i == STMTV || i == DOV || i == PROCV) &&
-                    token != EOFILE)
+                if (token != EOFILE &&
+                    (top == GROUPV || top == SLISTV || top == STMTV || top == DOV || top == PROCV))
                     break;
                 /*         but don't go too far */
                 if (sp <= 4)
@@ -1734,8 +1799,8 @@ void recov() {
 }
 
 // simple compare for bsearch
-int intcmp(const int *a, const int *b) {
-    return *a - *b;
+int intcmp(const void *a, const void *b) {
+    return *(const int *)a - *(const int *)b;
 }
 
 bool stack(/*const int q */) {
@@ -1760,8 +1825,7 @@ bool stack(/*const int q */) {
             return false;
         case 3:
             j = TRI(pstack[sp - 1], pstack[sp], token);
-            return bsearch(&j, c1tri, ASIZE(c1tri), sizeof(c1tri[0]),
-                           (int (*)(const void *, const void *))intcmp) != NULL;
+            return bsearch(&j, c1tri, ASIZE(c1tri), sizeof(c1tri[0]), intcmp) != NULL;
         }
     }
 }
@@ -1791,18 +1855,14 @@ bool prok(const int prd) {
 }
 
 void reduce() {
-    int prd, i, j, k, l, m, ltemp;
     /*     pack stack top */
-    j = 0;
-    for (i = sp - 4; i <= sp - 1; i++)
-        j = (j << 8) + pstack[i];
-    ltemp = pstack[sp];
-    k     = prind[ltemp - 1];
-    l     = prind[ltemp];
+    int j   = QUAD(pstack[sp - 4], pstack[sp - 3], pstack[sp - 2], pstack[sp - 1]);
 
-    for (prd = k; prd < l; prd++) {
-        m = right(j, 8 * (prlen[prd] - 1)); // m = significant items to reduce by
-        if (m == prtb[prd] && prok(prd)) {
+    int top = pstack[sp];
+
+    for (int prd = prind[top - 1]; prd < prind[top]; prd++) {
+        int packedVal = right(j, 8 * (prlen[prd] - 1)); // m = significant items to reduce by
+        if (packedVal == prtb[prd] && prok(prd)) {
             mp = sp - prlen[prd] + 1;     // mp -> lowest item on stack
             synth(prdtb[prd], hdtb[prd]); // do the action
             sp         = mp;              // do the reduce
@@ -1820,7 +1880,6 @@ void reduce() {
 }
 
 void cloop() {
-    int i, j;
     /*      global tables */
     compil = true;
     while (compil) {
@@ -1833,36 +1892,29 @@ void cloop() {
             if (++sp >= MSTACK) {
                 error(5, 5);
                 break;
-            } else {
-                pstack[sp] = token;
-                /*     insert accum into varc here */
-                if (token == NUMBV) {
-                    conv(16);
-                    if (value < 0) {
-                        error(6, 1);
-                        value = 0;
+            }
+            pstack[sp] = token;
+            /*     insert accum into varc here */
+            if (token == NUMBV)
+                fixv[sp] = conv(stype);
+
+            var[sp].loc = vartop;
+            for (;;) {
+                for (int j = 1; j <= acclen; j++) {
+                    varc[vartop] = accum[j];
+                    if (++vartop > MVAR) {
+                        error(7, 5);
+                        vartop = 1;
                     }
-                    fixv[sp] = value;
                 }
-                var[sp].loc = vartop;
-                for (;;) {
-                    if (acclen != 0)
-                        for (j = 1; j <= acclen; j++) {
-                            varc[vartop] = accum[j];
-                            if (++vartop > MVAR) {
-                                error(7, 5);
-                                vartop = 1;
-                            }
-                        }
-                    /* string constatncs may be continued over several buffersful */
-                    if (token != STRV || stype != CONT)
-                        break;
-                    scan();
-                }
-                i           = vartop - var[sp].loc;
-                var[sp].len = i < 0 ? 1 : i;
+                /* string constants may be continued over several buffers full */
+                if (token != STRV || stype != CONT)
+                    break;
                 scan();
             }
+            int i       = vartop - var[sp].loc;
+            var[sp].len = i < 0 ? 1 : i;
+            scan();
         }
     }
 }
@@ -1875,12 +1927,12 @@ void cloop() {
     2 - reduce
     3 - look at top three items is match in c1tri then stack else reduce
 */
-int getc1(int i, int j) {
-    return (c1[i - 1][j / 4] >> ((j % 4) << 1)) & 3;
+int getc1(int stackItem, int token) {
+    return (c1[stackItem - 1][token / 4] >> ((token % 4) << 1)) & 3;
 }
 
 void scan() {
-    int lp, i, j, k, l, m, n;
+    int lp, i, j, k, l, packedVal, n;
     /*      global tables */
     /*     scan finds the next entity in the input stream */
     /*     the resulting item is placed into accum (of length */
@@ -1949,13 +2001,12 @@ void scan() {
                     stype = 8;
                 if (stype == 0) {
                     if (accum[acclen] == CHB) { // B
-                        stype  = 2;
-                        acclen = acclen - 1;
-                    } else if (accum[acclen] != CHD) // D
+                        stype = 2;
+                        acclen--;
+                    } else {
                         stype = 10;
-                    else {
-                        stype  = 10;
-                        acclen = acclen - 1;
+                        if (accum[acclen] == CHD) // D
+                            acclen--;
                     }
                     decibp();
                 }
@@ -2058,8 +2109,8 @@ void scan() {
                 lp = l + v[l];
                 l++;
                 bool match = true;
-                for (m = l, n = 1; m <= lp && match; m++, n++)
-                    match = accum[n] == v[m];
+                for (packedVal = l, n = 1; packedVal <= lp && match; packedVal++, n++)
+                    match = accum[n] == v[packedVal];
 
                 if (match) {
                     token = i - 1;
@@ -2087,14 +2138,13 @@ void scan() {
             }
         }
         /*     macro found, set-up macro table and rescan */
-        curmac = curmac - 1;
-        if (curmac <= mactop) {
+        if (--curmac <= mactop) {
             error(8, 5);
             curmac = MAXMAC + 1;
         } else {
             j              = i + macros[i];
             macros[curmac] = (i << MACBITS) + j; /* merge the begin end and indexes */
-            macros[l + 1]  = -k;
+            macros[l + 1]  = -macros[l + 1];     // negate to say being expanded
         }
     }
     token = i - 1;
@@ -2103,7 +2153,7 @@ void scan() {
 
 int wrdata(const int sy) {
     bool dflag;
-    int np, ip, i, j, k, l, m, n, _wrdata, kp, nbytes, lp;
+    int np, ip, i, j, k, l, packedVal, n, _wrdata, kp, nbytes, lp;
     /*     if sy is negative, the call comes from synth -- data is inserted */
     /*     inline by calling LIT with each byte value. */
 
@@ -2140,7 +2190,7 @@ int wrdata(const int sy) {
                 /*         n is then written in two parts */
                 for (i = 1; i <= 2; i++) {
                     k = right(n >> ((2 - i) * 4), 4) + k + 2;
-                    putch(otran[k - 1]);
+                    putSym(otran[k - 1]);
                     //                                      pad(1,k,1);
                     k = 0;
                 }
@@ -2156,14 +2206,14 @@ int wrdata(const int sy) {
             if (n < 0) {
                 n = np;
                 j = j + 1;
-                m = symbol[j];
+                packedVal = symbol[j];
             }
             nbytes = nbytes + 1;
-            kp     = right(m >> n, 6) + 1;
+            kp     = right(packedVal >> n, 6) + 1;
             if (dflag)
 
                 /*     write out the variable or LABEL name */
-                putch(otran[kp - 1]);
+                putSym(otran[kp - 1]);
             else {
                 kp = ascii[kp - 1];
 
@@ -2176,7 +2226,7 @@ int wrdata(const int sy) {
 
                     for (ip = 1; ip <= 2; ip++) {
                         k = right(kp >> ((2 - ip) * 4), 4) + k + 2;
-                        putch(otran[k - 1]);
+                        putSym(otran[k - 1]);
                         k = 0;
                     }
             }
@@ -2189,42 +2239,34 @@ int wrdata(const int sy) {
 }
 
 void dumpch() {
-    int i, j, kq, k, l, m, kt;
     /*     dump the symbolic names for the simulator */
     writel(0);
-    kt       = C_OUTPUT;
-    C_OUTPUT = C_USYMBOL;
-    kq       = C_WIDTH;
-    C_WIDTH  = C_VWIDTH;
 
-    putch('/');
-    i = symbol[2] == 0 ? 0 : 2;
-    for (k = 1; i; k++, i = symbol[i]) {
-        if ((j = symbol[i + 2]) >= 0) {
-            if ((j = symType(j)) == LABEL || j == VARB || j == PROC) {
-                /* check if real symbol */
-                if (symInts(iabs(symbol[i + 1]))) {
-                    /* write symbol number */
-                    m = k;
-                    for (l = 0; l < 3; l++) {
-                        putch(otran[m % 32 + 1]);
-                        m = m / 32;
+    putSym('/');
+    if (symbol[2]) {
+        int i = 2;
+        for (int symNumber = 1; i; symNumber++, i = symbol[i]) {
+            int symIdx = i + 1; // symbol - 1 location
+            if (symbol[Info(symIdx)] >= 0) {
+                int type = info_type(symIdx);
+                if (type == LABEL || type == VARB || type == PROC) {
+                    /* check if real symbol */
+                    if (sym_ints(symIdx)) {
+                        /* write symbol number */
+                        putSymInt(symNumber, 3);
+                        /* now write the string */
+                        wrdata(symIdx);
+                        putSym('/');
                     }
-                    /* now write the string */
-                    wrdata(i + 1);
-                    putch('/');
                 }
             }
         }
     }
-    putch('/');
-    writel(0);
-    C_OUTPUT = kt;
-    C_WIDTH  = kq;
+    putSymStr("/\n");
 }
 
 void synth(const int prod, const int symm) {
-    int ip, i, j, k, l, m, n, kp, ltemp;
+    int ip, i, j, k, l, packedVal, length, kp, ltemp;
 
     /*    mp == left ,  sp == right */
 
@@ -2250,7 +2292,7 @@ void synth(const int prod, const int symm) {
             if (i <= 0)
                 emit(XCH, OPR);
             else {
-                emit(sym_id(i), ADR);
+                emit(id_num(i), ADR);
             }
             if (acnt > 0)
                 emit(STO, OPR);
@@ -2288,25 +2330,25 @@ void synth(const int prod, const int symm) {
              // fall through to common code
     case 19: // <IF STATEMENT> ::= <IF CLAUSE> <TRUE PART> <STATEMENT>
         i = fixv[mp];
-        emit(sym_id(i), DEF);
-        symbol[i + 1] = 64 + LABEL;
+        emit(id_num(i), DEF);
+        symbol[i + 1] = MkInfo(0, LocalLabel, LABEL);
         return;
     case 20: // <IF STATEMENT> ::= <LABEL DEFINITION> <IF STATEMENT>
         return;
     case 21: // <IF CLAUSE> ::= IF <EXPRESSION> THEN
-        i = enter(-LABEL);
-        emit(sym_id(i), VLU);
+        i = enter(-MkInfo(0, 0, LABEL));
+        emit(id_num(i), VLU);
         emit(TRC, OPR);
         fixv[mp] = i;
         return;
     case 22: // <TRUE PART> ::= <BASIC STATEMENT> ELSE
-        i = enter(-LABEL);
-        emit(sym_id(i), VLU);
+        i = enter(-MkInfo(0, 0, LABEL));
+        emit(id_num(i), VLU);
         emit(TRA, OPR);
         j            = fixv[mp - 1];
         fixv[mp - 1] = i;
         i            = j;
-        emit(sym_id(i), DEF);
+        emit(id_num(i), DEF);
         symbol[i + 1] = 64 + LABEL;
         return;
     case 23: // <GROUP> ::= <GROUP HEAD> <ENDING>
@@ -2337,9 +2379,9 @@ void synth(const int prod, const int symm) {
         case 3:
             /*     generate destination of case branch */
             j = right(i, 14);
-            k = sym_id(j);
+            k = id_num(j);
             emit(k, DEF);
-            m             = symbol[j + 1] >> 8;
+            packedVal             = symbol[j + 1] >> 8;
             symbol[j + 1] = right(symbol[j + 1], 8);
             /*     m is symbol number of LABEL at end of jump table */
             emit(CSE, OPR);
@@ -2360,10 +2402,10 @@ void synth(const int prod, const int symm) {
                         symbol[l + 1] = 64 + LABEL;
                         if ((j = i >> 8) == 0) {
                             /*     define end of jump table */
-                            emit(m, DEF);
+                            emit(packedVal, DEF);
                             break;
                         } else {
-                            k = sym_id(l);
+                            k = id_num(l);
                             emit(k, VLU);
                             emit(AX2, OPR);
                             l = j;
@@ -2393,19 +2435,19 @@ void synth(const int prod, const int symm) {
         return;
     case 27: // <GROUP HEAD> ::= DO <CASE SELECTOR> ';'
         enterb();
-        k = enter(-(64 + LABEL));
+        k = enter(-MkInfo(0, LocalLabel, LABEL));
         k = (symbol[k - 1] >> 16);
         /*     k is LABEL after case jump table */
-        i = enter(-((k << 8) + 64 + LABEL));
-        j = sym_id(i);
+        i = enter(-MkInfo(k, LocalLabel, LABEL));
+        j = id_num(i);
         emit(j, VLU);
         emit(AX1, OPR);
         dopar[curblk] = (i << 2) + 3;
         i             = dopar[curblk];
         k             = (i >> 16);
-        j             = enter(-((k << 8) + 64 + LABEL));
+        j             = enter(-MkInfo(k, LocalLabel, LABEL));
         dopar[curblk] = (j << 16) + right(i, 16);
-        emit(sym_id(j), DEF);
+        emit(id_num(j), DEF);
         return;
     case 28: // <GROUP HEAD> ::= <GROUP HEAD> <STATEMENT>
         i = dopar[curblk];
@@ -2419,23 +2461,19 @@ void synth(const int prod, const int symm) {
         emit(TRA, OPR);
         i             = dopar[curblk];
         k             = (i >> 16);
-        j             = enter(-((k << 8) + 64 + LABEL));
+        j             = enter(-MkInfo(k, LocalLabel, LABEL));
         dopar[curblk] = (j << 16) + right(i, 16);
-        emit(sym_id(j), DEF);
+        emit(id_num(j), DEF);
         return;
     case 29: // <STEP DEFINITION> ::= <VARIABLE> <REPLACE> <EXPRESSION> <ITERATION CONTROL>
-        i = fixv[mp];
         j = fixv[mp + 3];
-        if (j >= 0)
-            i = 0;
         /*     place <variable> symbol number into do slot */
-        fixv[mp - 1] = i;
+        fixv[mp - 1] = j >= 0 ? 0 : fixv[mp];
         fixv[mp]     = iabs(j);
         return;
     case 30: // <ITERATION CONTROL> ::= <TO> <EXPRESSION>
         emit(LEQ, OPR);
-        i = enter(-(64 + LABEL));
-        i = sym_id(i);
+        i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
         emit(i, VLU);
         emit(TRC, OPR);
         fixv[mp] = -((fixv[mp] << 14) + i);
@@ -2455,10 +2493,8 @@ void synth(const int prod, const int symm) {
         emit(right(i, 14), DEF);
         return;
     case 32: // <WHILE CLAUSE> ::= <WHILE> <EXPRESSION>
-        i        = enter(-(64 + LABEL));
-        j        = fixv[mp];
-        i        = sym_id(i);
-        fixv[mp] = (j << 14) + i;
+        i        = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        fixv[mp] = (fixv[mp] << 14) + i;
         /*     (back branch number/end loop number) */
         emit(i, VLU);
         emit(TRC, OPR);
@@ -2478,54 +2514,50 @@ void synth(const int prod, const int symm) {
         emit((symbol[k - 1] >> 16), DEF);
         return;
     case 35: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> ';'
-        proctp[curblk] = 1;
-        i              = fixv[mp];
-        symbol[i + 1]  = (0 << 8) + (0 << 4) + PROC;
-        j              = enter(-(64 + LABEL));
-        fixv[mp]       = (j << 15) + i;
-        emit(sym_id(j), VLU);
+        proctp[curblk]  = 1;
+        i               = fixv[mp];
+        symbol[Info(i)] = MkInfo(0, 0, PROC);
+        j               = enter(-MkInfo(0, LocalLabel, LABEL));
+        fixv[mp]        = (j << 15) + i;
+        emit(id_num(j), VLU);
         emit(TRA, OPR);
-        emit(sym_id(i), DEF);
+        emit(id_num(i), DEF);
         return;
     case 36: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <TYPE> ';'
-        k              = fixv[sp - 1];
-        proctp[curblk] = 2;
-        i              = fixv[mp];
-        symbol[i + 1]  = (0 << 8) + (k << 4) + PROC;
-        j              = enter(-(64 + LABEL));
-        fixv[mp]       = (j << 15) + i;
-        emit(sym_id(j), VLU);
+        k               = fixv[sp - 1];
+        proctp[curblk]  = 2;
+        i               = fixv[mp];
+        symbol[Info(i)] = MkInfo(0, k, PROC);
+        j               = enter(-MkInfo(0, LocalLabel, LABEL));
+        fixv[mp]        = (j << 15) + i;
+        emit(id_num(j), VLU);
         emit(TRA, OPR);
-        emit(sym_id(i), DEF);
+        emit(id_num(i), DEF);
         return;
     case 37: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <PARAMETER LIST> ';'
-        l              = fixv[mp + 1];
-        k              = 0;
-        proctp[curblk] = 1;
-        i              = fixv[mp];
-        symbol[i + 1]  = (l << 8) + (k << 4) + PROC;
-        j              = enter(-(64 + LABEL));
-        fixv[mp]       = (j << 15) + i;
-        emit(sym_id(j), VLU);
+        proctp[curblk]  = 1;
+        i               = fixv[mp];
+        symbol[Info(i)] = MkInfo(fixv[mp + 1], 0, PROC);
+        j               = enter(-MkInfo(0, LocalLabel, LABEL));
+        fixv[mp]        = (j << 15) + i;
+        emit(id_num(j), VLU);
         emit(TRA, OPR);
-        emit(sym_id(i), DEF);
+        emit(id_num(i), DEF);
         return;
     case 38: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <PARAMETER LIST> <TYPE> ';'
-        l              = fixv[mp + 1];
-        k              = fixv[sp - 1];
-        proctp[curblk] = 2;
-        i              = fixv[mp];
-        symbol[i + 1]  = (l << 8) + (k << 4) + PROC;
-        j              = enter(-(64 + LABEL));
-        fixv[mp]       = (j << 15) + i;
-        emit(sym_id(j), VLU);
+        proctp[curblk]  = 2;
+        i               = fixv[mp];
+        symbol[Info(i)] = MkInfo(fixv[mp + 1], fixv[sp - 1], PROC);
+
+        j               = enter(-MkInfo(0, LocalLabel, LABEL));
+        fixv[mp] += (j << 15);
+        emit(id_num(j), VLU);
         emit(TRA, OPR);
-        emit(sym_id(i), DEF);
+        emit(id_num(i), DEF);
         return;
     case 39: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> INTERRUPT <NUMBER> ';'
         /*     get symbol number */
-        i = fixv[mp];
-        i = sym_id(i);
+        i = id_num(fixv[mp]);
         /*     get interrupt number */
         j = fixv[sp - 1];
         if (j > 7)
@@ -2538,14 +2570,14 @@ void synth(const int prod, const int symm) {
             else
                 error(40, 1);
         }
-        proctp[curblk] = 1;
-        i              = fixv[mp];
-        symbol[i + 1]  = (0 << 8) + (0 << 4) + PROC;
-        j              = enter(-(64 + LABEL));
-        fixv[mp]       = (j << 15) + i;
-        emit(sym_id(j), VLU);
+        proctp[curblk]  = 1;
+        i               = fixv[mp];
+        symbol[Info(i)] = MkInfo(0, 0, PROC);
+        j               = enter(-MkInfo(0, LocalLabel, LABEL));
+        fixv[mp]        = (j << 15) + i;
+        emit(id_num(j), VLU);
         emit(TRA, OPR);
-        emit(sym_id(i), DEF);
+        emit(id_num(i), DEF);
         return;
     case 40: // <PROCEDURE NAME> ::= <LABEL DEFINITION> PROCEDURE
              /* check for numeric label */
@@ -2561,7 +2593,7 @@ void synth(const int prod, const int symm) {
         i = lookup(sp - 1);
         if (i >= blksym)
             error(14, 1);
-        /*i = */ enter(VARB);
+        /*i = */ enter(MkInfo(0, 0, VARB));
         fixv[mp]++;
         return;
     case 42: // <PARAMETER HEAD> ::= '(' Left context check(<PROCEDURE NAME>)
@@ -2582,33 +2614,26 @@ void synth(const int prod, const int symm) {
         fixv[mp] = fixv[sp];
         return;
     case 47: // <LABEL DEFINITION> ::= <IDENTIFIER> ':'
-        i = lookup(mp);
-        if (curblk == 2)
-            ip = 48;
-        if (curblk != 2)
-            ip = 64;
+        i  = lookup(mp);
+        ip = curblk == 2 ? OuterLabel : LocalLabel;
         if (i < blksym)
 
             /*         prec = 3 if user-defined outer block LABEL */
             /*         prec = 4 if user-defined LABEL not in outer block */
             /*         prec = 5 if compiler-generated LABEL */
-            i = enter(ip + LABEL);
+            i = enter(MkInfo(0, ip, LABEL));
         else {
-            j = symbol[i + 1];
-            j = right((j >> 4), 4);
-            k = i + 1;
-            if (j != 0) {
+            if (info_prec(i)) {
                 error(16, 1);
-                symbol[k] = symbol[k] - j * 16;
+                symbol[Info(i)] &= ~(0xF << 4); // clear the prec bits
             }
-            symbol[k] = symbol[k] + ip;
+            symbol[Info(i)] += MkInfo(0, ip, 0); // set the prec bits
         }
         fixv[mp] = i;
         /* indicate that this is an identifier label */
         fixc[mp] = -1;
-        if (token != PROCV) {
-            emit(sym_id(i), DEF);
-        }
+        if (token != PROCV)
+            emit(id_num(i), DEF);
         return;
     case 48: // <LABEL DEFINITION> ::= <NUMBER> ':'
         k = fixv[mp];
@@ -2617,12 +2642,12 @@ void synth(const int prod, const int symm) {
         } else {
             if ((l = lookup(mp)) == 0) {
                 /*     enter number */
-                j = (k > 255) ? 2 : 1;
-                l = enter((k << 8) + (j << 4) + LITER + 1);
+
+                l = enter(MkInfo(k, k > 255 ? 2 : 1, LITER + 1));
             }
             /* indicate that this is a numeric label */
             fixc[mp] = l;
-            emit(sym_id(l), VLU);
+            emit(id_num(l), VLU);
             emit(ORG, OPR);
         }
         return;
@@ -2645,8 +2670,8 @@ void synth(const int prod, const int symm) {
         if ((i = fixv[sp]) == 0)
             return;
         if (i > 0) {
-            j = right(symbol[i + 1], 4);
-            emit(sym_id(i), ADR);
+            j = info_type(i);
+            emit(id_num(i), ADR);
             if (j == PROC) {
                 emit(PRO, OPR);
                 return;
@@ -2659,30 +2684,28 @@ void synth(const int prod, const int symm) {
         return;
     case 52: // <GO TO STATEMENT> ::= <GO TO> <IDENTIFIER>
         if ((i = lookup(sp)) == 0)
-            i = enter(LABEL);
-        j = right(symbol[i + 1], 4);
-        if (j != LABEL && j != VARB) {
-            error(19, 1);
-        } else {
+            i = enter(MkInfo(0, 0, LABEL));
+        j = info_type(i);
+        if (j == LABEL || j == VARB) {
             /*     increment the reference counter (use length field) */
             if (j == LABEL)
-                symbol[i + 1] = symbol[i + 1] + 256;
-            emit(sym_id(i), VLU);
+                symbol[Info(i)] += MkInfo(1, 0, 0);
+            emit(id_num(i), VLU);
             emit(TRA, OPR);
-        }
+        } else
+            error(19, 1);
         return;
     case 53: // <GO TO STATEMENT> ::= <GO TO> <NUMBER>
-        j = sp;
-        k = fixv[j];
+        k = fixv[sp];
         if (k > 65535) {
             error(17, 1);
         } else {
-            if ((l = lookup(j)) == 0) {
+            if ((l = lookup(sp)) == 0) {
                 /*     enter number */
                 j = (k > 255) ? 2 : 1;
-                l = enter((k << 8) + (j << 4) + LITER + 1);
+                l = enter(MkInfo(k, k > 255 ? 2 : 1, LITER + 1));
             }
-            emit(sym_id(l), VLU);
+            emit(id_num(l), VLU);
             emit(TRA, OPR);
         }
         return;
@@ -2695,12 +2718,10 @@ void synth(const int prod, const int symm) {
     case 59: // <DECLARATION ELEMENT> ::= <IDENTIFIER> LITERALLY <STRING>
         l = mp;
         k = mactop;
-        for (m = 1; m <= 2; m++) {
+        for (packedVal = 1; packedVal <= 2; packedVal++) {
             ip = var[l].len;
             i  = var[l].loc - 1;
-
-            k  = k + 1;
-            if (k >= curmac) {
+            if (++k >= curmac) {
                 error(20, 5);
                 return;
             }
@@ -2734,8 +2755,8 @@ void synth(const int prod, const int symm) {
         fixv[mp] += wrdata(-fixv[mp + 1]);
         return;
     case 62: // <DATA HEAD> ::= DATA '('
-        j = enter(-(64 + LABEL));
-        j = sym_id(j);
+        j = enter(-MkInfo(0, LocalLabel, LABEL));
+        j = id_num(j);
         emit(j, VLU);
         emit(TRA, OPR);
         fixv[mp] = (j << 16);
@@ -2743,33 +2764,30 @@ void synth(const int prod, const int symm) {
         if (i > blksym)
             error(22, 1);
         /*     set precision of inline data to 3 */
-        i            = enter(48 + VARB);
+        i            = enter(MkInfo(0, OuterLabel, VARB));
         fixv[mp - 1] = i;
         emit(DAT, OPR);
-        emit(sym_id(i), DEF);
+        emit(id_num(i), DEF);
         return;
     case 64: // <TYPE DECLARATION> ::= <IDENTIFIER SPECIFICATION> <TYPE>
-        n = 1;
-        goto L200;
     case 65: // <TYPE DECLARATION> ::= <BOUND HEAD> <NUMBER> ')' <TYPE>
-        n = fixv[mp + 1];
+        length = prod == 64 ? 1 : fixv[mp + 1];
 
-    L200:
-        i = fixv[mp];
-        j = i >> 15;
-        i = right(i, 15);
-        k = fixv[sp];
+        i      = fixv[mp];
+        j      = i >> 15;
+        i      = right(i, 15);
+        k      = fixv[sp];
         for (l = j; l <= i; l++) {
-            m  = symbol[l] + 1;
-            ip = symbol[m];
+            packedVal  = symbol[l];
+            ip = symbol[Info(packedVal)];
             if (k == 0) {
                 if (ip != 1)
                     error(21, 1);
                 ip = LABEL;
             }
-            symbol[m] = (n << 8) + (k << 4) + right(iabs(ip), 4);
+            symbol[Info(packedVal)] = MkInfo(length, k, right(iabs(ip), 4));
             if (ip < 0)
-                symbol[m] = -symbol[m];
+                symbol[Info(packedVal)] = -symbol[Info(packedVal)];
         }
         maxsym   = i;
         fixv[mp] = symbol[i];
@@ -2809,7 +2827,7 @@ void synth(const int prod, const int symm) {
     case 77: // <BASED VARIABLE> ::= <IDENTIFIER> BASED
         i = lookup(mp);
         if (i <= blksym)
-            i = enter(VARB);
+            i = enter(MkInfo(0, 0, VARB));
         else {
             if (right(symbol[i + 1], 8) != VARB)
                 error(24, 1);
@@ -2827,14 +2845,14 @@ void synth(const int prod, const int symm) {
             symbol[symtop] = symbol[j];
             k              = lookup(sp);
             if (k == 0)
-                k = enter(VARB);
+                k = enter(MkInfo(0, 0, VARB));
             else {
                 if (right(symbol[k + 1], 4) != VARB) {
                     error(26, 1);
                     return;
                 }
             }
-            symbol[j] = sym_id(k); // stuff the symId of the base var
+            symbol[j] = id_num(k); // stuff the symId of the base var
             i++;
             symbol[i] = -symbol[i]; // mark the info as based
         }
@@ -2852,7 +2870,7 @@ void synth(const int prod, const int symm) {
             fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
             maxsym--;
         } else {
-            i         = sym_id(i);
+            i         = id_num(i);
             symbol[j] = (i << 15);
         }
         return;
@@ -2867,7 +2885,7 @@ void synth(const int prod, const int symm) {
         } else {
             symbol[i]++;
             i              = fixv[mp + 1];
-            i              = (sym_id(i) << 16) + i;
+            i              = (id_num(i) << 16) + i;
             symbol[maxsym] = i;
         }
         maxsym--;
@@ -2966,11 +2984,11 @@ void synth(const int prod, const int symm) {
         return;
     case 112: // <PRIMARY> ::= <CONSTANT>
         i = fixv[mp];
-        emit(sym_id(i), VLU);
+        emit(id_num(i), VLU);
         return;
     case 113: // <PRIMARY> ::= '.' <CONSTANT>
-        i        = enter(-(64 + LABEL));
-        i        = sym_id(i);
+        i        = enter(-MkInfo(0, LocalLabel, LABEL));
+        i        = id_num(i);
         fixv[mp] = i;
         emit(i, VLU);
         emit(TRA, OPR);
@@ -2986,8 +3004,8 @@ void synth(const int prod, const int symm) {
         i = fixv[mp];
         if (i > 0) {
             /*     simple variable */
-            emit(sym_id(i), VLU);
-            j = sym_type(i);
+            emit(id_num(i), VLU);
+            j = info_type(i);
             if (j == PROC)
                 emit(PRO, OPR);
             else if (j == INTR)
@@ -2999,8 +3017,8 @@ void synth(const int prod, const int symm) {
     case 116: // <PRIMARY> ::= '.' <VARIABLE>
         i = fixv[sp];
         if (i > 0) {
-            if (sym_type(i) == VARB) {
-                emit(sym_id(i), ADR);
+            if (info_type(i) == VARB) {
+                emit(id_num(i), ADR);
                 emit(CVA, OPR); /*     subscripted - change precision to 2 */
                 return;
             }
@@ -3013,8 +3031,8 @@ void synth(const int prod, const int symm) {
     case 117: // <PRIMARY> ::= '(' <EXPRESSION> ')'
         return;
     case 118: // <CONSTANT HEAD> ::= '.' '('
-        i        = enter(-(64 + LABEL));
-        i        = sym_id(i);
+        i        = enter(-MkInfo(0, LocalLabel, LABEL));
+        i        = id_num(i);
         fixv[mp] = i;
         emit(i, VLU);
         emit(TRA, OPR);
@@ -3027,22 +3045,22 @@ void synth(const int prod, const int symm) {
     case 120: // <VARIABLE> ::= <IDENTIFIER>
         if ((i = lookup(mp)) == 0) {
             error(29, 1);
-            i = enter(VARB);
+            i = enter(-MkInfo(0, 0, VARB));
         }
         fixv[mp] = i;
-        j        = sym_type(i);
+        j        = info_type(i);
         if (j == LABEL)
             error(47, 1);
         if (j != PROC && j != INTR)
             return;
-        if (sym_infoLen(i) != 0)
+        if (info_len(i) != 0)
             error(38, 1);
-        j = sym_prec(i);
+        j = info_prec(i);
         if (pstack[mp - 1] == CALLV && j != 0)
             error(42, 1);
         if (pstack[mp - 1] != CALLV && j == 0)
             error(43, 1);
-        i        = sym_id(i);
+        i        = id_num(i);
         i        = ((i << 15) + i + 1);
         fixc[mp] = 0;
         emit(i >> 15, VLU);
@@ -3074,29 +3092,29 @@ void synth(const int prod, const int symm) {
     case 122: // <SUBSCRIPT HEAD> ::= <IDENTIFIER> '('
         if ((i = lookup(mp)) == 0) {
             error(30, 1);
-            i = enter(VARB);
+            i = enter(-MkInfo(0, 0, VARB));
         }
         j = right(iabs(symbol[i + 1]), 4);
         if (j != VARB) {
             if (j != PROC && j != INTR)
                 error(31, 1);
             else {
-                fixc[mp] = sym_infoLen(i);
+                fixc[mp] = info_len(i);
                 if (j == INTR)
                     fixc[mp] = -fixc[mp];
-                j = sym_prec(i);
+                j = info_prec(i);
                 /*     in the statements below, 30 is the token for 'call' */
                 if (pstack[mp - 1] == 30 && j != 0)
                     error(42, 1);
                 if (pstack[mp - 1] != 30 && j == 0)
                     error(43, 1);
-                i        = sym_id(i);
+                i        = id_num(i);
                 fixv[mp] = -((i << 15) + i + 1);
                 return;
             }
         }
         fixv[mp] = i;
-        emit(sym_id(i), ADR);
+        emit(id_num(i), ADR);
         return;
     case 123: // <SUBSCRIPT HEAD> ::= <SUBSCRIPT HEAD> <EXPRESSION> ','
         i = -fixv[mp];
@@ -3121,7 +3139,7 @@ void synth(const int prod, const int symm) {
 
         l = 3;
         k = 0;
-        if (i > 0 && i <= 2) {
+        if (0 < i && i <= 2) {
             /*         convert internal character form to ascii */
             j = var[sp].loc;
             k = 0;
@@ -3134,7 +3152,7 @@ void synth(const int prod, const int symm) {
         }
         i = lookup(sp);
         if (i == 0)
-            i = enter((k << 8) + (l << 4) + LITER);
+            i = enter(MkInfo(k, l, LITER));
         fixv[mp] = i;
         return;
     case 125: // <CONSTANT> ::= <NUMBER>
@@ -3145,7 +3163,7 @@ void synth(const int prod, const int symm) {
             j = 1;
             if (i > 255)
                 j = 2;
-            i = enter((i << 8) + (j << 4) + LITER + 1);
+            i = enter(MkInfo(i, j, LITER + 1));
         }
         fixv[mp] = i;
         return;
@@ -3155,12 +3173,12 @@ void synth(const int prod, const int symm) {
             error(33, 1);
             fixv[mp] = 1;
         } else {
-            i            = sym_id(i);
+            i            = id_num(i);
             fixv[mp - 3] = i;
             emit(i, ADR);
             emit(STD, OPR);
-            j = enter(-(64 + LABEL));
-            j = sym_id(j);
+            j = enter(-MkInfo(0, LocalLabel, LABEL));
+            j = id_num(j);
             emit(j, DEF);
             fixv[mp] = j;
             emit(i, VLU);
@@ -3168,29 +3186,29 @@ void synth(const int prod, const int symm) {
         return;
     case 127: // <BY> ::= BY
         emit(LEQ, OPR);
-        i = enter(-(64 + LABEL));
+        i = enter(-MkInfo(0, LocalLabel, LABEL));
         /*     save symbol number at <to> (end loop number) */
-        i            = sym_id(i);
+        i            = id_num(i);
         j            = fixv[mp - 2];
         fixv[mp - 2] = i;
         emit(i, VLU);
         emit(TRC, OPR);
-        i        = enter(-(64 + LABEL));
-        i        = sym_id(i);
+        i        = enter(-MkInfo(0, LocalLabel, LABEL));
+        i        = id_num(i);
         fixv[mp] = (j << 14) + i;
         /*     <by> is (to number/statement number) */
         emit(i, VLU);
         emit(TRA, OPR);
         /*     now define by LABEL */
-        i = enter(-(64 + LABEL));
-        i = sym_id(i);
+        i = enter(-MkInfo(0, LocalLabel, LABEL));
+        i = id_num(i);
         /*     save by LABEL in <to> as branch back number */
         fixv[mp - 2] = (i << 14) + fixv[mp - 2];
         emit(i, DEF);
         return;
     case 128: // <WHILE> ::= WHILE
-        i = enter(-(64 + LABEL));
-        i = sym_id(i);
+        i = enter(-MkInfo(0, LocalLabel, LABEL));
+        i = id_num(i);
         emit(i, DEF);
         fixv[mp] = i;
         return;
@@ -3202,19 +3220,17 @@ void synth(const int prod, const int symm) {
 static uint8_t ibuff[INMAX + 1];
 
 int gnc(/*const int q */) {
-    int _gnc, lp, i, j;
+    int lp, i, j;
 
     /*     get next character from the input stream (or 0 if */
     /*     no character is found) */
 
     while (curmac <= MAXMAC) {
-        i = macros[curmac];
-        j = i >> MACBITS;
-        i = right(i, MACBITS);
+        j = macros[curmac] >> MACBITS;
+        i = right(macros[curmac], MACBITS);
         if (j < i) {
-            _gnc           = macros[++j];        /* pick up the char */
-            macros[curmac] = (j << MACBITS) + i; /* merge back the current and end indexes */
-            return _gnc;
+            macros[curmac] = (++j << MACBITS) + i; /* merge back the current and end indexes */
+            return macros[j];
         }
         curmac++;
         j             = macros[i + 1];
@@ -3223,19 +3239,18 @@ int gnc(/*const int q */) {
     if (ibp > C_RIGHTMARG) {
         /*     read another record from command stream */
         if (C_TERMINAL != 0) {
-            if (C_INPUT == 1)
+            if (srcFp == stdin)
                 form("\n ");
             writel(0);
         }
         for (;;) {
             int c;
-            FILE *fp = getfile(C_INPUT, 0);
 
             memset(ibuff, ' ', INMAX);
             ibuff[INMAX] = 0;
 
             for (i = 0; i < INMAX; i++) {
-                c = getc(fp);
+                c = getc(srcFp);
                 if (c == '\n' || c == EOF)
                     break;
                 c = toupper(c);
@@ -3246,7 +3261,9 @@ int gnc(/*const int q */) {
             if (i == 0 && c == EOF) {
                 writel(0);
                 if (inptr >= 1) {
-                    C_INPUT = instk[--inptr];
+                    fclose(srcFp);
+                    C_INPUT = instk[inptr].id;
+                    srcFp   = instk[inptr--].fp;
                     continue;
                 }
                 C_EOF = 1;
@@ -3254,17 +3271,17 @@ int gnc(/*const int q */) {
             }
 
             while (c != '\n' && c != EOF) // gobble up rest of line
-                c = getc(fp);
+                c = getc(srcFp);
 
-            lp = C_LEFTMARG - 1;
+            lp  = C_LEFTMARG - 1;
+            ibp = lp;
+            emit(++C_COUNT, LIN);
+            if (C_PRINT != 0)
+                form("\n%05d%3d %c  %s", C_COUNT, curblk - 1, inptr > 0 ? '=' : ' ', ibuff);
+
             if (ibuff[lp] != '$' || ibuff[1] == ' ') // suspect ibuff[1] should be ibuff[lp + 1]
                 break;
             parseOptions((char *)(ibuff + lp + 1));
-        }
-        ibp = lp;
-        emit(++C_COUNT, LIN);
-        if (C_PRINT != 0) {
-            form("\n%05d%3d   %s", C_COUNT, curblk - 1, ibuff);
         }
     }
     return itran[ibuff[ibp++]]; // map to internal char set
@@ -3294,14 +3311,23 @@ void parseOptions(char *s) {
             while (*++s && *s != '=' && *s != '$')
                 ;
             if (*s == '=') {
-                k = 0;
-                while (*++s == ' ' || isdigit(*s)) {
-                    if (*s != ' ')
-                        k = k * 10 + *s - '0';
-                }
-                if (j == CHI)
-                    stackc(k);
-                else
+                while (*++s == ' ')
+                    ;
+                char *incName = s;
+                k             = 0;
+                while (isdigit(*s))
+                    k = k * 10 + *s++ - '0';
+                if (j == CHI) {
+                    if (*s && *s != ' ') {
+                        while (*s && *s != ' ')
+                            s++;
+                    } else
+                        incName = NULL;
+                    char saveCh = *s;
+                    *s          = 0;
+                    stackc(k, incName);
+                    *s = saveCh;
+                } else
                     contrl[j] = k;
             } else {
                 k = contrl[j];
@@ -3321,22 +3347,26 @@ void writel(int nspac) {
 
     np = C_YPAD - 1;
     if (obp > np) {
+
+        if (!lstFp && !(lstFp = openFile(plmFile, CHO))) {
+            fprintf(stderr, "Can't create listing file %s\n", path);
+            exit(1);
+        }
+
         while (obp > 1 && obuff[obp] == ' ') // trim off trailling spaces
             obp--;
 
         obp      = imin(C_DELETE, obp);
 
-        FILE *fp = getfile(C_OUTPUT, 1);
-
         obuff[0] = ' ';
-        fwrite(obuff, sizeof(char), obp + 1, fp);
-        putc('\n', fp);
+        fwrite(obuff, sizeof(char), obp + 1, lstFp);
+        putc('\n', lstFp);
 
         memset(obuff + 1, ' ', obp);
 
         while (nspac-- > 0) {
-            fwrite(obuff, sizeof(char), obp + 1, fp);
-            putc('\n', fp);
+            fwrite(obuff, sizeof(char), obp + 1, lstFp);
+            putc('\n', lstFp);
         }
     }
     if (np > 0)
@@ -3353,18 +3383,16 @@ void decibp() {
         macros[curmac] -= (1 << MACBITS); /* back up index */
 }
 
-void conv(const int prec) {
-    int i;
-    if (stype > 1) {
-        value = 0;
-        for (i = 1; i <= acclen; i++) {
-            value = value * stype + accum[i] - 2;
+int conv(int radix) {
+    int value = 0;
+    for (int i = 1; i <= acclen; i++) {
+        uint8_t digit = accum[i] - 2;
+        if (digit >= radix || (value = value * radix + digit) >= 0x10000) {
+            error(6, 1);
+            return 0;
         }
-        if (prec <= 0 || value < (1 << prec))
-            return;
     }
-    value = -1;
-    return;
+    return value;
 }
 
 int imin(const int i, const int j) {
@@ -3388,12 +3416,19 @@ void form(char *fmt, ...) {
     }
 }
 
-void stackc(const int i) {
+void stackc(int id, char *fname) {
     if (++inptr > 7)
         error(35, 5);
     else {
-        instk[inptr] = C_INPUT;
-        C_INPUT      = i;
+        instk[inptr].id = C_INPUT;
+        instk[inptr].fp = srcFp;
+        C_INPUT         = id;
+        if (!(srcFp = openFile(fname, CHI))) {
+            fprintf(stderr, "can't open include file %s. Skipping\n", path);
+            C_INPUT = instk[inptr].id;
+            srcFp   = instk[inptr--].fp;
+        } else if (fname)
+            C_INPUT = ++autoId;
     }
 }
 
@@ -3402,6 +3437,12 @@ void putch(const int chr) {
         obuff[++obp] = chr;
     if (chr == '\n' || obp >= C_WIDTH)
         writel(0);
+}
+
+char b32Digit(int c) {
+    /*     convert a byte to a base 32 digit */
+    c %= 32;
+    return c + (c < 10 ? '0' : 'A' - 10);
 }
 
 void enterb() {
@@ -3423,7 +3464,7 @@ void enterb() {
 }
 
 void dumpin() {
-    int jp, i, kq, j, k, kt;
+    int jp, i, j, k;
     /*     dump the initialization table */
     /*     wrdata(x) writes the data at location x in symbol table */
     /*     and returns the number of bytes written */
@@ -3438,29 +3479,20 @@ void dumpin() {
         }
     }
     putch('\n');
-    kt       = C_OUTPUT;
-    C_OUTPUT = C_USYMBOL;
-    kq       = C_WIDTH;
-    C_WIDTH  = C_VWIDTH;
     /*     ready to write the initialization table */
-    putch('/');
+    putSym('/');
     for (i = SYMABS; i > maxsym; i--) {
-        j = (symbol[i] >> 15);
         /*     write symbol numbers */
-        for (k = 0; k < 3; k++) {
-            putch(otran[j % 32 + 1]);
-            j = j / 32;
-        }
+        putSymInt(symbol[i] >> 15, 3);
         jp = right(symbol[i], 15);
         while (jp-- > 0) {
             wrdata(right(symbol[--i], 16));
         }
-        putch('/');
+        putSym('/');
     }
-    putch('/');
-    putch('\n');
-    C_OUTPUT = kt;
-    C_WIDTH  = kq;
+    putSym('/');
+    putSym('\n');
+
     return;
 }
 
@@ -3510,7 +3542,7 @@ void redpr(const int prod, const int sym) {
 }
 
 void emit(const int val, const int typ) {
-    int lcode, kp, i, j, k;
+    int lcode, i, j;
 
 #define MAXPOL 30
     static int polish[MAXPOL + 1];
@@ -3564,23 +3596,21 @@ void emit(const int val, const int typ) {
     if (poltop >= lcode) {
         /*     write the current buffer */
         putch('\n');
-        kp       = C_WIDTH;
-        C_WIDTH  = C_KWIDTH;
-        k        = C_OUTPUT;
-        C_OUTPUT = C_JFILE;
 
-        putch('\n');
+        if (!polFp && !(polFp = openFile(plmFile, CHJ))) {
+            fprintf(stderr, "can't create pol file %s\n", path);
+            exit(1);
+        }
+        putc(' ', polFp);
         for (i = 1; i <= lcode; i++) {
             j = polish[i];
-            putch(otran[(j >> 10) % 32 + 1]);
-            putch(otran[(j >> 5) % 32 + 1]);
-            putch(otran[j % 32 + 1]);
+            putc(b32Digit(j >> 10), polFp);
+            putc(b32Digit(j >> 5), polFp);
+            putc(b32Digit(j), polFp);
         }
+        putc('\n', polFp);
 
-        writel(0);
-        C_WIDTH  = kp;
-        C_OUTPUT = k;
-        poltop   = 0;
+        poltop = 0;
     }
     return;
 }
