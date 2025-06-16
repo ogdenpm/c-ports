@@ -418,18 +418,18 @@
 #define abs(a) ((a) >= 0 ? (a) : -(a))
 #endif
 
-#define symAttrib(ch)                 symbol[symbol[ch] - 1]
-#define symAddr(ch)                   symbol[symbol[ch]]
-#define symRef(ch)                    symbol[symbol[ch] - 2]
-#define symF3(ch)                     symbol[symbol[ch] - 3]
-#define symIProcDepth(ch)             symbol[symbol[ch] - 4]
+#define symAttrib(ch)                  symbol[symbol[ch] - 1]
+#define symAddr(ch)                    symbol[symbol[ch]]
+#define symRef(ch)                     symbol[symbol[ch] - 2]
+#define symF3(ch)                      symbol[symbol[ch] - 3]
+#define symIProcDepth(ch)              symbol[symbol[ch] - 4]
 // VARB e..e ssss 0001   e..e - number of elements, ssss size of element
-#define INFO_TYPE(a)                 ((a) & 0xf)
-#define INFO_PREC(a)                 (((a) >> 4) & 0xf)
-#define INFO_ECNT(a)                 ((a) / 256)
+#define INFO_TYPE(a)                   ((a) & 0xf)
+#define INFO_PREC(a)                   (((a) >> 4) & 0xf)
+#define INFO_ECNT(a)                   ((a) / 256)
 #define PACK_ATTRIB(extra, prec, type) ((extra) * 256 + (prec) * 16 + type)
-#define MAXSYM                       16000
-#define MAXMEM                       32000
+#define MAXSYM                         16000
+#define MAXMEM                         32000
 FILE *files[20];
 
 /* global variables*/
@@ -828,15 +828,15 @@ int st[16 + 1];
 
 int rasn[16 + 1];
 
-#define HIGHNIBBLE(n)          (((n) >> 4) & 0xf)
-#define LOWNIBBLE(n)           ((n) & 0xf)
-#define REGPAIR(h, shift)      (((h) << 4) + (shift))
-#define REGLOW(hl)             ((hl) & 0x7)
-#define REGHIGH(hl)            (((hl) >> 4) & 0x7)
-#define HIGH(n)                (((n) >> 8) & 0xff)
-#define LOW(n)                 ((n) & 0xff)
-#define HIGHWORD(n)            (((n) >> 16) & 0xffff)
-#define LOWWORD(n)             ((n) & 0xffff)
+#define HIGHNIBBLE(n)     (((n) >> 4) & 0xf)
+#define LOWNIBBLE(n)      ((n) & 0xf)
+#define REGPAIR(h, shift) (((h) << 4) + (shift))
+#define REGLOW(hl)        ((hl) & 0x7)
+#define REGHIGH(hl)       (((hl) >> 4) & 0x7)
+#define HIGH(n)           (((n) >> 8) & 0xff)
+#define LOW(n)            ((n) & 0xff)
+#define HIGHWORD(n)       (((n) >> 16) & 0xffff)
+#define LOWWORD(n)        ((n) & 0xffff)
 
 int litv[16 + 1];
 int sp    = 0;
@@ -962,7 +962,6 @@ FILE *setFile(char const *name, char const *ext, char const *mode, int fortId);
 #define C_ZMARGIN       contrl[CHZ]
 #define C_STACKHANDLING contrl[STAR]
 
-
 // HL tracking uses the following flags
 // the LVALUE is in bits 0-7, the HVALUE is in bits 8-16 (9 bits wide)
 #define LVALID          0x20000
@@ -983,7 +982,7 @@ char *basename(char *path) {
 #ifdef UNC
     else if (path[0] == '\\' && path[1] == '\\') // skip \\computer\share\ part
         if ((s = strchr(path + 2, '\\')) && (s = strchr(s, '\\')))
-            path = s + 1; 
+            path = s + 1;
         else
             path = strchr(path, '\0');
 #endif
@@ -1041,7 +1040,7 @@ FILE *setFile(char const *name, char const *ext, char const *mode, int fortId) {
 }
 
 void initFiles(char *fname) {
-    polFp = setFile(fname, ".pol", "rt", C_JFILE);
+    polFp = setFile(fname, ".pol", "rb", C_JFILE);
     symFp = setFile(fname, ".sym", "rt", C_USYMBOL);
     lstFp = setFile(fname, ".lst", "at", C_OUTPUT);
     hexFp = setFile(fname, ".hex", "wt", C_BPNF);
@@ -1112,7 +1111,7 @@ int main(int argc, char **argv) {
     // setup the input translation map
     memset(itran, SPACE, sizeof(itran)); // default is char maps to SPACE
     for (i = 1; i <= 52; i++) {
-        itran[otran[i]]          = i;
+        itran[otran[i]] = i;
         if (isupper(otran[i]))
             itran[tolower(otran[i])] = i; // map lower case to same as upper case
     }
@@ -1400,9 +1399,6 @@ int imin(const int i, const int j) {
     return i < j ? i : j;
 }
 
-
-
-
 void Printf(char *fmt, ...) {
     va_list args;
     char buf[128];
@@ -1420,7 +1416,6 @@ void putch(const int chr) {
         writel(lstFp);
     ;
 }
-
 
 void writel(FILE *fp) {
     int np;
@@ -1844,7 +1839,6 @@ void loadsy() {
                         case LABEL:
                             syinfo -= HIGH(attrib) == 1 ? 2 : 1;
                             break; // check for single reference to the label
-
                         }
                         break;
                     }
@@ -2061,7 +2055,7 @@ void loadv(int s, int typ) {
         } else {
             /* typ = 0, load directly into registers */
             /* may be possible to LXI */
-            ib &= 7;    // avoid compiler warning
+            ib &= 7; // avoid compiler warning
             if (ib != ia - 1) {
                 emit(LD, ia, -lp);
                 if (ib != 0) {
@@ -3202,72 +3196,70 @@ void emitbf(const int l) {
     return;
 }
 
+int getNextPol() {
+    uint16_t pol;
+    if (fread(&pol, sizeof(pol), 1, polFp) != 1)
+        return EOF;
+    return pol;
+}
+
 void inldat() {
-    int iq, i, j, k, l, ic = 0; // assign to appease GCC
-    static int kp;
+    int ic = 0; // assign to appease GCC
+    int type = 0;
+    int val  = 0;
 
     /* emit data inline */
-    iq = codloc;
-    l  = 0;
+    int iq = codloc;
+    int cnt  = 0;
     for (;;) {
-        for (;;) {
-            k = 0;
-            if (lapol != 0) {
-                for (j = 1; j <= 3; j++) {
-                    while ((i = gnc(polFp)) == ' ')
-                        ;
-                    if (isBase32(i))
-                        k = k * 32 + base32ToInt(i);
-                    else
-                        break;
-                }
-                if (j <= 3)
-                    break;
-                i     = k;
-                k     = lapol / 8;
-                kp    = lapol % 8;
-                lapol = i;
-
-                /* kp is typ AND k is data */
-                if (l > 0) {
-                    if (kp == OPR && k == DAT) {
-                        /* backstuff jump address */
-                        /* now fix symbol table entries */
-                        symAddr(abs(ic)) = -iq;
-                        j                = INFO_ECNT(symAttrib(abs(ic)));
-                        /* check symbol length against count */
-                        symAttrib(abs(ic)) = PACK_ATTRIB(--l, 1, VARB);
-                        if (ic < 0) { /* this is an address reference to a constant, so.. */
-                            st[++sp] = ic;
-                            rasn[sp] = 0;
-                            litv[sp] = iq;
-                            prec[sp] = 2;
-                        } else if (j != l) /* check size declared against size read */
-                            break;
-                        return;
-                    } else if (kp == LIT)
-                        emit(0, k, 0);
-                    else
-                        break;
-                } else { /* define inline data symbol */
-                    if (kp != DEF)
-                        break;
-                    ic = k;
-                    if (k <= 0) { /* inline constant -- set up symbol entry */
-                        ic            = -(++sytop);
-                        symbol[sytop] = syinfo;
-                        syinfo -= 2;
-
-                        /* will be filled later */
-                        if (syinfo < sytop)
-                            break;
-                    }
-                }
-                l++;
+        while (lapol != 0) {
+            val  = lapol / 8;
+            type = lapol % 8;
+            if ((lapol = getNextPol()) == EOF) {
+                lapol = 0;
+                type  = 0;
+                break;
             }
+            /* kp is typ AND k is data */
+            if (cnt > 0) {
+                if (type == OPR && val == DAT) {
+                    /* backstuff jump address */
+                    /* now fix symbol table entries */
+                    symAddr(abs(ic)) = -iq;
+                    int j                = INFO_ECNT(symAttrib(abs(ic)));
+                    /* check symbol length against count */
+                    symAttrib(abs(ic)) = PACK_ATTRIB(--cnt, 1, VARB);
+                    if (ic < 0) { /* this is an address reference to a constant, so.. */
+                        st[++sp] = ic;
+                        rasn[sp] = 0;
+                        litv[sp] = iq;
+                        prec[sp] = 2;
+                    } else if (j != cnt) /* check size declared against size read */
+                        break;
+                    return;
+                } else if (type == LIT)
+                    emit(0, val, 0);
+                else
+                    break;
+            } else { /* define inline data symbol */
+                if (type != DEF)
+                    break;
+                ic = val;
+                if (val <= 0) { /* inline constant -- set up symbol entry */
+                    ic            = -(++sytop);
+                    symbol[sytop] = syinfo;
+                    syinfo -= 2;
+
+                    /* will be filled later */
+                    if (syinfo < sytop)
+                        break;
+                }
+            }
+            cnt++;
         }
-        if (kp == LIN)
-            C_COUNT = k;
+
+        if (type == LIN)
+            C_COUNT = val;
         else {
             error(125, 1);
             return;
@@ -3568,24 +3560,14 @@ void readcd() {
             }
 
         do {
-            k = 0;
-            if (lapol != 0)
-                for (int j = 1; j <= 3; j++) {
-                    while ((i = gnc(polFp)) == ' ')
-                        ;
-                    if (isBase32(i))
-                        k = k * 32 + base32ToInt(i);
-                    else {
-                        error(127, 5);
-                        return;
-                    }
-                }
-
             /* copy the elt just read to the polish look-ahead, AND */
             /* interpret the previous elt */
-            i     = k;
-            k     = lapol;
-            lapol = i;
+            k = lapol;
+            if (lapol != 0 && (lapol = getNextPol()) == EOF) {
+                lapol = 0;
+                error(127, 5);
+                return;
+            }
         } while (!(k >= 0));
 
         /* check for END of code */
@@ -5019,13 +5001,12 @@ bool operat(int val) {
 
                     int lsym = symF3(i);
 
-
-
-/* PMO simplified the code to propagate HL info also fixed a bug in the original Fortran code which
-   could incorrectly subtract the valid flag value from ktotal even if it hadn't been set.
-*/
+                    /* PMO simplified the code to propagate HL info also fixed a bug in the original
+                       Fortran code which could incorrectly subtract the valid flag value from
+                       ktotal even if it hadn't been set.
+                    */
                     if (lsym != -1) {
-                        int ktotal  = 0;
+                        int ktotal = 0;
                         if (0 <= regv[RL] && regv[RL] < 256) {
                             ktotal = regv[RL];
                             if (lsym == 0 || ((lsym & LVALID) && regv[RL] == (lsym & 0xff)))
@@ -5035,7 +5016,6 @@ bool operat(int val) {
                             ktotal += regv[RH] << 8;
                             if (lsym == 0 || ((lsym & HVALID) && regv[RH] == ((lsym >> 8) & 0x1ff)))
                                 ktotal |= HVALID;
-
                         }
                         symF3(i) = ktotal & (HVALID | LVALID) ? ktotal : -1;
                     }
@@ -5086,12 +5066,12 @@ bool operat(int val) {
                     // V4
                     j = symF3(i);
                     if (j < 0)
-                        j = 0;  // will force regv values to -1
+                        j = 0; // will force regv values to -1
                     /* may be unchanged from call */
                     if ((j >> 19) != 3) {
                         /* compare values */
-                        regv[RL]   = (j & LVALID) ? j & 0xff : -1;
-                        regv[RH]   = (j & HVALID) ? (j >> 8) & 0x1ff : -1;
+                        regv[RL] = (j & LVALID) ? j & 0xff : -1;
+                        regv[RH] = (j & HVALID) ? (j >> 8) & 0x1ff : -1;
                     }
                     _delete(1);
 
@@ -5184,7 +5164,7 @@ void updateHL(int jp) {
 // update condition code for 16 bit, iq == 1 if zero test
 void compare16(bool icom, int flag, int iq) {
     apply(SU, SB, icom, 1);
-    int ip = rasn[sp] & 0xf; /* change to condition code */
+    int ip = rasn[sp] & 0xf;        /* change to condition code */
     int j  = (rasn[sp] >> 4) & 0x7; // > 7 would cause memory access error for lock etc.
     if (iq == 1)
         emit(OR, ip, 0);
