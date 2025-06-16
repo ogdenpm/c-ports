@@ -1347,7 +1347,7 @@ FILE *openFile(char *fname, uint8_t type) {
         return type == CHI ? stdin : stdout;
     else
         sprintf(path, "fort.%d", type == CHI ? contrl[type] : contrl[type] + 10);
-    return fopen(path, type == CHI ? "rt" : type == CHJ ? "wt" : "wt");
+    return fopen(path, type == CHI ? "rt" : type == CHJ ? "wb" : "wt");
 }
 
 void closefiles() {
@@ -1644,8 +1644,6 @@ void putSymStr(const char *s) {
 }
 
 void putSymInt(int n, int width) {
-    char buf[12];
-    int i = 0;
     do {
         int digit = n % 32; // convert to base 32
         putSym(digit < 10 ? '0' + digit : 'A' + digit - 10); // convert to ASCII
@@ -3464,12 +3462,12 @@ void enterb() {
 }
 
 void dumpin() {
-    int jp, i, j, k;
+    int jp;
     /*     dump the initialization table */
     /*     wrdata(x) writes the data at location x in symbol table */
     /*     and returns the number of bytes written */
     if (C_SYMBOLS == 2) {
-        for (i = SYMABS; i > maxsym; i--) {
+        for (int i = SYMABS; i > maxsym; i--) {
             form("\n \n");
             form("\nSYMBOL S%05d =", (symbol[i] >> 15));
             for (jp = right(symbol[i], 15); jp > 0; jp--) {
@@ -3481,7 +3479,7 @@ void dumpin() {
     putch('\n');
     /*     ready to write the initialization table */
     putSym('/');
-    for (i = SYMABS; i > maxsym; i--) {
+    for (int i = SYMABS; i > maxsym; i--) {
         /*     write symbol numbers */
         putSymInt(symbol[i] >> 15, 3);
         jp = right(symbol[i], 15);
@@ -3542,7 +3540,6 @@ void redpr(const int prod, const int sym) {
 }
 
 void emit(const int val, const int typ) {
-    int lcode, i, j;
 
 #define MAXPOL 30
     static int polish[MAXPOL + 1];
@@ -3567,11 +3564,6 @@ void emit(const int val, const int typ) {
     /*      7        " */
     assert(val >= 0);
 
-    if (++poltop > MAXPOL) {
-        error(37, 1);
-        poltop = 1;
-    }
-    polcnt++;
     if (C_GENERATE != 0) {
         form("\n%5d %s ", polcnt, polchr[typ]);
         switch (typ) {
@@ -3591,27 +3583,13 @@ void emit(const int val, const int typ) {
 
         writel(0);
     }
-    polish[poltop] = (val << 3) + typ;
-    lcode          = C_KWIDTH / 3;
-    if (poltop >= lcode) {
-        /*     write the current buffer */
-        putch('\n');
-
-        if (!polFp && !(polFp = openFile(plmFile, CHJ))) {
-            fprintf(stderr, "can't create pol file %s\n", path);
-            exit(1);
-        }
-        putc(' ', polFp);
-        for (i = 1; i <= lcode; i++) {
-            j = polish[i];
-            putc(b32Digit(j >> 10), polFp);
-            putc(b32Digit(j >> 5), polFp);
-            putc(b32Digit(j), polFp);
-        }
-        putc('\n', polFp);
-
-        poltop = 0;
+    if (!polFp && !(polFp = openFile(plmFile, CHJ))) {
+        fprintf(stderr, "can't create pol file %s\n", path);
+        exit(1);
     }
+
+    uint16_t pol        = (val << 3) + typ;
+    fwrite(&pol, sizeof(pol), 1, polFp); // write the polish element
     return;
 }
 
