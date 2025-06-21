@@ -163,6 +163,11 @@
 
        49   warning - a macro expansion has terminated the scope of
             its own name.  (Probably a bad 'literally' declaration.)
+
+       50   too many chained assignments in a statement.  The maximum
+            number of assignments is currently set to 256.  Either
+            reduce the number of assignments in the block, or re-compile
+            pass-1 with a larger 'assign' table.
 */
 
 /*
@@ -305,16 +310,6 @@
 
       good luck...
 
-       f  i  l  e     d  e  f  i  n  i  t  i  o  n  s
-              input                        output
-       num   device  unit        num   device    unit
-        1     tty     5           1     tty       5
-        2     cdr     2           2     ptr       3
-        3     pap     6           3     pap       7
-        4     mag     16          4     mag       17
-        5     dec     9           5     dec       10
-        6     disk    20          6     disk      22
-        7     disk    21          7     disk      23
 
      all input records are 120 characters or less.  all
      output records are 132 characters or less.
@@ -512,6 +507,11 @@ int symbol[SYMABS + 1] = {
     117
 };
 
+/* in anticipation of symbols being converted into an array of structure the use of
+   the top of the symbol table as an assignment list is factored out */
+#define MAXASSIGN 256      /* max number of assignments in a block */
+int assign[MAXASSIGN + 1]; /* assignment symbol indexes */
+
 /* some inline definitions to help make the code more readable */
 #define SymInts(symIdx)         ((symIdx) + 2)
 #define Info(symIdx)            ((symIdx) + 1) /* index to symbol info word */
@@ -519,7 +519,7 @@ int symbol[SYMABS + 1] = {
 #define Id(symIdx)              ((symIdx) - 1) /* index to symbol id word */
 #define Hash(symIdx)            ((symIdx) - 2) /* index to symbol hash word */
 
-#define MkInfo(len, prec, type) (((len) << 8) | ((prec) << 4) | (type))
+#define MkInfo(len, prec, type) (((int)(len) << 8) | ((prec) << 4) | (type))
 
 inline unsigned iabs(int a) {
     return a < 0 ? -a : a;
@@ -583,7 +583,7 @@ inline int symPrec(int i) {
     return (i >> 4) % 16;
 }
 inline int symType(int i) {
-    return i % 16;
+    return iabs(i) & 0xf;
 }
 char b32Digit(int c);
 
@@ -597,59 +597,16 @@ int acnt   = 0;
 int contrl[64 + 1];
 /* _data */
 enum { OPR = 0, ADR, VLU, DEF, LIT, LIN };
+// clang-format off
 enum {
     NOP = 0,
-    ADD,
-    ADC,
-    SUB,
-    SBC,
-    MUL,
-    DIV,
-    REM,
-    NEG,
-    AND,
-    IOR,
-    XOR,
-    NOT,
-    EQL,
-    LSS,
-    GTR,
-    NEQ,
-    LEQ,
-    GEQ,
-    INX,
-    TRA,
-    TRC,
-    PRO,
-    RET,
-    STO,
-    STD,
-    XCH,
-    DEL,
-    DAT,
-    LOD,
-    BIF,
-    INC,
-    CSE,
-    END,
-    ENB,
-    ENP,
-    HAL,
-    RTL,
-    RTR,
-    SFL,
-    SFR,
-    HIV,
-    LOV,
-    CVA,
-    ORG,
-    DRT,
-    ENA,
-    DIS,
-    AX1,
-    AX2,
-    AX3
+    ADD, ADC, SUB, SBC, MUL, DIV, REM, NEG, AND, IOR,
+    XOR, NOT, EQL, LSS, GTR, NEQ, LEQ, GEQ, INX, TRA,
+    TRC, PRO, RET, STO, STD, XCH, DEL, DAT, LOD, BIF,
+    INC, CSE, END, ENB, ENP, HAL, RTL, RTR, SFL, SFR,
+    HIV, LOV, CVA, ORG, DRT, ENA, DIS, AX1, AX2, AX3
 };
+// clang-format on
 /* types */
 enum { VARB = 1, INTR, PROC, LABEL, LITER, NUMBER };
 
@@ -664,203 +621,49 @@ int curmac = MAXMAC + 1;
 int mactop = 1;
 /* syntax */
 /*     syntax analyzer tables*/
-const int v[] = {
-    ZPAD,      18,        49,        16,        29,        29,        26,        29,
-    51,        1,         31,        26,        22,        16,        25,        1,
-    39,        1,         2,         50,        1,         52,        1,         43,
-    1,         42,        1,         48,        1,         51,        1,         39,
-    1,         49,        1,         50,        1,         44,        1,         45,
-    1,         47,        1,         41,        1,         40,        2,         20,
-    17,        2,         15,        26,        2,         18,        26,        2,
-    31,        26,        2,         26,        29,        2,         13,        36,
-    3,         16,        26,        17,        3,         16,        25,        15,
-    3,         35,        26,        29,        3,         12,        25,        15,
-    3,         25,        26,        31,        3,         24,        26,        15,
-    4,         19,        12,        23,        31,        4,         31,        19,
-    16,        25,        4,         16,        23,        30,        16,        4,
-    14,        12,        30,        16,        4,         14,        12,        23,
-    23,        4,         18,        26,        31,        26,        4,         15,
-    12,        31,        12,        4,         13,        36,        31,        16,
-    4,         27,        23,        32,        30,        5,         23,        12,
-    13,        16,        23,        5,         13,        12,        30,        16,
-    15,        5,         24,        20,        25,        32,        30,        5,
-    34,        19,        20,        23,        16,        6,         16,        25,
-    12,        13,        23,        16,        6,         29,        16,        31,
-    32,        29,        25,        7,         15,        20,        30,        12,
-    13,        23,        16,        7,         15,        16,        14,        23,
-    12,        29,        16,        7,         12,        15,        15,        29,
-    16,        30,        30,        7,         20,        25,        20,        31,
-    20,        12,        23,        8,         49,        25,        32,        24,
-    13,        16,        29,        50,        8,         49,        30,        31,
-    29,        20,        25,        18,        50,        9,         20,        25,
-    31,        16,        29,        29,        32,        27,        31,        9,
-    27,        29,        26,        14,        16,        15,        32,        29,
-    16,        9,         23,        20,        31,        16,        29,        12,
-    23,        23,        36,        12,        49,        20,        15,        16,
-    25,        31,        20,        17,        20,        16,        29,        50,
-    813276224, 808598592, 813315727, 822083584, 813233943, 822083584, 809879135, 449052672,
-    814032086, 264503296, 809865246, 432275456, 809337747, 407310336, 812238417, 472742976,
-    812709526, 188021824, 812238039, 192035904, 813741843, 187786225, 808818205, 506300337,
-    812709259, 508401201, 813032158, 257750558, 822083584, 810352653, 372111183, 822083584,
-    813287375, 6862622,   822083584, 809023371, 5846878,   822083584, 809023371, 4780750,
-    822083584, 811136030, 6862622,   822083584, 808310611, 291599320, 516161536, 809379484,
-    259380441, 415498240, 809879135, 436282315, 247726080, 808556504, 234955723, 247726080,
-    810352669, 506323927, 258075712, 814032086, 251712907, 527760448, 810386654, 321740822,
-    326495296, 810386654, 321740818, 254602304, 808761167, 7665039,   226072369, 813741843,
-    187786176, 405631985, 808818205, 506300288, 305968049, 813032158, 257750558, 5846878,
-    822083584, 808760726, 7725790,   257750558, 822083584, 812238413, 255457039, 4780750,
-    822083584, 812238413, 255457039, 6337999,   822083584, 812168971, 389931996, 5846878,
-    822083584, 812168971, 389931996, 4780750,   822083584, 808499023, 235012828, 321701263,
-    822083584, 811177043, 221077520, 188081756, 822083584, 813036317, 225523358, 4780750,
-    822083584, 808499027, 218224523, 507343832, 516161536, 809865246, 419551115, 507343832,
-    516161536, 813032410, 3732499,   407758041, 415498240, 810345432, 508363983, 469853405,
-    516161536, 811177043, 221077530, 474837724, 600047616, 812709791, 476055390, 192476623,
-    410718208, 811119375, 369157072, 325138323, 425922560, 813315727, 3732310,   191936403,
-    425922560, 810410972, 192493144, 3511838,   476408896, 811177043, 221077533, 255170062,
-    192035904, 811177043, 221077519, 577356765, 491623985, 809038678, 191936403, 425722838,
-    257750558, 822083584, 812238413, 255457039, 3732499,   407758041, 415498240, 809038678,
-    191936403, 425723742, 192476623, 410718208, 808305886, 308082579, 218167450, 473814867,
-    425922560, 810345432, 508363983, 469882511, 223151309, 192493144, 822083584
+// vindx contains the start index of the first token of a given length
+const uint8_t vindx[] = { 0, 1, 14, 20, 26, 35, 39, 41, 45, 47, 50 };
+// clang-format off
+const char *tokens[]  = {
+    /* 0 */ "null",
+    /* 1 */ ";", ")", "(", ",", ":", "=", "<", ">", "+", "-", "*", "/", ".",
+    /*14 */ "IF", "DO", "GO", "TO", "OR", "BY",
+    /*20 */ "EOF", "END", "XOR", "AND", "NOT", "MOD",
+    /*26 */ "HALT", "THEN", "ELSE", "CASE", "CALL", "GOTO", "DATA", "BYTE", "PLUS",
+    /*35 */ "LABEL", "BASED", "MINUS", "WHILE",
+    /*39 */ "ENABLE", "RETURN", "DISABLE", "DECLARE", "ADDRESS", "INITIAL",
+    /*45 */ "<NUMBER>", "<STRING>",
+    /*47 */ "INTERRUPT", "PROCEDURE", "LITERALLY",
+    /*50 */ "<IDENTIFIER>",
+    /*51 */ "<TO>", "<BY>",
+    /*53 */ "<TYPE>", "<TERM>",
+    /*55 */ "<GROUP>", "<WHILE>", "<GO TO>",
+    /*58 */ "<ENDING>", "<PROGRAM>",
+    /*60 */ "<REPLACE>", "<PRIMARY>",
+    /*62 */ "<VARIABLE>", "<CONSTANT>", "<RELATION>",
+    /*65 */ "<STATEMENT>", "<IF CLAUSE>", "<TRUE PART>", "<DATA LIST>", "<DATA HEAD>", "<LEFT PART>",
+    /*71 */ "<ASSIGNMENT>", "<EXPRESSION>", "<GROUP HEAD>", "<BOUND HEAD>",
+    /*75 */ "<IF STATEMENT>", "<WHILE CLAUSE>", "<INITIAL LIST>", "<INITIAL HEAD>",
+    /*79 */ "<CASE SELECTOR>", "<VARIABLE NAME>", "<CONSTANT HEAD>",
+    /*82 */ "<STATEMENT LIST>", "<CALL STATEMENT>", "<PROCEDURE HEAD>",
+    /*85 */ "<PROCEDURE NAME>", "<PARAMETER LIST>", "<PARAMETER HEAD>",
+    /*88 */ "<BASED VARIABLE>", "<LOGICAL FACTOR>", "<SUBSCRIPT HEAD>",
+    /*91 */ "<BASIC STATEMENT>", "<GO TO STATEMENT>", "<STEP DEFINITION>",
+    /*94 */ "<IDENTIFIER LIST>", "<LOGICAL PRIMARY>",
+    /*96 */ "<RETURN STATEMENT>", "<LABEL DEFINITION>", "<TYPE DECLARATION>",
+    /*99 */ "<ITERATION CONTROL>", "<LOGICAL SECONDARY>",
+    /*101*/ "<LOGICAL EXPRESSION>",
+    /*102*/ "<DECLARATION ELEMENT>",
+    /*103*/ "<PROCEDURE DEFINITION>",
+    /*104*/ "<DECLARATION STATEMENT>", "<ARITHMETIC EXPRESSION>",
+    /*106*/ "<IDENTIFIER SPECIFICATION>"
 };
-
-const int vloc[]     = { ZPAD,   1,      20,     22,     24,     26,     28,     30,     32,     34,
-                         36,     38,     40,     42,     44,     46,     49,     52,     55,     58,
-                         61,     64,     68,     72,     76,     80,     84,     88,     93,     98,
-                         103,    108,    113,    118,    123,    128,    133,    139,    145,    151,
-                         157,    164,    171,    179,    187,    195,    203,    212,    221,    231,
-                         241,    251,    131336, 131337, 196874, 196876, 229646, 229648, 229650, 262420,
-                         295190, 295192, 295194, 327964, 327966, 327968, 360738, 360741, 360744, 360747,
-                         360750, 360753, 393524, 393527, 393530, 393533, 459072, 459075, 459078, 459081,
-                         491852, 491855, 491858, 524629, 524633, 524637, 524641, 524645, 524649, 524653,
-                         524657, 524661, 557433, 557437, 557441, 557445, 557449, 590221, 590225, 590229,
-                         623001, 623005, 655777, 688549, 721322, 754095, 754100, 852409 };
-
-const char *tokens[] = { "null",
-                         /* 1 */ ";",
-                         ")",
-                         "(",
-                         ",",
-                         ":",
-                         "=",
-                         "<",
-                         ">",
-                         "+",
-                         "-",
-                         "*",
-                         "/",
-                         ".",
-                         /*14 */ "IF",
-                         "DO",
-                         "GO",
-                         "TO",
-                         "OR",
-                         "BY",
-                         /*20 */ "EOF",
-                         "END",
-                         "XOR",
-                         "AND",
-                         "NOT",
-                         "MOD",
-                         /*26 */ "HALT",
-                         "THEN",
-                         "ELSE",
-                         "CASE",
-                         "CALL",
-                         "GOTO",
-                         "DATA",
-                         "BYTE",
-                         "PLUS",
-                         /*35 */ "LABEL",
-                         "BASED",
-                         "MINUS",
-                         "WHILE",
-                         /*39 */ "ENABLE",
-                         "RETURN",
-                         "DISABLE",
-                         "DECLARE",
-                         "ADDRESS",
-                         "INITIAL",
-                         /*45 */ "<NUMBER>",
-                         "<STRING>",
-                         /*47 */ "INTERRUPT",
-                         "PROCEDURE",
-                         "LITERALLY",
-                         /*50 */ "<IDENTIFIER>",
-                         /*51 */ "<TO>",
-                         "<BY>",
-                         /*53 */ "<TYPE>",
-                         "<TERM>",
-                         /*55 */ "<GROUP>",
-                         "<WHILE>",
-                         "<GO TO>",
-                         /*58 */ "<ENDING>",
-                         "<PROGRAM>",
-                         /*60 */ "<REPLACE>",
-                         "<PRIMARY>",
-                         /*62 */ "<VARIABLE>",
-                         "<CONSTANT>",
-                         "<RELATION>",
-                         /*65 */ "<STATEMENT>",
-                         "<IF CLAUSE>",
-                         "<TRUE PART>",
-                         "<DATA LIST>",
-                         "<DATA HEAD>",
-                         "<LEFT PART>",
-                         /*71 */ "<ASSIGNMENT>",
-                         "<EXPRESSION>",
-                         "<GROUP HEAD>",
-                         "<BOUND HEAD>",
-                         /*75 */ "<IF STATEMENT>",
-                         "<WHILE CLAUSE>",
-                         "<INITIAL LIST>",
-                         "<INITIAL HEAD>",
-                         /*79 */ "<CASE SELECTOR>",
-                         "<VARIABLE NAME>",
-                         "<CONSTANT HEAD>",
-                         /*82 */ "<STATEMENT LIST>",
-                         "<CALL STATEMENT>",
-                         "<PROCEDURE HEAD>",
-                         /*85 */ "<PROCEDURE NAME>",
-                         "<PARAMETER LIST>",
-                         "<PARAMETER HEAD>",
-                         /*88 */ "<BASED VARIABLE>",
-                         "<LOGICAL FACTOR>",
-                         "<SUBSCRIPT HEAD>",
-                         /*91 */ "<BASIC STATEMENT>",
-                         "<GO TO STATEMENT>",
-                         "<STEP DEFINITION>",
-                         /*94 */ "<IDENTIFIER LIST>",
-                         "<LOGICAL PRIMARY>",
-                         /*96 */ "<RETURN STATEMENT>",
-                         "<LABEL DEFINITION>",
-                         "<TYPE DECLARATION>",
-                         /*99 */ "<ITERATION CONTROL>",
-                         "<LOGICAL SECONDARY>",
-                         /*101*/ "<LOGICAL EXPRESSION>",
-                         /*102*/ "<DECLARATION ELEMENT>",
-                         /*103*/ "<PROCEDURE DEFINITION>",
-                         /*104*/ "<DECLARATION STATEMENT>",
-                         "<ARITHMETIC EXPRESSION>",
-                         /*106*/ "<IDENTIFIER SPECIFICATION>" };
-
 /* token ids */
 enum {
-    SEMIV  = 1,
-    DOV    = 15,
-    EOFILE = 20,
-    ENDV   = 21,
-    CALLV  = 30,
-    DECL   = 42,
-    NUMBV  = 45,
-    STRV   = 46,
-    PROCV  = 48,
-    IDENTV = 50,
-    GROUPV = 55,
-    STMTV  = 65,
-    SLISTV = 82
+    SEMIV = 1, DOV = 15,   EOFILE = 20, ENDV = 21,   CALLV = 30, DECL = 42, NUMBV = 45,
+    STRV = 46, PROCV = 48, IDENTV = 50, GROUPV = 55, STMTV = 65, SLISTV = 82
 };
-
-const uint8_t vindx[]  = { 0, 1, 14, 20, 26, 35, 39, 41, 45, 47, 50 };
+// clang-format on
 
 const uint8_t c1[][13] = {
     /*   1 */ { 0x08, 0x00, 0x00, 0xA0, 0x02, 0x0A, 0x20, 0xA2, 0x00, 0x80, 0x2A, 0x08, 0x20 },
@@ -973,6 +776,7 @@ const uint8_t c1[][13] = {
 };
 
 #define TRI(a, b, c) (((a) << 16) + ((b) << 8) + c)
+#define PAIR(a, b)   (((a) << 8) + (b))
 
 const int c1tri[] = {
     TRI(3, 3, 3),   TRI(3, 3, 10),   TRI(3, 3, 13),  TRI(3, 3, 24),  TRI(3, 3, 45),  TRI(3, 3, 46),
@@ -1018,44 +822,36 @@ const int c1tri[] = {
     TRI(97, 71, 1), TRI(104, 4, 3),  TRI(104, 4, 50)
 };
 
-#define QUAD(a, b, c, d) (((a) << 24) + ((b) << 16) + ((c) << 8) + (d))
-
+// clang-format off
 const int prtb[] = {
-    QUAD(0, 0, 0, 0),    QUAD(0, 85, 86, 53), QUAD(0, 85, 47, 45), QUAD(0, 0, 85, 53),
-    QUAD(0, 0, 85, 86),  QUAD(0, 0, 15, 93),  QUAD(0, 0, 15, 76),  QUAD(0, 0, 15, 79),
-    QUAD(0, 0, 0, 85),   QUAD(0, 0, 0, 15),   QUAD(0, 0, 0, 71),   QUAD(0, 0, 0, 55),
-    QUAD(0, 0, 0, 103),  QUAD(0, 0, 0, 96),   QUAD(0, 0, 0, 83),   QUAD(0, 0, 0, 92),
-    QUAD(0, 0, 0, 104),  QUAD(0, 0, 0, 26),   QUAD(0, 0, 0, 39),   QUAD(0, 0, 0, 41),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 69, 63),  QUAD(0, 0, 78, 63),  QUAD(0, 0, 87, 50),
-    QUAD(0, 0, 94, 80),  QUAD(0, 0, 81, 63),  QUAD(0, 0, 3, 72),   QUAD(0, 0, 90, 72),
-    QUAD(0, 0, 0, 32),   QUAD(0, 0, 0, 106),  QUAD(0, 0, 0, 44),   QUAD(0, 0, 0, 13),
-    QUAD(0, 0, 0, 50),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 87, 50),
-    QUAD(0, 0, 69, 63),  QUAD(0, 0, 94, 80),  QUAD(0, 0, 78, 63),  QUAD(0, 0, 81, 63),
-    QUAD(0, 0, 90, 72),  QUAD(0, 0, 0, 62),   QUAD(0, 0, 0, 50),   QUAD(0, 0, 0, 45),
-    QUAD(0, 0, 0, 7),    QUAD(0, 0, 0, 8),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 7),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 16),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 14, 72),
-    QUAD(0, 0, 0, 91),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
-    QUAD(0, 0, 0, 50),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
-    QUAD(0, 0, 0, 57),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 50, 49),  QUAD(0, 0, 0, 0),
-    QUAD(0, 0, 0, 97),   QUAD(0, 0, 0, 21),   QUAD(0, 0, 0, 57),   QUAD(0, 0, 0, 88),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),    QUAD(0, 74, 45, 2),  QUAD(0, 0, 0, 106),
-    QUAD(0, 0, 105, 9),  QUAD(0, 0, 105, 10), QUAD(0, 0, 105, 34), QUAD(0, 0, 105, 37),
-    QUAD(0, 0, 0, 10),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 84, 82),  QUAD(0, 0, 0, 97),
-    QUAD(0, 0, 0, 73),   QUAD(0, 0, 54, 11),  QUAD(0, 0, 54, 12),  QUAD(0, 0, 54, 25),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 30),   QUAD(0, 0, 0, 13),   QUAD(0, 0, 0, 0),
-    QUAD(0, 0, 0, 13),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 66, 67),  QUAD(0, 0, 0, 82),
-    QUAD(0, 0, 0, 73),   QUAD(0, 0, 0, 66),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 50),
-    QUAD(0, 0, 0, 70),   QUAD(0, 51, 72, 52), QUAD(0, 0, 62, 60),  QUAD(0, 0, 0, 51),
-    QUAD(0, 0, 0, 56),   QUAD(0, 0, 0, 29),   QUAD(0, 0, 0, 40),   QUAD(0, 0, 0, 97),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 98),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
-    QUAD(0, 0, 101, 18), QUAD(0, 0, 101, 22), QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 97),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 24),   QUAD(0, 0, 0, 0),    QUAD(0, 0, 0, 0),
-    QUAD(0, 62, 60, 72), QUAD(0, 0, 89, 23),  QUAD(0, 0, 0, 0),    QUAD(0, 62, 5, 6),
-    QUAD(0, 0, 0, 0),    QUAD(0, 0, 104, 4),  QUAD(0, 0, 0, 42),   QUAD(0, 0, 105, 64),
-    QUAD(0, 0, 0, 0)
+    0,               TRI(85, 86, 53), TRI(85, 47, 45), PAIR(85, 53),  PAIR(85, 86),
+    PAIR(15, 93),    PAIR(15, 76),    PAIR(15, 79),    85,            15,         
+    71,              55,              103,             96,            83,         
+    92,              104,             26,              39,            41,         
+    0,               PAIR(69, 63),    PAIR(78, 63),    PAIR(87, 50),  PAIR(94, 80),
+    PAIR(81, 63),    PAIR(3, 72),     PAIR(90, 72),    32,            106,         
+    44,              13,              50,              0,             0,         
+    PAIR(87, 50),    PAIR(69, 63),    PAIR(94, 80),    PAIR(78, 63),  PAIR(81, 63),
+    PAIR(90, 72),    62,              50,              45,            7,         
+    8,               0,               0,               0,             7,         
+    0,               16,              0,               0,             0,         
+    PAIR(14, 72),    91,              0,               0,             0,         
+    50,              0,               0,               0,             57,         
+    0,               PAIR(50, 49),    0,               97,            21,         
+    57,              88,              0,               0,             TRI(74, 45, 2),
+    106,             PAIR(105, 9),    PAIR(105, 10),   PAIR(105, 34), PAIR(105, 37),
+    10,              0,               PAIR(84, 82),    97,            73,         
+    PAIR(54, 11),    PAIR(54, 12),    PAIR(54, 25),    0,             30,         
+    13,              0,               13,              0,             PAIR(66, 67),
+    82,              73,              66,              0,             50,         
+    70,              TRI(51, 72, 52), PAIR(62, 60),    51,            56,         
+    29,              40,              97,              0,             98,         
+    0,               0,               PAIR(101, 18),   PAIR(101, 22), 0,         
+    97,              0,               24,              0,             0,         
+    TRI(62, 60, 72), PAIR(89, 23),    0,               TRI(62, 5, 6), 0,         
+    PAIR(104, 4),    42,              PAIR(105, 64),   PAIR(0, 0)
 };
-
+// clang-format on
 const uint8_t prdtb[] = { 0,   38,  39,  36,  37,  25,  26,  27,  35,  24,  6,   7,   8,   9,   10,
                           11,  12,  13,  14,  15,  16,  61,  78,  41,  72,  114, 117, 121, 62,  70,
                           79,  118, 122, 42,  73,  43,  63,  74,  80,  119, 123, 84,  47,  48,  100,
@@ -1111,7 +907,20 @@ int vil               = 12;
 int token = 0;
 /* blk */
 int block[MAXBLK + 1] = { ZPAD, 1, 120 };
-int dopar[MAXBLK + 1];
+struct {
+    unsigned type : 2;
+    unsigned clause : 14;
+    unsigned label : 16;
+} dopar[MAXBLK + 1];
+
+inline doinit(int slot, int type, int clause) {
+    dopar[slot].type   = type;
+    dopar[slot].clause = clause & 0x3fff;
+    dopar[slot].label  = clause >> 14;
+}
+
+enum { DO_GROUP, DO_ITER, DO_WHILE, DO_CASE };
+
 int macblk[MAXBLK + 1];
 int curblk = 2;
 int blksym = 120;
@@ -1183,7 +992,9 @@ void putch(const int chr);
 void stackc(int i, char *fname);
 void enterb();
 void dumpin();
-void error(const int i, const int level);
+// void error(const int i, const int level);
+void nonFatal(char *errStr);
+void fatal(char *errStr);
 // int shr(const int i, const int j);
 // int shl(const int i, const int j);
 int right(const int i, const int j);
@@ -1192,64 +1003,21 @@ void redpr(const int prod, const int sym);
 void emit(const int val, const int typ);
 void cmpuse();
 
+// clang-format off
 enum {
     SPACE = 1,
-    ZERO,
-    ONE,
-    TWO,
-    THREE,
-    FOUR,
-    FIVE,
-    SIX,
-    SEVEN,
-    EIGHT,
-    NINE,
-    CHA,
-    CHB,
-    CHC,
-    CHD,
-    CHE,
-    CHF,
-    CHG,
-    CHH,
-    CHI,
-    CHJ,
-    CHK,
-    CHL,
-    CHM,
-    CHN,
-    CHO,
-    CHP,
-    CHQ,
-    CHR,
-    CHS,
-    CHT,
-    CHU,
-    CHV,
-    CHW,
-    CHX,
-    CHY,
-    CHZ,
-    DOLLAR,
-    EQUALS,
-    DOT,
-    SLASH,
-    LPAREN,
-    RPAREN,
-    PLUS,
-    MINUS,
-    QUOTE,
-    STAR,
-    COMMA,
-    LESS,
-    GREATER,
-    COLON,
-    SEMICOLON
+    ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,
+    CHA, CHB, CHC, CHD, CHE, CHF, CHG, CHH, CHI, CHJ,
+    CHK, CHL, CHM, CHN, CHO, CHP, CHQ, CHR, CHS, CHT,
+    CHU, CHV, CHW, CHX, CHY, CHZ,
+    DOLLAR, EQUALS, DOT, SLASH, LPAREN, RPAREN, PLUS, MINUS,
+    QUOTE, STAR, COMMA, LESS, GREATER, COLON, SEMICOLON
 };
+// clang-format on
 
 void dumpTable() {
     FILE *fp = fopen("sym.dmp", "at");
-    for (int j = 0; j <= symtop; j++) {
+    for (int j = 1; j <= symtop; j++) {
         fprintf(fp, "%d,%c", symbol[j], (j % 6) == 0 ? '\n' : ' ');
     }
     fprintf(fp, "\nentry=%d\n\n", symtop);
@@ -1313,7 +1081,10 @@ void dumpTable() {
  lstFp   - creates file.lst or fort.nn where nn = control[C_OUTPUT + 10]
 
  To support include files $I=filename can be used with the previous file being stacked
- Note if filename is a number < 10, it is assumed to be a fort.nn file
+ Note if filename is a number, it is assumed to be a fort.nn file if number is != 1
+ if 1 it is assumed to be stdin
+ To avoid conflict with other file names defined by the control table, except for stdin (1),
+ it is recommended to use a file number > 20 for include files.
 
 */
 FILE *srcFp;
@@ -1471,7 +1242,7 @@ void exitb() {
             int j = right(macros[n], MACBITS);
             if (mactop <= j) {
                 macros[n] = j + (j << MACBITS);
-                error(49, 1);
+                nonFatal("49: Macro has terminated the scope of its own name");
             }
         }
         curblk--;
@@ -1485,7 +1256,7 @@ void exitb() {
                             if (type == LABEL && curblk > 1) // labels may be non local
                                 continue;                    // only fail if not defined at all
                             if (!erred) {
-                                error(1, 1);
+                                nonFatal("1: Undefined symbols");
                                 erred = true;
                             }
                             form("\n     ");
@@ -1548,13 +1319,13 @@ int lookup(const int iv) {
         hcode = fixv[iv] % 127 + 1; // hash code for numbers
     else {
         if (varc[symloc] <= 52) {
-            int dstIdx    = symloc;
-            int shift     = PACK * 6;
-            int m = 0;
+            int dstIdx = symloc;
+            int shift  = PACK * 6;
+            int m      = 0;
             for (int srcIdx = symloc; srcIdx < symloc + symlen; srcIdx++) {
                 if ((shift -= 6) < 0) {
                     varc[dstIdx++] = m;
-                    m      = 0;
+                    m              = 0;
                     shift          = PACK * 6 - 6;
                 }
                 m += ((varc[srcIdx] - 1) << shift);
@@ -1613,7 +1384,7 @@ int enter(int info) {
     if (symtop > maxsym) {
         symIdx = hasHash ? 1 : 0;
         symtop = symIdx + intCnt + 3;
-        error(2, 5);
+        fatal("2: Pass-1 symbol table overflow");
     }
 
     symbol[symtop]       = symIdx++;
@@ -1743,10 +1514,10 @@ void dumpsy() {
         /* set length to 1 and prec to 5 (for comp generated labels) */
         if (info_type(j + 1) == LABEL && info_len(j + 1) == 0)
             symbol[Info(j + 1)] = (1 << 8) + (CompilerLabel << 4) + LABEL;
-        int m = symbol[j];
-        symbol[j]     = i;
-        i             = j;
-        j             = m & 0xffff; // strip the symbol #
+        int m     = symbol[j];
+        symbol[j] = i;
+        i         = j;
+        j         = m & 0xffff; // strip the symbol #
     }
 
     putSym('/');
@@ -1818,7 +1589,7 @@ bool stack(/*const int q */) {
         switch (getc1(pstack[sp], token)) {
         case 0:
             /*     illegal symbol pair */
-            error(3, 1);
+            nonFatal("3: Invalid PL/M statement. Two symbols below not allowed together");
             form("\n%s %s", tokens[pstack[sp]], tokens[token]);
             sdump();
             recov();
@@ -1863,7 +1634,7 @@ bool prok(const int prd) {
 
 void reduce() {
     /*     pack stack top */
-    int j   = QUAD(pstack[sp - 4], pstack[sp - 3], pstack[sp - 2], pstack[sp - 1]);
+    int j   = TRI(pstack[sp - 3], pstack[sp - 2], pstack[sp - 1]);
 
     int top = pstack[sp];
 
@@ -1879,7 +1650,7 @@ void reduce() {
         }
     }
     /*     no applicable production */
-    error(4, 1);
+    nonFatal("4: Badly formed PL/M statement");
     failsf = false;
     sdump();
     recov();
@@ -1897,7 +1668,7 @@ void cloop() {
             if (!compil)
                 break;
             if (++sp >= MSTACK) {
-                error(5, 5);
+                fatal("5: Pass-1 parse stack overflow");
                 break;
             }
             pstack[sp] = token;
@@ -1910,7 +1681,7 @@ void cloop() {
                 for (int j = 1; j <= acclen; j++) {
                     varc[vartop] = accum[j];
                     if (++vartop > MVAR) {
-                        error(7, 5);
+                        fatal("7: Pass-1 table overflow");
                         vartop = 1;
                     }
                 }
@@ -2140,7 +1911,7 @@ void scan() {
         }
         /*     macro found, set-up macro table and rescan */
         if (--curmac <= mactop) {
-            error(8, 5);
+            fatal("8: Macro table overflow");
             curmac = MAXMAC + 1;
         } else {
             j               = ch + macros[ch];
@@ -2151,7 +1922,6 @@ void scan() {
     token = ch - 1;
     return;
 }
-
 
 int wrdata(const int sy) {
     /*     if sy is negative, the call comes from synth -- data is inserted */
@@ -2168,10 +1938,10 @@ int wrdata(const int sy) {
 
     /*     check precision of value */
     /*     set dflag to true if we are dumping a variable or LABEL name */
-    int type       = info_type(symIdx);
-    bool dflag          = type == LABEL || type == VARB || type == PROC;
+    int type   = info_type(symIdx);
+    bool dflag = type == LABEL || type == VARB || type == PROC;
 
-    int len        = info_prec(symIdx);
+    int len    = info_prec(symIdx);
     if (len <= 2 && !dflag) { // single or double byte constant
         uint16_t n = info_len(symIdx);
         if (len) {
@@ -2240,8 +2010,21 @@ void dumpch() {
     putSymStr("/\n");
 }
 
+void procHead(int ptype, int plist, int rtype) {
+    proctp[curblk]       = ptype; // 1 untyped, 2 typed
+    int symIdx           = fixv[mp];
+    symbol[Info(symIdx)] = MkInfo(plist, rtype, PROC);
+    int node             = enter(-MkInfo(0, LocalLabel, LABEL));
+    fixv[mp] += node << 15;
+    emit(id_num(node), VLU);
+    emit(TRA, OPR);
+    emit(id_num(symIdx), DEF);
+    return;
+}
+
 void synth(const int prod, const int symm) {
     int ip, i, j, k, len, m, length;
+    int symIdx;
 
     /*    mp == left ,  sp == right */
 
@@ -2251,7 +2034,7 @@ void synth(const int prod, const int symm) {
     switch (prod) {
     case 1: // <PROGRAM> ::= <STATEMENT LIST>
         if (mp != 5)
-            error(10, 1); /* invalid program */
+            nonFatal("10: Invalid program. Possibly earlier missing END");
         compil = false;
         exitb();
         return;
@@ -2262,18 +2045,17 @@ void synth(const int prod, const int symm) {
         return;
     case 6: // <BASIC STATEMENT> ::= <ASSIGNMENT> ';'
         while (acnt > 0) {
-            i = symbol[maxsym - acnt];
-            acnt--;
-            if (i <= 0)
+            symIdx = assign[acnt];
+            if (symIdx <= 0)
                 emit(XCH, OPR);
             else
-                emit(id_num(i), ADR);
-            if (acnt > 0)
+                emit(id_num(symIdx), ADR);
+            if (--acnt > 0)
                 emit(STO, OPR);
         }
         emit(STD, OPR);
         return;
-    case 7: // <BASIC STATEMENT> ::= <GROUP> ';'
+    case 7:  // <BASIC STATEMENT> ::= <GROUP> ';'
     case 9:  // <BASIC STATEMENT> ::= <RETURN STATEMENT> ';'
     case 10: // <BASIC STATEMENT> ::= <CALL STATEMENT> ';'
     case 11: // <BASIC STATEMENT> ::= <GO TO STATEMENT> ';'
@@ -2281,8 +2063,8 @@ void synth(const int prod, const int symm) {
 
     case 8:  // <BASIC STATEMENT> ::= <PROCEDURE DEFINITION> ';'
     case 12: // <BASIC STATEMENT> ::= <DECLARATION STATEMENT> ';'
-        if (right(dopar[curblk], 2) != 0)
-            error(11, 1);
+        if (dopar[curblk].type != DO_GROUP)
+            nonFatal("11: Invalid declaration");
         return;
     case 13: // <BASIC STATEMENT> ::= HALT ';'
         emit(HAL, OPR);
@@ -2323,17 +2105,15 @@ void synth(const int prod, const int symm) {
         return;
     case 23: // <GROUP> ::= <GROUP HEAD> <ENDING>
         if (fixv[sp] > 0)
-            error(12, 1);
+            nonFatal("12: Improper yse of identifier following END");
         else if (fixc[sp] < 0)
             fixc[mp] = 0;
-        i = dopar[curblk + 1];
-        j = right(i, 2);
-        i = i >> 2;
-        switch (j) {
-        case 0:
+
+        switch (dopar[curblk + 1].type) {
+        case DO_GROUP:
             emit(END, OPR);
             return;
-        case 1:
+        case DO_ITER:
             /*     end of iterative statement */
             k = fixv[mp];
             if (k != 0) {
@@ -2344,52 +2124,44 @@ void synth(const int prod, const int symm) {
                 emit(STD, OPR);
             }
             break;
-        case 2:
+        case DO_WHILE:
             break;
-        case 3:
-            /*     generate destination of case branch */
-            j = right(i, 14);
-            k = id_num(j);
-            emit(k, DEF);
-            m     = symbol[j + 1] >> 8;
-            symbol[j + 1] = right(symbol[j + 1], 8);
-            /*     m is symbol number of LABEL at end of jump table */
-            emit(CSE, OPR);
-            /*     define the jump table */
-            i = i >> 14;
-            /*     reverse the LABEL list */
-            len = 0;
-            for (;;) {
-                if (i != 0) {
-                    k             = symbol[i + 1];
-                    symbol[i + 1] = (len << 8) + right(k, 8);
-                    len           = i;
-                    i             = k >> 8;
-                } else {
-                    for (;;) {
-                        /*     emit list starting at l */
-                        i               = symbol[len + 1];
-                        symbol[len + 1] = 64 + LABEL;
-                        if ((j = i >> 8) == 0) {
-                            /*     define end of jump table */
-                            emit(m, DEF);
-                            break;
-                        } else {
-                            k = id_num(len);
-                            emit(k, VLU);
-                            emit(AX2, OPR);
-                            len = j;
-                        }
-                    }
-                    break;
+        case DO_CASE:
+            {
+                /*     generate destination of case branch */
+                symIdx = dopar[curblk + 1].clause;
+                emit(id_num(symIdx), DEF);
+                int endJmp = info_len(symIdx);
+                symbol[Info(symIdx)] &= 0xff;
+                /*     m is symbol number of LABEL at end of jump table */
+                emit(CSE, OPR);
+                /*     define the jump table */
+                /*     reverse the LABEL list */
+                int pIdx = 0, qIdx;
+                for (symIdx = dopar[curblk + 1].label; symIdx; pIdx = symIdx, symIdx = qIdx) {
+                    qIdx = info_len(symIdx);
+                    symbol[Info(symIdx)] &= 0xff; // clear the length field
+                    symbol[Info(symIdx)] += (pIdx << 8);
                 }
+
+                do { /* emit list starting at pIdx */
+                    qIdx               = info_len(pIdx);
+                    symbol[Info(pIdx)] = MkInfo(0, LocalLabel, LABEL);
+                    if (qIdx) {
+                        emit(id_num(pIdx), VLU);
+                        emit(AX2, OPR);
+                    }
+                } while ((pIdx = qIdx));
+                /*     define end of jump table */
+                emit(endJmp, DEF);
             }
+
             return;
         }
         /*     define end of while statement */
-        emit((i >> 14), VLU);
+        emit(dopar[curblk + 1].label, VLU);
         emit(TRA, OPR);
-        emit(right(i, 14), DEF);
+        emit(dopar[curblk + 1].clause, DEF);
         return;
     case 24: // <GROUP HEAD> ::= DO ';'
         enterb();
@@ -2397,43 +2169,32 @@ void synth(const int prod, const int symm) {
         return;
     case 25: // <GROUP HEAD> ::= DO <STEP DEFINITION> ';'
         enterb();
-        dopar[curblk] = 1 + (fixv[mp + 1] << 2);
+        doinit(curblk, DO_ITER, fixv[mp + 1]);
         return;
     case 26: // <GROUP HEAD> ::= DO <WHILE CLAUSE> ';'
         enterb();
-        dopar[curblk] = 2 + (fixv[mp + 1] << 2);
+        doinit(curblk, DO_WHILE, fixv[mp + 1]);
         return;
     case 27: // <GROUP HEAD> ::= DO <CASE SELECTOR> ';'
         enterb();
-        k = enter(-MkInfo(0, LocalLabel, LABEL));
-        k = (symbol[k - 1] >> 16);
+        k = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
         /*     k is LABEL after case jump table */
-        i = enter(-MkInfo(k, LocalLabel, LABEL));
-        j = id_num(i);
-        emit(j, VLU);
+        symIdx = enter(-MkInfo(k, LocalLabel, LABEL));
+        emit(id_num(symIdx), VLU);
         emit(AX1, OPR);
-        dopar[curblk] = (i << 2) + 3;
-        i             = dopar[curblk];
-        k             = (i >> 16);
-        j             = enter(-MkInfo(k, LocalLabel, LABEL));
-        dopar[curblk] = (j << 16) + right(i, 16);
-        emit(id_num(j), DEF);
+        doinit(curblk, DO_CASE, symIdx);
+        symIdx              = enter(-MkInfo(0, LocalLabel, LABEL));
+        dopar[curblk].label = symIdx;
+        emit(id_num(symIdx), DEF);
         return;
-    case 28: // <GROUP HEAD> ::= <GROUP HEAD> <STATEMENT>
-        i = dopar[curblk];
-        if (right(i, 2) != 3)
-            return;
-        /*     otherwise case stmt */
-        j = right((i >> 2), 14);
-        j = symbol[j + 1];
-        j = (j >> 8);
-        emit(j, VLU);
-        emit(TRA, OPR);
-        i             = dopar[curblk];
-        k             = (i >> 16);
-        j             = enter(-MkInfo(k, LocalLabel, LABEL));
-        dopar[curblk] = (j << 16) + right(i, 16);
-        emit(id_num(j), DEF);
+    case 28:                                 // <GROUP HEAD> ::= <GROUP HEAD> <STATEMENT>
+        if (dopar[curblk].type == DO_CASE) { // case stmt
+            emit(info_len(dopar[curblk].clause), VLU);
+            emit(TRA, OPR);
+            symIdx              = enter(-MkInfo(dopar[curblk].label, LocalLabel, LABEL));
+            dopar[curblk].label = symIdx;
+            emit(id_num(symIdx), DEF);
+        }
         return;
     case 29: // <STEP DEFINITION> ::= <VARIABLE> <REPLACE> <EXPRESSION> <ITERATION CONTROL>
         j = fixv[mp + 3];
@@ -2477,53 +2238,23 @@ void synth(const int prod, const int symm) {
         if (j < 0)
             j = -j + 1;
         if (j != 0 && right(fixv[mp], 15) != j)
-            error(13, 1);
+            nonFatal("13: Identifier following END does not match");
         emit(END, OPR);
         /*     emit a ret just in case he forgot it */
         emit(DRT, OPR);
-        emit((symbol[k - 1] >> 16), DEF);
+        emit(id_num(k), DEF);
         return;
     case 35: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> ';'
-        proctp[curblk]  = 1;
-        i               = fixv[mp];
-        symbol[Info(i)] = MkInfo(0, 0, PROC);
-        j               = enter(-MkInfo(0, LocalLabel, LABEL));
-        fixv[mp]        = (j << 15) + i;
-        emit(id_num(j), VLU);
-        emit(TRA, OPR);
-        emit(id_num(i), DEF);
+        procHead(1, 0, 0);
         return;
     case 36: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <TYPE> ';'
-        k               = fixv[sp - 1];
-        proctp[curblk]  = 2;
-        i               = fixv[mp];
-        symbol[Info(i)] = MkInfo(0, k, PROC);
-        j               = enter(-MkInfo(0, LocalLabel, LABEL));
-        fixv[mp]        = (j << 15) + i;
-        emit(id_num(j), VLU);
-        emit(TRA, OPR);
-        emit(id_num(i), DEF);
+        procHead(2, 0, fixv[sp - 1]);
         return;
     case 37: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <PARAMETER LIST> ';'
-        proctp[curblk]  = 1;
-        i               = fixv[mp];
-        symbol[Info(i)] = MkInfo(fixv[mp + 1], 0, PROC);
-        j               = enter(-MkInfo(0, LocalLabel, LABEL));
-        fixv[mp]        = (j << 15) + i;
-        emit(id_num(j), VLU);
-        emit(TRA, OPR);
-        emit(id_num(i), DEF);
+        procHead(1, fixv[mp + 1], 0);
         return;
     case 38: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <PARAMETER LIST> <TYPE> ';'
-        proctp[curblk]  = 2;
-        i               = fixv[mp];
-        symbol[Info(i)] = MkInfo(fixv[mp + 1], fixv[sp - 1], PROC);
-
-        j               = enter(-MkInfo(0, LocalLabel, LABEL));
-        fixv[mp] += (j << 15);
-        emit(id_num(j), VLU);
-        emit(TRA, OPR);
-        emit(id_num(i), DEF);
+        procHead(2, fixv[mp + 1], fixv[sp - 1]);
         return;
     case 39: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> INTERRUPT <NUMBER> ';'
         /*     get symbol number */
@@ -2531,29 +2262,22 @@ void synth(const int prod, const int symm) {
         /*     get interrupt number */
         j = fixv[sp - 1];
         if (j > 7)
-            error(39, 1);
+            nonFatal("39: Invalid interrupt number");
         else {
             k = intpro[++j];
             /*     is interrupt duplicated */
             if (k <= 0)
                 intpro[j] = i;
             else
-                error(40, 1);
+                nonFatal("40: Duplicate interrupt procedure");
         }
-        proctp[curblk]  = 1;
-        i               = fixv[mp];
-        symbol[Info(i)] = MkInfo(0, 0, PROC);
-        j               = enter(-MkInfo(0, LocalLabel, LABEL));
-        fixv[mp]        = (j << 15) + i;
-        emit(id_num(j), VLU);
-        emit(TRA, OPR);
-        emit(id_num(i), DEF);
+        procHead(1, 0, 0);
         return;
     case 40: // <PROCEDURE NAME> ::= <LABEL DEFINITION> PROCEDURE
              /* check for numeric label */
         if (fixc[mp] >= 0) {
             fixv[mp] = fixc[mp];
-            error(48, 1);
+            nonFatal("48: Invalid procedure name");
         }
         enterb();
         emit(ENP, OPR);
@@ -2562,7 +2286,7 @@ void synth(const int prod, const int symm) {
     case 43: // <PARAMETER HEAD> ::= <PARAMETER HEAD> <IDENTIFIER> ','
         i = lookup(sp - 1);
         if (i >= blksym)
-            error(14, 1);
+            nonFatal("14: Duplicate formal parameter name");
         /*i = */ enter(MkInfo(0, 0, VARB));
         fixv[mp]++;
         return;
@@ -2577,62 +2301,62 @@ void synth(const int prod, const int symm) {
         exitb();
         i = lookup(sp);
         if (i == 0)
-            error(15, 1);
+            nonFatal("15: Identifier following END not found");
         fixv[mp] = i;
         return;
     case 46: // <ENDING> ::= <LABEL DEFINITION> <ENDING>
         fixv[mp] = fixv[sp];
         return;
     case 47: // <LABEL DEFINITION> ::= <IDENTIFIER> ':'
-        i  = lookup(mp);
-        ip = curblk == 2 ? OuterLabel : LocalLabel;
-        if (i < blksym)
+        symIdx = lookup(mp);
+        if (symIdx < blksym)
 
             /*         prec = 3 if user-defined outer block LABEL */
             /*         prec = 4 if user-defined LABEL not in outer block */
             /*         prec = 5 if compiler-generated LABEL */
-            i = enter(MkInfo(0, ip, LABEL));
+            symIdx = enter(MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, LABEL));
         else {
-            if (info_prec(i)) {
-                error(16, 1);
-                symbol[Info(i)] &= ~(0xF << 4); // clear the prec bits
+            if (info_prec(symIdx)) {
+                nonFatal("16: Duplicate LABEL definition in block");
+                symbol[Info(symIdx)] &= ~(0xF << 4); // clear the prec bits
             }
-            symbol[Info(i)] += MkInfo(0, ip, 0); // set the prec bits
+            // set the prec bits
+            symbol[Info(symIdx)] += MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, 0);
         }
-        fixv[mp] = i;
+        fixv[mp] = symIdx;
         /* indicate that this is an identifier label */
         fixc[mp] = -1;
         if (token != PROCV)
-            emit(id_num(i), DEF);
+            emit(id_num(symIdx), DEF);
         return;
     case 48: // <LABEL DEFINITION> ::= <NUMBER> ':'
         k = fixv[mp];
         if (k > 65535)
-            error(17, 1);
+            nonFatal("17: Numeric LABEL too big");
         else {
-            if ((len = lookup(mp)) == 0)
+            if ((symIdx = lookup(mp)) == 0)
                 /*     enter number */
-                len = enter(MkInfo(k, k > 255 ? 2 : 1, NUMBER));
+                symIdx = enter(MkInfo(k, k > 255 ? 2 : 1, NUMBER));
 
             /* indicate that this is a numeric label */
-            fixc[mp] = len;
-            emit(id_num(len), VLU);
+            fixc[mp] = symIdx;
+            emit(id_num(symIdx), VLU);
             emit(ORG, OPR);
         }
         return;
     case 49: // <RETURN STATEMENT> ::= RETURN
         emit(0, LIT);
         if (proctp[curblk] == 2)
-            error(45, 1);
+            nonFatal("45: Missing return value for typed procedure");
         else if (proctp[curblk] == 0)
-            error(46, 1);
+            nonFatal("46: Return outside procedure definition");
         emit(RET, OPR);
         return;
     case 50: // <RETURN STATEMENT> ::= RETURN <EXPRESSION>
         if (proctp[curblk] == 1)
-            error(44, 1);
+            nonFatal("44: Return value invalid for untyped procedure");
         else if (proctp[curblk] == 0)
-            error(46, 1);
+            nonFatal("46: Return outside procedure definition");
         emit(RET, OPR);
         return;
     case 51: // <CALL STATEMENT> ::= CALL <VARIABLE>
@@ -2649,7 +2373,7 @@ void synth(const int prod, const int symm) {
                 return;
             }
         }
-        error(18, 1);
+        nonFatal("18: Invalid CALL statement");
         return;
     case 52: // <GO TO STATEMENT> ::= <GO TO> <IDENTIFIER>
         if ((i = lookup(sp)) == 0)
@@ -2662,17 +2386,17 @@ void synth(const int prod, const int symm) {
             emit(id_num(i), VLU);
             emit(TRA, OPR);
         } else
-            error(19, 1);
+            nonFatal("19: Invalid destination for GOTO");
         return;
     case 53: // <GO TO STATEMENT> ::= <GO TO> <NUMBER>
         k = fixv[sp];
         if (k > 65535) {
-            error(17, 1);
+            nonFatal("17: Numeric LABEL too big");
         } else {
-            if ((len = lookup(sp)) == 0)
+            if ((symIdx = lookup(sp)) == 0)
                 /*     enter number */
-                len = enter(MkInfo(k, k > 255 ? 2 : 1, NUMBER));
-            emit(id_num(len), VLU);
+                symIdx = enter(MkInfo(k, k > 255 ? 2 : 1, NUMBER));
+            emit(id_num(symIdx), VLU);
             emit(TRA, OPR);
         }
         return;
@@ -2683,37 +2407,29 @@ void synth(const int prod, const int symm) {
     case 58: // <DECLARATION ELEMENT> ::= <TYPE DECLARATION>
         return;
     case 59: // <DECLARATION ELEMENT> ::= <IDENTIFIER> LITERALLY <STRING>
-        len = mp;
-        k   = mactop;
-        for (m = 1; m <= 2; m++) {
-            ip = var[len].len;
-            i  = var[len].loc - 1;
-            if (++k >= curmac) {
-                error(20, 5);
-                return;
+        k = mactop;
+        if (++mactop < curmac) {
+            macros[mactop] = var[mp].len;
+            for (j = var[mp].loc; j < var[mp].loc + var[mp].len && ++mactop < curmac; j++)
+                macros[mactop] = varc[j];
+            if (++mactop < curmac) {
+                macros[mactop] = var[sp].len;
+                for (j = var[sp].loc; j < var[sp].loc + var[sp].len && ++mactop < curmac; j++)
+                    macros[mactop] = varc[j];
             }
-            macros[k] = ip;
-            for (j = 1; j <= ip; j++) {
-                if (++k >= curmac) {
-                    error(20, 5);
-                    return;
-                }
-                macros[k] = varc[i + j];
-            }
-            len = sp;
         }
-
-        if (++k < curmac) {
-            macros[k] = mactop;
-            mactop    = k;
-        } else
-            error(20, 5);
+        if (++mactop < curmac)
+            macros[mactop] = k;
+        else {
+            mactop = k;
+            fatal("20: Macro table overflow");
+        }
         return;
     case 60: // <DECLARATION ELEMENT> ::= <IDENTIFIER> <DATA LIST>
         i   = fixv[mp] + 1;
         j   = fixv[mp + 1];
         len = right(j, 16);
-        symbol[i] += (len << 8);
+        symbol[i] += (len << 8); // PMO
         emit(DAT, OPR);
         emit((j >> 16), DEF);
         return;
@@ -2727,7 +2443,7 @@ void synth(const int prod, const int symm) {
         emit(TRA, OPR);
         fixv[mp] = (j << 16);
         if (lookup(mp - 1) > blksym)
-            error(22, 1);
+            nonFatal("22: Duplicate variable declaration");
         /*     set precision of inline data to 3 */
         i            = enter(MkInfo(0, P_INLINE, VARB));
         fixv[mp - 1] = i;
@@ -2741,15 +2457,15 @@ void synth(const int prod, const int symm) {
         i      = fixv[mp] & 0x7fff;
         j      = fixv[mp] >> 15;
         k      = fixv[sp];
-        for (int len = j; len <= i; len++) {
-            int symIdx = symbol[len];
+        for (int idx = j; idx <= i; idx++) {
+            int symIdx = symbol[idx];
             ip         = symbol[Info(symIdx)];
             if (k == P_LABEL) {
                 if (ip != VARB)
-                    error(21, 1);
+                    nonFatal("21: Duplicate variable or LABEL definition");
                 ip = LABEL;
             }
-            symbol[Info(symIdx)] = MkInfo(length, k, right(iabs(ip), 4));
+            symbol[Info(symIdx)] = MkInfo(length, k, symType(ip));
             if (ip < 0)
                 symbol[Info(symIdx)] = -symbol[Info(symIdx)];
         }
@@ -2776,7 +2492,7 @@ void synth(const int prod, const int symm) {
     case 72: // <IDENTIFIER SPECIFICATION> ::= <IDENTIFIER LIST> <VARIABLE NAME> ')'
     case 74: // <IDENTIFIER LIST> ::= <IDENTIFIER LIST> <VARIABLE NAME> ','
         if (symtop >= maxsym) {
-            error(23, 5);
+            fatal("23: Pass-1 symbol table overflow");
             maxsym = SYMABS;
         }
         symbol[maxsym] = fixv[mp + 1];
@@ -2789,83 +2505,73 @@ void synth(const int prod, const int symm) {
     case 75: // <VARIABLE NAME> ::= <IDENTIFIER> Left context check(',' | DECLARE | <IDENTIFIER
              // LIST>)
     case 77: // <BASED VARIABLE> ::= <IDENTIFIER> BASED
-        i = lookup(mp);
-        if (i <= blksym)
-            i = enter(MkInfo(0, 0, VARB));
-        else {
-            if (right(symbol[i + 1], 8) != VARB)
-                error(24, 1);
-        }
-        fixv[mp] = i;
+        symIdx = lookup(mp);
+        if (symIdx <= blksym)
+            symIdx = enter(MkInfo(0, 0, VARB));
+        else if ((symbol[Info(symIdx)] & 0xff) != VARB)
+            nonFatal("24: Invalid variable identifier");
+        fixv[mp] = symIdx;
         return;
     case 76: // <VARIABLE NAME> ::= <BASED VARIABLE> <IDENTIFIER>
-        i      = fixv[mp];
-        j      = symtop;
-        symtop = symtop + 1;
-        if (symtop > maxsym) {
-            symtop = symtop - 1;
-            error(25, 5);
-        } else {
+        if (symtop + 1 > maxsym)
+            fatal("25: Pass-1 symbol table overflow");
+        else {
+            i              = fixv[mp];
+            j              = symtop++;
             symbol[symtop] = symbol[j];
-            k              = lookup(sp);
-            if (k == 0)
-                k = enter(MkInfo(0, 0, VARB));
-            else {
-                if (right(symbol[k + 1], 4) != VARB) {
-                    error(26, 1);
-                    return;
-                }
+            symIdx         = lookup(sp);
+            if (symIdx == 0)
+                symIdx = enter(MkInfo(0, 0, VARB));
+            else if (info_type(symIdx) != VARB) {
+                nonFatal("26: Badly formed BASED variable declaration");
+                return;
             }
-            symbol[j] = id_num(k); // stuff the symId of the base var
-            i++;
-            symbol[i] = -symbol[i]; // mark the info as based
+
+            symbol[j]       = id_num(symIdx);   // stuff the symId of the base var
+            symbol[Info(i)] = -symbol[Info(i)]; // mark the info as based
         }
         return;
     case 78: // <INITIAL LIST> ::= <INITIAL HEAD> <CONSTANT> ')'
         goto case80;
     case 79: // <INITIAL HEAD> ::= INITIAL '('
-        i        = fixv[mp - 1];
+        symIdx   = fixv[mp - 1];
         fixv[mp] = maxsym;
         j        = maxsym--;
         if (maxsym <= symtop) {
-            error(23, 5);
+            fatal("23: Pass-1 symbol table overflow");
             maxsym         = SYMABS;
             symbol[maxsym] = fixv[mp + 1];
             fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
             maxsym--;
-        } else {
-            i         = id_num(i);
-            symbol[j] = (i << 15);
-        }
+        } else
+            symbol[j] = (id_num(symIdx) << 15);
         return;
     case 80: // <INITIAL HEAD> ::= <INITIAL HEAD> <CONSTANT> ','
     case80:
         i = fixv[mp];
         if (maxsym <= symtop) {
-            error(23, 5);
+            fatal("23: Pass-1 symbol table overflow");
             maxsym         = SYMABS;
             symbol[maxsym] = fixv[mp + 1];
             fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
         } else {
             symbol[i]++;
             i              = fixv[mp + 1];
-            i              = (id_num(i) << 16) + i;
-            symbol[maxsym] = i;
+            symbol[maxsym] = (id_num(i) << 16) + i;
         }
         maxsym--;
         return;
     case 81: // <ASSIGNMENT> ::= <VARIABLE> <REPLACE> <EXPRESSION>
     case 82: // <ASSIGNMENT> ::= <LEFT PART> <ASSIGNMENT>
-        i = maxsym - ++acnt;
-        if (i <= symtop) {
-            error(27, 5);
+        if (++acnt > MAXASSIGN) {
+            fatal("50: Too many chained assignments");
             acnt = 0;
         } else {
-            symbol[i] = fixv[mp];
+            assign[acnt] = fixv[mp];
             /*      check for procedure on lhs of assignment. */
             /*     ****note that this is dependent on symbol number of output=17**** */
             if (fixv[mp] == 0 && fixc[mp] != 17)
-                error(41, 1);
+                nonFatal("41: Procedure on left-hand side of an assignment");
         }
         return;
     case 83: // <REPLACE> ::= '='
@@ -2873,15 +2579,14 @@ void synth(const int prod, const int symm) {
     case 85: // <EXPRESSION> ::= <LOGICAL EXPRESSION>
         return;
     case 86: // <EXPRESSION> ::= <VARIABLE> ':' '=' <LOGICAL EXPRESSION>
-        j = fixv[mp];
+        symIdx = fixv[mp];
         if (fixv[mp] == 0)
-            error(41, 1);
-        if (j < 0)
+            nonFatal("41: Procedure on left-hand side of an assignment");
+        else if (symIdx < 0) // PMO added 'else' as symIdx = 0 will cause memory error
             emit(XCH, OPR);
-        else {
-            j = symbol[j - 1];
-            emit(j >> 16, ADR);
-        }
+        else
+            emit(id_num(symIdx), ADR);
+
         emit(STO, OPR);
         return;
     case 87: // <LOGICAL EXPRESSION> ::= <LOGICAL FACTOR>
@@ -2908,27 +2613,36 @@ void synth(const int prod, const int symm) {
         emit(fixv[mp + 1], OPR);
         return;
     case 96:  // <RELATION> ::= '=' Left context check(<ARITHMETIC EXPRESSION>)
+        fixv[mp] = EQL;
+        return;
     case 97:  // <RELATION> ::= '<'
+        fixv[mp] = LSS;
+        return;
     case 98:  // <RELATION> ::= '>'
+        fixv[mp] = GTR;
+        return;
     case 99:  // <RELATION> ::= '<' '>'
+        fixv[mp] = NEQ;
+        return;
     case 100: // <RELATION> ::= '<' '='
+        fixv[mp] = LEQ;
+        return;
     case 101: // <RELATION> ::= '>' '='
-
-        /*     * note that the code that follows depends upon fixed production # */
-        fixv[mp] = (prod - 96) + EQL;
+        fixv[mp] = GEQ;
         return;
     case 102: // <ARITHMETIC EXPRESSION> ::= <TERM>
         return;
     case 103: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> '+' <TERM>
+        emit(ADD, OPR);
+        return;
     case 104: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> '-' <TERM>
+        emit(SUB, OPR);
+        return;
     case 105: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> PLUS <TERM>
+        emit(ADC, OPR);
+        return;
     case 106: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> MINUS <TERM>
-        /*     * note that the following code dpends upon fixed prod numbers */
-        i = (prod - 103) + ADD;
-        /*     *** the values of adc and sub were accidentily reversed *** */
-        if (i == ADC || i == SUB)
-            i = 5 - i;
-        emit(i, OPR);
+        emit(SBC, OPR);
         return;
     case 107: // <ARITHMETIC EXPRESSION> ::= '-' <TERM>
         emit(0, LIT);
@@ -2938,21 +2652,20 @@ void synth(const int prod, const int symm) {
     case 108: // <TERM> ::= <PRIMARY>
         return;
     case 109: // <TERM> ::= <TERM> '*' <PRIMARY>
+        emit(MUL, OPR);
+        return;
     case 110: // <TERM> ::= <TERM> '/' <PRIMARY>
+        emit(DIV, OPR);
+        return;
     case 111: // <TERM> ::= <TERM> MOD <PRIMARY>
-
-        /*     <term> ::= <primary> */
-        /*     * note that the following code depends upon fixed prod numbers */
-        i = (prod - 109) + MUL;
-        emit(i, OPR);
+        emit(REM, OPR);
         return;
     case 112: // <PRIMARY> ::= <CONSTANT>
-        i = fixv[mp];
-        emit(id_num(i), VLU);
+        symIdx = fixv[mp];
+        emit(id_num(symIdx), VLU);
         return;
     case 113: // <PRIMARY> ::= '.' <CONSTANT>
-        i        = enter(-MkInfo(0, LocalLabel, LABEL));
-        i        = id_num(i);
+        i        = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
         fixv[mp] = i;
         emit(i, VLU);
         emit(TRA, OPR);
@@ -2990,13 +2703,13 @@ void synth(const int prod, const int symm) {
             emit(CVA, OPR);
             return;
         }
-        error(28, 1);
+        nonFatal("28: Invalid address reference");
         return;
     case 117: // <PRIMARY> ::= '(' <EXPRESSION> ')'
         return;
     case 118: // <CONSTANT HEAD> ::= '.' '('
-        i        = enter(-MkInfo(0, LocalLabel, LABEL));
-        i        = id_num(i);
+        symIdx   = enter(-MkInfo(0, LocalLabel, LABEL));
+        i        = id_num(symIdx);
         fixv[mp] = i;
         emit(i, VLU);
         emit(TRA, OPR);
@@ -3007,24 +2720,24 @@ void synth(const int prod, const int symm) {
         wrdata(-fixv[mp + 1]);
         return;
     case 120: // <VARIABLE> ::= <IDENTIFIER>
-        if ((i = lookup(mp)) == 0) {
-            error(29, 1);
-            i = enter(-MkInfo(0, 0, VARB));
+        if ((symIdx = lookup(mp)) == 0) {
+            nonFatal("29: Undeclared variable");
+            symIdx = enter(-MkInfo(0, 0, VARB));
         }
-        fixv[mp] = i;
-        j        = info_type(i);
+        fixv[mp] = symIdx;
+        j        = info_type(symIdx);
         if (j == LABEL)
-            error(47, 1);
+            nonFatal("47: Illegal use of a LABEL");
         if (j != PROC && j != INTR)
             return;
-        if (info_len(i) != 0)
-            error(38, 1);
-        j = info_prec(i);
+        if (info_len(symIdx) != 0)
+            nonFatal("38: Too few parameters");
+        j = info_prec(symIdx);
         if (pstack[mp - 1] == CALLV && j != 0)
-            error(42, 1);
+            nonFatal("42: Attempted CALL of a typed procedure");
         if (pstack[mp - 1] != CALLV && j == 0)
-            error(43, 1);
-        i        = id_num(i);
+            nonFatal("43: Attempted use of untyped procedure as a function or variable");
+        i        = id_num(symIdx);
         i        = ((i << 15) + i + 1);
         fixc[mp] = 0;
         emit(i >> 15, VLU);
@@ -3044,9 +2757,9 @@ void synth(const int prod, const int symm) {
             if (fixc[mp] != 1)
                 emit(STD, OPR);
             if (iabs(fixc[mp]) == 0)
-                error(37, 1);
+                nonFatal("37: Too many actual parameters");
             if (iabs(fixc[mp]) > 1)
-                error(38, 1);
+                nonFatal("38: Too few parameters");
         }
         emit(i >> 15, VLU);
         fixc[mp] = i >> 15;
@@ -3054,42 +2767,43 @@ void synth(const int prod, const int symm) {
         emit(PRO, OPR);
         return;
     case 122: // <SUBSCRIPT HEAD> ::= <IDENTIFIER> '('
-        if ((i = lookup(mp)) == 0) {
-            error(30, 1);
-            i = enter(-MkInfo(0, 0, VARB));
+        if ((symIdx = lookup(mp)) == 0) {
+            nonFatal("30: Subscripted variable or procedure call references undeclared identifier");
+            symIdx = enter(-MkInfo(0, 0, VARB));
         }
-        j = right(iabs(symbol[i + 1]), 4);
+        j = info_type(symIdx);
         if (j != VARB) {
             if (j != PROC && j != INTR)
-                error(31, 1);
+                nonFatal(
+                    "31: Identifier is improperly used as a procedure or subscripted variable");
             else {
-                fixc[mp] = info_len(i);
+                fixc[mp] = info_len(symIdx);
                 if (j == INTR)
                     fixc[mp] = -fixc[mp];
-                j = info_prec(i);
+                j = info_prec(symIdx);
                 /*     in the statements below, 30 is the token for 'call' */
                 if (pstack[mp - 1] == 30 && j != 0)
-                    error(42, 1);
+                    nonFatal("42: Attempted CALL of a typed procedure");
                 if (pstack[mp - 1] != 30 && j == 0)
-                    error(43, 1);
-                i        = id_num(i);
+                    nonFatal("43: Attempted use of untyped procedure as a function or variable");
+                i        = id_num(symIdx);
                 fixv[mp] = -((i << 15) + i + 1);
                 return;
             }
         }
-        fixv[mp] = i;
-        emit(id_num(i), ADR);
+        fixv[mp] = symIdx;
+        emit(id_num(symIdx), ADR);
         return;
     case 123: // <SUBSCRIPT HEAD> ::= <SUBSCRIPT HEAD> <EXPRESSION> ','
         i = -fixv[mp];
         if (i <= 0)
-            error(32, 1);
+            nonFatal("32: Too many subscripts. Only one allowed");
         else {
             fixv[mp] = -(i + 1);
             j        = right(i, 15);
             emit(j, ADR);
             if (fixc[mp] == 0)
-                error(37, 1);
+                nonFatal("37: Too many actual parameters");
             else {
                 if (fixc[mp] != 2)
                     emit(STD, OPR);
@@ -3099,37 +2813,36 @@ void synth(const int prod, const int symm) {
         return;
     case 124: // <CONSTANT> ::= <STRING>
         /*     may wish to treat this string as a constant later */
-        i = var[sp].len;
-        if (0 < i && i <= 2) {
+        len = var[sp].len;
+        if (0 < len && len <= 2) {
             /*         convert internal character form to ascii */
             j = var[sp].loc;
             k = varc[j];
-            if (i == 2)
+            if (len == 2)
                 k = k * 256 + varc[j + 1];
-            len = i;
         } else {
             len = 3;
             k   = 0;
         }
-        if ((i = lookup(sp)) == 0)
-            i = enter(MkInfo(k, len, LITER));
-        fixv[mp] = i;
+        if ((symIdx = lookup(sp)) == 0)
+            symIdx = enter(MkInfo(k, len, LITER));
+        fixv[mp] = symIdx;
         return;
     case 125: // <CONSTANT> ::= <NUMBER>
-        if ((i = lookup(sp)) == 0) {
+        if ((symIdx = lookup(sp)) == 0) {
             /*     enter number into symbol table */
-            i = fixv[mp];
-            i = enter(MkInfo(i, i > 255 ? 2 : 1, NUMBER));
+            i      = fixv[mp];
+            symIdx = enter(MkInfo(i, i > 255 ? 2 : 1, NUMBER));
         }
-        fixv[mp] = i;
+        fixv[mp] = symIdx;
         return;
     case 126: // <TO> ::= TO
-        i = fixv[mp - 3];
-        if (i <= 0) {
-            error(33, 1);
+        symIdx = fixv[mp - 3];
+        if (symIdx <= 0) {
+            nonFatal("33: Interative DO index is invalid");
             fixv[mp] = 1;
         } else {
-            i            = id_num(i);
+            i            = id_num(symIdx);
             fixv[mp - 3] = i;
             emit(i, ADR);
             emit(STD, OPR);
@@ -3147,22 +2860,19 @@ void synth(const int prod, const int symm) {
         fixv[mp - 2] = i;
         emit(i, VLU);
         emit(TRC, OPR);
-        i        = enter(-MkInfo(0, LocalLabel, LABEL));
-        i        = id_num(i);
+        i        = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
         fixv[mp] = (j << 14) + i;
         /*     <by> is (to number/statement number) */
         emit(i, VLU);
         emit(TRA, OPR);
         /*     now define by LABEL */
-        i = enter(-MkInfo(0, LocalLabel, LABEL));
-        i = id_num(i);
+        i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
         /*     save by LABEL in <to> as branch back number */
         fixv[mp - 2] = (i << 14) + fixv[mp - 2];
         emit(i, DEF);
         return;
     case 128: // <WHILE> ::= WHILE
-        i = enter(-MkInfo(0, LocalLabel, LABEL));
-        i = id_num(i);
+        i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
         emit(i, DEF);
         fixv[mp] = i;
         return;
@@ -3284,7 +2994,7 @@ void parseOptions(uint8_t *s) {
                     contrl[j] = k;
             } else {
                 if (contrl[j] != 0 && contrl[j] != 1)
-                    error(34, 1);
+                    nonFatal("34: Attempt to toggle $ control when toggle is not 0 or 1");
                 else
                     contrl[j] = !contrl[j];
             }
@@ -3340,7 +3050,7 @@ int conv(int radix) {
         uint8_t digit = accum[i];
         digit         = isdigit(digit) ? digit - '0' : toupper(digit) - 'A' + 10;
         if (digit >= radix || (value = value * radix + digit) >= 0x10000) {
-            error(6, 1);
+            nonFatal("6: Number conversion error");
             return 0;
         }
     }
@@ -3370,7 +3080,7 @@ void form(char *fmt, ...) {
 
 void stackc(int id, char *fname) {
     if (++inptr > 7)
-        error(35, 5);
+        fatal("35: Too many include files");
     else {
         instk[inptr].id = C_INPUT;
         instk[inptr].fp = srcFp;
@@ -3402,11 +3112,11 @@ void enterb() {
     curblk++;
     proctp[curblk] = proctp[curblk - 1];
     if (curblk > MAXBLK) {
-        error(36, 5);
+        fatal("36: Too many block levels");
         curblk = 1;
     }
     block[curblk] = symtop;
-    dopar[curblk] = 0;
+    doinit(curblk, 0, 0);
     /*     save the state of the macro definition table */
     macblk[curblk] = mactop;
     //    macblk[curblk] = (mactop << MACBITS) + curmac;
@@ -3448,13 +3158,10 @@ void dumpin() {
     return;
 }
 
-void error(const int i, const int level) {
-    /*     i is error number, level is severity code */
+void error(const int err, const int level) {
+    /*     err is error number, level is severity code */
     errorCnt++;
-    form("\n(%05d)  ERROR %d  NEAR ", C_COUNT, i);
-    for (int j = 1; j <= acclen; j++)
-        putch(otran[accum[j] - 1]);
-    putch('\n');
+    form("\n(%05d)  ERROR %d  NEAR %.*s\n", C_COUNT, err, acclen, &accum[1]);
     /*     check for terminal error - level greater than 4 */
     if (level > 4) {
         /*         terminate compilation */
@@ -3463,31 +3170,35 @@ void error(const int i, const int level) {
     }
 }
 
-/*
-int shr(const int i, const int j)
-{
-    return i / (1 << j);
+void nonFatal(char *errStr) {
+    errorCnt++;
+    form("\n(%05d)  ERROR %s  NEAR %.*s\n", C_COUNT, errStr, acclen, &accum[1]);
 }
-*/
+
+void fatal(char *errStr) {
+    nonFatal(errStr);
+    // terminate compilation
+    form("\nCOMPILATION TERMINATED\n");
+    compil = false;
+}
+
 int right(const int i, const int j) {
     return i % (1 << j);
 }
 
 void sdump() {
-    int i;
     /*     check for stack dump bypass */
     if (C_BYPASS == 0) {
         form("\nPARSE STACK: ");
-        for (i = 5; i <= sp; i++) // fortran guard not needed
+        for (int i = 5; i <= sp; i++) // fortran guard not needed
             form("%s ", tokens[pstack[i]]);
         putch('\n');
     }
 }
 
 void redpr(const int prod, const int sym) {
-    int i;
     form("\n%5d  %s ::=", prod, tokens[sym]);
-    for (i = mp; i <= sp; i++)
+    for (int i = mp; i <= sp; i++)
         form(" %s", tokens[pstack[i]]);
     putch('\n');
     return;
