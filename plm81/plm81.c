@@ -375,7 +375,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#ifdef _MSC_VER
+#include <io.h>
+#endif
 #include <showVersion.h>
 
 #ifdef _WIN32
@@ -943,8 +945,6 @@ const uint8_t ascii[64] = { 32, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 
                             70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
                             86, 87, 88, 89, 90, 36, 61, 46, 47, 40, 41, 43, 45, 39, 42, 44,
                             60, 62, 58, 59, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 };
-/* pole */
-int poltop = 0;
 /* scanc */
 int acclen;
 char accum[32 + 1];
@@ -981,13 +981,11 @@ void dumpch();
 void synth(const int prod, const int symm);
 int gnc();
 void parseOptions(uint8_t *s);
-void writel(int nspac);
+void writel();
 void decibp();
 int conv(int radix);
 int imin(const int i, const int j);
-void form(char *fmt, ...); // ascii version using printf formats
-// void conout(const int cc, const int k, const int n, const int base);
-// void pad(const int cc, const int chr, const int i);
+void Printf(char *fmt, ...); // ascii version using printf formats
 void putch(const int chr);
 void stackc(int i, char *fname);
 void enterb();
@@ -1050,26 +1048,26 @@ void dumpTable() {
 /*     ypad = n         (36)  blank pad on output */
 /*     contrl(1) is the error count */
 #define errorCnt    contrl[1]
-#define C_ANALYZE   contrl[CHA]
-#define C_BYPASS    contrl[CHB]
-#define C_COUNT     contrl[CHC]
-#define C_DELETE    contrl[CHD]
-#define C_EOF       contrl[CHE]
-#define C_GENERATE  contrl[CHG]
-#define C_INPUT     contrl[CHI]
-#define C_JFILE     contrl[CHJ]
-#define C_KWIDTH    contrl[CHK]
-#define C_LEFTMARG  contrl[CHL]
-#define C_MEMORY    contrl[CHM]
-#define C_OUTPUT    contrl[CHO]
-#define C_PRINT     contrl[CHP]
-#define C_RIGHTMARG contrl[CHR]
-#define C_SYMBOLS   contrl[CHS]
-#define C_TERMINAL  contrl[CHT]
-#define C_USYMBOL   contrl[CHU]
-#define C_VWIDTH    contrl[CHV]
-#define C_WIDTH     contrl[CHW]
-#define C_YPAD      contrl[CHY]
+#define C_ANALYZE   contrl[CHA] // action/reduction trace
+#define C_BYPASS    contrl[CHB] // bypass stack dump on error
+#define lineCnt     contrl[CHC]
+#define C_DELETE    contrl[CHD] // max listing line length
+// #define C_EOF       contrl[CHE] // not used
+#define C_GENERATE  contrl[CHG] // show intermediate code generation
+#define C_INPUT     contrl[CHI] // current input file (no)
+#define C_JFILE     contrl[CHJ] // pol file number (no)
+//#define C_KWIDTH    contrl[CHK] // no longer used pol file is binary
+#define C_LEFTMARG  contrl[CHL] // to remove
+#define C_MEMORY    contrl[CHM] // dump symbol table (0 = no, 1 = yes)
+#define C_OUTPUT    contrl[CHO] // current lst file (no)
+#define C_PRINT     contrl[CHP] // controls printing on lst file
+#define C_RIGHTMARG contrl[CHR] // to remove
+#define C_SYMBOLS   contrl[CHS] // control symbol dump
+#define C_TERMINAL  contrl[CHT] // probably better handled with isatty
+#define C_USYMBOL   contrl[CHU] // symbol file (no)
+#define C_VWIDTH    contrl[CHV] // symbol file line width
+#define C_WIDTH     contrl[CHW] // listing file width
+#define C_YPAD      contrl[CHY] // leading line pad for listing file - to remove
 
 /*
  file management is changed from the original cross compiler
@@ -1159,17 +1157,17 @@ int main(int argc, char **argv) {
     errorCnt    = 0;
     C_ANALYZE   = 0;
     C_BYPASS    = 1;
-    C_COUNT     = 0;
+    lineCnt     = 0;
     C_DELETE    = 132; /* changed from original 120 */
-    C_EOF       = 0;
+    //C_EOF       = 0; // not used
     C_GENERATE  = 0;
     C_INPUT     = 2;
     C_JFILE     = 6;
-    C_KWIDTH    = 72;
-    C_LEFTMARG  = 1;
-    C_MEMORY    = 1;
+    //C_KWIDTH    = 72;
+    C_LEFTMARG  = 1;    // left margin on input file - to remove
+    C_MEMORY    = 1;    // dump symbol table (0 = no, 1 = yes)
     C_OUTPUT    = 2; /* changed from original 1 */
-    C_PRINT     = 1;
+    C_PRINT     = 1;    // print on 1 else off
     C_RIGHTMARG = 120;
     C_SYMBOLS   = 0;
     C_TERMINAL  = 1;
@@ -1196,23 +1194,21 @@ int main(int argc, char **argv) {
     }
     time_t now;
     time(&now);
-    form("\n         pl/m-8080  version 4.0 - %s\n", ctime(&now));
+    Printf("\n         pl/m-8080  version 4.0 - %s\n", ctime(&now));
     for (int i = 1; i <= 3; i++)
         pstack[i] = 0;
     pstack[4] = EOFILE;
     sp        = 4;
     scan();
     cloop();
-    do {
-        emit(NOP, OPR);
-    } while (poltop != 0);
+    emit(NOP, OPR); // mark end
 
-    writel(0);
+    writel();
     char cnt[8] = "\nNO";
     if (errorCnt)
         sprintf(cnt + 1, "%d", errorCnt);
-    form("%s PROGRAM ERROR%s\n \n", cnt, errorCnt != 1 ? "S" : "");
-    if (lstFp != stdout && C_TERMINAL)
+    Printf("%s PROGRAM ERROR%s\n \n", cnt, errorCnt != 1 ? "S" : "");
+    if (lstFp != stdout && isatty(fileno(lstFp)));
         printf("%s PROGAM ERROR%s\n\n", cnt, errorCnt != 1 ? "S" : "");
 
     dumpsy();
@@ -1242,7 +1238,7 @@ void exitb() {
             int j = right(macros[n], MACBITS);
             if (mactop <= j) {
                 macros[n] = j + (j << MACBITS);
-                nonFatal("49: Macro has terminated the scope of its own name");
+                nonFatal("49: macro has terminated the scope of its own name");
             }
         }
         curblk--;
@@ -1256,10 +1252,10 @@ void exitb() {
                             if (type == LABEL && curblk > 1) // labels may be non local
                                 continue;                    // only fail if not defined at all
                             if (!erred) {
-                                nonFatal("1: Undefined symbols");
+                                nonFatal("1: undefined symbols");
                                 erred = true;
                             }
-                            form("\n     ");
+                            Printf("\n     ");
                             int n;
                             if ((n = symbol[Sym(symIdx)]) != 0) {
                                 for (int j = 1; j <= n; j++) {
@@ -1384,7 +1380,7 @@ int enter(int info) {
     if (symtop > maxsym) {
         symIdx = hasHash ? 1 : 0;
         symtop = symIdx + intCnt + 3;
-        fatal("2: Pass-1 symbol table overflow");
+        fatal("2: pass-1 symbol table overflow");
     }
 
     symbol[symtop]       = symIdx++;
@@ -1442,22 +1438,22 @@ void dumpsy() {
     /*      global tables */
     ic = C_SYMBOLS;
     if (ic != 0) {
-        writel(0);
+        writel();
         if (ic > 1)
-            form("\nSYMBOL  ADDR WDS CHRS   LENGTH PR TY");
+            Printf("\nSYMBOL  ADDR WDS CHRS   LENGTH PR TY");
         for (i = symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
             /*     quick check for zero length name */
             int symIdx = i + 1;
             if (ic >= 2 || sym_len(symIdx) > 0)
-                form("\nS%05d", id_num(symIdx));
+                Printf("\nS%05d", id_num(symIdx));
 
             if (ic >= 2) {
-                form("%c ", symbol[symIdx] < 0 ? '*' : ' '); // * if now out of scope
+                Printf("%c ", symbol[symIdx] < 0 ? '*' : ' '); // * if now out of scope
 
-                form("%04d %3d %4d ", symIdx, sym_ints(symIdx), sym_len(symIdx));
+                Printf("%04d %3d %4d ", symIdx, sym_ints(symIdx), sym_len(symIdx));
 
-                form("%c ", symbol[Info(symIdx)] < 0 ? 'B' : 'R'); // based or regular
-                form("%06d%3d%3d", info_len(symIdx), info_prec(symIdx), info_type(symIdx));
+                Printf("%c ", symbol[Info(symIdx)] < 0 ? 'B' : 'R'); // based or regular
+                Printf("%06d%3d%3d", info_len(symIdx), info_prec(symIdx), info_type(symIdx));
             }
             putch(' ');
             ip = Info(symIdx);
@@ -1479,12 +1475,12 @@ void dumpsy() {
             if (ic >= 2)
                 while (++ip < it) {
                     k = symbol[ip];
-                    form(" %c%08XH", (k < 0) ? '-' : ' ', iabs(k));
+                    Printf(" %c%08XH", (k < 0) ? '-' : ' ', iabs(k));
                 }
         }
-        writel(0);
+        writel();
     }
-    writel(0);
+    writel();
 
     if (!symFp && !(symFp = openFile(plmFile, CHU))) {
         fprintf(stderr, "can't create sym file %s\n", path);
@@ -1496,7 +1492,7 @@ void dumpsy() {
     for (int intProcNum = 1; intProcNum <= 8; intProcNum++) {
         int intProcAddr = intpro[intProcNum]; /* interrupt procedure address */
         if (intProcAddr > 0) {                /* write intnumber symbolnum (4 base-32 digits) */
-            putSym(intProcNum + '0');
+            putSym(intProcNum + '0' - 1);
             putSymInt(intProcAddr, 3);
             putSym('/');
         }
@@ -1513,7 +1509,7 @@ void dumpsy() {
         /* note j is the symbol - 1 location. See symbol format */
         /* set length to 1 and prec to 5 (for comp generated labels) */
         if (info_type(j + 1) == LABEL && info_len(j + 1) == 0)
-            symbol[Info(j + 1)] = (1 << 8) + (CompilerLabel << 4) + LABEL;
+            symbol[Info(j + 1)] = MkInfo(1, CompilerLabel, LABEL);
         int m     = symbol[j];
         symbol[j] = i;
         i         = j;
@@ -1589,8 +1585,8 @@ bool stack(/*const int q */) {
         switch (getc1(pstack[sp], token)) {
         case 0:
             /*     illegal symbol pair */
-            nonFatal("3: Invalid PL/M statement. Two symbols below not allowed together");
-            form("\n%s %s", tokens[pstack[sp]], tokens[token]);
+            nonFatal("3: invalid PL/M statement. Two symbols below not allowed together");
+            Printf("\n%s %s", tokens[pstack[sp]], tokens[token]);
             sdump();
             recov();
             /*     recover may have set compiling false */
@@ -1650,7 +1646,7 @@ void reduce() {
         }
     }
     /*     no applicable production */
-    nonFatal("4: Badly formed PL/M statement");
+    nonFatal("4: badly formed PL/M statement");
     failsf = false;
     sdump();
     recov();
@@ -1668,7 +1664,7 @@ void cloop() {
             if (!compil)
                 break;
             if (++sp >= MSTACK) {
-                fatal("5: Pass-1 parse stack overflow");
+                fatal("5: pass-1 parse stack overflow");
                 break;
             }
             pstack[sp] = token;
@@ -1681,7 +1677,7 @@ void cloop() {
                 for (int j = 1; j <= acclen; j++) {
                     varc[vartop] = accum[j];
                     if (++vartop > MVAR) {
-                        fatal("7: Pass-1 table overflow");
+                        fatal("7: pass-1 table overflow");
                         vartop = 1;
                     }
                 }
@@ -1911,7 +1907,7 @@ void scan() {
         }
         /*     macro found, set-up macro table and rescan */
         if (--curmac <= mactop) {
-            fatal("8: Macro table overflow");
+            fatal("8: macro table overflow");
             curmac = MAXMAC + 1;
         } else {
             j               = ch + macros[ch];
@@ -1985,7 +1981,7 @@ int wrdata(const int sy) {
 
 void dumpch() {
     /*     dump the symbolic names for the simulator */
-    writel(0);
+    writel();
 
     putSym('/');
     if (symbol[2]) {
@@ -2023,18 +2019,18 @@ void procHead(int ptype, int plist, int rtype) {
 }
 
 void synth(const int prod, const int symm) {
-    int ip, i, j, k, len, m, length;
+    int ip, i, j, k, len, length;
     int symIdx;
 
     /*    mp == left ,  sp == right */
 
     /*      global tables */
-    if (C_ANALYZE != 0)
+    if (C_ANALYZE)
         redpr(prod, symm);
     switch (prod) {
     case 1: // <PROGRAM> ::= <STATEMENT LIST>
         if (mp != 5)
-            nonFatal("10: Invalid program. Possibly earlier missing END");
+            nonFatal("10: invalid program. Possibly missing END");
         compil = false;
         exitb();
         return;
@@ -2064,7 +2060,7 @@ void synth(const int prod, const int symm) {
     case 8:  // <BASIC STATEMENT> ::= <PROCEDURE DEFINITION> ';'
     case 12: // <BASIC STATEMENT> ::= <DECLARATION STATEMENT> ';'
         if (dopar[curblk].type != DO_GROUP)
-            nonFatal("11: Invalid declaration");
+            nonFatal("11: invalid declaration");
         return;
     case 13: // <BASIC STATEMENT> ::= HALT ';'
         emit(HAL, OPR);
@@ -2105,7 +2101,7 @@ void synth(const int prod, const int symm) {
         return;
     case 23: // <GROUP> ::= <GROUP HEAD> <ENDING>
         if (fixv[sp] > 0)
-            nonFatal("12: Improper yse of identifier following END");
+            nonFatal("12: improper yse of identifier following END");
         else if (fixc[sp] < 0)
             fixc[mp] = 0;
 
@@ -2238,7 +2234,7 @@ void synth(const int prod, const int symm) {
         if (j < 0)
             j = -j + 1;
         if (j != 0 && right(fixv[mp], 15) != j)
-            nonFatal("13: Identifier following END does not match");
+            nonFatal("13: identifier following END does not match");
         emit(END, OPR);
         /*     emit a ret just in case he forgot it */
         emit(DRT, OPR);
@@ -2262,14 +2258,14 @@ void synth(const int prod, const int symm) {
         /*     get interrupt number */
         j = fixv[sp - 1];
         if (j > 7)
-            nonFatal("39: Invalid interrupt number");
+            nonFatal("39: invalid interrupt number");
         else {
             k = intpro[++j];
             /*     is interrupt duplicated */
             if (k <= 0)
                 intpro[j] = i;
             else
-                nonFatal("40: Duplicate interrupt procedure");
+                nonFatal("40: duplicate interrupt procedure");
         }
         procHead(1, 0, 0);
         return;
@@ -2277,17 +2273,17 @@ void synth(const int prod, const int symm) {
              /* check for numeric label */
         if (fixc[mp] >= 0) {
             fixv[mp] = fixc[mp];
-            nonFatal("48: Invalid procedure name");
+            nonFatal("48: invalid procedure name");
         }
         enterb();
         emit(ENP, OPR);
         return;
     case 41: // <PARAMETER LIST> ::= <PARAMETER HEAD> <IDENTIFIER> ')'
     case 43: // <PARAMETER HEAD> ::= <PARAMETER HEAD> <IDENTIFIER> ','
-        i = lookup(sp - 1);
-        if (i >= blksym)
-            nonFatal("14: Duplicate formal parameter name");
-        /*i = */ enter(MkInfo(0, 0, VARB));
+        symIdx = lookup(sp - 1);
+        if (symIdx >= blksym)
+            nonFatal("14: duplicate formal parameter name");
+        enter(MkInfo(0, 0, VARB));
         fixv[mp]++;
         return;
     case 42: // <PARAMETER HEAD> ::= '(' Left context check(<PROCEDURE NAME>)
@@ -2299,10 +2295,9 @@ void synth(const int prod, const int symm) {
         return;
     case 45: // <ENDING> ::= END <IDENTIFIER>
         exitb();
-        i = lookup(sp);
-        if (i == 0)
-            nonFatal("15: Identifier following END not found");
-        fixv[mp] = i;
+        if (!(symIdx = lookup(sp)))
+            nonFatal("15: identifier following END not found");
+        fixv[mp] = symIdx;
         return;
     case 46: // <ENDING> ::= <LABEL DEFINITION> <ENDING>
         fixv[mp] = fixv[sp];
@@ -2317,7 +2312,7 @@ void synth(const int prod, const int symm) {
             symIdx = enter(MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, LABEL));
         else {
             if (info_prec(symIdx)) {
-                nonFatal("16: Duplicate LABEL definition in block");
+                nonFatal("16: duplicate LABEL definition in block");
                 symbol[Info(symIdx)] &= ~(0xF << 4); // clear the prec bits
             }
             // set the prec bits
@@ -2332,7 +2327,7 @@ void synth(const int prod, const int symm) {
     case 48: // <LABEL DEFINITION> ::= <NUMBER> ':'
         k = fixv[mp];
         if (k > 65535)
-            nonFatal("17: Numeric LABEL too big");
+            nonFatal("17: numeric LABEL too big");
         else {
             if ((symIdx = lookup(mp)) == 0)
                 /*     enter number */
@@ -2347,51 +2342,51 @@ void synth(const int prod, const int symm) {
     case 49: // <RETURN STATEMENT> ::= RETURN
         emit(0, LIT);
         if (proctp[curblk] == 2)
-            nonFatal("45: Missing return value for typed procedure");
+            nonFatal("45: missing return value for typed procedure");
         else if (proctp[curblk] == 0)
-            nonFatal("46: Return outside procedure definition");
+            nonFatal("46: return outside procedure definition");
         emit(RET, OPR);
         return;
     case 50: // <RETURN STATEMENT> ::= RETURN <EXPRESSION>
         if (proctp[curblk] == 1)
-            nonFatal("44: Return value invalid for untyped procedure");
+            nonFatal("44: return value invalid for untyped procedure");
         else if (proctp[curblk] == 0)
-            nonFatal("46: Return outside procedure definition");
+            nonFatal("46: return outside procedure definition");
         emit(RET, OPR);
         return;
     case 51: // <CALL STATEMENT> ::= CALL <VARIABLE>
-        if ((i = fixv[sp]) == 0)
+        if ((symIdx = fixv[sp]) == 0)
             return;
-        if (i > 0) {
-            j = info_type(i);
-            emit(id_num(i), ADR);
-            if (j == PROC) {
+        if (symIdx > 0) {
+            int type = info_type(symIdx);
+            emit(id_num(symIdx), ADR);
+            if (type == PROC) {
                 emit(PRO, OPR);
                 return;
-            } else if (j == INTR) {
+            } else if (type == INTR) {
                 emit(BIF, OPR);
                 return;
             }
         }
-        nonFatal("18: Invalid CALL statement");
+        nonFatal("18: invalid CALL statement");
         return;
     case 52: // <GO TO STATEMENT> ::= <GO TO> <IDENTIFIER>
-        if ((i = lookup(sp)) == 0)
-            i = enter(MkInfo(0, 0, LABEL));
-        j = info_type(i);
+        if ((symIdx = lookup(sp)) == 0)
+            symIdx = enter(MkInfo(0, 0, LABEL));
+        j = info_type(symIdx);
         if (j == LABEL || j == VARB) {
             /*     increment the reference counter (use length field) */
             if (j == LABEL)
-                symbol[Info(i)] += MkInfo(1, 0, 0);
-            emit(id_num(i), VLU);
+                symbol[Info(symIdx)] += MkInfo(1, 0, 0);
+            emit(id_num(symIdx), VLU);
             emit(TRA, OPR);
         } else
-            nonFatal("19: Invalid destination for GOTO");
+            nonFatal("19: invalid destination for GOTO");
         return;
     case 53: // <GO TO STATEMENT> ::= <GO TO> <NUMBER>
         k = fixv[sp];
         if (k > 65535) {
-            nonFatal("17: Numeric LABEL too big");
+            nonFatal("17: numeric LABEL too big");
         } else {
             if ((symIdx = lookup(sp)) == 0)
                 /*     enter number */
@@ -2422,7 +2417,7 @@ void synth(const int prod, const int symm) {
             macros[mactop] = k;
         else {
             mactop = k;
-            fatal("20: Macro table overflow");
+            fatal("20: macro table overflow");
         }
         return;
     case 60: // <DECLARATION ELEMENT> ::= <IDENTIFIER> <DATA LIST>
@@ -2443,12 +2438,12 @@ void synth(const int prod, const int symm) {
         emit(TRA, OPR);
         fixv[mp] = (j << 16);
         if (lookup(mp - 1) > blksym)
-            nonFatal("22: Duplicate variable declaration");
+            nonFatal("22: duplicate variable declaration");
         /*     set precision of inline data to 3 */
-        i            = enter(MkInfo(0, P_INLINE, VARB));
-        fixv[mp - 1] = i;
+        symIdx            = enter(MkInfo(0, P_INLINE, VARB));
+        fixv[mp - 1] = symIdx;
         emit(DAT, OPR);
-        emit(id_num(i), DEF);
+        emit(id_num(symIdx), DEF);
         return;
     case 64: // <TYPE DECLARATION> ::= <IDENTIFIER SPECIFICATION> <TYPE>
     case 65: // <TYPE DECLARATION> ::= <BOUND HEAD> <NUMBER> ')' <TYPE>
@@ -2462,7 +2457,7 @@ void synth(const int prod, const int symm) {
             ip         = symbol[Info(symIdx)];
             if (k == P_LABEL) {
                 if (ip != VARB)
-                    nonFatal("21: Duplicate variable or LABEL definition");
+                    nonFatal("21: duplicate variable or LABEL definition");
                 ip = LABEL;
             }
             symbol[Info(symIdx)] = MkInfo(length, k, symType(ip));
@@ -2492,7 +2487,7 @@ void synth(const int prod, const int symm) {
     case 72: // <IDENTIFIER SPECIFICATION> ::= <IDENTIFIER LIST> <VARIABLE NAME> ')'
     case 74: // <IDENTIFIER LIST> ::= <IDENTIFIER LIST> <VARIABLE NAME> ','
         if (symtop >= maxsym) {
-            fatal("23: Pass-1 symbol table overflow");
+            fatal("23: pass-1 symbol table overflow");
             maxsym = SYMABS;
         }
         symbol[maxsym] = fixv[mp + 1];
@@ -2509,12 +2504,12 @@ void synth(const int prod, const int symm) {
         if (symIdx <= blksym)
             symIdx = enter(MkInfo(0, 0, VARB));
         else if ((symbol[Info(symIdx)] & 0xff) != VARB)
-            nonFatal("24: Invalid variable identifier");
+            nonFatal("24: invalid variable identifier");
         fixv[mp] = symIdx;
         return;
     case 76: // <VARIABLE NAME> ::= <BASED VARIABLE> <IDENTIFIER>
         if (symtop + 1 > maxsym)
-            fatal("25: Pass-1 symbol table overflow");
+            fatal("25: pass-1 symbol table overflow");
         else {
             i              = fixv[mp];
             j              = symtop++;
@@ -2523,7 +2518,7 @@ void synth(const int prod, const int symm) {
             if (symIdx == 0)
                 symIdx = enter(MkInfo(0, 0, VARB));
             else if (info_type(symIdx) != VARB) {
-                nonFatal("26: Badly formed BASED variable declaration");
+                nonFatal("26: badly formed BASED variable declaration");
                 return;
             }
 
@@ -2538,7 +2533,7 @@ void synth(const int prod, const int symm) {
         fixv[mp] = maxsym;
         j        = maxsym--;
         if (maxsym <= symtop) {
-            fatal("23: Pass-1 symbol table overflow");
+            fatal("23: pass-1 symbol table overflow");
             maxsym         = SYMABS;
             symbol[maxsym] = fixv[mp + 1];
             fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
@@ -2550,28 +2545,28 @@ void synth(const int prod, const int symm) {
     case80:
         i = fixv[mp];
         if (maxsym <= symtop) {
-            fatal("23: Pass-1 symbol table overflow");
+            fatal("23: pass-1 symbol table overflow");
             maxsym         = SYMABS;
             symbol[maxsym] = fixv[mp + 1];
             fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
         } else {
             symbol[i]++;
-            i              = fixv[mp + 1];
-            symbol[maxsym] = (id_num(i) << 16) + i;
+            symIdx              = fixv[mp + 1];
+            symbol[maxsym] = (id_num(symIdx) << 16) + symIdx;
         }
         maxsym--;
         return;
     case 81: // <ASSIGNMENT> ::= <VARIABLE> <REPLACE> <EXPRESSION>
     case 82: // <ASSIGNMENT> ::= <LEFT PART> <ASSIGNMENT>
         if (++acnt > MAXASSIGN) {
-            fatal("50: Too many chained assignments");
+            fatal("50: too many chained assignments");
             acnt = 0;
         } else {
             assign[acnt] = fixv[mp];
             /*      check for procedure on lhs of assignment. */
             /*     ****note that this is dependent on symbol number of output=17**** */
             if (fixv[mp] == 0 && fixc[mp] != 17)
-                nonFatal("41: Procedure on left-hand side of an assignment");
+                nonFatal("41: procedure on left-hand side of an assignment");
         }
         return;
     case 83: // <REPLACE> ::= '='
@@ -2581,7 +2576,7 @@ void synth(const int prod, const int symm) {
     case 86: // <EXPRESSION> ::= <VARIABLE> ':' '=' <LOGICAL EXPRESSION>
         symIdx = fixv[mp];
         if (fixv[mp] == 0)
-            nonFatal("41: Procedure on left-hand side of an assignment");
+            nonFatal("41: procedure on left-hand side of an assignment");
         else if (symIdx < 0) // PMO added 'else' as symIdx = 0 will cause memory error
             emit(XCH, OPR);
         else
@@ -2678,32 +2673,32 @@ void synth(const int prod, const int symm) {
         emit(fixv[mp], DEF);
         return;
     case 115: // <PRIMARY> ::= <VARIABLE>
-        i = fixv[mp];
-        if (i > 0) {
+        symIdx = fixv[mp];
+        if (symIdx > 0) {
             /*     simple variable */
-            emit(id_num(i), VLU);
-            j = info_type(i);
-            if (j == PROC)
+            emit(id_num(symIdx), VLU);
+            int type = info_type(symIdx);
+            if (type == PROC)
                 emit(PRO, OPR);
-            else if (j == INTR)
+            else if (type == INTR)
                 emit(BIF, OPR);
-        } else if (i != 0)
+        } else if (symIdx != 0)
             /*     subscripted variable */
             emit(LOD, OPR);
         return;
     case 116: // <PRIMARY> ::= '.' <VARIABLE>
-        i = fixv[sp];
-        if (i > 0) {
-            if (info_type(i) == VARB) {
-                emit(id_num(i), ADR);
+        symIdx = fixv[sp];
+        if (symIdx > 0) {
+            if (info_type(symIdx) == VARB) {
+                emit(id_num(symIdx), ADR);
                 emit(CVA, OPR); /*     subscripted - change precision to 2 */
                 return;
             }
-        } else if (i != 0) { /*     subscripted - change precision to 2 */
+        } else if (symIdx != 0) { /*     subscripted - change precision to 2 */
             emit(CVA, OPR);
             return;
         }
-        nonFatal("28: Invalid address reference");
+        nonFatal("28: invalid address reference");
         return;
     case 117: // <PRIMARY> ::= '(' <EXPRESSION> ')'
         return;
@@ -2721,22 +2716,22 @@ void synth(const int prod, const int symm) {
         return;
     case 120: // <VARIABLE> ::= <IDENTIFIER>
         if ((symIdx = lookup(mp)) == 0) {
-            nonFatal("29: Undeclared variable");
+            nonFatal("29: undeclared variable");
             symIdx = enter(-MkInfo(0, 0, VARB));
         }
         fixv[mp] = symIdx;
         j        = info_type(symIdx);
         if (j == LABEL)
-            nonFatal("47: Illegal use of a LABEL");
+            nonFatal("47: illegal use of a LABEL");
         if (j != PROC && j != INTR)
             return;
         if (info_len(symIdx) != 0)
-            nonFatal("38: Too few parameters");
+            nonFatal("38: too few parameters");
         j = info_prec(symIdx);
         if (pstack[mp - 1] == CALLV && j != 0)
-            nonFatal("42: Attempted CALL of a typed procedure");
+            nonFatal("42: attempted CALL of a typed procedure");
         if (pstack[mp - 1] != CALLV && j == 0)
-            nonFatal("43: Attempted use of untyped procedure as a function or variable");
+            nonFatal("43: attempted use of untyped procedure as a function or variable");
         i        = id_num(symIdx);
         i        = ((i << 15) + i + 1);
         fixc[mp] = 0;
@@ -2757,9 +2752,9 @@ void synth(const int prod, const int symm) {
             if (fixc[mp] != 1)
                 emit(STD, OPR);
             if (iabs(fixc[mp]) == 0)
-                nonFatal("37: Too many actual parameters");
+                nonFatal("37: too many actual parameters");
             if (iabs(fixc[mp]) > 1)
-                nonFatal("38: Too few parameters");
+                nonFatal("38: too few parameters");
         }
         emit(i >> 15, VLU);
         fixc[mp] = i >> 15;
@@ -2768,7 +2763,7 @@ void synth(const int prod, const int symm) {
         return;
     case 122: // <SUBSCRIPT HEAD> ::= <IDENTIFIER> '('
         if ((symIdx = lookup(mp)) == 0) {
-            nonFatal("30: Subscripted variable or procedure call references undeclared identifier");
+            nonFatal("30: subscripted variable or procedure call references undeclared identifier");
             symIdx = enter(-MkInfo(0, 0, VARB));
         }
         j = info_type(symIdx);
@@ -2783,9 +2778,9 @@ void synth(const int prod, const int symm) {
                 j = info_prec(symIdx);
                 /*     in the statements below, 30 is the token for 'call' */
                 if (pstack[mp - 1] == 30 && j != 0)
-                    nonFatal("42: Attempted CALL of a typed procedure");
+                    nonFatal("42: attempted CALL of a typed procedure");
                 if (pstack[mp - 1] != 30 && j == 0)
-                    nonFatal("43: Attempted use of untyped procedure as a function or variable");
+                    nonFatal("43: attempted use of untyped procedure as a function or variable");
                 i        = id_num(symIdx);
                 fixv[mp] = -((i << 15) + i + 1);
                 return;
@@ -2797,13 +2792,13 @@ void synth(const int prod, const int symm) {
     case 123: // <SUBSCRIPT HEAD> ::= <SUBSCRIPT HEAD> <EXPRESSION> ','
         i = -fixv[mp];
         if (i <= 0)
-            nonFatal("32: Too many subscripts. Only one allowed");
+            nonFatal("32: too many subscripts. Only one allowed");
         else {
             fixv[mp] = -(i + 1);
             j        = right(i, 15);
             emit(j, ADR);
             if (fixc[mp] == 0)
-                nonFatal("37: Too many actual parameters");
+                nonFatal("37: too many actual parameters");
             else {
                 if (fixc[mp] != 2)
                     emit(STD, OPR);
@@ -2839,7 +2834,7 @@ void synth(const int prod, const int symm) {
     case 126: // <TO> ::= TO
         symIdx = fixv[mp - 3];
         if (symIdx <= 0) {
-            nonFatal("33: Interative DO index is invalid");
+            nonFatal("33: interative DO index is invalid");
             fixv[mp] = 1;
         } else {
             i            = id_num(symIdx);
@@ -2868,7 +2863,7 @@ void synth(const int prod, const int symm) {
         /*     now define by LABEL */
         i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
         /*     save by LABEL in <to> as branch back number */
-        fixv[mp - 2] = (i << 14) + fixv[mp - 2];
+        fixv[mp - 2] += i << 14;
         emit(i, DEF);
         return;
     case 128: // <WHILE> ::= WHILE
@@ -2904,8 +2899,8 @@ int gnc(/*const int q */) {
         /*     read another record from command stream */
         if (C_TERMINAL != 0) {
             if (srcFp == stdin)
-                form("\n ");
-            writel(0);
+                Printf("\n ");
+            writel();
         }
         for (;;) {
             int c;
@@ -2923,14 +2918,14 @@ int gnc(/*const int q */) {
                 ibuff[i] = c;
             }
             if (i == 0 && c == EOF) {
-                writel(0);
+                writel();
                 if (inptr >= 1) {
                     fclose(srcFp);
                     C_INPUT = instk[inptr].id;
                     srcFp   = instk[inptr--].fp;
                     continue;
                 }
-                C_EOF = 1;
+                //C_EOF = 1;
                 return EOF;
             }
 
@@ -2939,9 +2934,9 @@ int gnc(/*const int q */) {
 
             lp  = C_LEFTMARG - 1;
             ibp = lp;
-            emit(++C_COUNT, LIN);
+            emit(++lineCnt, LIN);
             if (C_PRINT != 0)
-                form("\n%05d%3d %c  %s", C_COUNT, curblk - 1, inptr > 0 ? '=' : ' ', ibuff);
+                Printf("\n%05d%3d %c  %s", lineCnt, curblk - 1, inptr > 0 ? '=' : ' ', ibuff);
 
             if (ibuff[lp] != '$' || ibuff[1] == ' ') // suspect ibuff[1] should be ibuff[lp + 1]
                 break;
@@ -2960,15 +2955,15 @@ void parseOptions(uint8_t *s) {
                 s++;
                 for (int j = 2; j <= 64; j++)
                     if (contrl[j] >= 0)
-                        form("\n$%c=%d", otran[j - 1], contrl[j]);
+                        Printf("\n$%c=%d", otran[j - 1], contrl[j]);
             } else if (*s) { // make sure not off end of line
                 int j = itran[*s++];
                 if (contrl[j] >= 0)
-                    form("\n$%c=%d", otran[j - 1], contrl[j]);
+                    Printf("\n$%c=%d", otran[j - 1], contrl[j]);
             }
             if (C_TERMINAL != 0)
-                form("\n ");
-            writel(0);
+                Printf("\n ");
+            writel();
         } else if (*s) {
             int j = itran[*s]; // map to local char set
             while (*++s && *s != '=' && *s != '$')
@@ -2994,7 +2989,7 @@ void parseOptions(uint8_t *s) {
                     contrl[j] = k;
             } else {
                 if (contrl[j] != 0 && contrl[j] != 1)
-                    nonFatal("34: Attempt to toggle $ control when toggle is not 0 or 1");
+                    nonFatal("34: attempt to toggle $ control when toggle is not 0 or 1");
                 else
                     contrl[j] = !contrl[j];
             }
@@ -3004,8 +2999,8 @@ void parseOptions(uint8_t *s) {
     }
 }
 
-void writel(int nspac) {
-    int i, np;
+void writel() {
+    int np;
 
     np = C_YPAD - 1;
     if (obp > np) {
@@ -3015,7 +3010,7 @@ void writel(int nspac) {
             exit(1);
         }
 
-        while (obp > 1 && obuff[obp] == ' ') // trim off trailling spaces
+        while (obp > 1 && obuff[obp] == ' ') // trim off trailing spaces
             obp--;
 
         obp      = imin(C_DELETE, obp);
@@ -3024,15 +3019,9 @@ void writel(int nspac) {
         fwrite(obuff, sizeof(char), obp + 1, lstFp);
         putc('\n', lstFp);
         memset(obuff + 1, ' ', obp);
-
-        while (nspac-- > 0) {
-            fwrite(obuff, sizeof(char), obp + 1, lstFp);
-            putc('\n', lstFp);
-        }
     }
     if (np > 0)
-        for (i = 1; i <= np; i++)
-            obuff[i] = ' ';
+        memset(obuff + 1, ' ', np); // fill with spaces
     obp = np;
     return;
 }
@@ -3050,7 +3039,7 @@ int conv(int radix) {
         uint8_t digit = accum[i];
         digit         = isdigit(digit) ? digit - '0' : toupper(digit) - 'A' + 10;
         if (digit >= radix || (value = value * radix + digit) >= 0x10000) {
-            nonFatal("6: Number conversion error");
+            nonFatal("6: number conversion error");
             return 0;
         }
     }
@@ -3061,26 +3050,20 @@ int imin(const int i, const int j) {
     return i < j ? i : j;
 }
 
-void form(char *fmt, ...) {
-    va_list marker;
+void Printf(char *fmt, ...) {
+    va_list args;
     char buf[200];
-    char *s;
 
-    va_start(marker, fmt);
-    vsprintf(buf, fmt, marker);
-    va_end(marker);
-    s = buf;
-    while (*s) {
-        if (*s != '\n')
-            obuff[++obp] = *s;
-        if (*s++ == '\n' || obp >= C_WIDTH)
-            writel(0);
-    }
+    va_start(args, fmt);
+    vsprintf(buf, fmt, args);
+    va_end(args);
+    for (char *s = buf; *s; s++)
+        putch(*s);
 }
 
 void stackc(int id, char *fname) {
     if (++inptr > 7)
-        fatal("35: Too many include files");
+        fatal("35: too many include files");
     else {
         instk[inptr].id = C_INPUT;
         instk[inptr].fp = srcFp;
@@ -3098,7 +3081,7 @@ void putch(const int chr) {
     if (chr != '\n')
         obuff[++obp] = chr;
     if (chr == '\n' || obp >= C_WIDTH)
-        writel(0);
+        writel();
 }
 
 char b32Digit(int c) {
@@ -3112,7 +3095,7 @@ void enterb() {
     curblk++;
     proctp[curblk] = proctp[curblk - 1];
     if (curblk > MAXBLK) {
-        fatal("36: Too many block levels");
+        fatal("36: too many block levels");
         curblk = 1;
     }
     block[curblk] = symtop;
@@ -3126,17 +3109,16 @@ void enterb() {
 }
 
 void dumpin() {
-    int jp;
     /*     dump the initialization table */
     /*     wrdata(x) writes the data at location x in symbol table */
     /*     and returns the number of bytes written */
     if (C_SYMBOLS == 2) {
         for (int i = SYMABS; i > maxsym; i--) {
-            form("\n \n");
-            form("\nSYMBOL S%05d =", (symbol[i] >> 15));
-            for (jp = right(symbol[i], 15); jp > 0; jp--) {
+            Printf("\n \n");
+            Printf("\nSYMBOL S%05d =", (symbol[i] >> 15));
+            for (int jp = right(symbol[i], 15); jp > 0; jp--) {
                 /*         get the symbol number */
-                form(" S%05d", (symbol[--i] >> 16));
+                Printf(" S%05d", (symbol[--i] >> 16));
             }
         }
     }
@@ -3146,10 +3128,10 @@ void dumpin() {
     for (int i = SYMABS; i > maxsym; i--) {
         /*     write symbol numbers */
         putSymInt(symbol[i] >> 15, 3);
-        jp = right(symbol[i], 15);
-        while (jp-- > 0) {
+        int jp = right(symbol[i], 15);
+        while (jp-- > 0)
             wrdata(right(symbol[--i], 16));
-        }
+        
         putSym('/');
     }
     putSym('/');
@@ -3158,27 +3140,15 @@ void dumpin() {
     return;
 }
 
-void error(const int err, const int level) {
-    /*     err is error number, level is severity code */
-    errorCnt++;
-    form("\n(%05d)  ERROR %d  NEAR %.*s\n", C_COUNT, err, acclen, &accum[1]);
-    /*     check for terminal error - level greater than 4 */
-    if (level > 4) {
-        /*         terminate compilation */
-        form("\nCOMPILATION TERMINATED\n");
-        compil = false;
-    }
-}
-
 void nonFatal(char *errStr) {
     errorCnt++;
-    form("\n(%05d)  ERROR %s  NEAR %.*s\n", C_COUNT, errStr, acclen, &accum[1]);
+    Printf("\n(%05d)  ERROR %s  NEAR %.*s\n", lineCnt, errStr, acclen, &accum[1]);
 }
 
 void fatal(char *errStr) {
     nonFatal(errStr);
     // terminate compilation
-    form("\nCOMPILATION TERMINATED\n");
+    Printf("\nCOMPILATION TERMINATED\n");
     compil = false;
 }
 
@@ -3189,17 +3159,17 @@ int right(const int i, const int j) {
 void sdump() {
     /*     check for stack dump bypass */
     if (C_BYPASS == 0) {
-        form("\nPARSE STACK: ");
+        Printf("\nPARSE STACK: ");
         for (int i = 5; i <= sp; i++) // fortran guard not needed
-            form("%s ", tokens[pstack[i]]);
+            Printf("%s ", tokens[pstack[i]]);
         putch('\n');
     }
 }
 
 void redpr(const int prod, const int sym) {
-    form("\n%5d  %s ::=", prod, tokens[sym]);
+    Printf("\n%5d  %s ::=", prod, tokens[sym]);
     for (int i = mp; i <= sp; i++)
-        form(" %s", tokens[pstack[i]]);
+        Printf(" %s", tokens[pstack[i]]);
     putch('\n');
     return;
 }
@@ -3209,7 +3179,6 @@ void emit(const int val, const int typ) {
 #define MAXPOL 30
     static int polish[MAXPOL + 1];
     static int polcnt = 0;
-    /*     opradrvaldeflitlin*/
     static char *polchr[] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN" };
     static char *opcval[] = { "NOP", "ADD", "ADC", "SUB", "SBC", "MUL", "DIV", "REM", "NEG",
                               "AND", "IOR", "XOR", "NOT", "EQL", "LSS", "GTR", "NEQ", "LEQ",
@@ -3230,23 +3199,23 @@ void emit(const int val, const int typ) {
     assert(val >= 0);
 
     if (C_GENERATE != 0) {
-        form("\n%5d %s ", polcnt, polchr[typ]);
+        Printf("\n%5d %s ", polcnt, polchr[typ]);
         switch (typ) {
         case OPR:
-            form(opcval[val]);
+            Printf(opcval[val]);
             break;
         case ADR:
         case VLU:
         case DEF:
-            form("S%05d", val);
+            Printf("S%05d", val);
             break;
         case LIT:
         case LIN:
-            form(" %05d", val);
+            Printf(" %05d", val);
         }
         /*     now store the polish element in the polish array. */
 
-        writel(0);
+        writel();
     }
     if (!polFp && !(polFp = openFile(plmFile, CHJ))) {
         fprintf(stderr, "can't create pol file %s\n", path);
