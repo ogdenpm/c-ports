@@ -440,6 +440,9 @@ bool compil = true;
 #define MAXINITIAL 32000
 uint32_t initialData[MAXINITIAL];
 uint16_t initialDataSP;
+#define MAXIDLIST 32
+uint16_t idList[MAXIDLIST];
+uint16_t idListSP;
 
 /* sym */
 /*     the '48' used in block initialization and in symbol table*/
@@ -616,7 +619,6 @@ inline int symType(int i) {
 char b32Digit(int ch);
 
 int symtop = 120;
-int maxsym = SYMABS;
 int symloc;
 int symlen;
 int symcnt = 23;
@@ -1436,7 +1438,7 @@ int enter(int info) {
         symtop += 3;
     }
 
-    if (symtop > maxsym) {
+    if (symtop > SYMABS) {
         symIdx = hasHash ? 1 : 0;
         symtop = symIdx + intCnt + 3;
         fatal("2: pass-1 symbol table overflow");
@@ -2479,13 +2481,11 @@ void synth(const int prod, const int symm) {
         return;
     case 64: // <TYPE DECLARATION> ::= <IDENTIFIER SPECIFICATION> <TYPE>
     case 65: // <TYPE DECLARATION> ::= <BOUND HEAD> <NUMBER> ')' <TYPE>
-        length = prod == 64 ? 1 : fixv[mp + 1];
+        length = prod == 64 ? 1 : fixv[mp + 1]; // dimension
 
-        i      = fixv[mp] & 0x7fff; // first item in list
-        j      = fixv[mp] >> 15;    // last item in list
         k      = fixv[sp];          // item type
-        for (int idx = j; idx <= i; idx++) {
-            int symIdx = symbol[idx];
+        do {
+            int symIdx = idList[--idListSP];
             ip         = symbol[Info(symIdx)];
             if (k == P_LABEL) {
                 if (ip != VARB)
@@ -2495,9 +2495,8 @@ void synth(const int prod, const int symm) {
             symbol[Info(symIdx)] = MkInfo(length, k, symType(ip));
             if (ip < 0)
                 symbol[Info(symIdx)] = -symbol[Info(symIdx)];
-        }
-        maxsym   = i;
-        fixv[mp] = symbol[i];
+        } while (idListSP);
+        fixv[mp] = idList[0];
         return;
     case 66: // <TYPE DECLARATION> ::= <TYPE DECLARATION> <INITIAL LIST>
         return;
@@ -2513,21 +2512,17 @@ void synth(const int prod, const int symm) {
     case 70: // <BOUND HEAD> ::= <IDENTIFIER SPECIFICATION> '('
         return;
     case 71: // <IDENTIFIER SPECIFICATION> ::= <VARIABLE NAME>
-        symbol[maxsym] = fixv[mp];
-        fixv[mp]       = (maxsym << 15) + maxsym;
+        idList[idListSP++] = fixv[mp];  // single so no need to check for overflow
         return;
     case 72: // <IDENTIFIER SPECIFICATION> ::= <IDENTIFIER LIST> <VARIABLE NAME> ')'
     case 74: // <IDENTIFIER LIST> ::= <IDENTIFIER LIST> <VARIABLE NAME> ','
-        if (symtop >= maxsym) {
-            fatal("23: pass-1 symbol table overflow");
-            maxsym = SYMABS;
-        }
-        symbol[maxsym] = fixv[mp + 1];
-        fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
-        maxsym--;
+        if (idListSP < MAXIDLIST)
+            idList[idListSP++] = fixv[mp + 1];
+        else
+            fatal("23: pass-1 factored list overflow");
+
         return;
     case 73: // <IDENTIFIER LIST> ::= '('
-        fixv[mp] = maxsym;
         return;
     case 75: // <VARIABLE NAME> ::= <IDENTIFIER> Left context check(',' | DECLARE | <IDENTIFIER
              // LIST>)
@@ -2540,12 +2535,12 @@ void synth(const int prod, const int symm) {
         fixv[mp] = symIdx;
         return;
     case 76: // <VARIABLE NAME> ::= <BASED VARIABLE> <IDENTIFIER>
-        if (symtop + 1 > maxsym)
+        if (symtop >= SYMABS)
             fatal("25: pass-1 symbol table overflow");
         else {
             i              = fixv[mp];
+            symbol[symtop + 1] = symbol[symtop];    // copy up location of top symbol (stored in symbol[symtop]
             j              = symtop++;
-            symbol[symtop] = symbol[j];
             symIdx         = lookup(sp);
             if (symIdx == 0)
                 symIdx = enter(MkInfo(0, 0, VARB));
@@ -3132,16 +3127,7 @@ void dumpin() {
     /*     wrdata(x) writes the data at location x in symbol table */
     /*     and returns the number of bytes written */
     if (C_SYMBOLS == 2) {
-#if 0
-        for (int i = SYMABS; i > maxsym; i--) {
-            Printf("\n \n");
-            Printf("\nSYMBOL S%05d =", (symbol[i] >> 15));
-            for (int jp = right(symbol[i], 15); jp > 0; jp--) {
-                /*         get the symbol number */
-                Printf(" S%05d", (symbol[--i] >> 16));
-            }
-        }
-#else
+
         for (int i = 0; i < initialDataSP;) {
             Printf("\n \n");
             Printf("\nSYMBOL S%05d =", initialData[i] >> 15);
@@ -3150,7 +3136,7 @@ void dumpin() {
                 Printf(" S%05d", initialData[i++] >> 16);
             }
         }
-#endif
+
     }
     putch('\n');
     /*     ready to write the initialization table */
@@ -3257,7 +3243,7 @@ void emit(const int val, const int typ) {
 
 void cmpuse() {
     printf("table usage in pass 1:\n");
-    printf("symbol table - max=%-6d, top=%-6d, loc=%-6d\n", maxsym, symtop, symloc);
+    printf("symbol table - top=%-6d, loc=%-6d\n", symtop, symloc);
     printf("               len=%-6d, cnt=%-6d, abs=%-6d\n", symlen, symcnt, SYMABS);
     printf("macro table  - maxStr=%d, maxDef=%d\n", maxMacStr, maxMacDef);
 }
