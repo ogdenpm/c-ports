@@ -417,28 +417,29 @@ int fixc[MSTACK + 1];
 bool failsf = false;
 bool compil = true;
 
-
 /*
-* The original code for inline data stored definitions of online from top of symbol array downards
-* to allow for symbol to be replaced by a structure a separate array is used
-* 
-* Original format was
-* ((var id) << 15) + (data item cnt)
-* then for each data item
-* ((item id) << 16) + (item symbol index)
-* 
-* 
-* New format
-* var id
-* data item cnt
-* for each data item
-* item symbol index
-* 
-*/
-uint16_t inlineData[32000];
-uint16_t inlineDataSP;
-
-
+ * The original code for inline data stored definitions of online from top of symbol array downwards
+ * to allow for symbol to be replaced by a structure a separate array is used
+ *
+ * new format builds up rather than down
+ *
+ * ((var id) << 15) + (data item cnt)
+ * then for each data item
+ * ((item id) << 16) + (item symbol index)
+ *
+ *
+ * Note when symbol is made into a structure the format will be modified to use uint16_t
+ *
+ * var id
+ * data item cnt
+ * then for each data item
+ * symbolIdx
+ *
+ *
+ */
+#define MAXINITIAL 32000
+uint32_t initialData[MAXINITIAL];
+uint16_t initialDataSP;
 
 /* sym */
 /*     the '48' used in block initialization and in symbol table*/
@@ -615,7 +616,7 @@ inline int symType(int i) {
 char b32Digit(int ch);
 
 int symtop = 120;
-int  maxsym = SYMABS;
+int maxsym = SYMABS;
 int symloc;
 int symlen;
 int symcnt = 23;
@@ -1494,12 +1495,12 @@ void putSymHex2(int n, bool tag) {
 void dumpsy() {
     int lp, ic, mc, ip, it, i, j, k, n;
     /*      global tables */
-
+#if 0
     for (i = symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
         /*     quick check for zero length name */
         dumpsym(i + 1);
     }
-
+#endif
     ic = C_SYMBOLS;
     if (ic != 0) {
         writel();
@@ -2481,7 +2482,7 @@ void synth(const int prod, const int symm) {
         length = prod == 64 ? 1 : fixv[mp + 1];
 
         i      = fixv[mp] & 0x7fff; // first item in list
-        j      = fixv[mp] >> 15;    // last item in list 
+        j      = fixv[mp] >> 15;    // last item in list
         k      = fixv[sp];          // item type
         for (int idx = j; idx <= i; idx++) {
             int symIdx = symbol[idx];
@@ -2558,40 +2559,28 @@ void synth(const int prod, const int symm) {
         }
         return;
         /*
-         * Initial maintains a list of initial values for variables from top of symbol space
-         * downwards.
-         * The top most symbol value contains (var id) << 15) + number of intial values.
-         * There remaining symbols, built from top downwards contain entries of the form
-         * ((init sym id) << 15) + (init sym location)
-        */
+         * Modified from original code
+         * separate space for initial data, now built upwards see notes
+         * just before defintition of initialData variable
+         */
+
     case 79: // <INITIAL HEAD> ::= INITIAL '('
-        symIdx   = fixv[mp - 1];
-        fixv[mp] = maxsym;
-        j        = maxsym--;
-        if (maxsym <= symtop) {
-            fatal("23: pass-1 symbol table overflow");
-            maxsym         = SYMABS;
-            symbol[maxsym] = fixv[mp + 1];
-            fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
-            maxsym--;
+        if (initialDataSP < MAXINITIAL) {
+            initialData[initialDataSP] = id_num(fixv[mp - 1]) << 15;
+            fixv[mp]                   = initialDataSP++;
         } else
-            symbol[j] = (id_num(symIdx) << 15);
+            fatal("23: pass-1 initial data table overflow");
         return;
     case 78: // <INITIAL LIST> ::= <INITIAL HEAD> <CONSTANT> ')'
     case 80: // <INITIAL HEAD> ::= <INITIAL HEAD> <CONSTANT> ','
-        i = fixv[mp];
-        if (maxsym <= symtop) {
-            fatal("23: pass-1 symbol table overflow");
-            maxsym         = SYMABS;
-            symbol[maxsym] = fixv[mp + 1];
-            fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
-        } else {
-            symbol[i]++;
-            symIdx         = fixv[mp + 1];
-            symbol[maxsym] = (id_num(symIdx) << 16) + symIdx;
-        }
-        maxsym--;
+        if (initialDataSP < MAXINITIAL) {
+            initialData[fixv[mp]]++; // bump the count
+            initialData[initialDataSP++] =
+                (id_num(fixv[mp + 1]) << 16) + fixv[mp + 1]; // store the value
+        } else
+            fatal("23: pass-1 initial data table overflow");
         return;
+
     case 81: // <ASSIGNMENT> ::= <VARIABLE> <REPLACE> <EXPRESSION>
     case 82: // <ASSIGNMENT> ::= <LEFT PART> <ASSIGNMENT>
         if (++acnt > MAXASSIGN) {
@@ -3143,6 +3132,7 @@ void dumpin() {
     /*     wrdata(x) writes the data at location x in symbol table */
     /*     and returns the number of bytes written */
     if (C_SYMBOLS == 2) {
+#if 0
         for (int i = SYMABS; i > maxsym; i--) {
             Printf("\n \n");
             Printf("\nSYMBOL S%05d =", (symbol[i] >> 15));
@@ -3151,16 +3141,25 @@ void dumpin() {
                 Printf(" S%05d", (symbol[--i] >> 16));
             }
         }
+#else
+        for (int i = 0; i < initialDataSP;) {
+            Printf("\n \n");
+            Printf("\nSYMBOL S%05d =", initialData[i] >> 15);
+            for (int jp = initialData[i++] & 0x7fff; jp > 0; jp--) {
+                /*         get the symbol number */
+                Printf(" S%05d", initialData[i++] >> 16);
+            }
+        }
+#endif
     }
     putch('\n');
     /*     ready to write the initialization table */
     putSym('/');
-    for (int i = SYMABS; i > maxsym; i--) {
-        /*     write symbol numbers */
-        putSymInt(symbol[i] >> 15, 3);
-        for (int jp = right(symbol[i], 15); jp > 0; jp--)
-            wrdata(right(symbol[--i], 16));
 
+    for (int i = 0; i < initialDataSP;) {
+        putSymInt(initialData[i] >> 15, 3);
+        for (int jp = initialData[i++] & 0x7fff; jp > 0; jp--)
+            wrdata(initialData[i++] & 0xffff);
         putSym('/');
     }
     putSym('/');
