@@ -366,6 +366,7 @@
     41900000      subroutine emit(val,typ)
 */
 /*************************************************************************/
+#include "istring.h"
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
@@ -415,6 +416,30 @@ int fixc[MSTACK + 1];
 // int prmask[5+1];
 bool failsf = false;
 bool compil = true;
+
+
+/*
+* The original code for inline data stored definitions of online from top of symbol array downards
+* to allow for symbol to be replaced by a structure a separate array is used
+* 
+* Original format was
+* ((var id) << 15) + (data item cnt)
+* then for each data item
+* ((item id) << 16) + (item symbol index)
+* 
+* 
+* New format
+* var id
+* data item cnt
+* for each data item
+* item symbol index
+* 
+*/
+uint16_t inlineData[32000];
+uint16_t inlineDataSP;
+
+
+
 /* sym */
 /*     the '48' used in block initialization and in symbol table*/
 /*     initialization is derived from the program 'symcs' which*/
@@ -587,10 +612,10 @@ inline int symPrec(int i) {
 inline int symType(int i) {
     return iabs(i) & 0xf;
 }
-char b32Digit(int c);
+char b32Digit(int ch);
 
 int symtop = 120;
-int maxsym = SYMABS;
+int  maxsym = SYMABS;
 int symloc;
 int symlen;
 int symcnt = 23;
@@ -616,11 +641,7 @@ const int VERS = 40;
 /* inter */
 int intpro[8 + 1];
 /* macro */
-#define MACBITS 12   /* number of bits to use for macro index */
-#define MAXMAC  3000 /* must be less than 1 << MACBITS */
-int macros[MAXMAC + 1];
-int curmac = MAXMAC + 1;
-int mactop = 1;
+
 /* syntax */
 /*     syntax analyzer tables*/
 // vindx contains the start index of the first token of a given length
@@ -777,8 +798,8 @@ const uint8_t c1[][13] = {
     /* 107 */ { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 };
 
-#define TRI(a, b, c) (((a) << 16) + ((b) << 8) + c)
-#define PAIR(a, b)   (((a) << 8) + (b))
+#define TRI(a, b, ch) (((a) << 16) + ((b) << 8) + ch)
+#define PAIR(a, b)    (((a) << 8) + (b))
 
 const int c1tri[] = {
     TRI(3, 3, 3),   TRI(3, 3, 10),   TRI(3, 3, 13),  TRI(3, 3, 24),  TRI(3, 3, 45),  TRI(3, 3, 46),
@@ -1056,7 +1077,7 @@ void dumpTable() {
 #define C_GENERATE  contrl[CHG] // show intermediate code generation
 #define C_INPUT     contrl[CHI] // current input file (no)
 #define C_JFILE     contrl[CHJ] // pol file number (no)
-//#define C_KWIDTH    contrl[CHK] // no longer used pol file is binary
+// #define C_KWIDTH    contrl[CHK] // no longer used pol file is binary
 #define C_LEFTMARG  contrl[CHL] // to remove
 #define C_MEMORY    contrl[CHM] // dump symbol table (0 = no, 1 = yes)
 #define C_OUTPUT    contrl[CHO] // current lst file (no)
@@ -1154,20 +1175,20 @@ int main(int argc, char **argv) {
 
     for (int i = 1; i <= 64; i++)
         contrl[i] = -1;
-    errorCnt    = 0;
-    C_ANALYZE   = 0;
-    C_BYPASS    = 1;
-    lineCnt     = 0;
-    C_DELETE    = 132; /* changed from original 120 */
-    //C_EOF       = 0; // not used
-    C_GENERATE  = 0;
-    C_INPUT     = 2;
-    C_JFILE     = 6;
-    //C_KWIDTH    = 72;
-    C_LEFTMARG  = 1;    // left margin on input file - to remove
-    C_MEMORY    = 1;    // dump symbol table (0 = no, 1 = yes)
+    errorCnt  = 0;
+    C_ANALYZE = 0;
+    C_BYPASS  = 1;
+    lineCnt   = 0;
+    C_DELETE  = 132; /* changed from original 120 */
+    // C_EOF       = 0; // not used
+    C_GENERATE = 0;
+    C_INPUT    = 2;
+    C_JFILE    = 6;
+    // C_KWIDTH    = 72;
+    C_LEFTMARG  = 1; // left margin on input file - to remove
+    C_MEMORY    = 1; // dump symbol table (0 = no, 1 = yes)
     C_OUTPUT    = 2; /* changed from original 1 */
-    C_PRINT     = 1;    // print on 1 else off
+    C_PRINT     = 1; // print on 1 else off
     C_RIGHTMARG = 120;
     C_SYMBOLS   = 0;
     C_TERMINAL  = 1;
@@ -1208,8 +1229,9 @@ int main(int argc, char **argv) {
     if (errorCnt)
         sprintf(cnt + 1, "%d", errorCnt);
     Printf("%s PROGRAM ERROR%s\n \n", cnt, errorCnt != 1 ? "S" : "");
-    if (lstFp != stdout && isatty(fileno(lstFp)));
-        printf("%s PROGAM ERROR%s\n\n", cnt, errorCnt != 1 ? "S" : "");
+    if (lstFp != stdout && isatty(fileno(lstFp)))
+        ;
+    printf("%s PROGAM ERROR%s\n\n", cnt, errorCnt != 1 ? "S" : "");
 
     dumpsy();
     /*     may want a symbol table for the simulator */
@@ -1222,6 +1244,56 @@ int main(int argc, char **argv) {
     return errorCnt;
 }
 
+void dumpsym(int idx) {
+    static char *types[]  = { "VARB", "INTR", "PROC", "LABEL", "LITER", "NUMBER" };
+    static char *labels[] = { "OuterLabel", "LocalLabel", "CompilerLabel" };
+
+    fprintf(stderr, "Symbol %s%d at %d:", symbol[idx] < 0 ? "-" : "", id_num(idx), idx);
+    int ints = sym_ints(idx);
+    int len  = sym_len(idx);
+    int type = info_type(idx);
+    int prec = info_prec(idx);
+    int cnt  = 0;
+    switch (type) {
+    case VARB:
+    case LITER:
+    case PROC:
+    case LABEL:
+    case INTR:
+        if (ints) {
+
+            fputs(" '", stderr);
+            for (int i = 0; i < ints; i++) {
+                int packed = symbol[SymInts(idx) + i];
+                for (int j = 0; j < PACK && cnt++ < len; j++)
+                    putc(otran[(packed >> (24 - j * 6)) & 0x3f], stderr);
+            }
+            fputs("', ", stderr);
+        } else
+            fprintf(stderr, " ints=%d, len=%d, ", ints, len);
+
+        if (type != LABEL || prec < OuterLabel || prec > CompilerLabel)
+            fprintf(stderr, "type=%s prec=%d ilen=%d", types[type - VARB], prec, info_len(idx));
+        else
+            fprintf(stderr, "type=%s ilen=%d", labels[prec - OuterLabel], info_len(idx));
+        if (symbol[Info(idx)] < 0)
+            fprintf(stderr, ", BASED(%d)", symbol[SymInts(idx) + ints]);
+        break;
+    case NUMBER:
+        fprintf(stderr, " ints=%d, len=%d, ", ints, len);
+        fprintf(stderr, ", type=NUMBER, prec=%d, val=%d", prec, info_len(idx));
+        break;
+    default:
+        fprintf(stderr, " ints=%d, len=%d, type=UNKNOWN(%d), prec=%d, ilen=%d", ints, len, type,
+                prec, info_len(idx));
+
+        break;
+    }
+    if (ints)
+        fprintf(stderr, ", hcode=%d, next=%d", hash_hcode(idx), hash_next(idx));
+    putc('\n', stderr);
+}
+
 void exitb() {
 
     /*     goes through here upon block exit */
@@ -1232,18 +1304,12 @@ void exitb() {
         /* de-allocate those macro definitions whose scope we are leaving,
          * and check if any of these are currently in expansion.
          */
-        mactop = macblk[curblk];
+        dropMacro(macblk[curblk--]);
 
-        for (int n = curmac; n <= MAXMAC; n++) {
-            int j = right(macros[n], MACBITS);
-            if (mactop <= j) {
-                macros[n] = j + (j << MACBITS);
-                nonFatal("49: macro has terminated the scope of its own name");
-            }
-        }
-        curblk--;
-        for (int symIdx = symbol[symtop] + 1; symIdx > i; symIdx = id_next(symIdx) + 1) {
-            if (symbol[Sym(symIdx)] >= 0) {
+        for (int symIdx = symbol[symtop]; symIdx >= i; symIdx = id_next(symIdx)) {
+            symIdx++; // adjust to symbol true base as chain is at -1
+
+            if (symbol[Sym(symIdx)] >= 0) { // in scope
                 int type = info_type(symIdx);
 
                 if (type < LITER) {
@@ -1269,30 +1335,22 @@ void exitb() {
                     }
                     symbol[Sym(symIdx)] = -symbol[Sym(symIdx)]; // negate length fields
                                                                 // to mark out of scope
-                    /* may want to fix the hash code chain */
-                    // code below is faulty and doesn't appear to be necessary
-#if 0
+                    /* remove from hash chain if on one*/
 
-                    int sLen = sym_len(symIdx); // original code odd, it would be 0, unless label missing!!
-                    if (symbol[Info(symIdx)] > 0) { // has a hash chain
+                    if (sym_ints(symIdx) > 0) { // has a hash chain
                         /* find match on the entry */
                         int hcode = hash_hcode(symIdx);
                         int next  = hash_next(symIdx);
                         int n     = hentry[hcode];
-                        if (n == Hash(symIdx))
-                            /* this entry is directly connected */
+                        if (n == Hash(symIdx)) /* this entry is directly connected */
                             hentry[hcode] = next;
-
                         else {
-                            /* look through some literals in the symbol table above */
                             int np;
-                            while ((np = hash_hcode(n + 1)) != Hash(symIdx))
+                            while ((np = hash_next(n + 2)) != Hash(symIdx))
                                 n = np;
-                            symbol[n] = (hcode >> 16) + next;
+                            symbol[n] = (hcode << 16) + next;
                         }
-
                     }
-#endif
                 }
             }
         }
@@ -1398,12 +1456,12 @@ int enter(int info) {
     return symIdx;
 }
 
-void putSym(char c) {
+void putSym(char ch) {
     static char symline[120];
     static uint8_t pos;
-    if (c != '\n')
-        symline[pos++] = c;
-    if (c == '\n' || pos >= C_VWIDTH) {
+    if (ch != '\n')
+        symline[pos++] = ch;
+    if (ch == '\n' || pos >= C_VWIDTH) {
         while (pos && symline[pos - 1] == ' ') // remove trailing spaces
             pos--;
         fprintf(symFp, " %.*s\n", pos, symline);
@@ -1434,8 +1492,14 @@ void putSymHex2(int n, bool tag) {
 }
 
 void dumpsy() {
-    int lp, ic, mc, ip, it, i, j, k, len, n;
+    int lp, ic, mc, ip, it, i, j, k, n;
     /*      global tables */
+
+    for (i = symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
+        /*     quick check for zero length name */
+        dumpsym(i + 1);
+    }
+
     ic = C_SYMBOLS;
     if (ic != 0) {
         writel();
@@ -1463,10 +1527,10 @@ void dumpsy() {
                 int type = info_type(symIdx);
                 if (type == LITER)
                     putch('\'');
-                for (int kp = 1; kp <= n; kp++) {
-                    len = symbol[kp + ip];
-                    for (lp = 1; lp <= PACK && mc-- > 0; lp++)
-                        putch(otran[(len >> (30 - lp * 6)) & 0x3f]);
+                for (int i = 1; i <= n; i++) {
+                    int packed = symbol[i + ip];
+                    for (lp = 0; lp < PACK && mc-- > 0; lp++)
+                        putch(otran[(packed >> (24 - lp * 6)) & 0x3f]);
                 }
                 if (type == LITER)
                     putch('\'');
@@ -1706,7 +1770,7 @@ int getc1(int stackItem, int token) {
 }
 
 void scan() {
-    int ch, j, k, len;
+    int ch;
     /*      global tables */
     /*     scan finds the next entity in the input stream */
     /*     the resulting item is placed into accum (of length */
@@ -1736,7 +1800,7 @@ void scan() {
                 break;
             case STR:
                 /*     continue with string */
-                decibp();
+                decibp(ch);
                 goto L70;
             }
         for (;;) {
@@ -1763,7 +1827,7 @@ void scan() {
                         stype = CONT;
                         while (isxdigit(ch = gnc()))
                             ;
-                        decibp();
+                        decibp(ch);
                         break;
                     }
                 }
@@ -1783,7 +1847,7 @@ void scan() {
                         if (accum[acclen] == 'D') // D
                             acclen--;
                     }
-                    decibp();
+                    decibp(ch);
                 }
                 for (int i = 1; i <= acclen; i++) {
                     int digit = accum[i];
@@ -1806,7 +1870,7 @@ void scan() {
                         while ((ch = gnc()) == '$') // gobble up $ in name
                             ;
                         if (!isalnum(ch)) { // not alphanumeric
-                            decibp();
+                            decibp(ch);
                             stype = 0;
                             break;
                         }
@@ -1821,7 +1885,7 @@ void scan() {
                     for (;;) {
                         ch = gnc(/*0 */);
                         if (ch == '\'' && (ch = gnc()) != '\'') { // end quote or double quote
-                            decibp();                             // backup one
+                            decibp(ch);                           // backup one
                             stype = 0;                            // no more to collect
                             break;
                         }
@@ -1841,7 +1905,7 @@ void scan() {
                 ch = gnc(/*0 */);
                 /*     look for comment */
                 if (ch != '*') { // star
-                    decibp();
+                    decibp(ch);
                     break;
                 } else
                     for (;;) {
@@ -1855,7 +1919,7 @@ void scan() {
                         if (ch == '*') { // star
                             ch = gnc(/*0 */);
                             if (ch != '/') // slash
-                                decibp();
+                                decibp(ch);
                             else {
                                 acclen = 0;
                                 break;
@@ -1891,30 +1955,12 @@ void scan() {
                 token = NUMBV;
             return;
         }
-
-        len        = mactop;
-        bool match = false;
-        while (!match) {
-            if ((len = macros[len]) == 0) { // end of macros
-                token = type == NUMB ? NUMBV : IDENTV;
-                return;
-            }
-            if ((k = macros[len + 1]) == acclen) { // is the length the same
-                match = true;
-                for (j = 1, ch = len + 2; j <= k && match; j++, ch++)
-                    match = accum[j] == macros[ch];
-            }
-        }
-        /*     macro found, set-up macro table and rescan */
-        if (--curmac <= mactop) {
-            fatal("8: macro table overflow");
-            curmac = MAXMAC + 1;
-        } else {
-            j               = ch + macros[ch];
-            macros[curmac]  = (ch << MACBITS) + j; /* merge the begin end and indexes */
-            macros[len + 1] = -macros[len + 1];    // negate to say being expanded
+        if (!useMacro(acclen, accum + 1)) {
+            token = type == NUMB ? NUMBV : IDENTV;
+            return;
         }
     }
+
     token = ch - 1;
     return;
 }
@@ -1967,12 +2013,12 @@ int wrdata(const int sy) {
             if (dflag) /*     write out the variable or LABEL name */
                 putSym(otran[unpacked[lp % PACK]]);
             else {
-                uint8_t kp = ascii[unpacked[lp % PACK]];
+                uint8_t i = ascii[unpacked[lp % PACK]];
                 /*    write out both hex values */
                 if (sy < 0) /*     emit string data inline */
-                    emit(kp, LIT);
+                    emit(i, LIT);
                 else
-                    putSymHex2(kp, lp == 0);
+                    putSymHex2(i, lp == 0);
             }
         }
     }
@@ -2402,23 +2448,8 @@ void synth(const int prod, const int symm) {
     case 58: // <DECLARATION ELEMENT> ::= <TYPE DECLARATION>
         return;
     case 59: // <DECLARATION ELEMENT> ::= <IDENTIFIER> LITERALLY <STRING>
-        k = mactop;
-        if (++mactop < curmac) {
-            macros[mactop] = var[mp].len;
-            for (j = var[mp].loc; j < var[mp].loc + var[mp].len && ++mactop < curmac; j++)
-                macros[mactop] = varc[j];
-            if (++mactop < curmac) {
-                macros[mactop] = var[sp].len;
-                for (j = var[sp].loc; j < var[sp].loc + var[sp].len && ++mactop < curmac; j++)
-                    macros[mactop] = varc[j];
-            }
-        }
-        if (++mactop < curmac)
-            macros[mactop] = k;
-        else {
-            mactop = k;
+        if (!defMacro(var[mp].len, &varc[var[mp].loc], var[sp].len, &varc[var[sp].loc]))
             fatal("20: macro table overflow");
-        }
         return;
     case 60: // <DECLARATION ELEMENT> ::= <IDENTIFIER> <DATA LIST>
         i   = fixv[mp] + 1;
@@ -2440,7 +2471,7 @@ void synth(const int prod, const int symm) {
         if (lookup(mp - 1) > blksym)
             nonFatal("22: duplicate variable declaration");
         /*     set precision of inline data to 3 */
-        symIdx            = enter(MkInfo(0, P_INLINE, VARB));
+        symIdx       = enter(MkInfo(0, P_INLINE, VARB));
         fixv[mp - 1] = symIdx;
         emit(DAT, OPR);
         emit(id_num(symIdx), DEF);
@@ -2449,9 +2480,9 @@ void synth(const int prod, const int symm) {
     case 65: // <TYPE DECLARATION> ::= <BOUND HEAD> <NUMBER> ')' <TYPE>
         length = prod == 64 ? 1 : fixv[mp + 1];
 
-        i      = fixv[mp] & 0x7fff;
-        j      = fixv[mp] >> 15;
-        k      = fixv[sp];
+        i      = fixv[mp] & 0x7fff; // first item in list
+        j      = fixv[mp] >> 15;    // last item in list 
+        k      = fixv[sp];          // item type
         for (int idx = j; idx <= i; idx++) {
             int symIdx = symbol[idx];
             ip         = symbol[Info(symIdx)];
@@ -2526,8 +2557,13 @@ void synth(const int prod, const int symm) {
             symbol[Info(i)] = -symbol[Info(i)]; // mark the info as based
         }
         return;
-    case 78: // <INITIAL LIST> ::= <INITIAL HEAD> <CONSTANT> ')'
-        goto case80;
+        /*
+         * Initial maintains a list of initial values for variables from top of symbol space
+         * downwards.
+         * The top most symbol value contains (var id) << 15) + number of intial values.
+         * There remaining symbols, built from top downwards contain entries of the form
+         * ((init sym id) << 15) + (init sym location)
+        */
     case 79: // <INITIAL HEAD> ::= INITIAL '('
         symIdx   = fixv[mp - 1];
         fixv[mp] = maxsym;
@@ -2541,8 +2577,8 @@ void synth(const int prod, const int symm) {
         } else
             symbol[j] = (id_num(symIdx) << 15);
         return;
+    case 78: // <INITIAL LIST> ::= <INITIAL HEAD> <CONSTANT> ')'
     case 80: // <INITIAL HEAD> ::= <INITIAL HEAD> <CONSTANT> ','
-    case80:
         i = fixv[mp];
         if (maxsym <= symtop) {
             fatal("23: pass-1 symbol table overflow");
@@ -2551,7 +2587,7 @@ void synth(const int prod, const int symm) {
             fixv[mp]       = (maxsym << 15) + right(fixv[mp], 15);
         } else {
             symbol[i]++;
-            symIdx              = fixv[mp + 1];
+            symIdx         = fixv[mp + 1];
             symbol[maxsym] = (id_num(symIdx) << 16) + symIdx;
         }
         maxsym--;
@@ -2607,16 +2643,16 @@ void synth(const int prod, const int symm) {
     case 95: // <LOGICAL PRIMARY> ::= <ARITHMETIC EXPRESSION> <RELATION> <ARITHMETIC EXPRESSION>
         emit(fixv[mp + 1], OPR);
         return;
-    case 96:  // <RELATION> ::= '=' Left context check(<ARITHMETIC EXPRESSION>)
+    case 96: // <RELATION> ::= '=' Left context check(<ARITHMETIC EXPRESSION>)
         fixv[mp] = EQL;
         return;
-    case 97:  // <RELATION> ::= '<'
+    case 97: // <RELATION> ::= '<'
         fixv[mp] = LSS;
         return;
-    case 98:  // <RELATION> ::= '>'
+    case 98: // <RELATION> ::= '>'
         fixv[mp] = GTR;
         return;
-    case 99:  // <RELATION> ::= '<' '>'
+    case 99: // <RELATION> ::= '<' '>'
         fixv[mp] = NEQ;
         return;
     case 100: // <RELATION> ::= '<' '='
@@ -2878,23 +2914,22 @@ void synth(const int prod, const int symm) {
 #define INMAX 120
 static uint8_t ibuff[INMAX + 1];
 
+int backupCh;
 int gnc(/*const int q */) {
-    int lp, i, j;
+    int ch;
+
+    int lp, i;
 
     /*     get next character from the input stream (or 0 if */
     /*     no character is found) */
-
-    while (curmac <= MAXMAC) {
-        j = macros[curmac] >> MACBITS;
-        i = right(macros[curmac], MACBITS);
-        if (j < i) {
-            macros[curmac] = (++j << MACBITS) + i; /* merge back the current and end indexes */
-            return macros[j];
-        }
-        curmac++;
-        j             = macros[i + 1];
-        macros[j + 1] = -macros[j + 1];
+    if ((ch = macGetc()))
+        return ch;
+    else if (backupCh) {
+        ch       = backupCh;
+        backupCh = 0;
+        return ch;
     }
+
     if (ibp > C_RIGHTMARG) {
         /*     read another record from command stream */
         if (C_TERMINAL != 0) {
@@ -2903,21 +2938,19 @@ int gnc(/*const int q */) {
             writel();
         }
         for (;;) {
-            int c;
-
             memset(ibuff, ' ', INMAX);
             ibuff[INMAX] = 0;
 
             for (i = 0; i < INMAX; i++) {
-                c = getc(srcFp);
-                if (c == '\n' || c == EOF)
+                ch = getc(srcFp);
+                if (ch == '\n' || ch == EOF)
                     break;
-                c = toupper(c);
-                if (strchr((char *)otran, c) == NULL) // check a valid character
-                    c = ' ';
-                ibuff[i] = c;
+                ch = toupper(ch);
+                if (strchr((char *)otran, ch) == NULL) // check a valid character
+                    ch = ' ';
+                ibuff[i] = ch;
             }
-            if (i == 0 && c == EOF) {
+            if (i == 0 && ch == EOF) {
                 writel();
                 if (inptr >= 1) {
                     fclose(srcFp);
@@ -2925,12 +2958,12 @@ int gnc(/*const int q */) {
                     srcFp   = instk[inptr--].fp;
                     continue;
                 }
-                //C_EOF = 1;
+                // C_EOF = 1;
                 return EOF;
             }
 
-            while (c != '\n' && c != EOF) // gobble up rest of line
-                c = getc(srcFp);
+            while (ch != '\n' && ch != EOF) // gobble up rest of line
+                ch = getc(srcFp);
 
             lp  = C_LEFTMARG - 1;
             ibp = lp;
@@ -3026,11 +3059,9 @@ void writel() {
     return;
 }
 
-void decibp() {
-    if (curmac > MAXMAC)
-        ibp--;
-    else
-        macros[curmac] -= (1 << MACBITS); /* back up index */
+void decibp(int ch) {
+    if (!macBackup())
+        backupCh = ch;
 }
 
 int conv(int radix) {
@@ -3084,10 +3115,10 @@ void putch(const int chr) {
         writel();
 }
 
-char b32Digit(int c) {
+char b32Digit(int ch) {
     /*     convert a byte to a base 32 digit */
-    c %= 32;
-    return c + (c < 10 ? '0' : 'A' - 10);
+    ch %= 32;
+    return ch + (ch < 10 ? '0' : 'A' - 10);
 }
 
 void enterb() {
@@ -3101,10 +3132,9 @@ void enterb() {
     block[curblk] = symtop;
     doinit(curblk, 0, 0);
     /*     save the state of the macro definition table */
-    macblk[curblk] = mactop;
-    //    macblk[curblk] = (mactop << MACBITS) + curmac;
+    macblk[curblk] = macdefSP;
 
-    blksym = symtop;
+    blksym         = symtop;
     return;
 }
 
@@ -3128,10 +3158,9 @@ void dumpin() {
     for (int i = SYMABS; i > maxsym; i--) {
         /*     write symbol numbers */
         putSymInt(symbol[i] >> 15, 3);
-        int jp = right(symbol[i], 15);
-        while (jp-- > 0)
+        for (int jp = right(symbol[i], 15); jp > 0; jp--)
             wrdata(right(symbol[--i], 16));
-        
+
         putSym('/');
     }
     putSym('/');
@@ -3178,7 +3207,7 @@ void emit(const int val, const int typ) {
 
 #define MAXPOL 30
     static int polish[MAXPOL + 1];
-    static int polcnt = 0;
+    static int polcnt     = 0;
     static char *polchr[] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN" };
     static char *opcval[] = { "NOP", "ADD", "ADC", "SUB", "SBC", "MUL", "DIV", "REM", "NEG",
                               "AND", "IOR", "XOR", "NOT", "EQL", "LSS", "GTR", "NEQ", "LEQ",
@@ -3231,5 +3260,5 @@ void cmpuse() {
     printf("table usage in pass 1:\n");
     printf("symbol table - max=%-6d, top=%-6d, loc=%-6d\n", maxsym, symtop, symloc);
     printf("               len=%-6d, cnt=%-6d, abs=%-6d\n", symlen, symcnt, SYMABS);
-    printf("macro table - max=%-6d, top=%-6d, cur=%-6d\n", MAXMAC, mactop, curmac);
+    printf("macro table  - maxStr=%d, maxDef=%d\n", maxMacStr, maxMacDef);
 }

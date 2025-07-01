@@ -226,8 +226,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="plm81.c" />
+    <ClCompile Include="istring.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="istring.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>
