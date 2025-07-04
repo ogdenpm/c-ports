@@ -801,8 +801,8 @@ const uint8_t c1[][13] = {
     /* 107 */ { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 };
 
-#define TRI(a, b, ch) (((a) << 16) + ((b) << 8) + ch)
-#define PAIR(a, b)    (((a) << 8) + (b))
+#define TRI(a, b, option) (((a) << 16) + ((b) << 8) + option)
+#define PAIR(a, b)        (((a) << 8) + (b))
 
 const int c1tri[] = {
     TRI(3, 3, 3),   TRI(3, 3, 10),   TRI(3, 3, 13),  TRI(3, 3, 24),  TRI(3, 3, 45),  TRI(3, 3, 46),
@@ -939,7 +939,7 @@ struct {
     unsigned label : 16;
 } dopar[MAXBLK + 1];
 
-inline doinit(int slot, int type, int clause) {
+inline doHead(int slot, int type, int clause) {
     dopar[slot].type   = type;
     dopar[slot].clause = clause & 0x3fff;
     dopar[slot].label  = clause >> 14;
@@ -953,13 +953,12 @@ int blksym = 120;
 int proctp[MAXBLK + 1];
 /* files */
 char obuff[132 + 1];
-int ibp   = 81;
-int obp   = 0;
-int inptr = 0;
-struct {
-    uint8_t id;
-    FILE *fp;
-} instk[7 + 1];
+
+int ibp  = 81;
+int obp  = 0;
+int inSP = 0;
+FILE *instk[7 + 1];
+
 char itran[256];
 // translate internal to char. Note otran[ch - 1] to map SPACE to 0
 const uint8_t otran[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$=./()+-'*,<>:;            ";
@@ -971,10 +970,10 @@ const uint8_t ascii[64] = { 32, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 
                             60, 62, 58, 59, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 };
 /* scanc */
 int acclen;
-char accum[32 + 1];
-int type;
+#define MAXSTR 4096
+char accum[MAXSTR + 1];
+int accumIVal = 0;
 enum { EOFLAG = 1, IDENT, NUMB, SPECL, STR };
-int stype      = 0;
 const int CONT = 1;
 /* hash */
 int hentry[127 + 1] = { ZPAD, 0,  54, 0, 0, 0,  0,  112, 0,  106, 0,   0, 0,  28, 0,  0, 0, 90, 0,
@@ -1003,6 +1002,7 @@ void scan();
 int wrdata(const int sy);
 void dumpch();
 void synth(const int prod, const int symm);
+int gncSkipNL();
 int gnc();
 void parseOptions(uint8_t *s);
 void writel();
@@ -1011,7 +1011,7 @@ int conv(int radix);
 int imin(const int i, const int j);
 void Printf(char *fmt, ...); // ascii version using printf formats
 void putch(const int chr);
-void stackc(int i, char *fname);
+void stackc(char *fname);
 void enterb();
 void dumpin();
 // void error(const int i, const int level);
@@ -1071,27 +1071,27 @@ void dumpTable() {
 /*     width = i        (34) */
 /*     ypad = n         (36)  blank pad on output */
 /*     contrl(1) is the error count */
-#define errorCnt    contrl[1]
-#define C_ANALYZE   contrl[CHA] // action/reduction trace
-#define C_BYPASS    contrl[CHB] // bypass stack dump on error
-#define lineCnt     contrl[CHC]
-#define C_DELETE    contrl[CHD] // max listing line length
+#define errorCnt   contrl[1]
+#define C_ANALYZE  contrl[CHA] // action/reduction trace
+#define C_BYPASS   contrl[CHB] // bypass stack dump on error
+#define lineCnt    contrl[CHC]
+#define C_DELETE   contrl[CHD] // max listing line length
 // #define C_EOF       contrl[CHE] // not used
-#define C_GENERATE  contrl[CHG] // show intermediate code generation
-#define C_INPUT     contrl[CHI] // current input file (no)
-#define C_JFILE     contrl[CHJ] // pol file number (no)
+#define C_GENERATE contrl[CHG] // show intermediate code generation
+// #define C_INPUT     contrl[CHI] // current input file (no)
+#define C_JFILE    contrl[CHJ] // pol file number (no)
 // #define C_KWIDTH    contrl[CHK] // no longer used pol file is binary
-#define C_LEFTMARG  contrl[CHL] // to remove
-#define C_MEMORY    contrl[CHM] // dump symbol table (0 = no, 1 = yes)
-#define C_OUTPUT    contrl[CHO] // current lst file (no)
-#define C_PRINT     contrl[CHP] // controls printing on lst file
-#define C_RIGHTMARG contrl[CHR] // to remove
-#define C_SYMBOLS   contrl[CHS] // control symbol dump
-#define C_TERMINAL  contrl[CHT] // probably better handled with isatty
-#define C_USYMBOL   contrl[CHU] // symbol file (no)
-#define C_VWIDTH    contrl[CHV] // symbol file line width
-#define C_WIDTH     contrl[CHW] // listing file width
-#define C_YPAD      contrl[CHY] // leading line pad for listing file - to remove
+// #define C_LEFTMARG  contrl[CHL] // to remove
+#define C_MEMORY   contrl[CHM] // dump symbol table (0 = no, 1 = yes)
+// #define C_OUTPUT    contrl[CHO] // current lst file (no)
+#define C_PRINT    contrl[CHP] // controls printing on lst file
+// #define C_RIGHTMARG contrl[CHR] // to remove
+#define C_SYMBOLS  contrl[CHS] // control symbol dump
+#define C_TERMINAL contrl[CHT] // probably better handled with isatty
+// #define C_USYMBOL   contrl[CHU] // symbol file (no)
+#define C_VWIDTH   contrl[CHV] // symbol file line width
+#define C_WIDTH    contrl[CHW] // listing file width
+#define C_YPAD     contrl[CHY] // leading line pad for listing file - to remove
 
 /*
  file management is changed from the original cross compiler
@@ -1117,40 +1117,24 @@ char path[_MAX_PATH];
 char *plmFile;
 int autoId = 100;
 
-FILE *openFile(char *fname, uint8_t type) {
+char *makeFileName(char const *fname, char const *ext, bool force) {
 
-    char *ext;
-    if (fname) {
-        strcpy(path, fname);
-        if (!(ext = strrchr(path, '.')) || strpbrk(ext, DIRSEP))
-            ext = strchr(path, '\0');
-        switch (type) {
-        case CHI:
-            if (!*ext)
-                strcpy(ext, ".plm");
-            break;
-        case CHJ:
-            strcpy(ext, ".pol");
-            break;
-        case CHU:
-            strcpy(ext, ".sym");
-            break;
-        case CHO:
-            strcpy(ext, ".lst");
-            break;
-        default:
-            strcpy(ext, ".???");
-            return NULL;
-        }
-    } else if (contrl[type] == 1)
-        return type == CHI ? stdin : stdout;
-    else
-        sprintf(path, "fort.%d", type == CHI ? contrl[type] : contrl[type] + 10);
-    return fopen(path, type == CHI ? "rt" : type == CHJ ? "wb" : "wt");
+    char *s;
+    strcpy(path, fname);
+    if ((s = strrchr(path, '.')) && !strpbrk(s, DIRSEP)) {
+        if (force)
+            strcpy(s, ext);
+    } else
+        strcat(path, ext);
+    return path;
 }
 
 void closefiles() {
-    if (srcFp)
+    while (inSP > 0) {
+        fclose(srcFp);
+        srcFp = instk[inSP--];
+    }
+    if (srcFp != stdin)
         fclose(srcFp);
     if (polFp)
         fclose(polFp);
@@ -1185,30 +1169,33 @@ int main(int argc, char **argv) {
     C_DELETE  = 132; /* changed from original 120 */
     // C_EOF       = 0; // not used
     C_GENERATE = 0;
-    C_INPUT    = 2;
-    C_JFILE    = 6;
+    // C_INPUT    = 2;
+    // C_JFILE    = 6;
     // C_KWIDTH    = 72;
-    C_LEFTMARG  = 1; // left margin on input file - to remove
-    C_MEMORY    = 1; // dump symbol table (0 = no, 1 = yes)
-    C_OUTPUT    = 2; /* changed from original 1 */
-    C_PRINT     = 1; // print on 1 else off
-    C_RIGHTMARG = 120;
-    C_SYMBOLS   = 0;
-    C_TERMINAL  = 1;
-    C_USYMBOL   = 7;
-    C_VWIDTH    = 72;
-    C_WIDTH     = 132; /* changed from original 132 */
-    C_YPAD      = 1;
+    // C_LEFTMARG  = 1; // left margin on input file - to remove
+    C_MEMORY = 1; // dump symbol table (0 = no, 1 = yes)
+    // C_OUTPUT    = 2; /* changed from original 1 */
+    C_PRINT = 1; // print on 1 else off
+    // C_RIGHTMARG = 120;
+    C_SYMBOLS  = 0;
+    C_TERMINAL = 1;
+    // C_USYMBOL   = 7;
+    C_VWIDTH = 72;
+    C_WIDTH  = 132; /* changed from original 132 */
+    C_YPAD   = 1;
 
     if (argc > 1) {
-        C_INPUT = autoId; // mark as autoId
-        plmFile = argv[1];
-    }
-    if (!(srcFp = openFile(plmFile, CHI))) {
-        fprintf(stderr, "can't open source file %s\n", path);
-        exit(1);
-    }
 
+        plmFile = argv[1];
+
+        if (!(srcFp = fopen(makeFileName(plmFile, ".plm", false), "rt"))) {
+            fprintf(stderr, "can't open source file %s\n", path);
+            exit(1);
+        }
+    } else {
+        plmFile = "stdin";
+        srcFp   = stdin;
+    }
     // setup input translation table
     memset(itran, SPACE, 256);
     for (int i = SPACE - 1; i < SEMICOLON; i++) {
@@ -1549,7 +1536,7 @@ void dumpsy() {
     }
     writel();
 
-    if (!symFp && !(symFp = openFile(plmFile, CHU))) {
+    if (!symFp && !(symFp = fopen(makeFileName(plmFile, ".sym", true), "wt"))) {
         fprintf(stderr, "can't create sym file %s\n", path);
         exit(1);
     }
@@ -1737,22 +1724,22 @@ void cloop() {
             pstack[sp] = token;
             /*     insert accum into varc here */
             if (token == NUMBV)
-                fixv[sp] = conv(stype);
+                fixv[sp] = accumIVal;
 
             var[sp].loc = vartop;
-            for (;;) {
-                for (int j = 1; j <= acclen; j++) {
-                    varc[vartop] = accum[j];
-                    if (++vartop > MVAR) {
-                        fatal("7: pass-1 table overflow");
-                        vartop = 1;
-                    }
+            // for (;;) {
+            for (int j = 0; j < acclen; j++) {
+                varc[vartop] = accum[j];
+                if (++vartop > MVAR) {
+                    fatal("7: pass-1 table overflow");
+                    vartop = 1;
                 }
-                /* string constants may be continued over several buffers full */
-                if (token != STRV || stype != CONT)
-                    break;
-                scan();
             }
+            /* string constants may be continued over several buffers full */
+            //     if (token != STRV || stype != CONT)
+            //          break;
+            //    scan();
+            //}
             int i       = vartop - var[sp].loc;
             var[sp].len = i < 0 ? 1 : i;
             scan();
@@ -1773,199 +1760,125 @@ int getc1(int stackItem, int token) {
 }
 
 void scan() {
-    int ch;
+
+
     /*      global tables */
     /*     scan finds the next entity in the input stream */
     /*     the resulting item is placed into accum (of length */
-    /*     acclen).  type and stype identify the item as shown */
-    /*     below -- */
-    /*     type     stype         item           variable */
-    /*       1        na        end of file       EOFLAG */
-    /*       2       cont       identifier        IDENT */
-    /*       3       radix      number            NUMB */
-    /*       4        na        spec char         SPECL */
-    /*       5        cont      string            STR */
+    /*     acclen).  token is set to  the item found */
 
-    failsf = true;
     for (;;) {
-        ch     = gnc();
+        failsf = true;
+        int ch;
+        while (isspace(ch = gnc()))
+            ;
         acclen = 0;
-        if (stype == CONT)
-            switch (type) {
-            case EOFLAG:
-                type  = EOFLAG;
-                token = EOFILE;
-                return;
-            case IDENT:
-                goto L80;
-            case NUMB:
-            case SPECL:
-                break;
-            case STR:
-                /*     continue with string */
-                decibp(ch);
-                goto L70;
-            }
-        for (;;) {
-            if (ch == EOF) {
-                type  = EOFLAG;
-                token = EOFILE;
-                return;
-            }
-            if (itran[ch] == SPACE) // space & illegal chars
-                ;
-            else if (isdigit(ch)) { // digit
-                /*     number */
-                type  = NUMB;
-                stype = 0;
-                for (;;) {
-                    accum[++acclen] = ch;
-                    if (acclen != 32) {
-                        while ((ch = gnc()) == '$') // gobble $ in number
-                            ;
-                        if (!isxdigit(ch)) // not a hex digit
-                            break;
-                        ch = toupper(ch);
-                    } else {
-                        stype = CONT;
-                        while (isxdigit(ch = gnc()))
-                            ;
-                        decibp(ch);
-                        break;
-                    }
-                }
-                if (stype == CONT)
-                    break;
-                /*     check radix */
-                if (ch == 'H') // H
-                    stype = 16;
-                if (ch == 'Q' || ch == 'O') // Q or O
-                    stype = 8;
-                if (stype == 0) {
-                    if (accum[acclen] == 'B') { // B
-                        stype = 2;
-                        acclen--;
-                    } else {
-                        stype = 10;
-                        if (accum[acclen] == 'D') // D
-                            acclen--;
-                    }
-                    decibp(ch);
-                }
-                for (int i = 1; i <= acclen; i++) {
-                    int digit = accum[i];
-                    digit     = isdigit(digit) ? digit - '0' : digit - 'A' + 10;
-                    if (digit >= stype) {
-                        stype = 1;
-                        break;
-                    }
-                }
-                break;
-            } else if (isalpha(ch)) { // alpha character
-            L80:
-                type = IDENT; /*     identifier */
-                for (;;) {
-                    accum[++acclen] = toupper(ch);
-                    if (acclen >= 32) {
-                        stype = CONT;
-                        break;
-                    } else {
-                        while ((ch = gnc()) == '$') // gobble up $ in name
-                            ;
-                        if (!isalnum(ch)) { // not alphanumeric
-                            decibp(ch);
-                            stype = 0;
-                            break;
-                        }
-                    }
-                }
-                break;
-            } else if (!isalnum(ch)) { // non alpha numeric
-                if (ch == '\'') {      // quote
-                L70:
-                    type     = STR; /*     string quote */
-                    accum[1] = ' ';
-                    for (;;) {
-                        ch = gnc(/*0 */);
-                        if (ch == '\'' && (ch = gnc()) != '\'') { // end quote or double quote
-                            decibp(ch);                           // backup one
-                            stype = 0;                            // no more to collect
-                            break;
-                        }
-                        accum[++acclen] = ch; // stuff char (double quote reduced to single)
-                        if (acclen >= 32) {
-                            stype = CONT;
-                            break;
-                        }
-                    }
-                    break;
-                }
-                type     = SPECL;
-                acclen   = 1;
-                accum[1] = ch;
-                if (ch != '/') // slash
-                    break;
-                ch = gnc(/*0 */);
-                /*     look for comment */
-                if (ch != '*') { // star
-                    decibp(ch);
-                    break;
-                } else
-                    for (;;) {
-                        /*     comment found */
-                        ch = gnc(/*0 */);
-                        if (ch == EOF) {
-                            type  = EOFLAG;
-                            token = EOFILE;
-                            return;
-                        }
-                        if (ch == '*') { // star
-                            ch = gnc(/*0 */);
-                            if (ch != '/') // slash
-                                decibp(ch);
-                            else {
-                                acclen = 0;
-                                break;
-                            }
-                        }
-                    }
-            }
-            /*     deblank input */
-            ch = gnc(/*0 */);
-        }
-        /*     the code below is here to satisfy the syntax analyzer */
-        if (type == EOFLAG) {
+        if (ch == EOF) {
             token = EOFILE;
             return;
         }
-        if (type == STR) {
-            token = STRV;
+        if (isdigit(ch)) { /*     number */
+            token = NUMBV;
+            for (;;) {
+                accum[acclen++] = ch;
+                while ((ch = gnc()) == '$') // gobble $ in number
+                    ;
+                ch = toupper(ch);
+                if (!isxdigit(ch)) // not a hex digit
+                    break;
+            }
+            /*     check radix */
+            uint8_t radix;
+            if (ch == 'H') // H
+                radix = 16;
+            else if (ch == 'Q' || ch == 'O') // Q or O
+                radix = 8;
+            else {
+                if (accum[acclen - 1] == 'B') { // B
+                    radix = 2;
+                    acclen--;
+                } else {
+                    radix = 10;
+                    if (accum[acclen - 1] == 'D') // D
+                        acclen--;
+                }
+                decibp();
+            }
+            accumIVal = 0;
+            for (int i = 0; i < acclen; i++) {
+                uint8_t digit = accum[i];
+                digit         = isdigit(digit) ? digit - '0' : digit - 'A' + 10;
+                if (digit >= radix || (accumIVal = accumIVal * radix + digit) >= 0x10000) {
+                    nonFatal("6: number conversion error");
+                    accumIVal = 0;
+                    break;
+                }
+            }
             return;
+        } else if (isalpha(ch)) { // alpha character
+            token = IDENTV;         /*     identifier */
+            while (isalnum(ch)) {
+                if (acclen < 32)
+                    accum[acclen++] = toupper(ch);
+                while ((ch = gnc()) == '$') // gobble up $ in name
+                    ;
+            }
+            decibp();
+        } else if (!isalnum(ch)) { // non alpha numeric
+            if (ch == '\'') {      // quote
+                token = STRV;
+                for (;;) {
+                    ch = gncSkipNL(/*0 */);
+                    if (ch == '\'' && (ch = gncSkipNL()) != '\'') // end quote or double quote
+                        break;
+                    accum[acclen++] = ch; // stuff char (double quote reduced to single)
+                }
+                decibp(); // backup one
+                return;
+            } else {
+                acclen   = 1;
+                accum[0] = ch;
+                token    = 0;
+                if (ch == '/') { // look for comment
+                    if ((ch = gnc()) != '*')
+                        decibp();
+                    else { // got a comment
+                        while (ch != '/') {
+                            /*     comment found */
+                            while (ch != EOF && (ch = gnc()) != '*')
+                                ;
+                            while (ch == '*')
+                                ch = gnc();
+                            if (ch == EOF) {
+                                token = EOFILE;
+                                return;
+                            }
+                        }
+                        continue; // comment skipped try again
+                    }
+                }
+            }
         }
-        token = 0;
         if (acclen < sizeof(vindx) - 1) {
             /*     search for token in vocabulary */
-            accum[acclen + 1] = '\0'; // null terminate
             for (int i = vindx[acclen]; i < vindx[acclen + 1]; i++) {
-                if (stricmp(accum + 1, tokens[i]) == 0) {
+                if (memcmp(accum, tokens[i], acclen) == 0) {
                     token = i;
                     return;
                 }
             }
         }
-        if (type != IDENT) {
-            if (type == NUMB)
-                token = NUMBV;
+        // if we get here it is not a keyword/keysymbol
+        // if its an identifier and not used as a macro return it
+        if (token == IDENTV && !useMacro(acclen, accum))
             return;
+        // if its a single character then its spurious
+        if (token == 0) {
+            Printf("'%c' ", accum[0]);
+            nonFatal("8: illegal symbol");
         }
-        if (!useMacro(acclen, accum + 1)) {
-            token = type == NUMB ? NUMBV : IDENTV;
-            return;
-        }
+    
     }
-
-    token = ch - 1;
-    return;
 }
 
 int wrdata(const int sy) {
@@ -2027,6 +1940,7 @@ int wrdata(const int sy) {
     }
     return len;
 }
+
 
 void dumpch() {
     /*     dump the symbolic names for the simulator */
@@ -2214,11 +2128,11 @@ void synth(const int prod, const int symm) {
         return;
     case 25: // <GROUP HEAD> ::= DO <STEP DEFINITION> ';'
         enterb();
-        doinit(curblk, DO_ITER, fixv[mp + 1]);
+        doHead(curblk, DO_ITER, fixv[mp + 1]);
         return;
     case 26: // <GROUP HEAD> ::= DO <WHILE CLAUSE> ';'
         enterb();
-        doinit(curblk, DO_WHILE, fixv[mp + 1]);
+        doHead(curblk, DO_WHILE, fixv[mp + 1]);
         return;
     case 27: // <GROUP HEAD> ::= DO <CASE SELECTOR> ';'
         enterb();
@@ -2227,7 +2141,7 @@ void synth(const int prod, const int symm) {
         symIdx = enter(-MkInfo(k, LocalLabel, LABEL));
         emit(id_num(symIdx), VLU);
         emit(AX1, OPR);
-        doinit(curblk, DO_CASE, symIdx);
+        doHead(curblk, DO_CASE, symIdx);
         symIdx              = enter(-MkInfo(0, LocalLabel, LABEL));
         dopar[curblk].label = symIdx;
         emit(id_num(symIdx), DEF);
@@ -2310,7 +2224,6 @@ void synth(const int prod, const int symm) {
             nonFatal("39: invalid interrupt number");
         else {
             k = intpro[++j];
-            /*     is interrupt duplicated */
             if (k <= 0)
                 intpro[j] = i;
             else
@@ -2447,7 +2360,8 @@ void synth(const int prod, const int symm) {
     case 54: // <GO TO> ::= GO TO
     case 55: // <GO TO> ::= GOTO
     case 56: // <DECLARATION STATEMENT> ::= DECLARE <DECLARATION ELEMENT>
-    case 57: // <DECLARATION STATEMENT> ::= <DECLARATION STATEMENT> ',' <DECLARATION ELEMENT>
+    case 57: // <DECLARATION STATEMENT> ::= <DECLARATION STATEMENT> ',' <DECLARATION
+             // ELEMENT>
     case 58: // <DECLARATION ELEMENT> ::= <TYPE DECLARATION>
         return;
     case 59: // <DECLARATION ELEMENT> ::= <IDENTIFIER> LITERALLY <STRING>
@@ -2483,7 +2397,7 @@ void synth(const int prod, const int symm) {
     case 65: // <TYPE DECLARATION> ::= <BOUND HEAD> <NUMBER> ')' <TYPE>
         length = prod == 64 ? 1 : fixv[mp + 1]; // dimension
 
-        k      = fixv[sp];          // item type
+        k      = fixv[sp]; // item type
         do {
             int symIdx = idList[--idListSP];
             ip         = symbol[Info(symIdx)];
@@ -2511,8 +2425,8 @@ void synth(const int prod, const int symm) {
         return;
     case 70: // <BOUND HEAD> ::= <IDENTIFIER SPECIFICATION> '('
         return;
-    case 71: // <IDENTIFIER SPECIFICATION> ::= <VARIABLE NAME>
-        idList[idListSP++] = fixv[mp];  // single so no need to check for overflow
+    case 71:                           // <IDENTIFIER SPECIFICATION> ::= <VARIABLE NAME>
+        idList[idListSP++] = fixv[mp]; // single so no need to check for overflow
         return;
     case 72: // <IDENTIFIER SPECIFICATION> ::= <IDENTIFIER LIST> <VARIABLE NAME> ')'
     case 74: // <IDENTIFIER LIST> ::= <IDENTIFIER LIST> <VARIABLE NAME> ','
@@ -2524,8 +2438,8 @@ void synth(const int prod, const int symm) {
         return;
     case 73: // <IDENTIFIER LIST> ::= '('
         return;
-    case 75: // <VARIABLE NAME> ::= <IDENTIFIER> Left context check(',' | DECLARE | <IDENTIFIER
-             // LIST>)
+    case 75: // <VARIABLE NAME> ::= <IDENTIFIER> Left context check(',' | DECLARE |
+             // <IDENTIFIER LIST>)
     case 77: // <BASED VARIABLE> ::= <IDENTIFIER> BASED
         symIdx = lookup(mp);
         if (symIdx <= blksym)
@@ -2538,10 +2452,11 @@ void synth(const int prod, const int symm) {
         if (symtop >= SYMABS)
             fatal("25: pass-1 symbol table overflow");
         else {
-            i              = fixv[mp];
-            symbol[symtop + 1] = symbol[symtop];    // copy up location of top symbol (stored in symbol[symtop]
-            j              = symtop++;
-            symIdx         = lookup(sp);
+            i = fixv[mp];
+            symbol[symtop + 1] =
+                symbol[symtop]; // copy up location of top symbol (stored in symbol[symtop]
+            j      = symtop++;
+            symIdx = lookup(sp);
             if (symIdx == 0)
                 symIdx = enter(MkInfo(0, 0, VARB));
             else if (info_type(symIdx) != VARB) {
@@ -2624,7 +2539,8 @@ void synth(const int prod, const int symm) {
         return;
     case 94: // <LOGICAL PRIMARY> ::= <ARITHMETIC EXPRESSION>
         return;
-    case 95: // <LOGICAL PRIMARY> ::= <ARITHMETIC EXPRESSION> <RELATION> <ARITHMETIC EXPRESSION>
+    case 95: // <LOGICAL PRIMARY> ::= <ARITHMETIC EXPRESSION> <RELATION> <ARITHMETIC
+             // EXPRESSION>
         emit(fixv[mp + 1], OPR);
         return;
     case 96: // <RELATION> ::= '=' Left context check(<ARITHMETIC EXPRESSION>)
@@ -2783,14 +2699,15 @@ void synth(const int prod, const int symm) {
         return;
     case 122: // <SUBSCRIPT HEAD> ::= <IDENTIFIER> '('
         if ((symIdx = lookup(mp)) == 0) {
-            nonFatal("30: subscripted variable or procedure call references undeclared identifier");
+            nonFatal("30: subscripted variable or procedure call references undeclared "
+                     "identifier");
             symIdx = enter(-MkInfo(0, 0, VARB));
         }
         j = info_type(symIdx);
         if (j != VARB) {
             if (j != PROC && j != INTR)
-                nonFatal(
-                    "31: Identifier is improperly used as a procedure or subscripted variable");
+                nonFatal("31: Identifier is improperly used as a procedure or subscripted "
+                         "variable");
             else {
                 fixc[mp] = info_len(symIdx);
                 if (j == INTR)
@@ -2895,124 +2812,90 @@ void synth(const int prod, const int symm) {
     assert(0);
 }
 
-#define INMAX 120
+#define INMAX 256
 static uint8_t ibuff[INMAX + 1];
+char *ibptr = "";
 
-int backupCh;
+int gncSkipNL() {
+    int ch;
+    while ((ch = gnc()) == '\n')
+        ;
+    return ch;
+}
+
 int gnc(/*const int q */) {
     int ch;
 
-    int lp, i;
-
+    if ((ch = macGetc())) // get next character from macro if available
+        return ch;
     /*     get next character from the input stream (or 0 if */
     /*     no character is found) */
-    if ((ch = macGetc()))
-        return ch;
-    else if (backupCh) {
-        ch       = backupCh;
-        backupCh = 0;
-        return ch;
-    }
 
-    if (ibp > C_RIGHTMARG) {
-        /*     read another record from command stream */
-        if (C_TERMINAL != 0) {
-            if (srcFp == stdin)
-                Printf("\n ");
-            writel();
-        }
+    while (!*ibptr) {
         for (;;) {
-            memset(ibuff, ' ', INMAX);
-            ibuff[INMAX] = 0;
+            if (isatty(fileno(srcFp)))
+                putchar('*'); // put a prompt
+            if ((ibptr = fgets((char *)ibuff, INMAX - 1, srcFp)))
+                break; // got a line
+            if (inSP < 1)
+                return EOF; // no more input
+            fclose(srcFp);
+            srcFp = instk[inSP--];
+        }
+        emit(++lineCnt, LIN);
+        if (!strchr(ibuff, '\n')) { // gobble up rest of line
+            fprintf(stderr, "WARNING: line %d truncated\n", lineCnt);
+            while ((ch = getc(srcFp)) != '\n' && ch != EOF)
+                ;
+            strcat(ibuff, "\n"); // ensure line ends with newline
+        }
+        char *s;
+        if ((s = strchr(ibuff, '\r')) && s[1] == '\n')
+            strcpy(s, "\n");
 
-            for (i = 0; i < INMAX; i++) {
-                ch = getc(srcFp);
-                if (ch == '\n' || ch == EOF)
-                    break;
-                ch = toupper(ch);
-                if (strchr((char *)otran, ch) == NULL) // check a valid character
-                    ch = ' ';
-                ibuff[i] = ch;
+        if (lstFp && C_PRINT != 0) {
+            Printf("\n%05d%3d %c  %s", lineCnt, curblk - 1, inSP > 0 ? '=' : ' ', ibuff);
+            if (*ibptr == '$') {
+                parseOptions(ibuff + 1); // parse the options
+                ibptr = "";
             }
-            if (i == 0 && ch == EOF) {
-                writel();
-                if (inptr >= 1) {
-                    fclose(srcFp);
-                    C_INPUT = instk[inptr].id;
-                    srcFp   = instk[inptr--].fp;
-                    continue;
-                }
-                // C_EOF = 1;
-                return EOF;
-            }
-
-            while (ch != '\n' && ch != EOF) // gobble up rest of line
-                ch = getc(srcFp);
-
-            lp  = C_LEFTMARG - 1;
-            ibp = lp;
-            emit(++lineCnt, LIN);
-            if (C_PRINT != 0)
-                Printf("\n%05d%3d %c  %s", lineCnt, curblk - 1, inptr > 0 ? '=' : ' ', ibuff);
-
-            if (ibuff[lp] != '$' || ibuff[1] == ' ') // suspect ibuff[1] should be ibuff[lp + 1]
-                break;
-            parseOptions((char *)(ibuff + lp + 1));
         }
     }
-    return ibuff[ibp++]; // map to internal char set
+
+    return *ibptr++;
 }
 
 void parseOptions(uint8_t *s) {
 
-    ibuff[C_RIGHTMARG] = 0;    // truncate line at right  margin
-    while (*s) {               // process all of line
-        if (*s == '$') {       // display $ paramters
-            if (*++s == ' ') { // display all parameters
-                s++;
-                for (int j = 2; j <= 64; j++)
-                    if (contrl[j] >= 0)
-                        Printf("\n$%c=%d", otran[j - 1], contrl[j]);
-            } else if (*s) { // make sure not off end of line
-                int j = itran[*s++];
-                if (contrl[j] >= 0)
-                    Printf("\n$%c=%d", otran[j - 1], contrl[j]);
-            }
-            if (C_TERMINAL != 0)
-                Printf("\n ");
-            writel();
-        } else if (*s) {
-            int j = itran[*s]; // map to local char set
-            while (*++s && *s != '=' && *s != '$')
-                ;
-            if (*s == '=') {
-                while (*++s == ' ')
-                    ;
-                char *incName = s;
-                int k         = 0;
-                while (isdigit(*s))
-                    k = k * 10 + *s++ - '0';
-                if (j == CHI) {
-                    if (*s && *s != ' ') {
-                        while (*s && *s != ' ')
-                            s++;
-                    } else
-                        incName = NULL;
-                    char saveCh = *s;
-                    *s          = 0;
-                    stackc(k, incName);
-                    *s = saveCh;
-                } else
-                    contrl[j] = k;
-            } else {
-                if (contrl[j] != 0 && contrl[j] != 1)
-                    nonFatal("34: attempt to toggle $ control when toggle is not 0 or 1");
+    while (*s && *s != '\n') {     // process all of line
+        while (*s && !isalpha(*s)) // skip to option
+            s++;
+        if (!*s)
+            return;
+        int option = toupper(*s);
+        while (isalpha(*s)) // skip over option long name
+            s++;
+        int val = contrl[CHA + option - 'A'];
+        if (*s == '=') {
+            if (option == 'I') {
+                char *incName = ++s;
+                while (!isspace(*s))
+                    s++;
+                *s = 0;
+                if (strlen(incName) == 0)
+                    nonFatal("36: include file name missing");
                 else
-                    contrl[j] = !contrl[j];
+                    stackc(incName); // push include file on stack
+                return;
             }
-        }
-        while (*s && *s++ != '$')
-            ;
+            val = 0;
+            while (isdigit(*++s)) // get value
+                val = val * 10 + *s - '0';
+        } else if (val == 0 || val == 1)
+            val = !val; // toggle the value
+        else
+            nonFatal("34: attempt to toggle non binary $ control");
+        contrl[CHA + option - 'A'] = val;
     }
 }
 
@@ -3022,7 +2905,7 @@ void writel() {
     np = C_YPAD - 1;
     if (obp > np) {
 
-        if (!lstFp && !(lstFp = openFile(plmFile, CHO))) {
+        if (!lstFp && !(lstFp = fopen(makeFileName(plmFile, ".lst", true), "wt"))) {
             fprintf(stderr, "Can't create listing file %s\n", path);
             exit(1);
         }
@@ -3043,22 +2926,9 @@ void writel() {
     return;
 }
 
-void decibp(int ch) {
+void decibp() {
     if (!macBackup())
-        backupCh = ch;
-}
-
-int conv(int radix) {
-    int value = 0;
-    for (int i = 1; i <= acclen; i++) {
-        uint8_t digit = accum[i];
-        digit         = isdigit(digit) ? digit - '0' : toupper(digit) - 'A' + 10;
-        if (digit >= radix || (value = value * radix + digit) >= 0x10000) {
-            nonFatal("6: number conversion error");
-            return 0;
-        }
-    }
-    return value;
+        ibptr--;
 }
 
 int imin(const int i, const int j) {
@@ -3067,7 +2937,7 @@ int imin(const int i, const int j) {
 
 void Printf(char *fmt, ...) {
     va_list args;
-    char buf[200];
+    char buf[512];
 
     va_start(args, fmt);
     vsprintf(buf, fmt, args);
@@ -3076,19 +2946,17 @@ void Printf(char *fmt, ...) {
         putch(*s);
 }
 
-void stackc(int id, char *fname) {
-    if (++inptr > 7)
+void stackc(char *fname) {
+    if (inSP >= 7)
         fatal("35: too many include files");
     else {
-        instk[inptr].id = C_INPUT;
-        instk[inptr].fp = srcFp;
-        C_INPUT         = id;
-        if (!(srcFp = openFile(fname, CHI))) {
-            fprintf(stderr, "can't open include file %s. Skipping\n", path);
-            C_INPUT = instk[inptr].id;
-            srcFp   = instk[inptr--].fp;
-        } else if (fname)
-            C_INPUT = ++autoId;
+        FILE *incFp = fopen(makeFileName(fname, ".plm", false), "rt");
+        if (!incFp)
+            fprintf(stderr, "can't open include file %s. Skipping\n", fname);
+        else {
+            instk[++inSP] = srcFp;
+            srcFp         = incFp;
+        }
     }
 }
 
@@ -3114,7 +2982,7 @@ void enterb() {
         curblk = 1;
     }
     block[curblk] = symtop;
-    doinit(curblk, 0, 0);
+    doHead(curblk, 0, 0);
     /*     save the state of the macro definition table */
     macblk[curblk] = macdefSP;
 
@@ -3136,7 +3004,6 @@ void dumpin() {
                 Printf(" S%05d", initialData[i++] >> 16);
             }
         }
-
     }
     putch('\n');
     /*     ready to write the initialization table */
@@ -3231,7 +3098,7 @@ void emit(const int val, const int typ) {
 
         writel();
     }
-    if (!polFp && !(polFp = openFile(plmFile, CHJ))) {
+    if (!polFp && !(polFp = fopen(makeFileName(plmFile, ".pol", true), "wb"))) {
         fprintf(stderr, "can't create pol file %s\n", path);
         exit(1);
     }
