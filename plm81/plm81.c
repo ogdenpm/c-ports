@@ -168,6 +168,8 @@
             number of assignments is currently set to 256.  Either
             reduce the number of assignments in the block, or re-compile
             pass-1 with a larger 'assign' table.
+
+       51   missing value on control line
 */
 
 /*
@@ -519,24 +521,32 @@ Note the index refers to the location of the symbol no information - see above
 3    12   SIGN          77      0       1       1
 */
 
-int symbol[SYMABS + 1] = {
-    ZPAD,      5439488,   65536,     4101,      17,        221103907, 6815744,   131074,
-    4100,      17,        608028224, 5046272,   196615,    4100,      17,        491591168,
-    7471104,   262156,    8198,      17,        439207134, 587202560, 7995392,   327697,
-    8198,      17,        389903964, 587202560, 851968,    393239,    8200,      33,
-    494449493, 444186624, 3866624,   458781,    4099,      530,       476405760, 8126464,
-    524323,    4099,      530,       476430336, 5373952,   589864,    4099,      530,
-    491347968, 1310720,   655405,    4099,      530,       491372544, 131072,    720946,
-    4099,      530,       490037248, 4390912,   786487,    4099,      530,       490061824,
-    5373996,   852028,    4100,      258,       508392384, 7405568,   917569,    4100,
-    274,       307041408, 7143424,   983110,    4099,      274,       375787520, 5308416,
-    1048651,   4101,      274,       325167070, 3276800,   1114192,   8198,      274,
-    427681439, 503316480, 1114112,   1179733,   8198,      274,       373130334, 301989888,
-    1703936,   1245275,   4100,      274,       372103040, 1900544,   1310817,   4100,
-    770,       392561600, 589824,    1376358,   8198,      290,       241562390, 251658240,
-    458752,    1441899,   4099,      274,       238866432, 1507441,   0,         1,
-    117
+/* types */
+enum { VARB = 1, INTR, PROC, LABEL, LITER, NUMBER };
+
+#define MkInfo(packed, prec, type) (((int)(packed) << 8) | ((prec) << 4) | (type))
+struct {
+    char *name;
+    int32_t info;
+} builtins[] = {
+    { "CARRY", MkInfo(0, 1, VARB) },  { "ZERO", MkInfo(0, 1, VARB) },
+    { "SIGN", MkInfo(0, 1, VARB) },   { "PARITY", MkInfo(0, 1, VARB) },
+    { "MEMORY", MkInfo(0, 1, VARB) }, { "STACKPTR", MkInfo(0, 2, VARB) },
+    { "ROL", MkInfo(2, 1, INTR) },    { "ROR", MkInfo(2, 1, INTR) },
+    { "SHL", MkInfo(2, 1, INTR) },    { "SHR", MkInfo(2, 1, INTR) },
+    { "SCL", MkInfo(2, 1, INTR) },    { "SCR", MkInfo(2, 1, INTR) },
+    { "TIME", MkInfo(1, 0, INTR) },   { "HIGH", MkInfo(1, 1, INTR) },
+    { "LOW", MkInfo(1, 1, INTR) },    { "INPUT", MkInfo(1, 1, INTR) },
+    { "OUTPUT", MkInfo(1, 1, INTR) }, { "LENGTH", MkInfo(1, 1, INTR) },
+    { "LAST", MkInfo(1, 1, INTR) },   { "MOVE", MkInfo(3, 0, INTR) },
+    { "DOUBLE", MkInfo(1, 2, INTR) }, { "DEC", MkInfo(1, 1, INTR) },
+    { "", -MkInfo(0, 0, VARB) } // keeps block tracking aligned with original
+
 };
+
+int symbol[SYMABS + 1];
+int symtop = 1;
+int symcnt = 0;
 
 /* in anticipation of symbols being converted into an array of structure the use of
    the top of the symbol table as an assignment list is factored out */
@@ -544,13 +554,11 @@ int symbol[SYMABS + 1] = {
 int assign[MAXASSIGN + 1]; /* assignment symbol indexes */
 
 /* some inline definitions to help make the code more readable */
-#define SymInts(symIdx)         ((symIdx) + 2)
-#define Info(symIdx)            ((symIdx) + 1) /* index to symbol info word */
-#define Sym(symIdx)             ((symIdx))     /* index to symbol sizing word */
-#define Id(symIdx)              ((symIdx) - 1) /* index to symbol id word */
-#define Hash(symIdx)            ((symIdx) - 2) /* index to symbol hash word */
-
-#define MkInfo(len, prec, type) (((int)(len) << 8) | ((prec) << 4) | (type))
+#define SymInts(symIdx) ((symIdx) + 2)
+#define Info(symIdx)    ((symIdx) + 1) /* index to symbol info word */
+#define Sym(symIdx)     ((symIdx))     /* index to symbol sizing word */
+#define Id(symIdx)      ((symIdx) - 1) /* index to symbol id word */
+#define Hash(symIdx)    ((symIdx) - 2) /* index to symbol hash word */
 
 inline unsigned iabs(int a) {
     return a < 0 ? -a : a;
@@ -618,13 +626,11 @@ inline int symType(int i) {
 }
 char b32Digit(int ch);
 
-int symtop = 120;
 int symloc;
 int symlen;
-int symcnt = 23;
-int acnt   = 0;
+int acnt = 0;
 /* cntrl */
-int contrl[64 + 1];
+int contrl[26];
 /* _data */
 enum { OPR = 0, ADR, VLU, DEF, LIT, LIN };
 // clang-format off
@@ -637,8 +643,6 @@ enum {
     HIV, LOV, CVA, ORG, DRT, ENA, DIS, AX1, AX2, AX3
 };
 // clang-format on
-/* types */
-enum { VARB = 1, INTR, PROC, LABEL, LITER, NUMBER };
 
 const int VERS = 40;
 /* inter */
@@ -897,6 +901,7 @@ const uint8_t hdtb[]  = { 0,  84,  84,  84,  84,  73,  73,  73,  84,  73,  91, 9
                           61, 61,  61,  61,  75,  82,  73,  75,  82,  102, 71, 99, 71,  99,  76,
                           79, 96,  75,  65,  98,  106, 59,  101, 101, 101, 91, 65, 100, 100, 102,
                           93, 89,  89,  72,  72,  104, 104, 95,  95 };
+
 const uint8_t prlen[] = { 0, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 3,
                           3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 3, 3, 3, 3, 3, 3, 2, 2, 2,
                           2, 2, 1, 1, 1, 2, 1, 2, 1, 1, 1, 3, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1,
@@ -910,7 +915,9 @@ const uint8_t contc[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
                           0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
 const uint8_t leftc[] = { ZPAD, 105, 4, 42, 94, 85 };
+
 const uint8_t lefti[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
                           1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 5,
                           5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
@@ -924,11 +931,9 @@ const uint8_t prind[] = { 1,   21,  28,  35,  42,  44,  48,  49,  51,  51,  51, 
                           112, 112, 112, 112, 112, 115, 115, 117, 117, 117, 117, 119, 119, 119,
                           120, 121, 123, 125, 127, 127, 127, 129, 129 };
 
-int nt                = 50;
-int vil               = 12;
-// const int nc1tri = sizeof(c1tri) / sizeof(c1tri[0]) - 2;    // - ZPAD - 1
+int const nt          = 50;
 
-#define PACK   5 // number of packed chars per int
+#define PACK   4 // number of packed chars per int
 #define MAXBLK 30
 int token = 0;
 /* blk */
@@ -959,15 +964,8 @@ int obp  = 0;
 int inSP = 0;
 FILE *instk[7 + 1];
 
-char itran[256];
-// translate internal to char. Note otran[ch - 1] to map SPACE to 0
-const uint8_t otran[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$=./()+-'*,<>:;            ";
-const char digits[]   = "0123456789ABCDEFGHIJKLMNOPQRSTUV";
-/*     translation table from internal to ascii*/
-const uint8_t ascii[64] = { 32, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69,
-                            70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
-                            86, 87, 88, 89, 90, 36, 61, 46, 47, 40, 41, 43, 45, 39, 42, 44,
-                            60, 62, 58, 59, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 };
+const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUV";
+
 /* scanc */
 int acclen;
 #define MAXSTR 4096
@@ -976,13 +974,9 @@ int accumIVal = 0;
 enum { EOFLAG = 1, IDENT, NUMB, SPECL, STR };
 const int CONT = 1;
 /* hash */
-int hentry[127 + 1] = { ZPAD, 0,  54, 0, 0, 0,  0,  112, 0,  106, 0,   0, 0,  28, 0,  0, 0, 90, 0,
-                        0,    49, 0,  0, 0, 0,  0,  96,  0,  0,   101, 0, 0,  0,  0,  0, 0, 0,  0,
-                        0,    0,  0,  0, 0, 0,  0,  0,   0,  0,   0,   0, 84, 0,  0,  0, 0, 0,  0,
-                        0,    0,  34, 0, 0, 0,  0,  0,   0,  0,   59,  0, 0,  0,  0,  0, 0, 0,  0,
-                        0,    11, 0,  0, 0, 79, 64, 1,   0,  0,   0,   0, 0,  0,  0,  0, 0, 0,  0,
-                        0,    0,  0,  0, 0, 0,  0,  0,   0,  6,   0,   0, 0,  0,  74, 0, 0, 0,  69,
-                        16,   0,  0,  0, 0, 0,  0,  0,   22, 0,   39,  0, 0,  0 };
+
+int hentry[128];
+
 int hcode;
 
 /* function declarations */
@@ -1002,21 +996,17 @@ void scan();
 int wrdata(const int sy);
 void dumpch();
 void synth(const int prod, const int symm);
-int gncSkipNL();
 int gnc();
 void parseOptions(uint8_t *s);
-void writel();
 void decibp();
 int conv(int radix);
 int imin(const int i, const int j);
-void Printf(char *fmt, ...); // ascii version using printf formats
-void putch(const int chr);
 void stackc(char *fname);
 void enterb();
 void dumpin();
 // void error(const int i, const int level);
-void nonFatal(char *errStr);
-void fatal(char *errStr);
+void error(char const *fmt, ...);
+void fatal(char *fmt, ...);
 // int shr(const int i, const int j);
 // int shl(const int i, const int j);
 int right(const int i, const int j);
@@ -1024,89 +1014,33 @@ void sdump();
 void redpr(const int prod, const int sym);
 void emit(const int val, const int typ);
 void cmpuse();
+void install();
 
-// clang-format off
-enum {
-    SPACE = 1,
-    ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,
-    CHA, CHB, CHC, CHD, CHE, CHF, CHG, CHH, CHI, CHJ,
-    CHK, CHL, CHM, CHN, CHO, CHP, CHQ, CHR, CHS, CHT,
-    CHU, CHV, CHW, CHX, CHY, CHZ,
-    DOLLAR, EQUALS, DOT, SLASH, LPAREN, RPAREN, PLUS, MINUS,
-    QUOTE, STAR, COMMA, LESS, GREATER, COLON, SEMICOLON
-};
-// clang-format on
+int errorCnt;
+#define C_ANALYZE  contrl['A' - 'A'] // action/reduction trace
+#define C_BYPASS   contrl['B' - 'A'] // bypass stack dump on error
+#define lineCnt    contrl['C' - 'A'] // line count start value
+#define C_DELETE   contrl['D' - 'A'] // max listing line length
+#define C_GENERATE contrl['G' - 'A'] // show intermediate code generation
+#define C_MEMORY   contrl['M' - 'A'] // dump symbol table (0 = no, 1 = yes)
+#define C_PRINT    contrl['P' - 'A'] // controls printing on lst file
+#define C_SYMBOLS  contrl['S' - 'A'] // control symbol dump
+#define C_UPPER    contrl['U' - 'A'] // convert string text to upper case
+#define C_VWIDTH   contrl['V' - 'A'] // symbol file line width
+#define C_WIDTH    contrl['W' - 'A'] // listing file width
 
-void dumpTable() {
-    FILE *fp = fopen("sym.dmp", "at");
-    for (int j = 1; j <= symtop; j++) {
-        fprintf(fp, "%d,%c", symbol[j], (j % 6) == 0 ? '\n' : ' ');
-    }
-    fprintf(fp, "\nentry=%d\n\n", symtop);
-    fclose(fp);
-}
-
-/*     syntax analyzer tables */
-/*      global tables */
-/*     global variables */
-/*     the following scanner commands are defined */
-/*     analyze = i      (12)  print syntax analysis trace */
-/*     bypass           (13)  bypass stack dump on error */
-/*     count = i        (14)  begin line count at i */
-/*     delete = i       (15) */
-/*     eof              (16) */
-/*     generate         (18) */
-/*     input = i        (20) */
-/*     jfile (code)= i  (21) */
-/*     kwidth (cd)= i   (22) */
-/*     leftmargin = i   (23) */
-/*     memory = i       (24) */
-/*     output = i       (26) */
-/*     print (t or f)   (27) */
-/*     rightmarg = i    (29) */
-/*     symbols          (30) */
-/*     terminal         (31) (0=batch, 1=term, 2=interlist) */
-/*     usymbol = i      (32) */
-/*     vwidth (sym) = i (33) */
-/*     width = i        (34) */
-/*     ypad = n         (36)  blank pad on output */
-/*     contrl(1) is the error count */
-#define errorCnt   contrl[1]
-#define C_ANALYZE  contrl[CHA] // action/reduction trace
-#define C_BYPASS   contrl[CHB] // bypass stack dump on error
-#define lineCnt    contrl[CHC]
-#define C_DELETE   contrl[CHD] // max listing line length
-// #define C_EOF       contrl[CHE] // not used
-#define C_GENERATE contrl[CHG] // show intermediate code generation
-// #define C_INPUT     contrl[CHI] // current input file (no)
-#define C_JFILE    contrl[CHJ] // pol file number (no)
-// #define C_KWIDTH    contrl[CHK] // no longer used pol file is binary
-// #define C_LEFTMARG  contrl[CHL] // to remove
-#define C_MEMORY   contrl[CHM] // dump symbol table (0 = no, 1 = yes)
-// #define C_OUTPUT    contrl[CHO] // current lst file (no)
-#define C_PRINT    contrl[CHP] // controls printing on lst file
-// #define C_RIGHTMARG contrl[CHR] // to remove
-#define C_SYMBOLS  contrl[CHS] // control symbol dump
-#define C_TERMINAL contrl[CHT] // probably better handled with isatty
-// #define C_USYMBOL   contrl[CHU] // symbol file (no)
-#define C_VWIDTH   contrl[CHV] // symbol file line width
-#define C_WIDTH    contrl[CHW] // listing file width
-#define C_YPAD     contrl[CHY] // leading line pad for listing file - to remove
 
 /*
  file management is changed from the original cross compiler
  If the user specifies a file, its name prefix is used to create other files, otherwise the
- files are opened/created using the numeric values specified in the control table
- srcFp   - uses file.plm or fort.nn - where nn = control[C_INPUT]
- polFp   - creates file.pol or fort.nn where nn = control[C_JFILE + 10]
- symFp   - creates file.sym or fort.nn where nn = control[C_USYMBOL + 10]
- lstFp   - creates file.lst or fort.nn where nn = control[C_OUTPUT + 10]
+ input is assumed to be from stdin and the other files have a prefix "stdin"
+ srcFp   - uses specfied file, adding .plm if there is no extent
+ polFp   - creates prefix.pol
+ symFp   - creates prefix.sym
+ lstFp   - creates prefix.lst
 
  To support include files $I=filename can be used with the previous file being stacked
- Note if filename is a number, it is assumed to be a fort.nn file if number is != 1
- if 1 it is assumed to be stdin
- To avoid conflict with other file names defined by the control table, except for stdin (1),
- it is recommended to use a file number > 20 for include files.
+ Note a .plm extension is used if no extension is given
 
 */
 FILE *srcFp;
@@ -1129,6 +1063,27 @@ char *makeFileName(char const *fname, char const *ext, bool force) {
     return path;
 }
 
+void openfiles(char *srcFile) {
+
+    if (!(srcFp = fopen(makeFileName(srcFile, ".plm", false), "rt"))) {
+        fprintf(stderr, "can't open source file %s\n", path);
+        exit(1);
+    }
+
+    if (!(polFp = fopen(makeFileName(srcFile, ".pol", true), "wb"))) {
+        fprintf(stderr, "can't create pol file %s\n", path);
+        exit(1);
+    }
+    if (!(symFp = fopen(makeFileName(srcFile, ".sym", true), "wt"))) {
+        fprintf(stderr, "can't create symbol file %s\n", path);
+        exit(1);
+    }
+    if (!(lstFp = fopen(makeFileName(srcFile, ".lst", true), "wt"))) {
+        fprintf(stderr, "can't create listing file %s\n", path);
+        exit(1);
+    }
+}
+
 void closefiles() {
     while (inSP > 0) {
         fclose(srcFp);
@@ -1136,97 +1091,65 @@ void closefiles() {
     }
     if (srcFp != stdin)
         fclose(srcFp);
-    if (polFp)
-        fclose(polFp);
-    if (symFp)
-        fclose(symFp);
-    if (lstFp)
-        fclose(lstFp);
+    fclose(polFp);
+    fclose(symFp);
+    fclose(lstFp);
 }
 
 int main(int argc, char **argv) {
 
     CHK_SHOW_VERSION(argc, argv);
 
-    if (argc > 2 || (argc == 2 && strcasecmp(argv[1], "-h") == 0)) {
-        printf("\nUsage: plm81 -v | -V  | -h | [plmfile]\n"
+    if (argc != 2 || strcmp(argv[1], "-h") == 0) {
+        printf("\nUsage: plm81 -v | -V  | -h | srcfile\n"
                "Where\n"
                "-v/-V      provide version infomation\n"
                "-h         shows this help\n"
-               "plmfile    is the source file, of the form prefix.ext e.g. m80.plm\n"
-               "           intermediate files prefix.lst, prefix.pol, prefix.sym are created\n\n"
-               "If plmfile is not specified, source is taken from fort.2\n"
-               "the created files are fort.12 (lst), fort.16 (pol) file and fort.17 (sym)\n");
+               "srcfile    is the source file, of the form prefix.ext e.g. m80.plm\n"
+               "           intermediate files prefix.lst, prefix.pol, prefix.sym are created\n"
+               "           if no srcfile does not have an extension, .plm is added\n");
         exit(0);
     }
 
-    for (int i = 1; i <= 64; i++)
+    for (int i = 0; i < 26; i++)
         contrl[i] = -1;
-    errorCnt  = 0;
-    C_ANALYZE = 0;
-    C_BYPASS  = 1;
-    lineCnt   = 0;
-    C_DELETE  = 132; /* changed from original 120 */
-    // C_EOF       = 0; // not used
+    errorCnt   = 0;
+    C_ANALYZE  = 0;
+    C_BYPASS   = 1;
+    lineCnt    = 0;
+    C_DELETE   = 132; /* changed from original 120 */
     C_GENERATE = 0;
-    // C_INPUT    = 2;
-    // C_JFILE    = 6;
-    // C_KWIDTH    = 72;
-    // C_LEFTMARG  = 1; // left margin on input file - to remove
-    C_MEMORY = 1; // dump symbol table (0 = no, 1 = yes)
-    // C_OUTPUT    = 2; /* changed from original 1 */
-    C_PRINT = 1; // print on 1 else off
-    // C_RIGHTMARG = 120;
+    C_MEMORY   = 1; // dump symbol table (0 = no, 1 = yes)
+    C_PRINT    = 1; // print on 1 else off
     C_SYMBOLS  = 0;
-    C_TERMINAL = 1;
-    // C_USYMBOL   = 7;
-    C_VWIDTH = 72;
-    C_WIDTH  = 132; /* changed from original 132 */
-    C_YPAD   = 1;
+    C_UPPER    = 0;
+    C_VWIDTH   = 72;
+    C_WIDTH    = 132; /* changed from original 132 */
 
-    if (argc > 1) {
+    openfiles(argv[1]);
 
-        plmFile = argv[1];
+    install();
 
-        if (!(srcFp = fopen(makeFileName(plmFile, ".plm", false), "rt"))) {
-            fprintf(stderr, "can't open source file %s\n", path);
-            exit(1);
-        }
-    } else {
-        plmFile = "stdin";
-        srcFp   = stdin;
-    }
-    // setup input translation table
-    memset(itran, SPACE, 256);
-    for (int i = SPACE - 1; i < SEMICOLON; i++) {
-        itran[otran[i]] = i + 1;
-        if (isalpha(otran[i]))
-            itran[tolower(otran[i])] = i + 1;
-    }
     time_t now;
     time(&now);
-    Printf("\n         pl/m-8080  version 4.0 - %s\n", ctime(&now));
-    for (int i = 1; i <= 3; i++)
-        pstack[i] = 0;
-    pstack[4] = EOFILE;
-    sp        = 4;
+    fprintf(lstFp, "\n         pl/m-8080  version 4.0 - %s\n", ctime(&now));
+
+    sp         = 4;
+    pstack[sp] = EOFILE;
+
     scan();
     cloop();
     emit(NOP, OPR); // mark end
 
-    writel();
-    char cnt[8] = "\nNO";
+  
+    char cnt[8] = "NO";
     if (errorCnt)
-        sprintf(cnt + 1, "%d", errorCnt);
-    Printf("%s PROGRAM ERROR%s\n \n", cnt, errorCnt != 1 ? "S" : "");
-    if (lstFp != stdout && isatty(fileno(lstFp)))
-        ;
-    printf("%s PROGAM ERROR%s\n\n", cnt, errorCnt != 1 ? "S" : "");
+        sprintf(cnt, "%d", errorCnt);
+    fprintf(lstFp, "\n\n%s PROGRAM ERROR%s\n\n", cnt, errorCnt != 1 ? "S" : "");
+    printf("%s PROGRAM ERROR%s\n\n", cnt, errorCnt != 1 ? "S" : "");
 
     dumpsy();
-    /*     may want a symbol table for the simulator */
-    if (C_MEMORY == 0)
-        symbol[2] = 0;
+
     dumpch();
     dumpin();
     closefiles();
@@ -1256,7 +1179,7 @@ void dumpsym(int idx) {
             for (int i = 0; i < ints; i++) {
                 int packed = symbol[SymInts(idx) + i];
                 for (int j = 0; j < PACK && cnt++ < len; j++)
-                    putc(otran[(packed >> (24 - j * 6)) & 0x3f], stderr);
+                    putc((packed >> (24 - j * 8)) & 0xff, stderr);
             }
             fputs("', ", stderr);
         } else
@@ -1289,7 +1212,6 @@ void exitb() {
     /*     goes through here upon block exit */
     /*      global tables */
     if (curblk > 2) {
-        bool erred = false;
         int i      = block[curblk];
         /* de-allocate those macro definitions whose scope we are leaving,
          * and check if any of these are currently in expansion.
@@ -1307,20 +1229,18 @@ void exitb() {
                         if (info_prec(symIdx) == 0) {
                             if (type == LABEL && curblk > 1) // labels may be non local
                                 continue;                    // only fail if not defined at all
-                            if (!erred) {
-                                nonFatal("1: undefined symbols");
-                                erred = true;
-                            }
-                            Printf("\n     ");
-                            int n;
-                            if ((n = symbol[Sym(symIdx)]) != 0) {
-                                for (int j = 1; j <= n; j++) {
-                                    int len = symbol[Info(symIdx) + j];
-                                    for (int i = 1; i <= PACK; i++)
-                                        putch(otran[(len >> (30 - i * 6)) & 0x3f]);
+                            char name[64];
+                            char *s = name;
+                            int n   = sym_ints(symIdx);
+                            if (n) {
+                                for (int j = 0; j < n; j++) {
+                                    int packed = symbol[SymInts(symIdx) + j];
+                                    for (int i = 0; i < PACK; i++)
+                                        *s++ = (packed >> (24 - i * 8)) & 0xff;
                                 }
-                                putch('\n');
                             }
+                            *s = '\0';
+                            error("1: undefined symbol '%s'", name);
                         }
                     }
                     symbol[Sym(symIdx)] = -symbol[Sym(symIdx)]; // negate length fields
@@ -1348,6 +1268,31 @@ void exitb() {
     }
 }
 
+int packVarc(int loc, int len) {
+    /*     pack varc into varc[loc] */
+    /*     varc is in internal format */
+    /*     varc[loc] is the start of the packed data */
+    /*     len is the number of characters to pack */
+    /* convert varc to internal format */
+    int dstIdx = 0;
+    int shift  = PACK * 8;
+    int m      = 0;
+   
+    for (int srcIdx = 0; srcIdx < len; srcIdx++) {
+        if ((shift -= 8) < 0) {
+            varc[loc + dstIdx++] = m;
+            m                    = 0;
+            shift                = PACK * 8 - 8;
+        }
+        m += (varc[loc + srcIdx] << shift);
+    }
+    varc[loc + dstIdx] = m;
+    /*     varc is now in packed form ready for lookup */
+    /*     compute hash code (reduce numbers mod 127, use first 5 chars of */
+    /*     identifiers and strings ) */
+    return varc[loc]; // first packed word is used for hash code
+}
+
 int lookup(const int iv) {
     /*     jp is identifier, m is variable, LABEL, or procedure. */
     /*     syntax analyzer tables */
@@ -1355,32 +1300,9 @@ int lookup(const int iv) {
 
     symlen = var[iv].len;
     symloc = var[iv].loc;
-    /* convert varc to internal format */
-    for (int i = symloc; i < symloc + symlen; i++)
-        varc[i] = itran[varc[i]];
 
-    if (pstack[iv] == NUMBV)
-        hcode = fixv[iv] % 127 + 1; // hash code for numbers
-    else {
-        if (varc[symloc] <= 52) {
-            int dstIdx = symloc;
-            int shift  = PACK * 6;
-            int m      = 0;
-            for (int srcIdx = symloc; srcIdx < symloc + symlen; srcIdx++) {
-                if ((shift -= 6) < 0) {
-                    varc[dstIdx++] = m;
-                    m              = 0;
-                    shift          = PACK * 6 - 6;
-                }
-                m += ((varc[srcIdx] - 1) << shift);
-            }
-            varc[dstIdx] = m;
-        }
-        /*     varc is now in packed form ready for lookup */
-        /*     compute hash code (reduce numbers mod 127, use first 5 chars of */
-        /*     identifiers and strings ) */
-        hcode = varc[symloc] % 127 + 1; // hash code for identifiers and strings
-    }
+    hcode  = (pstack[iv] == NUMBV ? fixc[iv] : packVarc(symloc, symlen)) % 127 + 1; // hash code
+
     /*     hcode is in the range 1 to 127 */
     // hentry items point to hash chain, symbol base is +2 from this
     int intCnt = (symlen - 1) / PACK + 1;
@@ -1446,6 +1368,16 @@ int enter(int info) {
     return symIdx;
 }
 
+void install() {
+    symloc = 0;
+    for (int i = 0; i < ASIZE(builtins); i++) {
+        for (symlen = 0; builtins[i].name[symlen]; symlen++)
+            varc[symlen] = builtins[i].name[symlen];
+        hcode = packVarc(0, symlen) % 127 + 1; // hash code
+        enter(builtins[i].info);
+    }
+}
+
 void putSym(char ch) {
     static char symline[120];
     static uint8_t pos;
@@ -1492,53 +1424,46 @@ void dumpsy() {
 #endif
     ic = C_SYMBOLS;
     if (ic != 0) {
-        writel();
         if (ic > 1)
-            Printf("\nSYMBOL  ADDR WDS CHRS   LENGTH PR TY");
+            fprintf(lstFp, "\nSYMBOL  ADDR WDS CHRS   LENGTH PR TY");
         for (i = symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
             /*     quick check for zero length name */
             int symIdx = i + 1;
             if (ic >= 2 || sym_len(symIdx) > 0)
-                Printf("\nS%05d", id_num(symIdx));
+                fprintf(lstFp, "S%05d", id_num(symIdx));
 
             if (ic >= 2) {
-                Printf("%c ", symbol[symIdx] < 0 ? '*' : ' '); // * if now out of scope
-
-                Printf("%04d %3d %4d ", symIdx, sym_ints(symIdx), sym_len(symIdx));
-
-                Printf("%c ", symbol[Info(symIdx)] < 0 ? 'B' : 'R'); // based or regular
-                Printf("%06d%3d%3d", info_len(symIdx), info_prec(symIdx), info_type(symIdx));
+                fprintf(lstFp, "%c ", symbol[symIdx] < 0 ? '*' : ' '); // * if now out of scope
+                fprintf(lstFp, "%04d %3d %4d ", symIdx, sym_ints(symIdx), sym_len(symIdx));
+                fprintf(lstFp, "%c ", symbol[Info(symIdx)] < 0 ? 'B' : 'R'); // based or regular
+                fprintf(lstFp, "%06d%3d%3d", info_len(symIdx), info_prec(symIdx),
+                        info_type(symIdx));
             }
-            putch(' ');
+            putc(' ', lstFp);
             ip = Info(symIdx);
             n  = sym_ints(symIdx);
             if (n != 0) { // has size
                 mc       = sym_len(symIdx);
                 int type = info_type(symIdx);
                 if (type == LITER)
-                    putch('\'');
+                    putc('\'', lstFp);
                 for (int i = 1; i <= n; i++) {
                     int packed = symbol[i + ip];
                     for (lp = 0; lp < PACK && mc-- > 0; lp++)
-                        putch(otran[(packed >> (24 - lp * 6)) & 0x3f]);
+                        putc((packed >> (24 - lp * 8)) & 0xff, lstFp);
                 }
                 if (type == LITER)
-                    putch('\'');
+                    putc('\'', lstFp);
             }
             ip += n;
             if (ic >= 2)
                 while (++ip < it) {
                     k = symbol[ip];
-                    Printf(" %c%08XH", (k < 0) ? '-' : ' ', iabs(k));
+                    fprintf(lstFp, " %c%08XH", (k < 0) ? '-' : ' ', iabs(k));
                 }
+            putc('\n', lstFp);
         }
-        writel();
-    }
-    writel();
-
-    if (!symFp && !(symFp = fopen(makeFileName(plmFile, ".sym", true), "wt"))) {
-        fprintf(stderr, "can't create sym file %s\n", path);
-        exit(1);
+        putc('\n', lstFp);
     }
 
     /*     write the interrupt procedure names */
@@ -1639,8 +1564,8 @@ bool stack(/*const int q */) {
         switch (getc1(pstack[sp], token)) {
         case 0:
             /*     illegal symbol pair */
-            nonFatal("3: invalid PL/M statement. Two symbols below not allowed together");
-            Printf("\n%s %s", tokens[pstack[sp]], tokens[token]);
+            error("3: invalid PL/M statement. %s & %s not allowed together", tokens[pstack[sp]],
+                     tokens[token]);
             sdump();
             recov();
             /*     recover may have set compiling false */
@@ -1700,7 +1625,7 @@ void reduce() {
         }
     }
     /*     no applicable production */
-    nonFatal("4: badly formed PL/M statement");
+    error("4: badly formed PL/M statement");
     failsf = false;
     sdump();
     recov();
@@ -1761,11 +1686,11 @@ int getc1(int stackItem, int token) {
 
 void scan() {
 
-
     /*      global tables */
     /*     scan finds the next entity in the input stream */
     /*     the resulting item is placed into accum (of length */
     /*     acclen).  token is set to  the item found */
+    bool warned = false;
 
     for (;;) {
         failsf = true;
@@ -1780,7 +1705,15 @@ void scan() {
         if (isdigit(ch)) { /*     number */
             token = NUMBV;
             for (;;) {
-                accum[acclen++] = ch;
+                if (acclen < MAXSTR)
+                    accum[acclen++] = ch;
+                else {
+                    accum[acclen - 1] = ch; // allows for radix test
+                    if (!warned) {
+                        warned = true;
+                        error("xx: numeric string too long");
+                    }
+                }
                 while ((ch = gnc()) == '$') // gobble $ in number
                     ;
                 ch = toupper(ch);
@@ -1805,18 +1738,20 @@ void scan() {
                 decibp();
             }
             accumIVal = 0;
+            if (warned)
+                return;
             for (int i = 0; i < acclen; i++) {
                 uint8_t digit = accum[i];
                 digit         = isdigit(digit) ? digit - '0' : digit - 'A' + 10;
                 if (digit >= radix || (accumIVal = accumIVal * radix + digit) >= 0x10000) {
-                    nonFatal("6: number conversion error");
+                    error("6: number conversion error");
                     accumIVal = 0;
                     break;
                 }
             }
             return;
         } else if (isalpha(ch)) { // alpha character
-            token = IDENTV;         /*     identifier */
+            token = IDENTV;       /*     identifier */
             while (isalnum(ch)) {
                 if (acclen < 32)
                     accum[acclen++] = toupper(ch);
@@ -1828,10 +1763,22 @@ void scan() {
             if (ch == '\'') {      // quote
                 token = STRV;
                 for (;;) {
-                    ch = gncSkipNL(/*0 */);
-                    if (ch == '\'' && (ch = gncSkipNL()) != '\'') // end quote or double quote
-                        break;
-                    accum[acclen++] = ch; // stuff char (double quote reduced to single)
+                    while ((ch = gnc()) == '\n') // ignore nl
+                        ;
+                    if (ch == '\'') {
+                        while ((ch = gnc()) == '\n') // allow '' to straddle line break
+                            ;
+                        if (ch != '\'') // nope wasn't '' so we have all of the string
+                            break;
+                    }
+                    if (ch < ' ')
+                        ch = ' ';
+                    if (acclen < MAXSTR)
+                        accum[acclen++] = C_UPPER ? toupper(ch) : ch; // stuff char (double quote reduced to single)
+                    else if (!warned) {
+                        error("xx: string too long, possibly missing closing quote");
+                        warned = true;
+                    }
                 }
                 decibp(); // backup one
                 return;
@@ -1874,10 +1821,8 @@ void scan() {
             return;
         // if its a single character then its spurious
         if (token == 0) {
-            Printf("'%c' ", accum[0]);
-            nonFatal("8: illegal symbol");
+            error("8: illegal symbol");
         }
-    
     }
 }
 
@@ -1922,14 +1867,14 @@ int wrdata(const int sy) {
             if (lp % PACK == 0) {
                 uint32_t m = symbol[SymInts(symIdx) + lp / PACK];
                 for (int i = PACK - 1; i >= 0; i--) {
-                    unpacked[i] = m & 0x3f; // unpack the 6 bits
-                    m >>= 6;                // shift right
+                    unpacked[i] = m & 0xff; // unpack the 6 bits
+                    m >>= 8;                // shift right
                 }
             }
             if (dflag) /*     write out the variable or LABEL name */
-                putSym(otran[unpacked[lp % PACK]]);
+                putSym(unpacked[lp % PACK]);
             else {
-                uint8_t i = ascii[unpacked[lp % PACK]];
+                uint8_t i = unpacked[lp % PACK];
                 /*    write out both hex values */
                 if (sy < 0) /*     emit string data inline */
                     emit(i, LIT);
@@ -1941,13 +1886,11 @@ int wrdata(const int sy) {
     return len;
 }
 
-
 void dumpch() {
     /*     dump the symbolic names for the simulator */
-    writel();
 
     putSym('/');
-    if (symbol[2]) {
+    if (C_MEMORY) {
         int i = 2;
         for (int symNumber = 1; i; symNumber++, i = symbol[i]) {
             int symIdx = i + 1;
@@ -1993,7 +1936,7 @@ void synth(const int prod, const int symm) {
     switch (prod) {
     case 1: // <PROGRAM> ::= <STATEMENT LIST>
         if (mp != 5)
-            nonFatal("10: invalid program. Possibly missing END");
+            error("10: invalid program. Possibly missing END");
         compil = false;
         exitb();
         return;
@@ -2023,7 +1966,7 @@ void synth(const int prod, const int symm) {
     case 8:  // <BASIC STATEMENT> ::= <PROCEDURE DEFINITION> ';'
     case 12: // <BASIC STATEMENT> ::= <DECLARATION STATEMENT> ';'
         if (dopar[curblk].type != DO_GROUP)
-            nonFatal("11: invalid declaration");
+            error("11: invalid declaration");
         return;
     case 13: // <BASIC STATEMENT> ::= HALT ';'
         emit(HAL, OPR);
@@ -2064,7 +2007,7 @@ void synth(const int prod, const int symm) {
         return;
     case 23: // <GROUP> ::= <GROUP HEAD> <ENDING>
         if (fixv[sp] > 0)
-            nonFatal("12: improper yse of identifier following END");
+            error("12: improper yse of identifier following END");
         else if (fixc[sp] < 0)
             fixc[mp] = 0;
 
@@ -2197,7 +2140,7 @@ void synth(const int prod, const int symm) {
         if (j < 0)
             j = -j + 1;
         if (j != 0 && right(fixv[mp], 15) != j)
-            nonFatal("13: identifier following END does not match");
+            error("13: identifier following END does not match");
         emit(END, OPR);
         /*     emit a ret just in case he forgot it */
         emit(DRT, OPR);
@@ -2221,13 +2164,13 @@ void synth(const int prod, const int symm) {
         /*     get interrupt number */
         j = fixv[sp - 1];
         if (j > 7)
-            nonFatal("39: invalid interrupt number");
+            error("39: invalid interrupt number");
         else {
             k = intpro[++j];
             if (k <= 0)
                 intpro[j] = i;
             else
-                nonFatal("40: duplicate interrupt procedure");
+                error("40: duplicate interrupt procedure");
         }
         procHead(1, 0, 0);
         return;
@@ -2235,7 +2178,7 @@ void synth(const int prod, const int symm) {
              /* check for numeric label */
         if (fixc[mp] >= 0) {
             fixv[mp] = fixc[mp];
-            nonFatal("48: invalid procedure name");
+            error("48: invalid procedure name");
         }
         enterb();
         emit(ENP, OPR);
@@ -2244,7 +2187,7 @@ void synth(const int prod, const int symm) {
     case 43: // <PARAMETER HEAD> ::= <PARAMETER HEAD> <IDENTIFIER> ','
         symIdx = lookup(sp - 1);
         if (symIdx >= blksym)
-            nonFatal("14: duplicate formal parameter name");
+            error("14: duplicate formal parameter name");
         enter(MkInfo(0, 0, VARB));
         fixv[mp]++;
         return;
@@ -2258,7 +2201,7 @@ void synth(const int prod, const int symm) {
     case 45: // <ENDING> ::= END <IDENTIFIER>
         exitb();
         if (!(symIdx = lookup(sp)))
-            nonFatal("15: identifier following END not found");
+            error("15: identifier following END not found");
         fixv[mp] = symIdx;
         return;
     case 46: // <ENDING> ::= <LABEL DEFINITION> <ENDING>
@@ -2274,7 +2217,7 @@ void synth(const int prod, const int symm) {
             symIdx = enter(MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, LABEL));
         else {
             if (info_prec(symIdx)) {
-                nonFatal("16: duplicate LABEL definition in block");
+                error("16: duplicate LABEL definition in block");
                 symbol[Info(symIdx)] &= ~(0xF << 4); // clear the prec bits
             }
             // set the prec bits
@@ -2289,7 +2232,7 @@ void synth(const int prod, const int symm) {
     case 48: // <LABEL DEFINITION> ::= <NUMBER> ':'
         k = fixv[mp];
         if (k > 65535)
-            nonFatal("17: numeric LABEL too big");
+            error("17: numeric LABEL too big");
         else {
             if ((symIdx = lookup(mp)) == 0)
                 /*     enter number */
@@ -2304,16 +2247,16 @@ void synth(const int prod, const int symm) {
     case 49: // <RETURN STATEMENT> ::= RETURN
         emit(0, LIT);
         if (proctp[curblk] == 2)
-            nonFatal("45: missing return value for typed procedure");
+            error("45: missing return value for typed procedure");
         else if (proctp[curblk] == 0)
-            nonFatal("46: return outside procedure definition");
+            error("46: return outside procedure definition");
         emit(RET, OPR);
         return;
     case 50: // <RETURN STATEMENT> ::= RETURN <EXPRESSION>
         if (proctp[curblk] == 1)
-            nonFatal("44: return value invalid for untyped procedure");
+            error("44: return value invalid for untyped procedure");
         else if (proctp[curblk] == 0)
-            nonFatal("46: return outside procedure definition");
+            error("46: return outside procedure definition");
         emit(RET, OPR);
         return;
     case 51: // <CALL STATEMENT> ::= CALL <VARIABLE>
@@ -2330,7 +2273,7 @@ void synth(const int prod, const int symm) {
                 return;
             }
         }
-        nonFatal("18: invalid CALL statement");
+        error("18: invalid CALL statement");
         return;
     case 52: // <GO TO STATEMENT> ::= <GO TO> <IDENTIFIER>
         if ((symIdx = lookup(sp)) == 0)
@@ -2343,12 +2286,12 @@ void synth(const int prod, const int symm) {
             emit(id_num(symIdx), VLU);
             emit(TRA, OPR);
         } else
-            nonFatal("19: invalid destination for GOTO");
+            error("19: invalid destination for GOTO");
         return;
     case 53: // <GO TO STATEMENT> ::= <GO TO> <NUMBER>
         k = fixv[sp];
         if (k > 65535) {
-            nonFatal("17: numeric LABEL too big");
+            error("17: numeric LABEL too big");
         } else {
             if ((symIdx = lookup(sp)) == 0)
                 /*     enter number */
@@ -2386,7 +2329,7 @@ void synth(const int prod, const int symm) {
         emit(TRA, OPR);
         fixv[mp] = (j << 16);
         if (lookup(mp - 1) > blksym)
-            nonFatal("22: duplicate variable declaration");
+            error("22: duplicate variable declaration");
         /*     set precision of inline data to 3 */
         symIdx       = enter(MkInfo(0, P_INLINE, VARB));
         fixv[mp - 1] = symIdx;
@@ -2403,7 +2346,7 @@ void synth(const int prod, const int symm) {
             ip         = symbol[Info(symIdx)];
             if (k == P_LABEL) {
                 if (ip != VARB)
-                    nonFatal("21: duplicate variable or LABEL definition");
+                    error("21: duplicate variable or LABEL definition");
                 ip = LABEL;
             }
             symbol[Info(symIdx)] = MkInfo(length, k, symType(ip));
@@ -2445,7 +2388,7 @@ void synth(const int prod, const int symm) {
         if (symIdx <= blksym)
             symIdx = enter(MkInfo(0, 0, VARB));
         else if ((symbol[Info(symIdx)] & 0xff) != VARB)
-            nonFatal("24: invalid variable identifier");
+            error("24: invalid variable identifier");
         fixv[mp] = symIdx;
         return;
     case 76: // <VARIABLE NAME> ::= <BASED VARIABLE> <IDENTIFIER>
@@ -2460,7 +2403,7 @@ void synth(const int prod, const int symm) {
             if (symIdx == 0)
                 symIdx = enter(MkInfo(0, 0, VARB));
             else if (info_type(symIdx) != VARB) {
-                nonFatal("26: badly formed BASED variable declaration");
+                error("26: badly formed BASED variable declaration");
                 return;
             }
 
@@ -2501,7 +2444,7 @@ void synth(const int prod, const int symm) {
             /*      check for procedure on lhs of assignment. */
             /*     ****note that this is dependent on symbol number of output=17**** */
             if (fixv[mp] == 0 && fixc[mp] != 17)
-                nonFatal("41: procedure on left-hand side of an assignment");
+                error("41: procedure on left-hand side of an assignment");
         }
         return;
     case 83: // <REPLACE> ::= '='
@@ -2511,7 +2454,7 @@ void synth(const int prod, const int symm) {
     case 86: // <EXPRESSION> ::= <VARIABLE> ':' '=' <LOGICAL EXPRESSION>
         symIdx = fixv[mp];
         if (fixv[mp] == 0)
-            nonFatal("41: procedure on left-hand side of an assignment");
+            error("41: procedure on left-hand side of an assignment");
         else if (symIdx < 0) // PMO added 'else' as symIdx = 0 will cause memory error
             emit(XCH, OPR);
         else
@@ -2634,7 +2577,7 @@ void synth(const int prod, const int symm) {
             emit(CVA, OPR);
             return;
         }
-        nonFatal("28: invalid address reference");
+        error("28: invalid address reference");
         return;
     case 117: // <PRIMARY> ::= '(' <EXPRESSION> ')'
         return;
@@ -2652,22 +2595,22 @@ void synth(const int prod, const int symm) {
         return;
     case 120: // <VARIABLE> ::= <IDENTIFIER>
         if ((symIdx = lookup(mp)) == 0) {
-            nonFatal("29: undeclared variable");
-            symIdx = enter(-MkInfo(0, 0, VARB));
+            error("29: undeclared variable");
+            symIdx = enter(MkInfo(0, 0, VARB));
         }
         fixv[mp] = symIdx;
         j        = info_type(symIdx);
         if (j == LABEL)
-            nonFatal("47: illegal use of a LABEL");
+            error("47: illegal use of a LABEL");
         if (j != PROC && j != INTR)
             return;
         if (info_len(symIdx) != 0)
-            nonFatal("38: too few parameters");
+            error("38: too few parameters");
         j = info_prec(symIdx);
         if (pstack[mp - 1] == CALLV && j != 0)
-            nonFatal("42: attempted CALL of a typed procedure");
+            error("42: attempted CALL of a typed procedure");
         if (pstack[mp - 1] != CALLV && j == 0)
-            nonFatal("43: attempted use of untyped procedure as a function or variable");
+            error("43: attempted use of untyped procedure as a function or variable");
         i        = id_num(symIdx);
         i        = ((i << 15) + i + 1);
         fixc[mp] = 0;
@@ -2688,9 +2631,9 @@ void synth(const int prod, const int symm) {
             if (fixc[mp] != 1)
                 emit(STD, OPR);
             if (iabs(fixc[mp]) == 0)
-                nonFatal("37: too many actual parameters");
+                error("37: too many actual parameters");
             if (iabs(fixc[mp]) > 1)
-                nonFatal("38: too few parameters");
+                error("38: too few parameters");
         }
         emit(i >> 15, VLU);
         fixc[mp] = i >> 15;
@@ -2699,14 +2642,14 @@ void synth(const int prod, const int symm) {
         return;
     case 122: // <SUBSCRIPT HEAD> ::= <IDENTIFIER> '('
         if ((symIdx = lookup(mp)) == 0) {
-            nonFatal("30: subscripted variable or procedure call references undeclared "
+            error("30: subscripted variable or procedure call references undeclared "
                      "identifier");
-            symIdx = enter(-MkInfo(0, 0, VARB));
+            symIdx = enter(MkInfo(0, 0, VARB));
         }
         j = info_type(symIdx);
         if (j != VARB) {
             if (j != PROC && j != INTR)
-                nonFatal("31: Identifier is improperly used as a procedure or subscripted "
+                error("31: Identifier is improperly used as a procedure or subscripted "
                          "variable");
             else {
                 fixc[mp] = info_len(symIdx);
@@ -2715,9 +2658,9 @@ void synth(const int prod, const int symm) {
                 j = info_prec(symIdx);
                 /*     in the statements below, 30 is the token for 'call' */
                 if (pstack[mp - 1] == 30 && j != 0)
-                    nonFatal("42: attempted CALL of a typed procedure");
+                    error("42: attempted CALL of a typed procedure");
                 if (pstack[mp - 1] != 30 && j == 0)
-                    nonFatal("43: attempted use of untyped procedure as a function or variable");
+                    error("43: attempted use of untyped procedure as a function or variable");
                 i        = id_num(symIdx);
                 fixv[mp] = -((i << 15) + i + 1);
                 return;
@@ -2729,13 +2672,13 @@ void synth(const int prod, const int symm) {
     case 123: // <SUBSCRIPT HEAD> ::= <SUBSCRIPT HEAD> <EXPRESSION> ','
         i = -fixv[mp];
         if (i <= 0)
-            nonFatal("32: too many subscripts. Only one allowed");
+            error("32: too many subscripts. Only one allowed");
         else {
             fixv[mp] = -(i + 1);
             j        = right(i, 15);
             emit(j, ADR);
             if (fixc[mp] == 0)
-                nonFatal("37: too many actual parameters");
+                error("37: too many actual parameters");
             else {
                 if (fixc[mp] != 2)
                     emit(STD, OPR);
@@ -2747,7 +2690,6 @@ void synth(const int prod, const int symm) {
         /*     may wish to treat this string as a constant later */
         len = var[sp].len;
         if (0 < len && len <= 2) {
-            /*         convert internal character form to ascii */
             j = var[sp].loc;
             k = varc[j];
             if (len == 2)
@@ -2771,7 +2713,7 @@ void synth(const int prod, const int symm) {
     case 126: // <TO> ::= TO
         symIdx = fixv[mp - 3];
         if (symIdx <= 0) {
-            nonFatal("33: interative DO index is invalid");
+            error("33: interative DO index is invalid");
             fixv[mp] = 1;
         } else {
             i            = id_num(symIdx);
@@ -2816,13 +2758,6 @@ void synth(const int prod, const int symm) {
 static uint8_t ibuff[INMAX + 1];
 char *ibptr = "";
 
-int gncSkipNL() {
-    int ch;
-    while ((ch = gnc()) == '\n')
-        ;
-    return ch;
-}
-
 int gnc(/*const int q */) {
     int ch;
 
@@ -2833,8 +2768,6 @@ int gnc(/*const int q */) {
 
     while (!*ibptr) {
         for (;;) {
-            if (isatty(fileno(srcFp)))
-                putchar('*'); // put a prompt
             if ((ibptr = fgets((char *)ibuff, INMAX - 1, srcFp)))
                 break; // got a line
             if (inSP < 1)
@@ -2844,7 +2777,7 @@ int gnc(/*const int q */) {
         }
         emit(++lineCnt, LIN);
         if (!strchr(ibuff, '\n')) { // gobble up rest of line
-            fprintf(stderr, "WARNING: line %d truncated\n", lineCnt);
+            fprintf(lstFp, "WARNING: line %d truncated\n", lineCnt);
             while ((ch = getc(srcFp)) != '\n' && ch != EOF)
                 ;
             strcat(ibuff, "\n"); // ensure line ends with newline
@@ -2852,13 +2785,22 @@ int gnc(/*const int q */) {
         char *s;
         if ((s = strchr(ibuff, '\r')) && s[1] == '\n')
             strcpy(s, "\n");
+        else if (!strchr(ibuff, '\n'))
+            strcat(ibuff, "\n"); // ensure line ends with newline
 
-        if (lstFp && C_PRINT != 0) {
-            Printf("\n%05d%3d %c  %s", lineCnt, curblk - 1, inSP > 0 ? '=' : ' ', ibuff);
-            if (*ibptr == '$') {
-                parseOptions(ibuff + 1); // parse the options
-                ibptr = "";
+        if (C_PRINT != 0) {
+            int column =
+                fprintf(lstFp, "%05d%3d %c  ", (uint16_t)lineCnt, curblk - 1, inSP > 0 ? '=' : ' ');
+            for (s = ibuff; *s != '\n'; s++, column++) {
+                if (column == C_DELETE - 1 && s[1] != '\n')
+                    column = fprintf(lstFp, "\\\n%12s", "");
+                putc(*s, lstFp);
             }
+            putc('\n', lstFp);
+        }
+        if (*ibptr == '$') {
+            parseOptions(ibuff + 1); // parse the options
+            ibptr = "";
         }
     }
 
@@ -2875,55 +2817,38 @@ void parseOptions(uint8_t *s) {
         int option = toupper(*s);
         while (isalpha(*s)) // skip over option long name
             s++;
-        int val = contrl[CHA + option - 'A'];
+        while (isspace(*s))
+            s++;
+        int val = contrl[option - 'A'];
         if (*s == '=') {
+            while (isspace(*++s))
+                ;
             if (option == 'I') {
-                char *incName = ++s;
-                while (!isspace(*s))
+                char *incName = s;
+                while (*s && !isspace(*s))
                     s++;
                 *s = 0;
                 if (strlen(incName) == 0)
-                    nonFatal("36: include file name missing");
+                    error("36: include file name missing");
                 else
                     stackc(incName); // push include file on stack
                 return;
             }
             val = 0;
-            while (isdigit(*++s)) // get value
-                val = val * 10 + *s - '0';
+            if (!isdigit(*s))
+                error("51: missing value after = on $ control line");
+            else
+                while (isdigit(*s)) // get value
+                    val = val * 10 + *s++ - '0';
+        } else if (option == 'I') {
+            error("36: include file name missing");
+            return;
         } else if (val == 0 || val == 1)
             val = !val; // toggle the value
         else
-            nonFatal("34: attempt to toggle non binary $ control");
-        contrl[CHA + option - 'A'] = val;
+            error("34: attempt to toggle non binary $ control");
+        contrl[option - 'A'] = val;
     }
-}
-
-void writel() {
-    int np;
-
-    np = C_YPAD - 1;
-    if (obp > np) {
-
-        if (!lstFp && !(lstFp = fopen(makeFileName(plmFile, ".lst", true), "wt"))) {
-            fprintf(stderr, "Can't create listing file %s\n", path);
-            exit(1);
-        }
-
-        while (obp > 1 && obuff[obp] == ' ') // trim off trailing spaces
-            obp--;
-
-        obp      = imin(C_DELETE, obp);
-
-        obuff[0] = ' ';
-        fwrite(obuff, sizeof(char), obp + 1, lstFp);
-        putc('\n', lstFp);
-        memset(obuff + 1, ' ', obp);
-    }
-    if (np > 0)
-        memset(obuff + 1, ' ', np); // fill with spaces
-    obp = np;
-    return;
 }
 
 void decibp() {
@@ -2933,17 +2858,6 @@ void decibp() {
 
 int imin(const int i, const int j) {
     return i < j ? i : j;
-}
-
-void Printf(char *fmt, ...) {
-    va_list args;
-    char buf[512];
-
-    va_start(args, fmt);
-    vsprintf(buf, fmt, args);
-    va_end(args);
-    for (char *s = buf; *s; s++)
-        putch(*s);
 }
 
 void stackc(char *fname) {
@@ -2958,13 +2872,6 @@ void stackc(char *fname) {
             srcFp         = incFp;
         }
     }
-}
-
-void putch(const int chr) {
-    if (chr != '\n')
-        obuff[++obp] = chr;
-    if (chr == '\n' || obp >= C_WIDTH)
-        writel();
 }
 
 char b32Digit(int ch) {
@@ -2997,15 +2904,19 @@ void dumpin() {
     if (C_SYMBOLS == 2) {
 
         for (int i = 0; i < initialDataSP;) {
-            Printf("\n \n");
-            Printf("\nSYMBOL S%05d =", initialData[i] >> 15);
+            fprintf(lstFp, "\nSYMBOL S%05d =", initialData[i] >> 15);
+            int col = 15;
             for (int jp = initialData[i++] & 0x7fff; jp > 0; jp--) {
+                if (col + 7 > C_DELETE) {
+                    fprintf(lstFp, "\n%.*s", 15, "");
+                    col = 15;
+                }
                 /*         get the symbol number */
-                Printf(" S%05d", initialData[i++] >> 16);
+                col += fprintf(lstFp, " S%05d", initialData[i++] >> 16);
             }
         }
     }
-    putch('\n');
+    putc('\n', lstFp);
     /*     ready to write the initialization table */
     putSym('/');
 
@@ -3021,38 +2932,58 @@ void dumpin() {
     return;
 }
 
-void nonFatal(char *errStr) {
-    errorCnt++;
-    Printf("\n(%05d)  ERROR %s  NEAR %.*s\n", lineCnt, errStr, acclen, &accum[1]);
+void fatal(char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(lstFp, "Fatal Error: ");
+    vfprintf(lstFp, fmt, args);
+    fprintf(lstFp, "\nCompilation Terminated\n");
+    fprintf(stderr, "Fatal Error: ");
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\nCompilation Terminated\n");
+    compil = false;
+    va_end(args);
 }
 
-void fatal(char *errStr) {
-    nonFatal(errStr);
-    // terminate compilation
-    Printf("\nCOMPILATION TERMINATED\n");
-    compil = false;
+
+void error(char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(lstFp, "(%05d) Error: ", ++errorCnt);
+    vfprintf(lstFp, fmt, args);
+    fprintf(lstFp, "  near %.*s\n", acclen, accum);
+    if (errorCnt == 100)
+        fatal("Too many errors");
+    va_end(args);
+
 }
+
 
 int right(const int i, const int j) {
     return i % (1 << j);
 }
 
+void showTopTokens(int start, int indent) {
+    int col = indent;
+    for (int i = start; i <= sp; i++) {
+        if (col + strlen(tokens[pstack[i]]) > C_DELETE)
+            col = fprintf(lstFp, "\n%.*s", indent, "") - 1;
+        col += fprintf(lstFp, " %s ", tokens[pstack[i]]);
+    }
+    putc('\n', lstFp);
+}
+
 void sdump() {
     /*     check for stack dump bypass */
     if (C_BYPASS == 0) {
-        Printf("\nPARSE STACK: ");
-        for (int i = 5; i <= sp; i++) // fortran guard not needed
-            Printf("%s ", tokens[pstack[i]]);
-        putch('\n');
+        int indent = fprintf(lstFp, "PARSE STACK:");
+        showTopTokens(5, indent);
     }
 }
 
 void redpr(const int prod, const int sym) {
-    Printf("\n%5d  %s ::=", prod, tokens[sym]);
-    for (int i = mp; i <= sp; i++)
-        Printf(" %s", tokens[pstack[i]]);
-    putch('\n');
-    return;
+    int indent = fprintf(lstFp, "%5d  %s ::=", prod, tokens[sym]);
+    showTopTokens(mp, indent);
 }
 
 void emit(const int val, const int typ) {
@@ -3080,27 +3011,22 @@ void emit(const int val, const int typ) {
     assert(val >= 0);
 
     if (C_GENERATE != 0) {
-        Printf("\n%5d %s ", polcnt, polchr[typ]);
+        fprintf(lstFp, "%5d %s ", polcnt, polchr[typ]);
         switch (typ) {
         case OPR:
-            Printf(opcval[val]);
+            fprintf(lstFp, opcval[val]);
             break;
         case ADR:
         case VLU:
         case DEF:
-            Printf("S%05d", val);
+            fprintf(lstFp, "S%05d", val);
             break;
         case LIT:
         case LIN:
-            Printf(" %05d", val);
+            fprintf(lstFp, " %05d", val);
         }
         /*     now store the polish element in the polish array. */
-
-        writel();
-    }
-    if (!polFp && !(polFp = fopen(makeFileName(plmFile, ".pol", true), "wb"))) {
-        fprintf(stderr, "can't create pol file %s\n", path);
-        exit(1);
+        putc('\n', lstFp);
     }
 
     uint16_t pol = (val << 3) + typ;
