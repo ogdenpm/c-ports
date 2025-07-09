@@ -176,197 +176,9 @@
      ------  -------------------------------------------------------------
                 i m p l e m e n t a t i o n    n o t e s
                 - - - - - - - - - - - - - -    - - - - -
-      the pl/m compiler is intended to be written in ansi standard
-      fortran - iv, and thus it should be possible to compile and
-      execute this program on any machine which supports this fortran
-      standard.  both pass-1 and pass-2, however, assume the host
-      machine word size is at least 31 bits, excluding the sign bit
-      (i.e., 32 bits if the sign is included).
-
-      the implementor may find it necessary to change the source program
-      in order to account for system dependencies.  these changes are
-      as follows
-
-      1)   the fortran logical unit numbers for various devices
-           may have to be changed in the 'gnc' and 'writel' subrou-
-           tines (see the file definitions below).
-
-       2)   the host machine may not have the pl/m 52 character set
-             0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$=./()+-'*,<>:;
-           (the last 15 special characters are
-           dollar,  equal,  period,  slash, left paren,
-           right paren, plus,   minus,  quote, asterisk,
-           comma, less-than, greater-than, colon, semi-colon)
-           in this case: case  it is necessary to change the 'otran' vector in
-           block data to a character set which the host machine supports
-
-       3)   the computed go to in 'synth' may be too long for some
-           compilers.  if you get a compilation error, break the
-           'go to' into two sections.
-
-       4)  the host fortran system may have a limitation on the number
-           of contiguous comment records (e.g. s/360 level g). if so,
-           intersperse the declaration statements integer i1000, integer
-           i1001, etc., as necessary to break up the length of comments.
-           the symbols i1xxx are reserved for this purpose.
-
-      there are a number of compiler parameters which may have to
-      be changed for your installation.  these parameters are defined
-      below (see 'scanner commands'), and the corresponding default
-      values are set following their definition.  for example, the
-                    $rightmargin = i
-      parameter determines the right margin of the input source line.
-      the parameter is set externally by a single line starting with
-      '$r' in columns one and two (the remaining characters up to
-      the '=' are ignored).  the internal compiler representation
-      of the character 'r' is 29 (see character codes below), and thus
-      the value of the $rightmargin parameter corresponds to element 29
-      of the 'contrl' vector.
-
-       1)  the parameters $t, $p, $w, $i, $o, and $r
-          control the operating mode of pl/m.  for batch processing,
-          assuming 132 character (or larger) print line and 80 charac-
-          ter card image, the parameters should default as follows
-                  $terminal   =  0
-                  $print      =  1
-                  $width      = 132
-                  $input      =  2
-                  $output     =  2
-                  $rightmargin= 80
-          note that it may be desirable to leave $r=72 to allow room
-          for an 8-digit sequence number in columns 73-80 of the pl/m
-          source card.
-
-      2)  for interactive processing, assuming a console with width
-          of 72 characters (e.g., a tty), these parameters should
-          default as follows
-                  $terminal   =  1
-                  $print      =  1
-                  $width      = 72
-                  $input      =  1
-                  $output     =  1
-                  $rightmargin= 72
-
-      3)  the characteristics of the intermediate language files
-          produced by pass-1 are governed by the $j, $k, $u, $v, and
-          $y parameters.  these parameters correspond to the destination
-          and width of the intermediate code file ($j and $k), and
-          destination and width of the intermediate symbol table ($u
-          and $v).  some fortran systems delete the leading character
-          of the files produced by other fortran programs.  the $y
-          parameter can be used to pad extra blanks at the beginning of
-          the intermediate files if this becomes a problem on the host
-          system.
-
-          under normal circumstances, these parameters will not
-          have to be changed.  in any case: case  experiment with various
-          values of the $ parameters by setting them externally be-
-          fore actually changing the defaults.
-
-      the implementor may also wish to increase or decrease the size
-      of pass-1 or pass-2 tables.  the tables in pass-1 which may be
-      changed in size are 'macros' and 'symbol' which correspond to
-      the areas which hold 'literally' definitions and program symbols
-      and attributes, respectively.  it is impossible to provide an
-      exact formula which relates the number of symbols held by either
-      of these tables to the table length, since table space is dy-
-      namically allocated according to symbol name length and number
-      of attributes required for the particular symbol.
-
-      1)  in the case of the macros table: case  the length is related to the
-          total number of characters in the macro names plus the total
-          number of characters in the macro definitions - at the deep-
-          est block level during compilation.  to change the macro
-          table size, alter all occurrences of
-
-                           macros(3000)
-
-          in each subroutine to macros(n), where n represents the new
-          integer constant size.  in addition, the 'data' statement
-          block data (last program segment) must be changed for the
-          macro parameters based upon the constant value n to
-
-             data macros /n*0/, curmac /n+1/, maxmac /n/,
-            1    mactop /1/
-
-      the macros table size (n above) must never exceed 4094
-
-      2)  if the implementor wishes to increase or decrease the size
-          of the symbol table, then all occurrences of
-
-                            symbol(6000)
-
-          must be changed to symbol(m), where m is the desired integer
-          constant size.  the 'data' statements for symbol table para-
-          meters must also be altered as described in the corresponding
-          comment in block data.  in particular, the last item  of
-          the data statement for 'symbol' fills the uninitialized por-
-          tion of the table with zeroes, and hence must be the evaluation
-          of the element
-                             (m-120)*0
-
-          (it is currently (6000-120)*0 = 5880*0).  the data statement
-          for maxsym and symabs must be changed to initialize these
-          variables to the value m.  (In no case should m be made
-          greated than 32000.)
-
-      good luck...
 
 
-     all input records are 120 characters or less.  all
-     output records are 132 characters or less.
-     the fortran unit numbers can be changed in the
-     subroutines gnc, cmptm and writel (these are the only oc-
-     currences of references to these units).
 
-      0 1 2 3 4 5 6 7 8 9
-      0 0 0 0 0 0 0 0 1 1
-      2 3 4 5 6 7 8 9 0 1
-
-      $ = . / ( ) + - ' * , < > : ;
-      3 3 4 4 4 4 4 4 4 4 4 4 5 5 5
-      8 9 0 1 2 3 4 5 6 7 8 9 0 1 2
-
-      A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
-      1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3
-      2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7
-
-    seqno              sub/func name
-    15410000      subroutine exitb
-    16300000      integer function lookup(iv)
-    17270000      integer function enter(infov)
-    18050000      subroutine dumpsy
-    20030000      subroutine recov
-    20420000      logical function stack(q)
-    20930000      logical function prok(prd)
-    21550000      subroutine reduce
-    22100000      subroutine cloop
-    22740000      subroutine prsym(cc,sym)
-    23120000      integer function getc1(i,j)
-    23330000      subroutine scan
-    25280000      integer function wrdata(sy)
-    26460000      subroutine dumpch
-    26960000      subroutine synth(prod,sym)
-    36310000      integer function gnc(q)
-    37980000      subroutine writel(nspace)
-    38520000      function icon(i)        no longer used
-    38710000      subroutine decibp
-    38850000      subroutine conv(prec)
-    39020000      function imin(i,j)
-    39090000      subroutine form(cc,chars,start,finish)
-    39370000      subroutine conout(cc,k,n,base)
-    39690000      subroutine pad(cc,chr,i)
-    39800000      subroutine stackc(i)
-    39950000      subroutine enterb
-    40180000      subroutine dumpin
-    40880000      subroutine error(i,level)
-    41320000      integer function shr(i,j)
-    41360000      integer function shl(i,j)
-    41400000      integer function right(i,j)
-    41440000      subroutine sdump
-    41670000      subroutine redpr(prod,sym)
-    41900000      subroutine emit(val,typ)
-*/
 /*************************************************************************/
 #include "istring.h"
 #include <assert.h>
@@ -412,7 +224,7 @@ struct {
     int loc : 12, len : 12;
 } var[MSTACK + 1];
 // int var[MSTACK + 1];
-int varc[MVAR + 1];
+uint8_t varc[MVAR + 1];
 int fixv[MSTACK + 1];
 int fixc[MSTACK + 1];
 // int prmask[5+1];
@@ -554,7 +366,7 @@ int symcnt = 0;
 int assign[MAXASSIGN + 1]; /* assignment symbol indexes */
 
 /* some inline definitions to help make the code more readable */
-#define SymInts(symIdx) ((symIdx) + 2)
+#define SymBased(symIdx) ((symIdx) + 2)
 #define Info(symIdx)    ((symIdx) + 1) /* index to symbol info word */
 #define Sym(symIdx)     ((symIdx))     /* index to symbol sizing word */
 #define Id(symIdx)      ((symIdx) - 1) /* index to symbol id word */
@@ -593,8 +405,8 @@ inline sym_len(int i) {
     return iabs(symbol[Sym(i)]) & 0xfff;
 }
 
-inline sym_ints(int i) {
-    return iabs(symbol[Sym(i)]) >> 12; /* number of ints used for symbol */
+inline sym_str(int i) {
+    return iabs(symbol[Sym(i)]) >> 12; /* The string Id */
 }
 
 inline int symHash(int i) {
@@ -609,9 +421,7 @@ inline int symId(int i) {
 inline int symNext(int i) {
     return i & 0xffff;
 }
-inline int symInts(int i) {
-    return i >> 12;
-}
+
 inline int symSymLen(int i) {
     return i % (1 << 12);
 }
@@ -1004,11 +814,8 @@ int imin(const int i, const int j);
 void stackc(char *fname);
 void enterb();
 void dumpin();
-// void error(const int i, const int level);
 void error(char const *fmt, ...);
 void fatal(char *fmt, ...);
-// int shr(const int i, const int j);
-// int shl(const int i, const int j);
 int right(const int i, const int j);
 void sdump();
 void redpr(const int prod, const int sym);
@@ -1019,7 +826,7 @@ void install();
 int errorCnt;
 #define C_ANALYZE  contrl['A' - 'A'] // action/reduction trace
 #define C_BYPASS   contrl['B' - 'A'] // bypass stack dump on error
-#define lineCnt    contrl['C' - 'A'] // line count start value
+#define C_LINECNT  contrl['C' - 'A'] // line count start value
 #define C_DELETE   contrl['D' - 'A'] // max listing line length
 #define C_GENERATE contrl['G' - 'A'] // show intermediate code generation
 #define C_MEMORY   contrl['M' - 'A'] // dump symbol table (0 = no, 1 = yes)
@@ -1029,11 +836,10 @@ int errorCnt;
 #define C_VWIDTH   contrl['V' - 'A'] // symbol file line width
 #define C_WIDTH    contrl['W' - 'A'] // listing file width
 
-
 /*
  file management is changed from the original cross compiler
- If the user specifies a file, its name prefix is used to create other files, otherwise the
- input is assumed to be from stdin and the other files have a prefix "stdin"
+ The source file is specified on the command line
+ its name prefix is used to create other files
  srcFp   - uses specfied file, adding .plm if there is no extent
  polFp   - creates prefix.pol
  symFp   - creates prefix.sym
@@ -1103,11 +909,11 @@ int main(int argc, char **argv) {
     if (argc != 2 || strcmp(argv[1], "-h") == 0) {
         printf("\nUsage: plm81 -v | -V  | -h | srcfile\n"
                "Where\n"
-               "-v/-V      provide version infomation\n"
+               "-v/-V      provide version information\n"
                "-h         shows this help\n"
                "srcfile    is the source file, of the form prefix.ext e.g. m80.plm\n"
                "           intermediate files prefix.lst, prefix.pol, prefix.sym are created\n"
-               "           if no srcfile does not have an extension, .plm is added\n");
+               "           if the srcfile does not have an extension, .plm is added\n");
         exit(0);
     }
 
@@ -1116,7 +922,7 @@ int main(int argc, char **argv) {
     errorCnt   = 0;
     C_ANALYZE  = 0;
     C_BYPASS   = 1;
-    lineCnt    = 0;
+    C_LINECNT  = 0;
     C_DELETE   = 132; /* changed from original 120 */
     C_GENERATE = 0;
     C_MEMORY   = 1; // dump symbol table (0 = no, 1 = yes)
@@ -1141,7 +947,6 @@ int main(int argc, char **argv) {
     cloop();
     emit(NOP, OPR); // mark end
 
-  
     char cnt[8] = "NO";
     if (errorCnt)
         sprintf(cnt, "%d", errorCnt);
@@ -1162,48 +967,41 @@ void dumpsym(int idx) {
     static char *labels[] = { "OuterLabel", "LocalLabel", "CompilerLabel" };
 
     fprintf(stderr, "Symbol %s%d at %d:", symbol[idx] < 0 ? "-" : "", id_num(idx), idx);
-    int ints = sym_ints(idx);
-    int len  = sym_len(idx);
-    int type = info_type(idx);
-    int prec = info_prec(idx);
-    int cnt  = 0;
+    int strId = sym_str(idx);
+    int len   = sym_len(idx);
+    int type  = info_type(idx);
+    int prec  = info_prec(idx);
+    int cnt   = 0;
     switch (type) {
     case VARB:
     case LITER:
     case PROC:
     case LABEL:
     case INTR:
-        if (ints) {
-
-            fputs(" '", stderr);
-            for (int i = 0; i < ints; i++) {
-                int packed = symbol[SymInts(idx) + i];
-                for (int j = 0; j < PACK && cnt++ < len; j++)
-                    putc((packed >> (24 - j * 8)) & 0xff, stderr);
-            }
-            fputs("', ", stderr);
+        if (strId) {
+            fprintf(stderr, " '%.*s', ", len, symToStr(strId));
         } else
-            fprintf(stderr, " ints=%d, len=%d, ", ints, len);
+            fprintf(stderr, " strId=0, len=%d, ", len);
 
         if (type != LABEL || prec < OuterLabel || prec > CompilerLabel)
             fprintf(stderr, "type=%s prec=%d ilen=%d", types[type - VARB], prec, info_len(idx));
         else
             fprintf(stderr, "type=%s ilen=%d", labels[prec - OuterLabel], info_len(idx));
         if (symbol[Info(idx)] < 0)
-            fprintf(stderr, ", BASED(%d)", symbol[SymInts(idx) + ints]);
+            fprintf(stderr, ", BASED(%d)", symbol[SymBased(idx)]);
         break;
     case NUMBER:
-        fprintf(stderr, " ints=%d, len=%d, ", ints, len);
+        fprintf(stderr, " strId=%d, len=%d, ", strId, len);
         fprintf(stderr, ", type=NUMBER, prec=%d, val=%d", prec, info_len(idx));
         break;
     default:
-        fprintf(stderr, " ints=%d, len=%d, type=UNKNOWN(%d), prec=%d, ilen=%d", ints, len, type,
+        fprintf(stderr, " strId=%d, len=%d, type=UNKNOWN(%d), prec=%d, ilen=%d", strId, len, type,
                 prec, info_len(idx));
-
         break;
     }
-    if (ints)
+    if (strId)
         fprintf(stderr, ", hcode=%d, next=%d", hash_hcode(idx), hash_next(idx));
+    fprintf(stderr, ", info=%d", symbol[Info(idx)]);
     putc('\n', stderr);
 }
 
@@ -1212,7 +1010,7 @@ void exitb() {
     /*     goes through here upon block exit */
     /*      global tables */
     if (curblk > 2) {
-        int i      = block[curblk];
+        int i = block[curblk];
         /* de-allocate those macro definitions whose scope we are leaving,
          * and check if any of these are currently in expansion.
          */
@@ -1229,25 +1027,19 @@ void exitb() {
                         if (info_prec(symIdx) == 0) {
                             if (type == LABEL && curblk > 1) // labels may be non local
                                 continue;                    // only fail if not defined at all
-                            char name[64];
-                            char *s = name;
-                            int n   = sym_ints(symIdx);
-                            if (n) {
-                                for (int j = 0; j < n; j++) {
-                                    int packed = symbol[SymInts(symIdx) + j];
-                                    for (int i = 0; i < PACK; i++)
-                                        *s++ = (packed >> (24 - i * 8)) & 0xff;
-                                }
-                            }
-                            *s = '\0';
-                            error("1: undefined symbol '%s'", name);
+                            if (sym_str(symIdx))
+                                error("1: undefined symbol '%.*s'", sym_len(symIdx),
+                                      symToStr(sym_str(symIdx)));
+                            else
+                                error("1: undefined symbol ???");
                         }
                     }
                     symbol[Sym(symIdx)] = -symbol[Sym(symIdx)]; // negate length fields
                                                                 // to mark out of scope
                     /* remove from hash chain if on one*/
 
-                    if (sym_ints(symIdx) > 0) { // has a hash chain
+                    if (sym_str(symIdx)) { // has a hash chain
+
                         /* find match on the entry */
                         int hcode = hash_hcode(symIdx);
                         int next  = hash_next(symIdx);
@@ -1268,44 +1060,23 @@ void exitb() {
     }
 }
 
-int packVarc(int loc, int len) {
-    /*     pack varc into varc[loc] */
-    /*     varc is in internal format */
-    /*     varc[loc] is the start of the packed data */
-    /*     len is the number of characters to pack */
-    /* convert varc to internal format */
-    int dstIdx = 0;
-    int shift  = PACK * 8;
-    int m      = 0;
-   
-    for (int srcIdx = 0; srcIdx < len; srcIdx++) {
-        if ((shift -= 8) < 0) {
-            varc[loc + dstIdx++] = m;
-            m                    = 0;
-            shift                = PACK * 8 - 8;
-        }
-        m += (varc[loc + srcIdx] << shift);
-    }
-    varc[loc + dstIdx] = m;
-    /*     varc is now in packed form ready for lookup */
-    /*     compute hash code (reduce numbers mod 127, use first 5 chars of */
-    /*     identifiers and strings ) */
-    return varc[loc]; // first packed word is used for hash code
+int varHash(uint8_t *str, int len) {
+    int hval = 0;
+    for (int i = 0; i < len; i++)
+        hval = (hval << 1) + (hval >> 7) + str[i];
+    return hval;
 }
 
 int lookup(const int iv) {
-    /*     jp is identifier, m is variable, LABEL, or procedure. */
-    /*     syntax analyzer tables */
-    /*      global tables */
 
     symlen = var[iv].len;
     symloc = var[iv].loc;
 
-    hcode  = (pstack[iv] == NUMBV ? fixc[iv] : packVarc(symloc, symlen)) % 127 + 1; // hash code
+    hcode =
+        (pstack[iv] == NUMBV ? fixv[iv] : varHash(&varc[symloc], symlen)) % 127 + 1; // hash code
 
     /*     hcode is in the range 1 to 127 */
     // hentry items point to hash chain, symbol base is +2 from this
-    int intCnt = (symlen - 1) / PACK + 1;
 
     for (int symIdx = hentry[hcode] + 2; symIdx > 2; symIdx = hash_next(symIdx) + 2) {
 
@@ -1313,7 +1084,7 @@ int lookup(const int iv) {
             if (info_type(symIdx) > LITER && info_len(symIdx) == fixv[iv])
                 return symIdx;
         } else if (symbol[symIdx] > 0 && sym_len(symIdx) == symlen) {
-            if (memcmp(&varc[symloc], &symbol[SymInts(symIdx)], intCnt * sizeof(varc[0])) == 0) {
+            if (strequ(sym_str(symIdx), &varc[symloc], symlen)) {
                 /*     make sure the types match. */
                 if ((pstack[iv] == STRV && info_type(symIdx) == LITER) ||
                     (pstack[iv] == IDENTV && info_type(symIdx) < LITER))
@@ -1335,49 +1106,45 @@ int enter(int info) {
     /*         also set-up hash code value (see lookup), if necessary */
     int symIdx = symtop;
     int prev   = symbol[symIdx];
-    int intCnt = 0;
 
     if (hasHash) {
-        intCnt = (symlen - 1) / PACK + 1;
-        symtop += intCnt + 4;
+        symtop += 4;
         symIdx++;
+        if (symType(info) == NUMBER)
+            symlen = 0;
     } else {
         /*     entry with no external name */
         info = -info;
         symtop += 3;
+        symlen = 0;
     }
 
     if (symtop > SYMABS) {
         symIdx = hasHash ? 1 : 0;
-        symtop = symIdx + intCnt + 3;
+        symtop = symIdx + 3;
         fatal("2: pass-1 symbol table overflow");
     }
 
     symbol[symtop]       = symIdx++;
     symbol[Id(symIdx)]   = (++symcnt << 16) + prev;
-    symbol[Sym(symIdx)]  = (intCnt << 12) + symlen;
+    symbol[Sym(symIdx)]  = (newString(symlen, &varc[symloc]) << 12) + symlen;
     symbol[Info(symIdx)] = info;
-    for (int j = 0; j < intCnt; j++)
-        symbol[SymInts(symIdx) + j] = varc[symloc + j];
-    /*     compute hash table entry */
-    /*     fix collision chain */
     if (hasHash) {
         symbol[Hash(symIdx)] = (hcode << 16) + hentry[hcode];
         hentry[hcode]        = Hash(symIdx);
     }
+
     return symIdx;
 }
 
 void install() {
     symloc = 0;
     for (int i = 0; i < ASIZE(builtins); i++) {
-        for (symlen = 0; builtins[i].name[symlen]; symlen++)
-            varc[symlen] = builtins[i].name[symlen];
-        hcode = packVarc(0, symlen) % 127 + 1; // hash code
+        strcpy(varc, builtins[i].name);
+        hcode = varHash(varc, symlen = (int)strlen(builtins[i].name)) % 127 + 1; // hash code
         enter(builtins[i].info);
     }
 }
-
 void putSym(char ch) {
     static char symline[120];
     static uint8_t pos;
@@ -1414,18 +1181,12 @@ void putSymHex2(int n, bool tag) {
 }
 
 void dumpsy() {
-    int lp, ic, mc, ip, it, i, j, k, n;
-    /*      global tables */
-#if 0
-    for (i = symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
-        /*     quick check for zero length name */
-        dumpsym(i + 1);
-    }
-#endif
+    int ic, ip, it, i, j, k;
+
     ic = C_SYMBOLS;
     if (ic != 0) {
         if (ic > 1)
-            fprintf(lstFp, "\nSYMBOL  ADDR WDS CHRS   LENGTH PR TY");
+            fprintf(lstFp, "\nSYMBOL  ADDR STR CHRS   LENGTH PR TY");
         for (i = symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
             /*     quick check for zero length name */
             int symIdx = i + 1;
@@ -1434,28 +1195,21 @@ void dumpsy() {
 
             if (ic >= 2) {
                 fprintf(lstFp, "%c ", symbol[symIdx] < 0 ? '*' : ' '); // * if now out of scope
-                fprintf(lstFp, "%04d %3d %4d ", symIdx, sym_ints(symIdx), sym_len(symIdx));
+                fprintf(lstFp, "%04d %3d %4d ", symIdx, sym_str(symIdx), sym_len(symIdx));
                 fprintf(lstFp, "%c ", symbol[Info(symIdx)] < 0 ? 'B' : 'R'); // based or regular
                 fprintf(lstFp, "%06d%3d%3d", info_len(symIdx), info_prec(symIdx),
                         info_type(symIdx));
             }
             putc(' ', lstFp);
             ip = Info(symIdx);
-            n  = sym_ints(symIdx);
-            if (n != 0) { // has size
-                mc       = sym_len(symIdx);
+            if (sym_str(symIdx)) { // exists
                 int type = info_type(symIdx);
                 if (type == LITER)
                     putc('\'', lstFp);
-                for (int i = 1; i <= n; i++) {
-                    int packed = symbol[i + ip];
-                    for (lp = 0; lp < PACK && mc-- > 0; lp++)
-                        putc((packed >> (24 - lp * 8)) & 0xff, lstFp);
-                }
+                fprintf(lstFp, "%.*s", sym_len(symIdx), symToStr(sym_str(symIdx)));
                 if (type == LITER)
                     putc('\'', lstFp);
             }
-            ip += n;
             if (ic >= 2)
                 while (++ip < it) {
                     k = symbol[ip];
@@ -1508,19 +1262,20 @@ void dumpsy() {
         putSymInt(lp, 0); // print the Info word
 
         if (symbol[Info(symIdx)] < 0) {
-            lp = symbol[SymInts(symIdx) + sym_ints(symIdx)];
+            lp = symbol[SymBased(symIdx)];
             if (lp < 0) {
                 lp = -lp;
                 putSym('-');
             } else
                 putSym(' ');
-            putSymInt(lp, 0); // print the length
+            putSymInt(lp, 0); // print the value
         }
         putSym('/');
     }
 
     putSym('/');
     putSym('\n');
+
 }
 
 void recov() {
@@ -1565,7 +1320,7 @@ bool stack(/*const int q */) {
         case 0:
             /*     illegal symbol pair */
             error("3: invalid PL/M statement. %s & %s not allowed together", tokens[pstack[sp]],
-                     tokens[token]);
+                  tokens[token]);
             sdump();
             recov();
             /*     recover may have set compiling false */
@@ -1774,7 +1529,9 @@ void scan() {
                     if (ch < ' ')
                         ch = ' ';
                     if (acclen < MAXSTR)
-                        accum[acclen++] = C_UPPER ? toupper(ch) : ch; // stuff char (double quote reduced to single)
+                        accum[acclen++] = C_UPPER
+                                              ? toupper(ch)
+                                              : ch; // stuff char (double quote reduced to single)
                     else if (!warned) {
                         error("xx: string too long, possibly missing closing quote");
                         warned = true;
@@ -1860,27 +1617,16 @@ int wrdata(const int sy) {
         }
     } else {
 
-        len = sym_len(symIdx);
-        uint8_t unpacked[5];
+        len          = sym_len(symIdx);
+        uint8_t *symStr = symToStr(sym_str(symIdx));
 
         for (int lp = 0; lp < len; lp++) {
-            if (lp % PACK == 0) {
-                uint32_t m = symbol[SymInts(symIdx) + lp / PACK];
-                for (int i = PACK - 1; i >= 0; i--) {
-                    unpacked[i] = m & 0xff; // unpack the 6 bits
-                    m >>= 8;                // shift right
-                }
-            }
             if (dflag) /*     write out the variable or LABEL name */
-                putSym(unpacked[lp % PACK]);
-            else {
-                uint8_t i = unpacked[lp % PACK];
-                /*    write out both hex values */
-                if (sy < 0) /*     emit string data inline */
-                    emit(i, LIT);
-                else
-                    putSymHex2(i, lp == 0);
-            }
+                putSym(symStr[lp]);
+            else if (sy < 0) /*     emit string data inline */
+                emit(symStr[lp], LIT);
+            else
+                putSymHex2(symStr[lp], lp == 0);
         }
     }
     return len;
@@ -1898,7 +1644,8 @@ void dumpch() {
                 int type = info_type(symIdx);
                 if (type == LABEL || type == VARB || type == PROC) {
                     /* check if real symbol */
-                    if (sym_ints(symIdx)) {
+                    if (sym_len(symIdx) /* &&
+                        symbol[Info(symIdx)] != MkInfo(0, LocalLabel, LABEL) */) {
                         /* write symbol number */
                         putSymInt(symNumber, 3);
                         /* now write the string */
@@ -1910,6 +1657,7 @@ void dumpch() {
         }
     }
     putSymStr("/\n");
+
 }
 
 void procHead(int ptype, int plist, int rtype) {
@@ -2643,14 +2391,14 @@ void synth(const int prod, const int symm) {
     case 122: // <SUBSCRIPT HEAD> ::= <IDENTIFIER> '('
         if ((symIdx = lookup(mp)) == 0) {
             error("30: subscripted variable or procedure call references undeclared "
-                     "identifier");
+                  "identifier");
             symIdx = enter(MkInfo(0, 0, VARB));
         }
         j = info_type(symIdx);
         if (j != VARB) {
             if (j != PROC && j != INTR)
                 error("31: Identifier is improperly used as a procedure or subscripted "
-                         "variable");
+                      "variable");
             else {
                 fixc[mp] = info_len(symIdx);
                 if (j == INTR)
@@ -2775,9 +2523,9 @@ int gnc(/*const int q */) {
             fclose(srcFp);
             srcFp = instk[inSP--];
         }
-        emit(++lineCnt, LIN);
+        emit(++C_LINECNT, LIN);
         if (!strchr(ibuff, '\n')) { // gobble up rest of line
-            fprintf(lstFp, "WARNING: line %d truncated\n", lineCnt);
+            fprintf(lstFp, "WARNING: line %d truncated\n", C_LINECNT);
             while ((ch = getc(srcFp)) != '\n' && ch != EOF)
                 ;
             strcat(ibuff, "\n"); // ensure line ends with newline
@@ -2789,8 +2537,8 @@ int gnc(/*const int q */) {
             strcat(ibuff, "\n"); // ensure line ends with newline
 
         if (C_PRINT != 0) {
-            int column =
-                fprintf(lstFp, "%05d%3d %c  ", (uint16_t)lineCnt, curblk - 1, inSP > 0 ? '=' : ' ');
+            int column = fprintf(lstFp, "%05d%3d %c  ", (uint16_t)C_LINECNT, curblk - 1,
+                                 inSP > 0 ? '=' : ' ');
             for (s = ibuff; *s != '\n'; s++, column++) {
                 if (column == C_DELETE - 1 && s[1] != '\n')
                     column = fprintf(lstFp, "\\\n%12s", "");
@@ -2945,7 +2693,6 @@ void fatal(char *fmt, ...) {
     va_end(args);
 }
 
-
 void error(char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -2955,9 +2702,7 @@ void error(char const *fmt, ...) {
     if (errorCnt == 100)
         fatal("Too many errors");
     va_end(args);
-
 }
-
 
 int right(const int i, const int j) {
     return i % (1 << j);
