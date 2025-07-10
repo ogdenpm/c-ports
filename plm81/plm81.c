@@ -356,95 +356,41 @@ struct {
 
 };
 
-int o_symbol[SYMABS + 1];
-
 struct {
-    int noScope : 1;     // true if symbol is not in scope
-    uint16_t hcode : 15; // hash code
-    uint16_t next;       // next symbol in chain
-    uint16_t strLen;     // symbol string length
-    uint16_t strId;      // symbol string Id
-    uint32_t info;       // info word
-    uint16_t based;      // based symbol Id
+    uint16_t hcode;          // hash code
+    uint16_t next;           // next symbol in chain
+    uint16_t outOfScope : 1; // non zero if out of scope
+    uint16_t strLen : 15;    // symbol string length
+    uint16_t strId;          // symbol string Id
+    uint32_t info;           // info word
+    uint16_t based;          // based symbol Id
 } symbol[SYMABS + 1];
 
-int symtop = 1;
-int symcnt = 0;
+int symNext = 1;
 
 /* in anticipation of symbols being converted into an array of structure the use of
    the top of the symbol table as an assignment list is factored out */
 #define MAXASSIGN 256      /* max number of assignments in a block */
 int assign[MAXASSIGN + 1]; /* assignment symbol indexes */
 
-/* some inline definitions to help make the code more readable */
-#define SymBased(symIdx) ((symIdx) + 2)
-#define Info(symIdx)     ((symIdx) + 1) /* index to symbol info word */
-#define Sym(symIdx)      ((symIdx))     /* index to symbol sizing word */
-#define Id(symIdx)       ((symIdx) - 1) /* index to symbol id word */
-#define Hash(symIdx)     ((symIdx) - 2) /* index to symbol hash word */
-
 inline unsigned iabs(int a) {
     return a < 0 ? -a : a;
 }
 
-inline int id_num(int i) {
-    return o_symbol[Id(i)] >> 16;
-}
-
-inline int id_next(int i) {
-    return o_symbol[Id(i)] & 0xffff;
-}
 inline int info_len(int i) {
-    return o_symbol[Info(i)] >> 8;
+    return symbol[i].info >> 8;
 }
 inline int info_prec(int i) {
-    return (o_symbol[Info(i)] >> 4) & 0xf;
+    return (symbol[i].info >> 4) & 0xf;
 }
 inline int info_type(int i) {
-    return o_symbol[Info(i)] & 0xf;
+    return symbol[i].info & 0xf;
 }
 
-inline int hash_hcode(int i) {
-    return o_symbol[Hash(i)] >> 16; /* hash value */
-}
-
-inline int hash_next(int i) {
-    return o_symbol[Hash(i)] & 0xffff; /* next symbol in chain */
-}
-
-inline sym_len(int i) {
-    return iabs(o_symbol[Sym(i)]) & 0xfff;
-}
-
-inline sym_str(int i) {
-    return iabs(o_symbol[Sym(i)]) >> 12; /* The string Id */
-}
-
-inline int symHash(int i) {
-    return i >> 16;
-}
-inline int symChainNext(int i) {
-    return i & 0xffff;
-}
-inline int symId(int i) {
-    return i >> 16;
-}
-inline int symNext(int i) {
-    return i & 0xffff;
-}
-
-inline int symSymLen(int i) {
-    return i % (1 << 12);
-}
-inline int symInfoLen(int i) {
-    return i >> 8;
-}
-inline int symPrec(int i) {
-    return (i >> 4) % 16;
-}
 inline int symType(int i) {
-    return iabs(i) & 0xf;
+    return i & 0xf;
 }
+
 char b32Digit(int ch);
 
 uint16_t symloc;
@@ -758,7 +704,7 @@ int const nt          = 50;
 #define MAXBLK 30
 int token = 0;
 /* blk */
-int block[MAXBLK + 1] = { ZPAD, 1, 120 };
+int block[MAXBLK + 1] = { ZPAD, 1 };
 struct {
     unsigned type : 2;
     unsigned clause : 14;
@@ -775,7 +721,7 @@ enum { DO_GROUP, DO_ITER, DO_WHILE, DO_CASE };
 
 int macblk[MAXBLK + 1];
 int curblk = 2;
-int blksym = 120;
+int blksym;
 int proctp[MAXBLK + 1];
 /* files */
 char obuff[132 + 1];
@@ -820,7 +766,6 @@ void synth(const int prod, const int symm);
 int gnc();
 void parseOptions(uint8_t *s);
 void decibp();
-int conv(int radix);
 int imin(const int i, const int j);
 void stackc(char *fname);
 void enterb();
@@ -977,9 +922,9 @@ void dumpsym(int idx) {
     static char *types[]  = { "VARB", "INTR", "PROC", "LABEL", "LITER", "NUMBER" };
     static char *labels[] = { "OuterLabel", "LocalLabel", "CompilerLabel" };
 
-    fprintf(stderr, "Symbol %s%d at %d:", o_symbol[idx] < 0 ? "-" : "", id_num(idx), idx);
-    int strId = sym_str(idx);
-    int len   = sym_len(idx);
+    fprintf(stderr, "Symbol %s%d:", symbol[idx].outOfScope ? "-" : "", idx);
+    int strId = symbol[idx].strId;
+    int len   = symbol[idx].strLen;
     int type  = info_type(idx);
     int prec  = info_prec(idx);
     int cnt   = 0;
@@ -998,8 +943,8 @@ void dumpsym(int idx) {
             fprintf(stderr, "type=%s prec=%d ilen=%d", types[type - VARB], prec, info_len(idx));
         else
             fprintf(stderr, "type=%s ilen=%d", labels[prec - OuterLabel], info_len(idx));
-        if (o_symbol[SymBased(idx)])
-            fprintf(stderr, ", BASED(%d)", o_symbol[SymBased(idx)]);
+        if (symbol[idx].based)
+            fprintf(stderr, ", BASED(%d)", symbol[idx].based);
         break;
     case NUMBER:
         fprintf(stderr, " strId=%d, len=%d, ", strId, len);
@@ -1011,8 +956,8 @@ void dumpsym(int idx) {
         break;
     }
     if (strId)
-        fprintf(stderr, ", hcode=%d, next=%d", hash_hcode(idx), hash_next(idx));
-    fprintf(stderr, ", info=%d", o_symbol[Info(idx)]);
+        fprintf(stderr, ", hcode=%d, next=%d", symbol[idx].hcode, symbol[idx].next);
+    fprintf(stderr, ", info=%d", symbol[idx].info);
     putc('\n', stderr);
 }
 
@@ -1027,10 +972,9 @@ void exitb() {
          */
         dropMacro(macblk[curblk--]);
 
-        for (int symIdx = o_symbol[symtop]; symIdx >= i; symIdx = id_next(symIdx)) {
-            symIdx++; // adjust to symbol true base as chain is at -1
+        for (int symIdx = symNext - 1; symIdx >= i; symIdx--) {
 
-            if (o_symbol[Sym(symIdx)] >= 0) { // in scope
+            if (!symbol[symIdx].outOfScope) { // in scope
                 int type = info_type(symIdx);
 
                 if (type < LITER) {
@@ -1038,30 +982,29 @@ void exitb() {
                         if (info_prec(symIdx) == 0) {
                             if (type == LABEL && curblk > 1) // labels may be non local
                                 continue;                    // only fail if not defined at all
-                            if (sym_str(symIdx))
-                                error("1: undefined symbol '%.*s'", sym_len(symIdx),
-                                      symToStr(sym_str(symIdx)));
+                            if (symbol[symIdx].strId)
+                                error("1: undefined symbol '%.*s'", symbol[symIdx].strLen,
+                                      symToStr(symbol[symIdx].strId));
                             else
                                 error("1: undefined symbol ???");
                         }
                     }
-                    o_symbol[Sym(symIdx)] = -o_symbol[Sym(symIdx)]; // negate length fields
-                                                                    // to mark out of scope
+                    symbol[symIdx].outOfScope = true; // mark as out of scope
                     /* remove from hash chain if on one*/
 
-                    if (hash_hcode(symIdx)) { // has a hash chain
+                    if (symbol[symIdx].hcode) { // has a hash chain
 
                         /* find match on the entry */
-                        int hcode = hash_hcode(symIdx);
-                        int next  = hash_next(symIdx);
+                        int hcode = symbol[symIdx].hcode;
+                        int next  = symbol[symIdx].next;
                         int n     = hentry[hcode];
-                        if (n == Hash(symIdx)) /* this entry is directly connected */
+                        if (n == symIdx) /* this entry is directly connected */
                             hentry[hcode] = next;
                         else {
                             int np;
-                            while ((np = hash_next(n + 2)) != Hash(symIdx))
+                            while ((np = symbol[n].next) != symIdx)
                                 n = np;
-                            o_symbol[n] = (hcode << 16) + next;
+                            symbol[n].next = next;
                         }
                     }
                 }
@@ -1089,13 +1032,13 @@ int lookup(const int iv) {
     /*     hcode is in the range 1 to 127 */
     // hentry items point to hash chain, symbol base is +2 from this
 
-    for (int symIdx = hentry[hcode] + 2; symIdx > 2; symIdx = hash_next(symIdx) + 2) {
+    for (int symIdx = hentry[hcode]; symIdx > 0; symIdx = symbol[symIdx].next) {
 
         if (pstack[iv] == NUMBV) {
             if (info_type(symIdx) > LITER && info_len(symIdx) == fixv[iv])
                 return symIdx;
-        } else if (o_symbol[symIdx] > 0 && sym_len(symIdx) == symlen) {
-            if (strequ(sym_str(symIdx), &varc[symloc], symlen)) {
+        } else if (!symbol[symIdx].outOfScope && symbol[symIdx].strLen == symlen) {
+            if (strequ(symbol[symIdx].strId, &varc[symloc], symlen)) {
                 /*     make sure the types match. */
                 if ((pstack[iv] == STRV && info_type(symIdx) == LITER) ||
                     (pstack[iv] == IDENTV && info_type(symIdx) < LITER))
@@ -1108,51 +1051,29 @@ int lookup(const int iv) {
 }
 
 int enter(int info) {
-    /* in preparation for making symbol an array of structures
-       allocate a hash int and based int for all symbols
-       The symbol names have already been moved out
 
-       a symbol's content is now:
-       -2 hcode, hash chain
-       -1 id, id link
-       0  strId, string length
-       1  info (length, prec, type)
-       2  based
-
-       where info is a negative value for no hash code
-
-
-    */
-
-    bool hasHash = info >= 0; // if info is negative, no hash code
-    /*     syntax analyzer tables */
-
-    /*      global tables */
     /*      enter assumes a previous call to lookup (either that, or set up */
     /*      the values of symloc and symlen in the varc array). */
     /*         also set-up hash code value (see lookup), if necessary */
-    int symIdx = symtop;
-    int prev   = o_symbol[symIdx];
+    int symIdx = symNext++;
 
-    if ((symtop += 5) > SYMABS) {
-        symIdx = 1;
-        symtop = 6;
+    if (symIdx >= SYMABS) {
+        symIdx  = 1;
+        symNext = 2;
         fatal("2: pass-1 symbol table overflow");
     }
-    symIdx++; //  index of id, idlink
 
-    o_symbol[symtop]     = symIdx++;
-    o_symbol[Id(symIdx)] = (++symcnt << 16) + prev;
-    if (info < 0 || symType(info) == NUMBER)
-        o_symbol[Sym(symIdx)] = 0;
-    else
-        o_symbol[Sym(symIdx)] = (newString(symlen, &varc[symloc]) << 12) + symlen;
+    if (info >= 0 && symType(info) != NUMBER) {
+        symbol[symIdx].strLen = symlen;
+        symbol[symIdx].strId  = newString(symlen, &varc[symloc]);
+    }
     if (info < 0)
-        o_symbol[Info(symIdx)] = -info;
+        symbol[symIdx].info = -info;
     else {
-        o_symbol[Info(symIdx)] = info;
-        o_symbol[Hash(symIdx)] = (hcode << 16) + hentry[hcode];
-        hentry[hcode]          = Hash(symIdx);
+        symbol[symIdx].info  = info;
+        symbol[symIdx].hcode = hcode;
+        symbol[symIdx].next  = hentry[hcode]; // next in hash chain
+        hentry[hcode]        = symIdx;
     }
 
     return symIdx;
@@ -1165,6 +1086,7 @@ void install() {
         hcode = varHash(varc, symlen = (int)strlen(builtins[i].name)) % 127 + 1; // hash code
         enter(builtins[i].info);
     }
+    block[2] = blksym = symNext;
 }
 void putSym(char ch) {
     static char symline[120];
@@ -1202,41 +1124,35 @@ void putSymHex2(int n, bool tag) {
 }
 
 void dumpsy() {
-    int ic, ip, it, i, j, k;
+    int ic;
 
     ic = C_SYMBOLS;
     if (ic != 0) {
         if (ic > 1)
             fprintf(lstFp, "\nSYMBOL  ADDR STR CHRS   LENGTH PR TY");
-        for (i = o_symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
+        for (int symIdx = symNext - 1; symIdx > 0; symIdx--) {
             /*     quick check for zero length name */
-            int symIdx = i + 1;
-            if (ic >= 2 || sym_len(symIdx) > 0)
-                fprintf(lstFp, "S%05d", id_num(symIdx));
+            if (ic >= 2 || symbol[symIdx].strLen > 0)
+                fprintf(lstFp, "S%05d", symIdx);
 
             if (ic >= 2) {
                 fprintf(lstFp, "%c ",
-                        o_symbol[Sym(symIdx)] < 0 ? '*' : ' '); // * if now out of scope
-                fprintf(lstFp, "%04d %3d %4d ", symIdx, sym_str(symIdx), sym_len(symIdx));
-                fprintf(lstFp, "%c ", o_symbol[SymBased(symIdx)] ? 'B' : 'R'); // based or regular
+                        symbol[symIdx].outOfScope ? '*' : ' '); // * if now out of scope
+                fprintf(lstFp, "%04d %3d %4d ", symIdx, symbol[symIdx].strId,
+                        symbol[symIdx].strLen);
+                fprintf(lstFp, "%c ", symbol[symIdx].based ? 'B' : 'R'); // based or regular
                 fprintf(lstFp, "%06d%3d%3d", info_len(symIdx), info_prec(symIdx),
                         info_type(symIdx));
             }
             putc(' ', lstFp);
 
-            if (sym_str(symIdx)) { // exists
+            if (symbol[symIdx].strId) { // exists
                 int type = info_type(symIdx);
                 if (type == LITER)
                     putc('\'', lstFp);
-                fprintf(lstFp, "%.*s", sym_len(symIdx), symToStr(sym_str(symIdx)));
+                fprintf(lstFp, "%.*s", symbol[symIdx].strLen, symToStr(symbol[symIdx].strId));
                 if (type == LITER)
                     putc('\'', lstFp);
-            }
-            if (ic >= 2)
-                ip = SymBased(symIdx);
-            while (++ip < it) {
-                k = o_symbol[ip];
-                fprintf(lstFp, " %c%08XH", (k < 0) ? '-' : ' ', iabs(k));
             }
             putc('\n', lstFp);
         }
@@ -1255,35 +1171,22 @@ void dumpsy() {
     }
     putSymStr("/\n");
 
-    /*     reverse the symbol table pointers */
-    /*     set the length field of compiler-generated labels to 1 */
-
-    i           = symtop;
-    j           = o_symbol[i]; // will have no symbol #
-    o_symbol[i] = 0;
-    while (j != 0) {
-        /* note j is the symbol - 1 location. See symbol format */
-        /* set length to 1 and prec to 5 (for comp generated labels) */
-        if (info_type(j + 1) == LABEL && info_len(j + 1) == 0)
-            o_symbol[Info(j + 1)] = MkInfo(1, CompilerLabel, LABEL);
-        int m       = o_symbol[j];
-        o_symbol[j] = i;
-        i           = j;
-        j           = m & 0xffff; // strip the symbol #
+    // mark internal labels
+    for (int symIdx = 1; symIdx < symNext; symIdx++) {
+        if (info_type(symIdx) == LABEL && info_len(symIdx) == 0)
+            symbol[symIdx].info = MkInfo(1, CompilerLabel, LABEL);
     }
 
     putSym('/');
-    for (int j = 2; o_symbol[j]; j = o_symbol[j]) {
-        /* note j is the symbol - 1 location. See symbol format */
-        int symIdx = j + 1;
-        if (o_symbol[SymBased(symIdx)]) {
+    for (int symIdx = 1; symIdx < symNext; symIdx++) {
+        if (symbol[symIdx].based) {
             putSym('-');
-            putSymInt(o_symbol[Info(symIdx)], 0); // print the Info word
+            putSymInt(symbol[symIdx].info, 0); // print the Info word
             putSym(' ');
-            putSymInt(o_symbol[SymBased(symIdx)], 0); // print the Info word
+            putSymInt(symbol[symIdx].based, 0); // print the Info word
         } else {
             putSym(' ');
-            putSymInt(o_symbol[Info(symIdx)], 0); // print the Info word
+            putSymInt(symbol[symIdx].info, 0); // print the Info word
         }
         putSym('/');
     }
@@ -1421,7 +1324,6 @@ void cloop() {
                 fixv[sp] = accumIVal;
 
             var[sp].loc = vartop;
-            // for (;;) {
             for (int j = 0; j < acclen; j++) {
                 varc[vartop] = accum[j];
                 if (++vartop > MVAR) {
@@ -1429,13 +1331,7 @@ void cloop() {
                     vartop = 1;
                 }
             }
-            /* string constants may be continued over several buffers full */
-            //     if (token != STRV || stype != CONT)
-            //          break;
-            //    scan();
-            //}
-            int i       = vartop - var[sp].loc;
-            var[sp].len = i < 0 ? 1 : i;
+            var[sp].len = vartop < var[sp].loc ? 1 : vartop - var[sp].loc;
             scan();
         }
     }
@@ -1631,8 +1527,8 @@ int wrdata(const int sy) {
         }
     } else {
 
-        len             = sym_len(symIdx);
-        uint8_t *symStr = symToStr(sym_str(symIdx));
+        len             = symbol[symIdx].strLen;
+        uint8_t *symStr = symToStr(symbol[symIdx].strId);
 
         for (int lp = 0; lp < len; lp++) {
             if (dflag) /*     write out the variable or LABEL name */
@@ -1652,18 +1548,14 @@ void dumpch() {
     putSym('/');
     if (C_MEMORY) {
         int i = 2;
-        for (int symNumber = 1; i; symNumber++, i = o_symbol[i]) {
-            int symIdx = i + 1;
-            if (!o_symbol[SymBased(symIdx)]) {
+        for (int symIdx = 1; symIdx < symNext; symIdx++) {
+            if (!symbol[symIdx].based) {
                 int type = info_type(symIdx);
                 if (type == LABEL || type == VARB || type == PROC) {
                     /* check if real symbol */
-                    if (sym_len(symIdx) /* &&
-                        symbol[Info(symIdx)] != MkInfo(0, LocalLabel, LABEL) */) {
-                        /* write symbol number */
-                        putSymInt(symNumber, 3);
-                        /* now write the string */
-                        wrdata(symIdx);
+                    if (symbol[symIdx].strLen) {
+                        putSymInt(symIdx, 3); /* write symbol number */
+                        wrdata(symIdx);       /* now write the string */
                         putSym('/');
                     }
                 }
@@ -1674,19 +1566,19 @@ void dumpch() {
 }
 
 void procHead(int ptype, int plist, int rtype) {
-    proctp[curblk]         = ptype; // 1 untyped, 2 typed
-    int symIdx             = fixv[mp];
-    o_symbol[Info(symIdx)] = MkInfo(plist, rtype, PROC);
-    int node               = enter(-MkInfo(0, LocalLabel, LABEL));
+    proctp[curblk]      = ptype; // 1 untyped, 2 typed
+    int symIdx          = fixv[mp];
+    symbol[symIdx].info = MkInfo(plist, rtype, PROC);
+    int node            = enter(-MkInfo(0, LocalLabel, LABEL));
     fixv[mp] += node << 15;
-    emit(id_num(node), VLU);
+    emit(node, VLU);
     emit(TRA, OPR);
-    emit(id_num(symIdx), DEF);
+    emit(symIdx, DEF);
     return;
 }
 
 void synth(const int prod, const int symm) {
-    int ip, i, j, k, len, length;
+    int ip, i, j, k, len, dim;
     int symIdx;
 
     /*    mp == left ,  sp == right */
@@ -1712,7 +1604,7 @@ void synth(const int prod, const int symm) {
             if (symIdx <= 0)
                 emit(XCH, OPR);
             else
-                emit(id_num(symIdx), ADR);
+                emit(symIdx, ADR);
             if (--acnt > 0)
                 emit(STO, OPR);
         }
@@ -1745,26 +1637,26 @@ void synth(const int prod, const int symm) {
              // fall through to common code
     case 19: // <IF STATEMENT> ::= <IF CLAUSE> <TRUE PART> <STATEMENT>
         i = fixv[mp];
-        emit(id_num(i), DEF);
-        o_symbol[Info(i)] = MkInfo(0, LocalLabel, LABEL);
+        emit(i, DEF);
+        symbol[i].info = MkInfo(0, LocalLabel, LABEL);
         return;
     case 20: // <IF STATEMENT> ::= <LABEL DEFINITION> <IF STATEMENT>
         return;
     case 21: // <IF CLAUSE> ::= IF <EXPRESSION> THEN
         i = enter(-MkInfo(0, 0, LABEL));
-        emit(id_num(i), VLU);
+        emit(i, VLU);
         emit(TRC, OPR);
         fixv[mp] = i;
         return;
     case 22: // <TRUE PART> ::= <BASIC STATEMENT> ELSE
         i = enter(-MkInfo(0, 0, LABEL));
-        emit(id_num(i), VLU);
+        emit(i, VLU);
         emit(TRA, OPR);
         j            = fixv[mp - 1];
         fixv[mp - 1] = i;
         i            = j;
-        emit(id_num(i), DEF);
-        o_symbol[Info(i)] = MkInfo(0, LocalLabel, LABEL);
+        emit(i, DEF);
+        symbol[i].info = MkInfo(0, LocalLabel, LABEL);
         return;
     case 23: // <GROUP> ::= <GROUP HEAD> <ENDING>
         if (fixv[sp] > 0)
@@ -1793,9 +1685,9 @@ void synth(const int prod, const int symm) {
             {
                 /*     generate destination of case branch */
                 symIdx = dopar[curblk + 1].clause;
-                emit(id_num(symIdx), DEF);
+                emit(symIdx, DEF);
                 int endJmp = info_len(symIdx);
-                o_symbol[Info(symIdx)] &= 0xff;
+                symbol[symIdx].info &= 0xff;
                 /*     m is symbol number of LABEL at end of jump table */
                 emit(CSE, OPR);
                 /*     define the jump table */
@@ -1803,15 +1695,15 @@ void synth(const int prod, const int symm) {
                 int pIdx = 0, qIdx;
                 for (symIdx = dopar[curblk + 1].label; symIdx; pIdx = symIdx, symIdx = qIdx) {
                     qIdx = info_len(symIdx);
-                    o_symbol[Info(symIdx)] &= 0xff; // clear the length field
-                    o_symbol[Info(symIdx)] += (pIdx << 8);
+                    symbol[symIdx].info &= 0xff; // clear the length field
+                    symbol[symIdx].info += (pIdx << 8);
                 }
 
                 do { /* emit list starting at pIdx */
-                    qIdx                 = info_len(pIdx);
-                    o_symbol[Info(pIdx)] = MkInfo(0, LocalLabel, LABEL);
+                    qIdx              = info_len(pIdx);
+                    symbol[pIdx].info = MkInfo(0, LocalLabel, LABEL);
                     if (qIdx) {
-                        emit(id_num(pIdx), VLU);
+                        emit(pIdx, VLU);
                         emit(AX2, OPR);
                     }
                 } while ((pIdx = qIdx));
@@ -1840,15 +1732,15 @@ void synth(const int prod, const int symm) {
         return;
     case 27: // <GROUP HEAD> ::= DO <CASE SELECTOR> ';'
         enterb();
-        k = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        k = enter(-MkInfo(0, LocalLabel, LABEL));
         /*     k is LABEL after case jump table */
         symIdx = enter(-MkInfo(k, LocalLabel, LABEL));
-        emit(id_num(symIdx), VLU);
+        emit(symIdx, VLU);
         emit(AX1, OPR);
         doHead(curblk, DO_CASE, symIdx);
         symIdx              = enter(-MkInfo(0, LocalLabel, LABEL));
         dopar[curblk].label = symIdx;
-        emit(id_num(symIdx), DEF);
+        emit(symIdx, DEF);
         return;
     case 28:                                 // <GROUP HEAD> ::= <GROUP HEAD> <STATEMENT>
         if (dopar[curblk].type == DO_CASE) { // case stmt
@@ -1856,7 +1748,7 @@ void synth(const int prod, const int symm) {
             emit(TRA, OPR);
             symIdx              = enter(-MkInfo(dopar[curblk].label, LocalLabel, LABEL));
             dopar[curblk].label = symIdx;
-            emit(id_num(symIdx), DEF);
+            emit(symIdx, DEF);
         }
         return;
     case 29: // <STEP DEFINITION> ::= <VARIABLE> <REPLACE> <EXPRESSION> <ITERATION CONTROL>
@@ -1867,7 +1759,7 @@ void synth(const int prod, const int symm) {
         return;
     case 30: // <ITERATION CONTROL> ::= <TO> <EXPRESSION>
         emit(LEQ, OPR);
-        i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        i = enter(-MkInfo(0, LocalLabel, LABEL));
         emit(i, VLU);
         emit(TRC, OPR);
         fixv[mp] = -((fixv[mp] << 14) + i);
@@ -1887,7 +1779,7 @@ void synth(const int prod, const int symm) {
         emit(right(i, 14), DEF);
         return;
     case 32: // <WHILE CLAUSE> ::= <WHILE> <EXPRESSION>
-        i        = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        i        = enter(-MkInfo(0, LocalLabel, LABEL));
         fixv[mp] = (fixv[mp] << 14) + i;
         /*     (back branch number/end loop number) */
         emit(i, VLU);
@@ -1905,7 +1797,7 @@ void synth(const int prod, const int symm) {
         emit(END, OPR);
         /*     emit a ret just in case he forgot it */
         emit(DRT, OPR);
-        emit(id_num(k), DEF);
+        emit(k, DEF);
         return;
     case 35: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> ';'
         procHead(1, 0, 0);
@@ -1921,7 +1813,7 @@ void synth(const int prod, const int symm) {
         return;
     case 39: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> INTERRUPT <NUMBER> ';'
         /*     get symbol number */
-        i = id_num(fixv[mp]);
+        i = fixv[mp];
         /*     get interrupt number */
         j = fixv[sp - 1];
         if (j > 7)
@@ -1970,7 +1862,7 @@ void synth(const int prod, const int symm) {
         return;
     case 47: // <LABEL DEFINITION> ::= <IDENTIFIER> ':'
         symIdx = lookup(mp);
-        if (symIdx < blksym)
+        if (symIdx <= blksym)
 
             /*         prec = 3 if user-defined outer block LABEL */
             /*         prec = 4 if user-defined LABEL not in outer block */
@@ -1979,16 +1871,16 @@ void synth(const int prod, const int symm) {
         else {
             if (info_prec(symIdx)) {
                 error("16: duplicate LABEL definition in block");
-                o_symbol[Info(symIdx)] &= ~(0xF << 4); // clear the prec bits
+                symbol[symIdx].info &= ~(0xF << 4); // clear the prec bits
             }
             // set the prec bits
-            o_symbol[Info(symIdx)] += MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, 0);
+            symbol[symIdx].info += MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, 0);
         }
         fixv[mp] = symIdx;
         /* indicate that this is an identifier label */
         fixc[mp] = -1;
         if (token != PROCV)
-            emit(id_num(symIdx), DEF);
+            emit(symIdx, DEF);
         return;
     case 48: // <LABEL DEFINITION> ::= <NUMBER> ':'
         k = fixv[mp];
@@ -2001,7 +1893,7 @@ void synth(const int prod, const int symm) {
 
             /* indicate that this is a numeric label */
             fixc[mp] = symIdx;
-            emit(id_num(symIdx), VLU);
+            emit(symIdx, VLU);
             emit(ORG, OPR);
         }
         return;
@@ -2025,7 +1917,7 @@ void synth(const int prod, const int symm) {
             return;
         if (symIdx > 0) {
             int type = info_type(symIdx);
-            emit(id_num(symIdx), ADR);
+            emit(symIdx, ADR);
             if (type == PROC) {
                 emit(PRO, OPR);
                 return;
@@ -2043,8 +1935,8 @@ void synth(const int prod, const int symm) {
         if (j == LABEL || j == VARB) {
             /*     increment the reference counter (use length field) */
             if (j == LABEL)
-                o_symbol[Info(symIdx)] += MkInfo(1, 0, 0);
-            emit(id_num(symIdx), VLU);
+                symbol[symIdx].info += MkInfo(1, 0, 0);
+            emit(symIdx, VLU);
             emit(TRA, OPR);
         } else
             error("19: invalid destination for GOTO");
@@ -2057,7 +1949,7 @@ void synth(const int prod, const int symm) {
             if ((symIdx = lookup(sp)) == 0)
                 /*     enter number */
                 symIdx = enter(MkInfo(k, k > 255 ? 2 : 1, NUMBER));
-            emit(id_num(symIdx), VLU);
+            emit(symIdx, VLU);
             emit(TRA, OPR);
         }
         return;
@@ -2075,7 +1967,7 @@ void synth(const int prod, const int symm) {
     case 60: // <DECLARATION ELEMENT> ::= <IDENTIFIER> <DATA LIST>
         i = fixv[mp];
         j = fixv[mp + 1];
-        o_symbol[Info(i)] += (j & 0xffff) << 8;
+        symbol[i].info += (j & 0xffff) << 8;
         emit(DAT, OPR);
         emit((j >> 16), DEF);
         return;
@@ -2084,7 +1976,7 @@ void synth(const int prod, const int symm) {
         fixv[mp] += wrdata(-fixv[mp + 1]);
         return;
     case 62: // <DATA HEAD> ::= DATA '('
-        j = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        j = enter(-MkInfo(0, LocalLabel, LABEL));
         emit(j, VLU);
         emit(TRA, OPR);
         fixv[mp] = (j << 16);
@@ -2094,23 +1986,20 @@ void synth(const int prod, const int symm) {
         symIdx       = enter(MkInfo(0, P_INLINE, VARB));
         fixv[mp - 1] = symIdx;
         emit(DAT, OPR);
-        emit(id_num(symIdx), DEF);
+        emit(symIdx, DEF);
         return;
     case 64: // <TYPE DECLARATION> ::= <IDENTIFIER SPECIFICATION> <TYPE>
     case 65: // <TYPE DECLARATION> ::= <BOUND HEAD> <NUMBER> ')' <TYPE>
-        length = prod == 64 ? 1 : fixv[mp + 1]; // dimension
-
-        k      = fixv[sp]; // item type
+        dim = prod == 64 ? 1 : fixv[mp + 1]; // dimension
+        k   = fixv[sp];                      // item type
         do {
             int symIdx = idList[--idListSP];
-            ip         = o_symbol[Info(symIdx)];
-            if (k == P_LABEL) {
-                if (ip != VARB || o_symbol[SymBased(symIdx)])
-                    error("21: duplicate variable or LABEL definition");
-                ip = LABEL;
-            }
-            o_symbol[Info(symIdx)] = MkInfo(length, k, symType(ip));
+            ip         = symbol[symIdx].info;
+            if (ip != VARB)
+                error("21: duplicate variable or label definition");
+            symbol[symIdx].info = MkInfo(dim, k, k == P_LABEL ? LABEL : VARB);
         } while (idListSP);
+
         fixv[mp] = idList[0];
         return;
     case 66: // <TYPE DECLARATION> ::= <TYPE DECLARATION> <INITIAL LIST>
@@ -2143,14 +2032,14 @@ void synth(const int prod, const int symm) {
              // <IDENTIFIER LIST>)
     case 77: // <BASED VARIABLE> ::= <IDENTIFIER> BASED
         symIdx = lookup(mp);
-        if (symIdx <= blksym)
+        if (symIdx < blksym)
             symIdx = enter(MkInfo(0, 0, VARB));
-        else if ((o_symbol[Info(symIdx)] & 0xff) != VARB)
+        else if ((symbol[symIdx].info & 0xff) != VARB)
             error("24: invalid variable identifier");
         fixv[mp] = symIdx;
         return;
     case 76: // <VARIABLE NAME> ::= <BASED VARIABLE> <IDENTIFIER>
-        if (symtop >= SYMABS)
+        if (symNext >= SYMABS)
             fatal("25: pass-1 symbol table overflow");
         else {
             i      = fixv[mp];
@@ -2162,7 +2051,7 @@ void synth(const int prod, const int symm) {
                 return;
             }
 
-            o_symbol[symtop - 1] = id_num(symIdx); // stuff the symId of the base var
+            symbol[symNext - 1].based = symIdx; // stuff the symId of the base var
         }
         return;
         /*
@@ -2173,7 +2062,7 @@ void synth(const int prod, const int symm) {
 
     case 79: // <INITIAL HEAD> ::= INITIAL '('
         if (initialDataSP < MAXINITIAL) {
-            initialData[initialDataSP] = id_num(fixv[mp - 1]) << 15;
+            initialData[initialDataSP] = fixv[mp - 1] << 15;
             fixv[mp]                   = initialDataSP++;
         } else
             fatal("23: pass-1 initial data table overflow");
@@ -2181,9 +2070,8 @@ void synth(const int prod, const int symm) {
     case 78: // <INITIAL LIST> ::= <INITIAL HEAD> <CONSTANT> ')'
     case 80: // <INITIAL HEAD> ::= <INITIAL HEAD> <CONSTANT> ','
         if (initialDataSP < MAXINITIAL) {
-            initialData[fixv[mp]]++; // bump the count
-            initialData[initialDataSP++] =
-                (id_num(fixv[mp + 1]) << 16) + fixv[mp + 1]; // store the value
+            initialData[fixv[mp]]++;                                            // bump the count
+            initialData[initialDataSP++] = (fixv[mp + 1] << 16) + fixv[mp + 1]; // store the value
         } else
             fatal("23: pass-1 initial data table overflow");
         return;
@@ -2212,7 +2100,7 @@ void synth(const int prod, const int symm) {
         else if (symIdx < 0) // PMO added 'else' as symIdx = 0 will cause memory error
             emit(XCH, OPR);
         else
-            emit(id_num(symIdx), ADR);
+            emit(symIdx, ADR);
 
         emit(STO, OPR);
         return;
@@ -2290,10 +2178,10 @@ void synth(const int prod, const int symm) {
         return;
     case 112: // <PRIMARY> ::= <CONSTANT>
         symIdx = fixv[mp];
-        emit(id_num(symIdx), VLU);
+        emit(symIdx, VLU);
         return;
     case 113: // <PRIMARY> ::= '.' <CONSTANT>
-        i        = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        i        = enter(-MkInfo(0, LocalLabel, LABEL));
         fixv[mp] = i;
         emit(i, VLU);
         emit(TRA, OPR);
@@ -2309,7 +2197,7 @@ void synth(const int prod, const int symm) {
         symIdx = fixv[mp];
         if (symIdx > 0) {
             /*     simple variable */
-            emit(id_num(symIdx), VLU);
+            emit(symIdx, VLU);
             int type = info_type(symIdx);
             if (type == PROC)
                 emit(PRO, OPR);
@@ -2323,7 +2211,7 @@ void synth(const int prod, const int symm) {
         symIdx = fixv[sp];
         if (symIdx > 0) {
             if (info_type(symIdx) == VARB) {
-                emit(id_num(symIdx), ADR);
+                emit(symIdx, ADR);
                 emit(CVA, OPR); /*     subscripted - change precision to 2 */
                 return;
             }
@@ -2337,7 +2225,7 @@ void synth(const int prod, const int symm) {
         return;
     case 118: // <CONSTANT HEAD> ::= '.' '('
         symIdx   = enter(-MkInfo(0, LocalLabel, LABEL));
-        i        = id_num(symIdx);
+        i        = symIdx;
         fixv[mp] = i;
         emit(i, VLU);
         emit(TRA, OPR);
@@ -2365,7 +2253,7 @@ void synth(const int prod, const int symm) {
             error("42: attempted CALL of a typed procedure");
         if (pstack[mp - 1] != CALLV && j == 0)
             error("43: attempted use of untyped procedure as a function or variable");
-        i        = id_num(symIdx);
+        i        = symIdx;
         i        = ((i << 15) + i + 1);
         fixc[mp] = 0;
         emit(i >> 15, VLU);
@@ -2384,9 +2272,9 @@ void synth(const int prod, const int symm) {
             emit(right(i, 15), ADR);
             if (fixc[mp] != 1)
                 emit(STD, OPR);
-            if (iabs(fixc[mp]) == 0)
+            if (fixc[mp] == 0)
                 error("37: too many actual parameters");
-            if (iabs(fixc[mp]) > 1)
+            else if (iabs(fixc[mp]) > 1)
                 error("38: too few parameters");
         }
         emit(i >> 15, VLU);
@@ -2415,13 +2303,13 @@ void synth(const int prod, const int symm) {
                     error("42: attempted CALL of a typed procedure");
                 if (pstack[mp - 1] != 30 && j == 0)
                     error("43: attempted use of untyped procedure as a function or variable");
-                i        = id_num(symIdx);
+                i        = symIdx;
                 fixv[mp] = -((i << 15) + i + 1);
                 return;
             }
         }
         fixv[mp] = symIdx;
-        emit(id_num(symIdx), ADR);
+        emit(symIdx, ADR);
         return;
     case 123: // <SUBSCRIPT HEAD> ::= <SUBSCRIPT HEAD> <EXPRESSION> ','
         i = -fixv[mp];
@@ -2470,11 +2358,11 @@ void synth(const int prod, const int symm) {
             error("33: interative DO index is invalid");
             fixv[mp] = 1;
         } else {
-            i            = id_num(symIdx);
+            i            = symIdx;
             fixv[mp - 3] = i;
             emit(i, ADR);
             emit(STD, OPR);
-            j = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+            j = enter(-MkInfo(0, LocalLabel, LABEL));
             emit(j, DEF);
             fixv[mp] = j;
             emit(i, VLU);
@@ -2482,25 +2370,25 @@ void synth(const int prod, const int symm) {
         return;
     case 127: // <BY> ::= BY
         emit(LEQ, OPR);
-        i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        i = enter(-MkInfo(0, LocalLabel, LABEL));
         /*     save symbol number at <to> (end loop number) */
         j            = fixv[mp - 2];
         fixv[mp - 2] = i;
         emit(i, VLU);
         emit(TRC, OPR);
-        i        = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        i        = enter(-MkInfo(0, LocalLabel, LABEL));
         fixv[mp] = (j << 14) + i;
         /*     <by> is (to number/statement number) */
         emit(i, VLU);
         emit(TRA, OPR);
         /*     now define by LABEL */
-        i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        i = enter(-MkInfo(0, LocalLabel, LABEL));
         /*     save by LABEL in <to> as branch back number */
         fixv[mp - 2] += i << 14;
         emit(i, DEF);
         return;
     case 128: // <WHILE> ::= WHILE
-        i = id_num(enter(-MkInfo(0, LocalLabel, LABEL)));
+        i = enter(-MkInfo(0, LocalLabel, LABEL));
         emit(i, DEF);
         fixv[mp] = i;
         return;
@@ -2642,12 +2530,12 @@ void enterb() {
         fatal("36: too many block levels");
         curblk = 1;
     }
-    block[curblk] = symtop;
+    block[curblk] = symNext;
     doHead(curblk, 0, 0);
     /*     save the state of the macro definition table */
     macblk[curblk] = macdefSP;
 
-    blksym         = symtop;
+    blksym         = symNext;
     return;
 }
 
@@ -2739,8 +2627,6 @@ void redpr(const int prod, const int sym) {
 
 void emit(const int val, const int typ) {
 
-#define MAXPOL 30
-    static int polish[MAXPOL + 1];
     static int polcnt     = 0;
     static char *polchr[] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN" };
     static char *opcval[] = { "NOP", "ADD", "ADC", "SUB", "SBC", "MUL", "DIV", "REM", "NEG",
@@ -2762,7 +2648,7 @@ void emit(const int val, const int typ) {
     assert(val >= 0);
 
     if (C_GENERATE != 0) {
-        fprintf(lstFp, "%5d %s ", polcnt, polchr[typ]);
+        fprintf(lstFp, "%5d %s ", ++polcnt, polchr[typ]);
         switch (typ) {
         case OPR:
             fprintf(lstFp, opcval[val]);
@@ -2787,7 +2673,9 @@ void emit(const int val, const int typ) {
 
 void cmpuse() {
     printf("table usage in pass 1:\n");
-    printf("symbol table - top=%-6d, loc=%-6d\n", symtop, symloc);
-    printf("               len=%-6d, cnt=%-6d, abs=%-6d\n", symlen, symcnt, SYMABS);
-    printf("macro table  - maxStr=%d, maxDef=%d\n", maxMacStr, maxMacDef);
+    printf("symbols=%d(%3.1f%%) strings=%d(%3.1f%%), ", symNext - 1,
+           (double)(symNext - 1) / SYMABS * 100.0, topStr, (double)topStr / 0x10000 * 100.0);
+    printf("macros=%d(%3.1f%%) strings=%d(%3.1f%%), ", maxMacDef,
+           (double)maxMacDef / MAXMACDEF * 100.0, maxMacStr, (double)maxMacStr / MAXMAC * 100.0);
+    printf("data=%d(%3.1f%%)\n", initialDataSP, (double)initialDataSP / MAXINITIAL * 100.0);
 }
