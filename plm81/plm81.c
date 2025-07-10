@@ -356,7 +356,18 @@ struct {
 
 };
 
-int symbol[SYMABS + 1];
+int o_symbol[SYMABS + 1];
+
+struct {
+    int noScope : 1;     // true if symbol is not in scope
+    uint16_t hcode : 15; // hash code
+    uint16_t next;       // next symbol in chain
+    uint16_t strLen;     // symbol string length
+    uint16_t strId;      // symbol string Id
+    uint32_t info;       // info word
+    uint16_t based;      // based symbol Id
+} symbol[SYMABS + 1];
+
 int symtop = 1;
 int symcnt = 0;
 
@@ -367,46 +378,46 @@ int assign[MAXASSIGN + 1]; /* assignment symbol indexes */
 
 /* some inline definitions to help make the code more readable */
 #define SymBased(symIdx) ((symIdx) + 2)
-#define Info(symIdx)    ((symIdx) + 1) /* index to symbol info word */
-#define Sym(symIdx)     ((symIdx))     /* index to symbol sizing word */
-#define Id(symIdx)      ((symIdx) - 1) /* index to symbol id word */
-#define Hash(symIdx)    ((symIdx) - 2) /* index to symbol hash word */
+#define Info(symIdx)     ((symIdx) + 1) /* index to symbol info word */
+#define Sym(symIdx)      ((symIdx))     /* index to symbol sizing word */
+#define Id(symIdx)       ((symIdx) - 1) /* index to symbol id word */
+#define Hash(symIdx)     ((symIdx) - 2) /* index to symbol hash word */
 
 inline unsigned iabs(int a) {
     return a < 0 ? -a : a;
 }
 
 inline int id_num(int i) {
-    return symbol[Id(i)] >> 16;
+    return o_symbol[Id(i)] >> 16;
 }
 
 inline int id_next(int i) {
-    return symbol[Id(i)] & 0xffff;
+    return o_symbol[Id(i)] & 0xffff;
 }
 inline int info_len(int i) {
-    return iabs(symbol[Info(i)]) >> 8;
+    return o_symbol[Info(i)] >> 8;
 }
 inline int info_prec(int i) {
-    return (iabs(symbol[Info(i)]) >> 4) & 0xf;
+    return (o_symbol[Info(i)] >> 4) & 0xf;
 }
 inline int info_type(int i) {
-    return iabs(symbol[Info(i)]) & 0xf;
+    return o_symbol[Info(i)] & 0xf;
 }
 
 inline int hash_hcode(int i) {
-    return symbol[Hash(i)] >> 16; /* hash value */
+    return o_symbol[Hash(i)] >> 16; /* hash value */
 }
 
 inline int hash_next(int i) {
-    return symbol[Hash(i)] & 0xffff; /* next symbol in chain */
+    return o_symbol[Hash(i)] & 0xffff; /* next symbol in chain */
 }
 
 inline sym_len(int i) {
-    return iabs(symbol[Sym(i)]) & 0xfff;
+    return iabs(o_symbol[Sym(i)]) & 0xfff;
 }
 
 inline sym_str(int i) {
-    return iabs(symbol[Sym(i)]) >> 12; /* The string Id */
+    return iabs(o_symbol[Sym(i)]) >> 12; /* The string Id */
 }
 
 inline int symHash(int i) {
@@ -436,8 +447,8 @@ inline int symType(int i) {
 }
 char b32Digit(int ch);
 
-int symloc;
-int symlen;
+uint16_t symloc;
+uint16_t symlen;
 int acnt = 0;
 /* cntrl */
 int contrl[26];
@@ -966,7 +977,7 @@ void dumpsym(int idx) {
     static char *types[]  = { "VARB", "INTR", "PROC", "LABEL", "LITER", "NUMBER" };
     static char *labels[] = { "OuterLabel", "LocalLabel", "CompilerLabel" };
 
-    fprintf(stderr, "Symbol %s%d at %d:", symbol[idx] < 0 ? "-" : "", id_num(idx), idx);
+    fprintf(stderr, "Symbol %s%d at %d:", o_symbol[idx] < 0 ? "-" : "", id_num(idx), idx);
     int strId = sym_str(idx);
     int len   = sym_len(idx);
     int type  = info_type(idx);
@@ -987,8 +998,8 @@ void dumpsym(int idx) {
             fprintf(stderr, "type=%s prec=%d ilen=%d", types[type - VARB], prec, info_len(idx));
         else
             fprintf(stderr, "type=%s ilen=%d", labels[prec - OuterLabel], info_len(idx));
-        if (symbol[Info(idx)] < 0)
-            fprintf(stderr, ", BASED(%d)", symbol[SymBased(idx)]);
+        if (o_symbol[SymBased(idx)])
+            fprintf(stderr, ", BASED(%d)", o_symbol[SymBased(idx)]);
         break;
     case NUMBER:
         fprintf(stderr, " strId=%d, len=%d, ", strId, len);
@@ -1001,7 +1012,7 @@ void dumpsym(int idx) {
     }
     if (strId)
         fprintf(stderr, ", hcode=%d, next=%d", hash_hcode(idx), hash_next(idx));
-    fprintf(stderr, ", info=%d", symbol[Info(idx)]);
+    fprintf(stderr, ", info=%d", o_symbol[Info(idx)]);
     putc('\n', stderr);
 }
 
@@ -1016,10 +1027,10 @@ void exitb() {
          */
         dropMacro(macblk[curblk--]);
 
-        for (int symIdx = symbol[symtop]; symIdx >= i; symIdx = id_next(symIdx)) {
+        for (int symIdx = o_symbol[symtop]; symIdx >= i; symIdx = id_next(symIdx)) {
             symIdx++; // adjust to symbol true base as chain is at -1
 
-            if (symbol[Sym(symIdx)] >= 0) { // in scope
+            if (o_symbol[Sym(symIdx)] >= 0) { // in scope
                 int type = info_type(symIdx);
 
                 if (type < LITER) {
@@ -1034,11 +1045,11 @@ void exitb() {
                                 error("1: undefined symbol ???");
                         }
                     }
-                    symbol[Sym(symIdx)] = -symbol[Sym(symIdx)]; // negate length fields
-                                                                // to mark out of scope
+                    o_symbol[Sym(symIdx)] = -o_symbol[Sym(symIdx)]; // negate length fields
+                                                                    // to mark out of scope
                     /* remove from hash chain if on one*/
 
-                    if (sym_str(symIdx)) { // has a hash chain
+                    if (hash_hcode(symIdx)) { // has a hash chain
 
                         /* find match on the entry */
                         int hcode = hash_hcode(symIdx);
@@ -1050,7 +1061,7 @@ void exitb() {
                             int np;
                             while ((np = hash_next(n + 2)) != Hash(symIdx))
                                 n = np;
-                            symbol[n] = (hcode << 16) + next;
+                            o_symbol[n] = (hcode << 16) + next;
                         }
                     }
                 }
@@ -1083,7 +1094,7 @@ int lookup(const int iv) {
         if (pstack[iv] == NUMBV) {
             if (info_type(symIdx) > LITER && info_len(symIdx) == fixv[iv])
                 return symIdx;
-        } else if (symbol[symIdx] > 0 && sym_len(symIdx) == symlen) {
+        } else if (o_symbol[symIdx] > 0 && sym_len(symIdx) == symlen) {
             if (strequ(sym_str(symIdx), &varc[symloc], symlen)) {
                 /*     make sure the types match. */
                 if ((pstack[iv] == STRV && info_type(symIdx) == LITER) ||
@@ -1097,6 +1108,22 @@ int lookup(const int iv) {
 }
 
 int enter(int info) {
+    /* in preparation for making symbol an array of structures
+       allocate a hash int and based int for all symbols
+       The symbol names have already been moved out
+
+       a symbol's content is now:
+       -2 hcode, hash chain
+       -1 id, id link
+       0  strId, string length
+       1  info (length, prec, type)
+       2  based
+
+       where info is a negative value for no hash code
+
+
+    */
+
     bool hasHash = info >= 0; // if info is negative, no hash code
     /*     syntax analyzer tables */
 
@@ -1105,33 +1132,27 @@ int enter(int info) {
     /*      the values of symloc and symlen in the varc array). */
     /*         also set-up hash code value (see lookup), if necessary */
     int symIdx = symtop;
-    int prev   = symbol[symIdx];
+    int prev   = o_symbol[symIdx];
 
-    if (hasHash) {
-        symtop += 4;
-        symIdx++;
-        if (symType(info) == NUMBER)
-            symlen = 0;
-    } else {
-        /*     entry with no external name */
-        info = -info;
-        symtop += 3;
-        symlen = 0;
-    }
-
-    if (symtop > SYMABS) {
-        symIdx = hasHash ? 1 : 0;
-        symtop = symIdx + 3;
+    if ((symtop += 5) > SYMABS) {
+        symIdx = 1;
+        symtop = 6;
         fatal("2: pass-1 symbol table overflow");
     }
+    symIdx++; //  index of id, idlink
 
-    symbol[symtop]       = symIdx++;
-    symbol[Id(symIdx)]   = (++symcnt << 16) + prev;
-    symbol[Sym(symIdx)]  = (newString(symlen, &varc[symloc]) << 12) + symlen;
-    symbol[Info(symIdx)] = info;
-    if (hasHash) {
-        symbol[Hash(symIdx)] = (hcode << 16) + hentry[hcode];
-        hentry[hcode]        = Hash(symIdx);
+    o_symbol[symtop]     = symIdx++;
+    o_symbol[Id(symIdx)] = (++symcnt << 16) + prev;
+    if (info < 0 || symType(info) == NUMBER)
+        o_symbol[Sym(symIdx)] = 0;
+    else
+        o_symbol[Sym(symIdx)] = (newString(symlen, &varc[symloc]) << 12) + symlen;
+    if (info < 0)
+        o_symbol[Info(symIdx)] = -info;
+    else {
+        o_symbol[Info(symIdx)] = info;
+        o_symbol[Hash(symIdx)] = (hcode << 16) + hentry[hcode];
+        hentry[hcode]          = Hash(symIdx);
     }
 
     return symIdx;
@@ -1187,21 +1208,22 @@ void dumpsy() {
     if (ic != 0) {
         if (ic > 1)
             fprintf(lstFp, "\nSYMBOL  ADDR STR CHRS   LENGTH PR TY");
-        for (i = symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
+        for (i = o_symbol[it = symtop]; i > 0; i = id_next((it = i) + 1)) {
             /*     quick check for zero length name */
             int symIdx = i + 1;
             if (ic >= 2 || sym_len(symIdx) > 0)
                 fprintf(lstFp, "S%05d", id_num(symIdx));
 
             if (ic >= 2) {
-                fprintf(lstFp, "%c ", symbol[symIdx] < 0 ? '*' : ' '); // * if now out of scope
+                fprintf(lstFp, "%c ",
+                        o_symbol[Sym(symIdx)] < 0 ? '*' : ' '); // * if now out of scope
                 fprintf(lstFp, "%04d %3d %4d ", symIdx, sym_str(symIdx), sym_len(symIdx));
-                fprintf(lstFp, "%c ", symbol[Info(symIdx)] < 0 ? 'B' : 'R'); // based or regular
+                fprintf(lstFp, "%c ", o_symbol[SymBased(symIdx)] ? 'B' : 'R'); // based or regular
                 fprintf(lstFp, "%06d%3d%3d", info_len(symIdx), info_prec(symIdx),
                         info_type(symIdx));
             }
             putc(' ', lstFp);
-            ip = Info(symIdx);
+
             if (sym_str(symIdx)) { // exists
                 int type = info_type(symIdx);
                 if (type == LITER)
@@ -1211,10 +1233,11 @@ void dumpsy() {
                     putc('\'', lstFp);
             }
             if (ic >= 2)
-                while (++ip < it) {
-                    k = symbol[ip];
-                    fprintf(lstFp, " %c%08XH", (k < 0) ? '-' : ' ', iabs(k));
-                }
+                ip = SymBased(symIdx);
+            while (++ip < it) {
+                k = o_symbol[ip];
+                fprintf(lstFp, " %c%08XH", (k < 0) ? '-' : ' ', iabs(k));
+            }
             putc('\n', lstFp);
         }
         putc('\n', lstFp);
@@ -1235,47 +1258,38 @@ void dumpsy() {
     /*     reverse the symbol table pointers */
     /*     set the length field of compiler-generated labels to 1 */
 
-    i         = symtop;
-    j         = symbol[i]; // will have no symbol #
-    symbol[i] = 0;
+    i           = symtop;
+    j           = o_symbol[i]; // will have no symbol #
+    o_symbol[i] = 0;
     while (j != 0) {
         /* note j is the symbol - 1 location. See symbol format */
         /* set length to 1 and prec to 5 (for comp generated labels) */
         if (info_type(j + 1) == LABEL && info_len(j + 1) == 0)
-            symbol[Info(j + 1)] = MkInfo(1, CompilerLabel, LABEL);
-        int m     = symbol[j];
-        symbol[j] = i;
-        i         = j;
-        j         = m & 0xffff; // strip the symbol #
+            o_symbol[Info(j + 1)] = MkInfo(1, CompilerLabel, LABEL);
+        int m       = o_symbol[j];
+        o_symbol[j] = i;
+        i           = j;
+        j           = m & 0xffff; // strip the symbol #
     }
 
     putSym('/');
-    for (int j = 2; symbol[j]; j = symbol[j]) {
+    for (int j = 2; o_symbol[j]; j = o_symbol[j]) {
         /* note j is the symbol - 1 location. See symbol format */
         int symIdx = j + 1;
-        int lp     = symbol[Info(symIdx)]; /* sym info */
-        if (lp < 0) {
-            lp = -lp;
+        if (o_symbol[SymBased(symIdx)]) {
             putSym('-');
-        } else
+            putSymInt(o_symbol[Info(symIdx)], 0); // print the Info word
             putSym(' ');
-        putSymInt(lp, 0); // print the Info word
-
-        if (symbol[Info(symIdx)] < 0) {
-            lp = symbol[SymBased(symIdx)];
-            if (lp < 0) {
-                lp = -lp;
-                putSym('-');
-            } else
-                putSym(' ');
-            putSymInt(lp, 0); // print the value
+            putSymInt(o_symbol[SymBased(symIdx)], 0); // print the Info word
+        } else {
+            putSym(' ');
+            putSymInt(o_symbol[Info(symIdx)], 0); // print the Info word
         }
         putSym('/');
     }
 
     putSym('/');
     putSym('\n');
-
 }
 
 void recov() {
@@ -1617,7 +1631,7 @@ int wrdata(const int sy) {
         }
     } else {
 
-        len          = sym_len(symIdx);
+        len             = sym_len(symIdx);
         uint8_t *symStr = symToStr(sym_str(symIdx));
 
         for (int lp = 0; lp < len; lp++) {
@@ -1638,9 +1652,9 @@ void dumpch() {
     putSym('/');
     if (C_MEMORY) {
         int i = 2;
-        for (int symNumber = 1; i; symNumber++, i = symbol[i]) {
+        for (int symNumber = 1; i; symNumber++, i = o_symbol[i]) {
             int symIdx = i + 1;
-            if (symbol[Info(symIdx)] >= 0) {
+            if (!o_symbol[SymBased(symIdx)]) {
                 int type = info_type(symIdx);
                 if (type == LABEL || type == VARB || type == PROC) {
                     /* check if real symbol */
@@ -1657,14 +1671,13 @@ void dumpch() {
         }
     }
     putSymStr("/\n");
-
 }
 
 void procHead(int ptype, int plist, int rtype) {
-    proctp[curblk]       = ptype; // 1 untyped, 2 typed
-    int symIdx           = fixv[mp];
-    symbol[Info(symIdx)] = MkInfo(plist, rtype, PROC);
-    int node             = enter(-MkInfo(0, LocalLabel, LABEL));
+    proctp[curblk]         = ptype; // 1 untyped, 2 typed
+    int symIdx             = fixv[mp];
+    o_symbol[Info(symIdx)] = MkInfo(plist, rtype, PROC);
+    int node               = enter(-MkInfo(0, LocalLabel, LABEL));
     fixv[mp] += node << 15;
     emit(id_num(node), VLU);
     emit(TRA, OPR);
@@ -1733,7 +1746,7 @@ void synth(const int prod, const int symm) {
     case 19: // <IF STATEMENT> ::= <IF CLAUSE> <TRUE PART> <STATEMENT>
         i = fixv[mp];
         emit(id_num(i), DEF);
-        symbol[Info(i)] = MkInfo(0, LocalLabel, LABEL);
+        o_symbol[Info(i)] = MkInfo(0, LocalLabel, LABEL);
         return;
     case 20: // <IF STATEMENT> ::= <LABEL DEFINITION> <IF STATEMENT>
         return;
@@ -1751,7 +1764,7 @@ void synth(const int prod, const int symm) {
         fixv[mp - 1] = i;
         i            = j;
         emit(id_num(i), DEF);
-        symbol[Info(i)] = MkInfo(0, LocalLabel, LABEL);
+        o_symbol[Info(i)] = MkInfo(0, LocalLabel, LABEL);
         return;
     case 23: // <GROUP> ::= <GROUP HEAD> <ENDING>
         if (fixv[sp] > 0)
@@ -1782,7 +1795,7 @@ void synth(const int prod, const int symm) {
                 symIdx = dopar[curblk + 1].clause;
                 emit(id_num(symIdx), DEF);
                 int endJmp = info_len(symIdx);
-                symbol[Info(symIdx)] &= 0xff;
+                o_symbol[Info(symIdx)] &= 0xff;
                 /*     m is symbol number of LABEL at end of jump table */
                 emit(CSE, OPR);
                 /*     define the jump table */
@@ -1790,13 +1803,13 @@ void synth(const int prod, const int symm) {
                 int pIdx = 0, qIdx;
                 for (symIdx = dopar[curblk + 1].label; symIdx; pIdx = symIdx, symIdx = qIdx) {
                     qIdx = info_len(symIdx);
-                    symbol[Info(symIdx)] &= 0xff; // clear the length field
-                    symbol[Info(symIdx)] += (pIdx << 8);
+                    o_symbol[Info(symIdx)] &= 0xff; // clear the length field
+                    o_symbol[Info(symIdx)] += (pIdx << 8);
                 }
 
                 do { /* emit list starting at pIdx */
-                    qIdx               = info_len(pIdx);
-                    symbol[Info(pIdx)] = MkInfo(0, LocalLabel, LABEL);
+                    qIdx                 = info_len(pIdx);
+                    o_symbol[Info(pIdx)] = MkInfo(0, LocalLabel, LABEL);
                     if (qIdx) {
                         emit(id_num(pIdx), VLU);
                         emit(AX2, OPR);
@@ -1966,10 +1979,10 @@ void synth(const int prod, const int symm) {
         else {
             if (info_prec(symIdx)) {
                 error("16: duplicate LABEL definition in block");
-                symbol[Info(symIdx)] &= ~(0xF << 4); // clear the prec bits
+                o_symbol[Info(symIdx)] &= ~(0xF << 4); // clear the prec bits
             }
             // set the prec bits
-            symbol[Info(symIdx)] += MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, 0);
+            o_symbol[Info(symIdx)] += MkInfo(0, curblk == 2 ? OuterLabel : LocalLabel, 0);
         }
         fixv[mp] = symIdx;
         /* indicate that this is an identifier label */
@@ -2030,7 +2043,7 @@ void synth(const int prod, const int symm) {
         if (j == LABEL || j == VARB) {
             /*     increment the reference counter (use length field) */
             if (j == LABEL)
-                symbol[Info(symIdx)] += MkInfo(1, 0, 0);
+                o_symbol[Info(symIdx)] += MkInfo(1, 0, 0);
             emit(id_num(symIdx), VLU);
             emit(TRA, OPR);
         } else
@@ -2060,10 +2073,9 @@ void synth(const int prod, const int symm) {
             fatal("20: macro table overflow");
         return;
     case 60: // <DECLARATION ELEMENT> ::= <IDENTIFIER> <DATA LIST>
-        i   = fixv[mp] + 1;
-        j   = fixv[mp + 1];
-        len = right(j, 16);
-        symbol[i] += (len << 8); // PMO
+        i = fixv[mp];
+        j = fixv[mp + 1];
+        o_symbol[Info(i)] += (j & 0xffff) << 8;
         emit(DAT, OPR);
         emit((j >> 16), DEF);
         return;
@@ -2091,15 +2103,13 @@ void synth(const int prod, const int symm) {
         k      = fixv[sp]; // item type
         do {
             int symIdx = idList[--idListSP];
-            ip         = symbol[Info(symIdx)];
+            ip         = o_symbol[Info(symIdx)];
             if (k == P_LABEL) {
-                if (ip != VARB)
+                if (ip != VARB || o_symbol[SymBased(symIdx)])
                     error("21: duplicate variable or LABEL definition");
                 ip = LABEL;
             }
-            symbol[Info(symIdx)] = MkInfo(length, k, symType(ip));
-            if (ip < 0)
-                symbol[Info(symIdx)] = -symbol[Info(symIdx)];
+            o_symbol[Info(symIdx)] = MkInfo(length, k, symType(ip));
         } while (idListSP);
         fixv[mp] = idList[0];
         return;
@@ -2135,7 +2145,7 @@ void synth(const int prod, const int symm) {
         symIdx = lookup(mp);
         if (symIdx <= blksym)
             symIdx = enter(MkInfo(0, 0, VARB));
-        else if ((symbol[Info(symIdx)] & 0xff) != VARB)
+        else if ((o_symbol[Info(symIdx)] & 0xff) != VARB)
             error("24: invalid variable identifier");
         fixv[mp] = symIdx;
         return;
@@ -2143,10 +2153,7 @@ void synth(const int prod, const int symm) {
         if (symtop >= SYMABS)
             fatal("25: pass-1 symbol table overflow");
         else {
-            i = fixv[mp];
-            symbol[symtop + 1] =
-                symbol[symtop]; // copy up location of top symbol (stored in symbol[symtop]
-            j      = symtop++;
+            i      = fixv[mp];
             symIdx = lookup(sp);
             if (symIdx == 0)
                 symIdx = enter(MkInfo(0, 0, VARB));
@@ -2155,8 +2162,7 @@ void synth(const int prod, const int symm) {
                 return;
             }
 
-            symbol[j]       = id_num(symIdx);   // stuff the symId of the base var
-            symbol[Info(i)] = -symbol[Info(i)]; // mark the info as based
+            o_symbol[symtop - 1] = id_num(symIdx); // stuff the symId of the base var
         }
         return;
         /*
