@@ -9,7 +9,8 @@
 #include "link.h"
 #include <ctype.h>
 #include <stdio.h>
-#include "../shared/cmdline.h"
+#include "cmdline.h"
+#include "utility.h"
 
 void ChkLP() {
     ExpectChar('(', "Left parenthesis expected");
@@ -25,9 +26,9 @@ void ExpectComma() {
 
 void AddFileToInputList(char *token) {
     if (objFileList == 0)
-        objFileList = objFile = xmalloc(sizeof(objFile_t));
+        objFileList = objFile = safeMalloc(sizeof(objFile_t));
     else {
-        objFile->next = xmalloc(sizeof(objFile_t));
+        objFile->next = safeMalloc(sizeof(objFile_t));
         objFile       = objFile->next;
     }
     objFile->next    = 0;
@@ -67,7 +68,7 @@ void GetInputListItem() {
             ChkLP();                /* gobble up the ( */
             objFile->isLib  = true; /* note have module list */
             curModuleName   = GetModuleName(GetToken());
-            module          = (objFile->modules = xmalloc(sizeof(module_t)));
+            module          = (objFile->modules = safeMalloc(sizeof(module_t)));
             module->next    = 0;
             module->symbols = 0;
             module->cbias   = 0;
@@ -79,7 +80,7 @@ void GetInputListItem() {
                 if (!*token)
                     FatalCmdLineErr("Expected module name\n");
                 curModuleName   = GetModuleName(token);
-                module->next    = xmalloc(sizeof(module_t));
+                module->next    = safeMalloc(sizeof(module_t));
                 module          = module->next;
                 module->next    = 0;
                 module->symbols = 0;

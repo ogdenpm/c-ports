@@ -151,7 +151,7 @@ void ChainUnresolved() { /* creates a chain of unresolved externals */
 void CreateFragment(uint8_t seg, uint16_t bot, uint16_t top) {
     if (!mapWanted) /* we are not creating a map so ignore */
         return;
-    segFragP      = xmalloc(sizeof(segFrag_t)); /* allocate and initialise the fragment */
+    segFragP      = safeMalloc(sizeof(segFrag_t)); /* allocate and initialise the fragment */
     segFragP->bot = bot;
     segFragP->top = top;
     prevSegFragP  = (segFrag_t *)&segFrags[seg]; /* separate lists for each segment */
@@ -377,7 +377,7 @@ void Pass1COMDEF() {
                 ModuleWarning(" -Unequal COMMON length, conflict in ");
             }
         } else { /* new entry required */
-            commSym->hashChain = xmalloc(sizeof(symbol_t));
+            commSym->hashChain = safeMalloc(sizeof(symbol_t));
             commSym            = commSym->hashChain; /* link in and mark new end of chain */
             commSym->hashChain = 0;
             commSym->flags     = comSegInfo[curSeg].combine; /* save the combine value */
@@ -430,7 +430,7 @@ void Pass1PUBNAMES() {
                 MarkPublic(symbol, offset);
             }
         } else { /* create a new entry */
-            symbol->hashChain = xmalloc(sizeof(symbol_t));
+            symbol->hashChain = safeMalloc(sizeof(symbol_t));
             symbol            = symbol->hashChain; /* add to HashF() chain */
             symbol->hashChain = 0;
             symbol->name      = pstrdup(name); /* add the name */
@@ -448,7 +448,7 @@ void Pass1EXTNAMES() {
         externCnt++; /* bump the number of externs */
         symbol_t *symbol;
         if (!Lookup(name, &symbol, F_SCOPEMASK)) {           /* ! currently extern || public */
-            symbol->hashChain   = xmalloc(sizeof(symbol_t)); /* create an entry */
+            symbol->hashChain   = safeMalloc(sizeof(symbol_t)); /* create an entry */
             symbol              = symbol->hashChain;         /* link in */
             symbol->hashChain   = 0;
             symbol->flags       = F_EXTERN; /* extern and record symcnt number */
@@ -465,7 +465,7 @@ void Pass1EXTNAMES() {
 void P1Records(uint8_t newModule) {
     if (newModule) /* create entry for new module */
     {
-        hmoduleP->next  = (module = xmalloc(sizeof(module_t)));
+        hmoduleP->next  = (module = safeMalloc(sizeof(module_t)));
         module->next    = 0;
         module->symbols = 0;
         module->name    = pstrdup((pstr_t *)inP);
@@ -487,7 +487,7 @@ void P1Records(uint8_t newModule) {
             Pass1CONTENT();
             break;
         case R_MODEOF:
-            FatalError("%s: Unexpected MODEOF record", omfInName);
+            fatal("%s: Unexpected MODEOF record", omfInName);
             break;
         case R_PUBDEF:
             Pass1PUBNAMES();
@@ -542,11 +542,11 @@ void P1LibScan() {
         // load all of the locations to memory to avoid repeated reloads
         if (count * 4 > recLen - 1)
             IllegalReloc();
-        lib_t *libData = xmalloc(sizeof(lib_t) * count);
+        lib_t *libData = safeMalloc(sizeof(lib_t) * count);
         for (int i = 0; i < count; i++)
             libData[i].location = ReadLocation();
         ExpectRecord(R_LIBDIC); // Dictionary is now in memory
-        char *dictionary = xmalloc(recLen + 1);
+        char *dictionary = safeMalloc(recLen + 1);
         memcpy(dictionary, inP, recLen);
         dictionary[recLen] = '\0'; // extra byte so strchr works on bad files
         char *p            = dictionary;

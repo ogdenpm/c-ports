@@ -49,7 +49,7 @@ symbol_t *GetSymbolP(uint16_t symId) {
 
 void InitExternsMap() {
     if (extMap == 0) /* ! already allocated */
-        extMap = xmalloc(maxExternCnt * sizeof(symbol_t **));
+        extMap = safeMalloc(maxExternCnt * sizeof(symbol_t **));
     externsCount = 0;
 } /* InitExternsMap() */
 
@@ -63,7 +63,7 @@ bool ExtendRec(uint16_t cnt) {
 
 void static EmitMODHDRComSegInfo(uint8_t seg, uint16_t len, uint8_t combine) {
     if (ExtendRec(SEGDEF_sizeof))                             /* make sure enough room */
-        FatalError("%s: Module header too long", omfOutName); /* mod hdr too long */
+        fatal("%s: Module header too long", omfOutName); /* mod hdr too long */
     WriteByte(seg);
     WriteWord(len);
     WriteByte(combine);
@@ -219,7 +219,7 @@ void Pass2EXTNAMES() {
 
 uint16_t newFixup() {
     if (fixupCnt >= fixupSize)
-        fixups = xrealloc(fixups, sizeof(fixups[0]) * (fixupSize += FCHUNK));
+        fixups = safeRealloc(fixups, sizeof(fixups[0]) * (fixupSize += FCHUNK));
     return fixupCnt++;
 }
 
@@ -257,7 +257,7 @@ void Pass2CONTENT() {
             GetRecord();
             return;
         } else
-            FatalError("%s: Record length > 1025 for non ABSOLUTE content", omfInName);
+            fatal("%s: Record length > 1025 for non ABSOLUTE content", omfInName);
     }
     // it's a potentially relocatable record, so copy original to output
     memcpy(outRec, inRec, recLen + REC_DATA);
@@ -277,7 +277,7 @@ void Pass2CONTENT() {
     outP += len;
 
     if (!fixups)
-        fixups = xmalloc(sizeof(fixups[0]) * (fixupSize = FCHUNK));
+        fixups = safeMalloc(sizeof(fixups[0]) * (fixupSize = FCHUNK));
     fixups[HEADEXT].next = 0; // init fixup list
     fixups[HEADREL].next = 0;
     fixupCnt             = 2;
@@ -450,7 +450,7 @@ void Phase2() {
                         Pass2LINENO();
                         break;
                     case R_MODEOF:
-                        FatalError("%s: Unexpected EOF record", omfInName);
+                        fatal("%s: Unexpected EOF record", omfInName);
                         break;
                     case R_ANCEST:
                         Pass2ANCESTOR();

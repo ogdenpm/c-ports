@@ -31,6 +31,24 @@ symbol_t *unresolvedList;
 bool externOk         = false; // if false then warnings are teated as errors
 int warnings          = 0;
 
+char const help[] =
+    "Usage: %s inputList (TO | -o) targetFile [link option]*\n"
+    "Where link options are:\n"
+    "MAP              Include link map information in listing\n"
+    "NAME(moduleName) Set targetFile module name. '_' is now supported\n"
+    "PRINT(listfile)  Set listing file rather than use stdout\n"
+    "EXTERNOK         Don't treat unresolved warnings as errors\n"
+    "                 and COMMON length conflicts\n"
+    "See Intel linker documentation for inputList specification\n"
+    "Notes:\n"
+    "* File names are of the format [:Fx:]path, where x is a digit and path\n"
+    "  The :Fx: maps to a directory prefix from the same named environment variable\n"
+    "* Response file input for linking is supported by using \"%s <file\"\n"
+    "* targetFile is deleted on error, which helps with make builds\n";
+
+
+
+
 uint8_t COPYRIGHT[] = "[C] 1976, 1977, 1979 INTEL CORP'";
 
 uint8_t HashF(pstr_t const *pstr) {
@@ -65,24 +83,3 @@ void Start() {
     Exit(externOk ? 0 : warnings);
 } /* Start */
 
-void usage() {
-    printf("Usage: %s inputList (TO | -o) targetFile [link option]*\n"
-           "or:    %s (-v | -V | -h)\n",
-           invokeName, invokeName);
-    printf("Where:\n"
-           "-h               Show this help\n"
-           "-v / -V          Show simple / extended version information\n"
-           "Link options are:\n"
-           "MAP              Include link map information in listing\n"
-           "NAME(moduleName) Set targetFile module name. '_' is now supported\n"
-           "PRINT(listfile)  Set listing file rather than use stdout\n"
-           "EXTERNOK         Don't treat unresolved warnings as errors\n"
-           "                 and COMMON length conflicts\n"
-           "See Intel linker documentation for inputList specification\n"
-           "Notes:\n"
-           "* File names are of the format [:Fx:]path, where x is a digit and path\n"
-           "  The :Fx: maps to a directory prefix from the same named environment variable\n"
-           "* Response file input for linking is supported by using \"%s <file\"\n"
-           "* targetFile is deleted on error, which helps with make builds\n",
-           invokeName);
-}
