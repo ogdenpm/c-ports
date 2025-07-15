@@ -188,6 +188,7 @@
     <ClCompile Include="message.c" />
     <ClCompile Include="option.c" />
     <ClCompile Include="memory.c" />
+    <ClCompile Include="_utility.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\verInfo.h" />

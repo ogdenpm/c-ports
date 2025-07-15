@@ -33,6 +33,9 @@
     <ClCompile Include="exit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="_utility.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utility.h">

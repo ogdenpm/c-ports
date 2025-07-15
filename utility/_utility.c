@@ -1,1 +1,1 @@
-static char *ver="2025.7.15.1 2025-07-15 14:15:36";
+static char ver[] ="Version: 2025.7.15.2 Released: 2025-07-15 14:18:37";
