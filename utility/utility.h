@@ -37,7 +37,7 @@ extern char *programName;
 int getopt(int argc, char **argv, const char *options);
 void chkStdOptions(int argc, char **argv);
 _Noreturn void usage(char *fmt, ...);
-void showVersion(FILE *fp, int what);
+void showVersion(FILE *fp, bool full);
 
 // getch.c
 int _getch(void);

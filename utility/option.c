@@ -118,7 +118,7 @@ int getopt(int argc, char **argv, char const *opts) {
 /// <param name="">and arguments</param>
 _Noreturn void usage(char *fmt, ...) {
     FILE *fp = fmt ? stderr : stdout;
-    showVersion(fp, 2);
+    showVersion(fp, false);
     putc('\n', fp);
 
     if (fmt) {
@@ -129,7 +129,6 @@ _Noreturn void usage(char *fmt, ...) {
         fputs("\n\n", fp);
         va_end(args);
     }
-
 
     for (char const *s = help; *s; s++)
         if (*s == '%') {
@@ -162,25 +161,23 @@ _Noreturn void usage(char *fmt, ...) {
 /// <param name="what">if 0 (false) show simple version info
 /// else if 1 (true) show extended version info
 /// else show simple version and description</param>
-void showVersion(FILE *fp, int what) {
+void showVersion(FILE *fp, bool full) {
     fprintf(fp, "%s (C) %s", appInfo.product, appInfo.owner);
     if (appInfo.mods)
         fprintf(fp, " <%s>", appInfo.mods);
     fprintf(fp, " %s\n", appInfo.version);
-    if (what != false) {
-        if (appInfo.description)
-            fprintf(fp, "%s\n", appInfo.description);
-        if (what == true) {
-            fprintf(fp, BUILD "%d bit build: ", (int)(sizeof(void *) * CHAR_BIT));
+    if (appInfo.description)
+        fprintf(fp, "%s\n", appInfo.description);
+    if (full) {
+        fprintf(fp, BUILD "%d bit build: ", (int)(sizeof(void *) * CHAR_BIT));
 #ifdef _MSC_VER
-            fprintf(fp, "(msvc %d.%d.%d) ", _MSC_VER / 100, _MSC_VER % 100, _MSC_FULL_VER % 100000);
+        fprintf(fp, "(msvc %d.%d.%d) ", _MSC_VER / 100, _MSC_VER % 100, _MSC_FULL_VER % 100000);
 #elif __GNUC__
-            fprintf(fp, "(gcc %s) ", __VERSION__);
+        fprintf(fp, "(gcc %s) ", __VERSION__);
 #endif
-            fprintf(fp, "%s\n", appInfo.build);
-            if (appInfo.contributors)
-                fprintf(fp, "Contributors: %s\n", appInfo.contributors);
-            fprintf(fp, "Support email: %s\n", appInfo.email);
-        }
+        fprintf(fp, "%s\n", appInfo.build);
+        if (appInfo.contributors)
+            fprintf(fp, "Contributors: %s\n", appInfo.contributors);
+        fprintf(fp, "Support email: %s\n", appInfo.email);
     }
 }
