@@ -18,7 +18,16 @@
     <ClCompile Include="plm81.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="istring.c">
+    <ClCompile Include="lexer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="io.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="interface.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tables.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -30,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="istring.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="plm81.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

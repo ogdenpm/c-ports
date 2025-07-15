@@ -190,7 +190,7 @@
 
 /* stacks */
 #define PSTACK 75
-#define MVAR   4094
+#define MVAR   1024
 int sp;
 int mp = 0;
 // int mpp1 = 1;
@@ -237,7 +237,7 @@ uint16_t initialDataSP;
 uint16_t idList[MAXIDLIST];
 uint16_t idListSP;
 
-#define SYMABS 5000
+#define SYMABS 10000
 struct _symbol symbol[SYMABS + 1];
 
 int symNext = 1; // 0 is reserved as a sentinal
@@ -259,7 +259,7 @@ struct {
     { "TIME", 1, 0, INTR },   { "HIGH", 1, 1, INTR },   { "LOW", 1, 1, INTR },
     { "INPUT", 1, 1, INTR },  { "OUTPUT", 1, 1, INTR }, { "LENGTH", 1, 1, INTR },
     { "LAST", 1, 1, INTR },   { "MOVE", 3, 0, INTR },   { "DOUBLE", 1, 2, INTR },
-    { "DEC", 1, 1, INTR }, // { "", -0, 0, VARB } // keeps block tracking aligned with original
+    { "DEC", 1, 1, INTR },    { "", -0, 0, VARB } // keeps block tracking aligned with original
 
 };
 
@@ -278,7 +278,7 @@ int contrl[26];
 
 const int VERS = 40;
 /* interrupts */
-int intpro[8];
+int intpro[8 + 1];
 
 #define MAXBLK 30
 
@@ -737,8 +737,8 @@ int getc1(int stackItem, int token) {
     return (c1[stackItem - 1][token / 4] >> ((token % 4) << 1)) & 3;
 }
 
-void procHead(int plist, int rtype) {
-    proctp[curblk] = rtype ? 2 : 1; // 1 untyped, 2 typed
+void procHead(int ptype, int plist, int rtype) {
+    proctp[curblk] = ptype; // 1 untyped, 2 typed
     int symIdx     = pstack[mp].fixv;
     setInfo(symIdx, plist, rtype, PROC); // set symbol info
     int node = enter(0, LocalLabel, LABEL, false);
@@ -749,14 +749,14 @@ void procHead(int plist, int rtype) {
     return;
 }
 
-void synth(const int prod, const int newId) {
-    int tokId, i, k, len, dim, type;
+void synth(const int prod, const int headTokId) {
+    int tokId, i, k, len, dim;
     int symIdx;
 
     /*    mp == left ,  sp == right */
 
     if (C_ANALYZE)
-        redpr(prod, newId);
+        redpr(prod, headTokId);
     switch (prod) {
     case 1: // <PROGRAM> ::= <STATEMENT LIST>
         if (mp != 5)
@@ -970,28 +970,32 @@ void synth(const int prod, const int newId) {
         emit(k, DEF);
         return;
     case 35: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> ';'
-        procHead(0, 0);
+        procHead(1, 0, 0);
         return;
     case 36: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <TYPE> ';'
-        procHead(0, pstack[sp - 1].fixv);
+        procHead(2, 0, pstack[sp - 1].fixv);
         return;
     case 37: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <PARAMETER LIST> ';'
-        procHead(pstack[mp + 1].fixv, 0);
+        procHead(1, pstack[mp + 1].fixv, 0);
         return;
     case 38: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> <PARAMETER LIST> <TYPE> ';'
-        procHead(pstack[mp + 1].fixv, pstack[sp - 1].fixv);
+        procHead(2, pstack[mp + 1].fixv, pstack[sp - 1].fixv);
         return;
-    case 39:                      // <PROCEDURE HEAD> ::= <PROCEDURE NAME> INTERRUPT <NUMBER> ';'
-        symIdx = pstack[mp].fixv; // procedure symbolId
-        i      = pstack[sp - 1].fixv; // interrupt number
+    case 39: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> INTERRUPT <NUMBER> ';'
+        /*     get symbol number */
+        tokId = pstack[mp].fixv;
+        /*     get interrupt number */
+        i = pstack[sp - 1].fixv;
         if (i > 7)
             error("39: invalid interrupt number");
-        else if (intpro[i] <= 0)
-            intpro[i] = symIdx;
-        else
-            error("40: duplicate interrupt procedure");
-
-        procHead(0, 0);
+        else {
+            k = intpro[++i];
+            if (k <= 0)
+                intpro[i] = tokId;
+            else
+                error("40: duplicate interrupt procedure");
+        }
+        procHead(1, 0, 0);
         return;
     case 40: // <PROCEDURE NAME> ::= <LABEL DEFINITION> PROCEDURE
              /* check for numeric label */
@@ -1029,6 +1033,10 @@ void synth(const int prod, const int newId) {
     case 47: // <LABEL DEFINITION> ::= <IDENTIFIER> ':'
         symIdx = lookup(mp);
         if (symIdx <= blksym)
+
+            /*         prec = 3 if user-defined outer block LABEL */
+            /*         prec = 4 if user-defined LABEL not in outer block */
+            /*         prec = 5 if compiler-generated LABEL */
             symIdx = enter(0, curblk == 1 ? OuterLabel : LocalLabel, LABEL, true);
         else {
             if (symbol[symIdx].prec)
@@ -1093,8 +1101,9 @@ void synth(const int prod, const int newId) {
             symIdx = enter(0, 0, LABEL, true);
         i = symbol[symIdx].type;
         if (i == LABEL || i == VARB) {
-            if (i == LABEL) // bump the reference counter
-                symbol[symIdx].refCnt++;
+            /*     increment the reference counter (use length field) */
+            if (i == LABEL)
+                symbol[symIdx].len++;
             emit(symIdx, VLU);
             emit(TRA, OPR);
         } else
@@ -1123,9 +1132,9 @@ void synth(const int prod, const int newId) {
             fatal("20: macro table overflow");
         return;
     case 60: // <DECLARATION ELEMENT> ::= <IDENTIFIER> <DATA LIST>
-        symIdx = pstack[mp].fixv;
+        tokId = pstack[mp].fixv;
         i     = pstack[mp + 1].fixv;
-        symbol[symIdx].len += i & 0xffff;
+        symbol[tokId].len += i & 0xffff;
         emit(DAT, OPR);
         emit((i >> 16), DEF);
         return;
@@ -1152,7 +1161,7 @@ void synth(const int prod, const int newId) {
         k   = pstack[sp].fixv;                      // item type
         do {
             int symIdx = idList[--idListSP];
-            if (symbol[symIdx].type != VARB || symbol[symIdx].prec || symbol[symIdx].dim)
+            if (symbol[symIdx].type != VARB || symbol[symIdx].prec || symbol[symIdx].len)
                 error("21: duplicate variable or label definition");
             setInfo(symIdx, dim, k, k == P_LABEL ? LABEL : VARB); // set symbol info
         } while (idListSP);
@@ -1445,19 +1454,19 @@ void synth(const int prod, const int newId) {
                   "identifier");
             symIdx = enter(0, 0, VARB, true);
         }
-        type = symbol[symIdx].type;
-        if (type != VARB) {
-            if (type != PROC && type != INTR)
+        i = symbol[symIdx].type;
+        if (i != VARB) {
+            if (i != PROC && i != INTR)
                 error("31: Identifier is improperly used as a procedure or subscripted "
                       "variable");
             else {
                 pstack[mp].fixc = symbol[symIdx].len;
-                if (type == INTR)
+                if (i == INTR)
                     pstack[mp].fixc = -pstack[mp].fixc;
-                int rtype = symbol[symIdx].prec;
-                if (pstack[mp - 1].tokId == CALLV && rtype != 0)
+                i = symbol[symIdx].prec;
+                if (pstack[mp - 1].tokId == CALLV && i != 0)
                     error("42: attempted CALL of a typed procedure");
-                if (pstack[mp - 1].tokId != CALLV && rtype == 0)
+                if (pstack[mp - 1].tokId != CALLV && i == 0)
                     error("43: attempted use of untyped procedure as a function or variable");
                 pstack[mp].fixv = -((symIdx << 15) + symIdx + 1);
                 return;
@@ -1590,28 +1599,29 @@ void error(char const *fmt, ...) {
     va_end(args);
 }
 
-void showTopTokens(int start, int col) {
+int right(const int tokId, const int i) {
+    return tokId % (1 << i);
+}
+
+void showTopTokens(int start, int indent) {
+    int col = indent;
     for (int tokId = start; tokId <= sp; tokId++) {
-        char const *token = tokens[pstack[tokId].tokId];
-        if (col + strlen(token) + (*token == '<' && token[1] ? 1 : 3) > C_WIDTH)
-            col = fprintf(lstFp, "\n%*s", 8, "") - 1;
-        if (*token == '<')
-            col += fprintf(lstFp, " %s", token);
-        else
-            col += fprintf(lstFp, " '%s'", token);
+        if (col + strlen(tokens[pstack[tokId].tokId]) > C_WIDTH)
+            col = fprintf(lstFp, "\n%.*s", indent, "") - 1;
+        col += fprintf(lstFp, " %s ", tokens[pstack[tokId].tokId]);
     }
     putc('\n', lstFp);
 }
 
 void sdump() {
     /*     check for stack dump bypass */
-    if (C_BYPASS == 0)
-        showTopTokens(5, fprintf(lstFp, "PARSE STACK:"));
+    if (C_BYPASS == 0) {
+        int indent = fprintf(lstFp, "PARSE STACK:");
+        showTopTokens(5, indent);
+    }
 }
 
 void redpr(const int prod, const int tokId) {
-    if (prod > 128)
-        error("Unknown production %d\n", prod);
-    else
-        showTopTokens(mp, fprintf(lstFp, "    %03d %s ::=", prod, tokens[tokId]));
+    fprintf(lstFp, "%5d  %s ::=\n", prod, tokens[tokId]);
+    showTopTokens(mp, 8);
 }
