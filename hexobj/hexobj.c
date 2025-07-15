@@ -20,7 +20,7 @@
  ****************************************************************************/
 
 #include <ctype.h>
-#include <showVersion.h>
+#include "utility.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -28,7 +28,8 @@
 #include <string.h>
 
 #ifdef _MSC_VER
-#define strncasecmp _strnicmp
+#define strncasecmp strnicmp
+#define strcasecmp  stricmp
 #endif
 // intel OMF record types
 #define MODHDR     2
@@ -58,15 +59,10 @@ struct {
     uint8_t dat[BUFFERSIZE + 1]; // allow for crc
 } content = { CONTENT };
 
-// return the trailing filename part of the passed in path
-const char *basename(const char *path) {
-    const char *t;
-    while ((t = strpbrk(
-                path,
-                ":\\/"))) // allow windows & unix separators - will fail for unix if : in filename!!
-        path = t + 1;
-    return path;
-}
+
+char const help[] =
+    "Usage: %s hexfile (objfile [startaddr] | TO objfile [$] [START ( startaddr) ])";
+
 
 void OutRecord(uint8_t *p, FILE *fpout) {
     uint16_t addr = p[1] + p[2] * 256;
@@ -342,34 +338,24 @@ void writeModEof(FILE *fpout) {
 int main(int argc, char **argv) {
     FILE *fpin, *fpout;
 
-    CHK_SHOW_VERSION(argc, argv);
+    chkStdOptions(argc, argv);
 
     // support both a standard command line and the original Intel one
-    if (!parseStdOpt(argc, argv) && !parseIntelOpt(argc, argv)) {
-        const char *invoke = basename(argv[0]);
-        fprintf(stderr,
-                "Invalid command line\n\n"
-                "Usage: %s -v | -V | hexfile objfile [startaddr]\n"
-                "Or:    %s hexfile TO objfile [$] [START ( startaddr ) ]\n",
-                invoke, invoke);
-        exit(1);
-    }
-    if ((fpin = fopen(inFile, "rt")) == 0) {
-        fprintf(stderr, "%s: cannot open hex file\n", inFile);
-        exit(1);
-    }
-    if ((fpout = fopen(outFile, "wb")) == 0) {
-        fprintf(stderr, "%s: cannot create obj file\n", outFile);
-        exit(1);
-    }
+    if (!parseStdOpt(argc, argv) && !parseIntelOpt(argc, argv))
+        usage("Invalid command line");
 
+    if ((fpin = fopen(inFile, "rt")) == 0)
+        fatal("%s: cannot open hex file\n", inFile);
+
+    if ((fpout = fopen(outFile, "wb")) == 0) {
+        fclose(fpin);
+        fatal("%s: cannot create obj file\n", outFile);
+    }
     writeModHdr(fpout, inFile);
     writeContent(fpin, fpout);
     writeModEnd(fpin, fpout);
     writeModEof(fpout);
     fclose(fpin);
-    if (fclose(fpout) < 0) {
-        fprintf(stderr, "%s: Error closing file\n", outFile);
-        exit(1);
-    }
+    if (fclose(fpout) < 0)
+        fatal("%s: Error closing file\n", outFile);
 }
