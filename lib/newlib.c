@@ -66,12 +66,12 @@ bigbuf_t libdic = { "dictionary" };
 
 void appendBigBuf(bigbuf_t *p, uint8_t *content, uint32_t len) {
     if (p->len + len >= 0xffff)
-        FatalError("Library %s record too large adding %s(%s)", omfInName, curModule->name.str);
+        fatal("Library %s record too large adding %s(%s)", omfInName, curModule->name.str);
     if (p->len + len >= p->size) {
         do {
             p->size += BBCHUNK;
         } while (p->len + len > p->size);
-        p->content = xrealloc(p->content, p->size);
+        p->content = safeRealloc(p->content, p->size);
     }
     memcpy(p->content + p->len, content, len);
     p->len += len;
@@ -81,8 +81,8 @@ module_t *newModule(pstr_t const *name) {
     module_t *p;
     for (p = (module_t *)&moduleHead; p->next; p = p->next)
         if (pstrequ(&p->next->name, name))
-            FatalError("Duplicate module %.*s", name->len, name->str);
-    p->next = xmalloc(sizeof(module_t) + name->len);
+            fatal("Duplicate module %.*s", name->len, name->str);
+    p->next = safeMalloc(sizeof(module_t) + name->len);
     p       = p->next;
     p->next = NULL;
     memcpy(&p->name, name, name->len + 1);
@@ -134,7 +134,7 @@ void addPublic(pstr_t const *name) {
             libReset(2);
         }
     }
-    publist_t *p = xmalloc(sizeof(publist_t) + name->len);
+    publist_t *p = safeMalloc(sizeof(publist_t) + name->len);
     p->next      = hashTable[hash];
     memcpy(&p->name, name, name->len + 1);
     p->name.str[p->name.len] = '\0'; // make str a C string as well

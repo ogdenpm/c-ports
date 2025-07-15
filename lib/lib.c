@@ -23,43 +23,64 @@
 #define stricmp strcasecmp
 #endif
 #include "_version.h"
+#include "cmdline.h"
 #include "lib.h"
-#include "../shared/omf.h"
-#include "../shared/os.h"
-#include "../shared/cmdline.h"
+#include "omf.h"
+#include "os.h"
+#include "utility.h"
 static file_t *fileHead;
 static file_t *fileChain;
 
-char *breakList[] = { "PUBLICS", "TO", NULL };
+char const help[] =
+    "Command line usage: %s [Command]\n"
+    "Interactive usage:  %s\n"
+    "                    Command\n"
+    "                    ...\n"
+    "Where Command is one of:\n"
+    "  ADD fileModuleList TO libname\n"
+    "  CREATE libname\n"
+    "  DELETE libname(module[,module]*)\n"
+    "  EXIT\n"
+    "  HELP\n"
+    "  INIT fileModuleList TO libname\n"
+    "  LIST file fileModuleList [PUBLICS]\n\n"
+    "The first character of each command can be used as a shorthand\n"
+    "The INIT option is like ADD but ignores any existing library content\n"
+    "\n"
+    "fileModuleList syntax is: file[(module[,module]*)][,file[(module[,module]*)]]*\n"
+    "Spaces can be used instead of commas to separate module and file names\n"
+    "File names are of the format [:Fx:]path, where x is a digit and path\n"
+    "The :Fx: maps to a directory prefix from the ISIS_Fx environment variable\n";
 
+char *breakList[] = { "PUBLICS", "TO", NULL };
 
 jmp_buf reset;
 
-static void GetFileAndModuleNames(bool oneOnly, char * const *breakWords) {
+static void GetFileAndModuleNames(bool oneOnly, char *const *breakWords) {
     /* add another arg entry to the chain */
     bool needName = false;
     for (;;) {
         char *savePos = cmdP;
-        char *token = GetToken();
+        char *token   = GetToken();
         if (!*token) {
             if (!fileHead || !needName)
                 return;
             FatalCmdLineErr("Expected file name");
         }
         if (!needName && breakWords) {
-            for (char * const *s = breakWords; *s; s++)
+            for (char *const *s = breakWords; *s; s++)
                 if (stricmp(token, *s) == 0) {
                     cmdP = savePos;
                     return;
                 }
         }
-        fileChain->next    = xmalloc(sizeof(file_t));
+        fileChain->next    = safeMalloc(sizeof(file_t));
         fileChain          = fileChain->next;
         fileChain->name    = token;
         fileChain->next    = NULL;
         fileChain->modules = NULL;
         if (*cmdP == '(') { /* add the list of modules if present */
-            cmdP++;     // past (
+            cmdP++;         // past (
             namelist_t *p = (namelist_t *)&fileChain->modules;
             do {
                 token = GetToken();
@@ -74,7 +95,7 @@ static void GetFileAndModuleNames(bool oneOnly, char * const *breakWords) {
                             fileChain->name, q->name->str, *cmdP == ',' ? ",..." : "");
                     continue;
                 }
-                p->next = xmalloc(sizeof(namelist_t));
+                p->next = safeMalloc(sizeof(namelist_t));
                 p       = p->next;
                 p->next = NULL;
                 p->seen = false;
@@ -206,7 +227,7 @@ static void ListCmd() {
         GetRecord();
         if (inType != R_LIBNAM)
             IoError(p->name, "Library 'Names' record not found");
-        char *nameList = xmalloc(recLen); // save a copy
+        char *nameList = safeMalloc(recLen); // save a copy
         char *nameIn   = nameList;
         char *nameEnd  = nameIn + recLen - 1;
         memcpy(nameList, inP, recLen);
@@ -307,7 +328,7 @@ void Start() {
         else if (stricmp(token, "DELETE") == 0 || stricmp(token, "D") == 0)
             DeleteCmd();
         else if (stricmp(token, "HELP") == 0 || stricmp(token, "H") == 0)
-            usage();
+            usage(NULL);
         else if (*token)
             FatalCmdLineErr("Unrecognised command");
         else if (*cmdP != '\n') {
@@ -319,29 +340,3 @@ void Start() {
     }
 }
 
-void usage() {
-    printf("Command line usage: %s (-v | -V | -h) | [Command]\n"
-           "Interactive usage:  %s\n"
-           "                    Command\n"
-           "                    ...\n",
-           invokeName, invokeName);
-    printf("Where:\n"
-           "-h               Show this help\n"
-           "-v / -V          Show simple / extended version information\n"
-           "\n"
-           "Command is one of:\n"
-           "ADD fileModuleList TO libname\n"
-           "CREATE libname\n"
-           "DELETE libname(module[,module]*)\n"
-           "EXIT\n"
-           "HELP\n"
-           "INIT fileModuleList TO libname\n"
-           "LIST file fileModuleList [PUBLICS]\n"
-           "The first character of each command can be used as a shorthand\n"
-           "The INIT option is like ADD but ignores any existing library content\n"
-           "\n"
-           "fileModuleList syntax is: file[(module[,module]*)][,file[(module[,module]*)]]*\n"
-           "Spaces can be used instead of commas to separate module and file names\n"
-           "File names are of the format [:Fx:]path, where x is a digit and path\n"
-           "The :Fx: maps to a directory prefix from the ISIS_Fx environment variable\n");
-}
