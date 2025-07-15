@@ -9,8 +9,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lib", "lib\lib.vcxproj", "{
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "link", "link\link.vcxproj", "{F57CB46A-1E54-4943-8092-46386628806C}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plm80", "plm80\plm80.vcxproj", "{42BEB659-1627-47D0-AB0A-06B5E36D9658}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "locate", "locate\locate.vcxproj", "{9629449F-ABAF-4192-866E-5A2BBB4921B2}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plm80c", "plm80c\plm80c.vcxproj", "{A4D6DA5F-876C-46B4-BFD2-08D7CFD21481}"
@@ -22,6 +20,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hexobj", "hexobj\hexobj.vcxproj", "{75044C4C-1997-4FBD-A9DE-57D32066E03E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plm81", "plm81\plm81.vcxproj", "{AC582CDF-D68E-44D4-8CD1-AEF072E355D9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DB408318-797A-4739-95C3-BF1E63420EC2} = {DB408318-797A-4739-95C3-BF1E63420EC2}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plm82", "plm82\plm82.vcxproj", "{C17DFC41-F250-4905-85F4-72A2C3F34938}"
 EndProject
@@ -38,6 +39,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "shared", "shared\shared.vcxitems", "{695D41A5-347E-4670-9DFC-51D63C3D02C2}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ixref", "ixref\ixref.vcxproj", "{D370A442-0A4B-4226-9A88-E7F00F5CC058}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "utility", "utility\utility.vcxproj", "{DB408318-797A-4739-95C3-BF1E63420EC2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -71,15 +74,6 @@ Global
 		{F57CB46A-1E54-4943-8092-46386628806C}.Release|x64.Build.0 = Release|x64
 		{F57CB46A-1E54-4943-8092-46386628806C}.Release|x86.ActiveCfg = Release|Win32
 		{F57CB46A-1E54-4943-8092-46386628806C}.Release|x86.Build.0 = Release|Win32
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Debug|x64.ActiveCfg = Debug|x64
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Debug|x64.Build.0 = Debug|x64
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Debug|x86.ActiveCfg = Debug|Win32
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Debug|x86.Build.0 = Debug|Win32
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Debug|x86.Deploy.0 = Debug|Win32
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Release|x64.ActiveCfg = Release|x64
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Release|x64.Build.0 = Release|x64
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Release|x86.ActiveCfg = Release|Win32
-		{42BEB659-1627-47D0-AB0A-06B5E36D9658}.Release|x86.Build.0 = Release|Win32
 		{9629449F-ABAF-4192-866E-5A2BBB4921B2}.Debug|x64.ActiveCfg = Debug|x64
 		{9629449F-ABAF-4192-866E-5A2BBB4921B2}.Debug|x64.Build.0 = Debug|x64
 		{9629449F-ABAF-4192-866E-5A2BBB4921B2}.Debug|x86.ActiveCfg = Debug|Win32
@@ -184,6 +178,14 @@ Global
 		{D370A442-0A4B-4226-9A88-E7F00F5CC058}.Release|x64.Build.0 = Release|x64
 		{D370A442-0A4B-4226-9A88-E7F00F5CC058}.Release|x86.ActiveCfg = Release|Win32
 		{D370A442-0A4B-4226-9A88-E7F00F5CC058}.Release|x86.Build.0 = Release|Win32
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Debug|x64.ActiveCfg = Debug|x64
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Debug|x64.Build.0 = Debug|x64
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Debug|x86.ActiveCfg = Debug|Win32
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Debug|x86.Build.0 = Debug|Win32
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Release|x64.ActiveCfg = Release|x64
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Release|x64.Build.0 = Release|x64
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Release|x86.ActiveCfg = Release|Win32
+		{DB408318-797A-4739-95C3-BF1E63420EC2}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -195,7 +197,6 @@ Global
 		shared\shared.vcxitems*{04c93c95-f060-4725-98d9-c7c839bb3217}*SharedItemsImports = 4
 		shared\shared.vcxitems*{3a6ac46c-5bf9-4683-a89b-e0758205f661}*SharedItemsImports = 4
 		shared\shared.vcxitems*{3d33d82e-bb56-402e-a300-fad5d031e692}*SharedItemsImports = 4
-		shared\shared.vcxitems*{42beb659-1627-47d0-ab0a-06b5e36d9658}*SharedItemsImports = 4
 		shared\shared.vcxitems*{48a5d2c6-e53f-4e7a-a393-e549dd61893f}*SharedItemsImports = 4
 		shared\shared.vcxitems*{57f02ac2-9fb1-4b50-b19f-b2868090bce7}*SharedItemsImports = 4
 		shared\shared.vcxitems*{695d41a5-347e-4670-9dfc-51d63c3d02c2}*SharedItemsImports = 9
