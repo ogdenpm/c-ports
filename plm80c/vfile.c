@@ -7,7 +7,7 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "vfile.h"
-#include "../shared/os.h"
+#include "os.h"
 #include <string.h>
 #define VFCHUNK 4096
 static void vfExpand(vfile_t *vf, uint32_t minSize) {   // grow vfile if needed
@@ -15,7 +15,7 @@ static void vfExpand(vfile_t *vf, uint32_t minSize) {   // grow vfile if needed
         return;
     while (vf->capacity < minSize)
         vf->capacity += VFCHUNK;
-    vf->content = xrealloc(vf->content, vf->capacity);
+    vf->content = safeRealloc(vf->content, vf->capacity);
 }
 
 void vfReset(vfile_t *vf) { // effectively delete and open

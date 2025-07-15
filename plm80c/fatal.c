@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 
 void Fatal(char const *str) {

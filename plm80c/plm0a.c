@@ -132,15 +132,15 @@ void Wr1TokenErrorAt(word err) {
     Wr1TokenError(err, markedSym);
 } /* TokenErrorAt() */
 
-_Noreturn void LexFatalError(word err) {
+_Noreturn void Lexfatal(word err) {
     Wr1TokenErrorAt(err);
-    fatalErrorCode = err;
+    fatalCode = err;
     longjmp(exception, -1);
 }
 
 void PushBlock(word idAndLevel) {
     if (scopeSP == 34)
-        LexFatalError(ERR84); /* LIMIT EXCEEDED: BLOCK NESTING */
+        Lexfatal(ERR84); /* LIMIT EXCEEDED: BLOCK NESTING */
     else {
         scopeChains[++scopeSP] = idAndLevel;
         curBlkCnt++;
@@ -149,7 +149,7 @@ void PushBlock(word idAndLevel) {
 
 void PopBlock() {
     if (scopeSP == 0)
-        LexFatalError(ERR96); /* COMPILER ERROR: SCOPE STACK UNDERFLOW */
+        Lexfatal(ERR96); /* COMPILER ERROR: SCOPE STACK UNDERFLOW */
     else {
         curBlkCnt--;
         curScope = scopeChains[--scopeSP];

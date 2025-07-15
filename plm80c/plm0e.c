@@ -916,7 +916,7 @@ void ParseProcStmt() {
     info->flag |= F_LABEL;
     Wr1XrefDef();
     if (procCnt == 254)         // oops too many procedures
-        LexFatalError(ERR35);   /* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
+        Lexfatal(ERR35);   /* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
     procInfo[++procCnt] = info; // save procedure info
     curScope = procCnt << 8;    // set scope procedure id reset do block count for this procedure
     curProc  = info;

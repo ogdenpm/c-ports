@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 #include <ctype.h>
 #include <stdlib.h>
@@ -165,7 +165,7 @@ static void AcceptFileName() {
         while (s > optVal.str && s[-1] == ' ') // trim trailing space
             s--;
         optVal.len = (word)(s - optVal.str);
-        char *cstr = xmalloc(optVal.len + 1);
+        char *cstr = safeMalloc(optVal.len + 1);
         memcpy(cstr, optVal.str, optVal.len);
         cstr[optVal.len] = '\0';
 

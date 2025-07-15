@@ -649,7 +649,7 @@ extern sym_t *curSym;
 extern char DATE[];
 extern word DATELEN;
 extern word dsegSize;
-extern word fatalErrorCode;
+extern word fatalCode;
 extern bool hasErrors;
 extern sym_t *hashTab[];
 extern bool haveModuleLevelUnit;
@@ -738,9 +738,6 @@ void AdvNxtInfo(void);
 void FindMemberInfo(void);
 bool FindScopedInfo(word scope);
 
-/* io.c */
-void Error(word ErrorNum);
-
 /* lookup.c */
 byte Hash(pstr_t *pstr);
 void Lookup(pstr_t *pstr);
@@ -764,7 +761,6 @@ char const *hexfmt(byte digits, word val);
 
 /* main.c */
 void Start(void);
-void usage(void);
 
 /* main0.c */
 void unwindInclude(void);
@@ -812,7 +808,7 @@ uint16_t Rd1Word(void);
 void Wr1SyntaxError(word err);
 void Wr1TokenErrorAt(word err);
 void Wr1TokenError(word err, sym_t *sym);
-_Noreturn void LexFatalError(word err);
+_Noreturn void Lexfatal(word err);
 void PushBlock(word idAndLevel);
 void PopBlock(void);
 void Wr1LexToken(void);
@@ -840,7 +836,7 @@ void ParseProgram(void);
 pstr_t const *CreateLit(word wTokenLen, char const *str);
 
 /* plm1a.c */
-void FatalError_ov1(byte err);
+void fatal_ov1(byte err);
 void OptWrXrf(void);
 void Wr2Buf(void *buf, word len);
 void Wr2Byte(uint8_t v);
@@ -1026,7 +1022,7 @@ void EmitStatementNo(void);
 void EmitLabel(char const *label);
 char const *FindErrStr(void);
 void EmitError(void);
-void FatalError_ov46(byte arg1b);
+void fatal_ov46(byte arg1b);
 void ListInstruction(void);
 void GetSourceLine(void);
 

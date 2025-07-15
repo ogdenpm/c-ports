@@ -112,9 +112,9 @@ operand_t operandStack[EXPRSTACKSIZE];
 word stSP;
 operand_t tree[300];
 
-void FatalError_ov1(byte err) {
+void fatal_ov1(byte err) {
     hasErrors      = true;
-    fatalErrorCode = err;
+    fatalCode = err;
     longjmp(exception, -1);
 }
 

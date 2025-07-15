@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 #include <stdlib.h>
 
@@ -617,9 +617,9 @@ bool ExitBlk() {
 
 
 void Sub_58F5(word err) {
-    fatalErrorCode = err;
+    fatalCode = err;
     fragment[0]    = T2_SYNTAXERROR;
-    fragment[1]    = (byte)fatalErrorCode;
+    fragment[1]    = (byte)fatalCode;
     fragment[2]    = 0;
     fragLen        = 3;
     WrFragData();

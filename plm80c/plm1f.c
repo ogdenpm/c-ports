@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 
 static word externalsCnt = 0;
@@ -255,8 +255,8 @@ static void ProcAtFile() {
 }
 
 static void InitLabelAndProc() {
-    localLabels = xmalloc((localLabelCnt + 1) * sizeof(offset_t));
-    procIds     = xmalloc((localLabelCnt + 1) * sizeof(byte));
+    localLabels = safeMalloc((localLabelCnt + 1) * sizeof(offset_t));
+    procIds     = safeMalloc((localLabelCnt + 1) * sizeof(byte));
     memset(localLabels, 0, (localLabelCnt + 1) * sizeof(offset_t));
     memset(procIds, 0, (localLabelCnt + 1) * sizeof(byte));
 }

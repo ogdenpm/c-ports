@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 
 
@@ -15,7 +15,7 @@ sym_t symtab[MAXSYM];
 sym_t *topSym = &symtab[1]; // 0 is reserved
 
 pstr_t const *pstrdup(pstr_t const *ps) {
-    pstr_t *p = xmalloc(ps->len + 2);
+    pstr_t *p = safeMalloc(ps->len + 2);
     memcpy(p, ps, ps->len + 1); // copy pstring
     p->str[p->len] = '\0';      // make str also C compatible
     return p;
@@ -27,7 +27,7 @@ bool pstrequ(pstr_t const *ps, pstr_t const *pt) {
 
 sym_t *newSymbol(pstr_t const *ps) {
     if (topSym >= &symtab[MAXSYM])
-            FatalError("Out of symbol space");
+            fatal("Out of symbol space");
     topSym->link           = 0;
     topSym->infoChain        = NULL;
     topSym->name           = pstrdup(ps);
@@ -40,7 +40,7 @@ info_t *topInfo = &infotab[1];  // 0 reserved
 
 void newInfo(byte type) {
     if (topInfo >= &infotab[MAXINFO])
-            FatalError("Out of info space");
+            fatal("Out of info space");
     topInfo->type = type;
     info = topInfo++;
 }
@@ -51,7 +51,7 @@ info_t **topDict = dicttab;
 
 void newDict(info_t *info) {
     if (topDict >= dicttab + MAXSYM)
-            FatalError("Out of dictionary space");
+            fatal("Out of dictionary space");
 
     *topDict++ = info;
 }
@@ -62,7 +62,7 @@ index_t topCase = 0;
 
 index_t newCase(index_t val) {
     if (topCase >= MAXCASE)
-            FatalError("Too many case statements");
+            fatal("Too many case statements");
     casetab[topCase] = val;
     return topCase++;
 }
@@ -74,7 +74,7 @@ xref_t *topXref = xreftab;
 
 xref_t *newXref(xref_t *xrefNext, word line) {
     if (topXref >= xreftab + MAXXREF)
-            FatalError("Out of cross reference space");
+            fatal("Out of cross reference space");
     topXref->next = xrefNext;
     topXref->line = line;
 
@@ -90,7 +90,7 @@ int newInclude(char const *fname) {
         if (strcmp(includes[i], fname) == 0)    // already known
             return i;
     if (includeCnt == MAXINCLUDES)
-        FatalError("Too many include files");
+        fatal("Too many include files");
     includes[includeCnt] = fname;
     return includeCnt++;
 }

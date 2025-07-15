@@ -6,10 +6,11 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/cmdline.h"
-#include "../shared/os.h"
+#include "cmdline.h"
+#include "os.h"
 #include "plm.h"
 #include <ctype.h>
+#include "utility.h"
 
 char *cmdTextP;
 
@@ -109,19 +110,19 @@ static void InitFilesAndDefaults() {
             uc = true; // at least one uc seen
     if (*t)
         uc = false;
-    ixiFileName = xmalloc(prefixLen + 5); // allow for .xxx\0
+    ixiFileName = safeMalloc(prefixLen + 5); // allow for .xxx\0
     memcpy(ixiFileName, s, prefixLen);
     strcpy(ixiFileName + prefixLen, uc ? ".IXI" : ".ixi");
 
-    lstFileName = xmalloc(prefixLen + 5); // allow for .xxx\0
+    lstFileName = safeMalloc(prefixLen + 5); // allow for .xxx\0
     memcpy(lstFileName, s, prefixLen);
     strcpy(lstFileName + prefixLen, uc ? ".LST" : ".lst");
 
-    objFileName = xmalloc(prefixLen + 5); // allow for .xxx\0
+    objFileName = safeMalloc(prefixLen + 5); // allow for .xxx\0
     memcpy(objFileName, s, prefixLen);
     strcpy(objFileName + prefixLen, uc ? ".OBJ" : ".obj");
 
-    depFileName = xmalloc(prefixLen + 9); // .deps/ {prefix} .d\0;
+    depFileName = safeMalloc(prefixLen + 9); // .deps/ {prefix} .d\0;
     strcpy(depFileName, ".deps/");
     memcpy(depFileName + 6, s, prefixLen);
     strcpy(depFileName + 6 + prefixLen, ".d");

@@ -6,9 +6,10 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 #include <stdlib.h>
+#include "utility.h"
 
 byte maxSymLen;
 byte groupingChar = 0;

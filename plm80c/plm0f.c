@@ -31,7 +31,7 @@ static void ErrorSkip() {
 
 static word PopStateWord() {
     if (stateSP == 0)
-        LexFatalError(ERR97); /* COMPILER Error: PARSE STACK UNDERFLOW */
+        Lexfatal(ERR97); /* COMPILER Error: PARSE STACK UNDERFLOW */
     return stateStack[stateSP--];
 }
 
@@ -197,7 +197,7 @@ static void PushStateWord(word state) {
     if (stateSP != 99)
         stateStack[++stateSP] = state;
     else
-        LexFatalError(ERR31); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+        Lexfatal(ERR31); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
 }
 
 static void CreateModuleInfo(sym_t *symPtr) {

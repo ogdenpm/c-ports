@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 #include <stdlib.h>
 
@@ -323,8 +323,8 @@ void EmitError() {
     }
 }
 
-void FatalError_ov46(byte arg1b) {
-    errData.num = fatalErrorCode = arg1b;
+void fatal_ov46(byte arg1b) {
+    errData.num = fatalCode = arg1b;
     errData.info                 = 0;
     errData.stmt                 = stmtNo;
     EmitError();
@@ -357,7 +357,7 @@ static byte GetSourceCh() {
         if (lstLineLen != 0)
             return '\n';
         if (srcFileIdx == 0) /* top level file */
-            FatalError_ov46(ERR215);
+            fatal_ov46(ERR215);
         CloseF(&srcFil);
         srcFil = srcFileTable[--srcFileIdx];
     }

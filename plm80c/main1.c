@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "plm.h"
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
@@ -57,7 +57,7 @@ word Start1() {
         ParseLexItems();
     } else {
         /* here longjmp(exception, -1) */
-        Wr2TokError(fatalErrorCode);
+        Wr2TokError(fatalCode);
         while (tx1Item.type != T1_EOF) {
             if (tx1Item.type == T1_STMTCNT) {
                 stmtT2Cnt = 0;

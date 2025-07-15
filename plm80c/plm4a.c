@@ -668,7 +668,7 @@ static void EmitSource() {
 
 static void AddrCheck(word arg1w) {
     if (arg1w != baseAddr)
-        FatalError_ov46(0xD8);
+        fatal_ov46(0xD8);
 }
 
 static void NewStatementNo() {

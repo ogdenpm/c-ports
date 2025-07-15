@@ -158,31 +158,31 @@ void ResetStacks() {
 
 void PushParse(word arg1w) {
     if (parseSP == 99)
-        FatalError_ov1(ERR119); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+        fatal_ov1(ERR119); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
     parseStack[++parseSP] = arg1w;
 }
 
 word PopParse() {
     if (parseSP == 0)
-        FatalError_ov1(159); /* COMPILER ERROR: PARSE STACK UNDERFLOW */
+        fatal_ov1(159); /* COMPILER ERROR: PARSE STACK UNDERFLOW */
     return parseStack[parseSP--];
 }
 
 static void PushOperand(operand_t *operand) {
     if (operandSP == EXPRSTACKSIZE - 1)
-        FatalError_ov1(ERR121); /* LIMIT EXCEEDED: Expression TOO COMPLEX */
+        fatal_ov1(ERR121); /* LIMIT EXCEEDED: Expression TOO COMPLEX */
     operandStack[++operandSP] = *operand;
 }
 
 void PopOperand() {
     if (operandSP == 0)
-        FatalError_ov1(160); /* COMPILER Error: OPERAND STACK UNDERFLOW */
+        fatal_ov1(160); /* COMPILER Error: OPERAND STACK UNDERFLOW */
     operandSP--;
 }
 
 static void SwapOperands() {
     if (operandSP < 2)
-        FatalError_ov1(161); /* COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE */
+        fatal_ov1(161); /* COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE */
     operand_t tmp               = operandStack[operandSP];
     operandStack[operandSP]     = operandStack[operandSP - 1];
     operandStack[operandSP - 1] = tmp;
@@ -195,7 +195,7 @@ void PushSimpleOperand(byte icode, word val) {
 
 static void PushStmt(operand_t *operand) {
     if (stSP == 299)
-        FatalError_ov1(122); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX   */
+        fatal_ov1(122); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX   */
     tree[++stSP] = *operand;
 }
 
@@ -206,13 +206,13 @@ void MoveOperandToTree() {
 
 void PushOperator(byte arg1b) {
     if (operatorSP == 49)
-        FatalError_ov1(120); /* LIMIT EXCEEDED: Expression TOO COMPLEX */
+        fatal_ov1(120); /* LIMIT EXCEEDED: Expression TOO COMPLEX */
     operatorStack[++operatorSP] = arg1b;
 }
 
 word PopOperator() {
     if (operatorSP == 0)
-        FatalError_ov1(162); /* COMPILER ERROR: OPERATOR STACK UNDERFLOW */
+        fatal_ov1(162); /* COMPILER ERROR: OPERATOR STACK UNDERFLOW */
     return operatorStack[operatorSP--];
 }
 
@@ -222,7 +222,7 @@ void PushComplexOperand(byte icode, byte childCnt) {
     operand_t operand = { icode, childCnt, { childCnt ? stSP + 1 : 0 } };
 
     if (operandSP < childCnt)   // not enough operands to use
-        FatalError_ov1(ERR163); /* COMPILER ERROR: GENERATION FAILURE  */
+        fatal_ov1(ERR163); /* COMPILER ERROR: GENERATION FAILURE  */
     // move children to sStack
     operandSP -= childCnt;
     for (int j = operandSP; childCnt; childCnt--) // move the arg information to the sStack

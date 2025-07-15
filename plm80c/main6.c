@@ -6,8 +6,8 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
-#include "../shared/cmdline.h"
+#include "os.h"
+#include "cmdline.h"
 #include "plm.h"
 
 // static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
@@ -131,10 +131,10 @@ static void initPhase6() {
     //info = procInfo[1];
     SetSkipLst(3);
     SetMarkerInfo(11, 15);
-    if (fatalErrorCode > 0) {
+    if (fatalCode > 0) {
         errData.stmt = 0;
         errData.info = 0;
-        errData.num  = fatalErrorCode;
+        errData.num  = fatalCode;
         EmitError();
         SetSkipLst(2);
     }

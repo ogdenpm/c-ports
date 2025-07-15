@@ -439,21 +439,21 @@ static word controlSP;
 
 static void PushScope(word arg1w) {
     if (scopeSP == 34)
-        FatalError_ov1(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
+        fatal_ov1(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
     else
         scopeChains[++scopeSP] = arg1w;
 }
 
 static void PopScope() {
     if (scopeSP == 0)
-        FatalError_ov1(ERR165); /* COMPILER Error: SCOPE STACK UNDERFLOW */
+        fatal_ov1(ERR165); /* COMPILER Error: SCOPE STACK UNDERFLOW */
     else
         scopeSP--;
 }
 
 static void PushControl(byte controlType) {
     if (controlSP == 19)
-        FatalError_ov1(ERR84); /*  LIMIT EXCEEDED: BLOCK NESTING */
+        fatal_ov1(ERR84); /*  LIMIT EXCEEDED: BLOCK NESTING */
     else {
         controlStk[++controlSP] = controlType;
         returnsVal[controlSP]   = false;
@@ -466,7 +466,7 @@ static void PushControl(byte controlType) {
 
 static void PopControl() {
     if (controlSP == 0)
-        FatalError_ov1(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
+        fatal_ov1(ERR167); /* COMPILER Error: CONTROL STACK UNDERFLOW */
     else if (controlStk[controlSP--])
         returnsVal[controlSP] |= returnsVal[controlSP + 1];
 }
@@ -561,7 +561,7 @@ static void SerialiseIF() {
     if (MatchTx1Item(T1_JMPFALSE))
         Wr2Node(T2_JMPFALSE, tx1Item.dataw[0], CvtToRel(exprT2));
     else
-        FatalError_ov1(ERR168); /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
+        fatal_ov1(ERR168); /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
 }
 
 static void ParseStmtcnt() {

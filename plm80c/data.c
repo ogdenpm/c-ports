@@ -40,7 +40,7 @@ bool standAlone          = true;
 
 bool afterEOF            = false;
 bool haveModuleLevelUnit = false;
-word fatalErrorCode;
+word fatalCode;
 byte controls[9];
 byte srcStemName[10];
 bool debugSwitches[26];
