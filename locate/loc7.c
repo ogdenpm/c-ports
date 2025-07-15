@@ -7,6 +7,7 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "loc.h"
+#include "utility.h"
 /*
  * ISIS II does not have a STDERR device
  * So if the listing file is not a device
@@ -55,7 +56,7 @@ void ProcArgsInit(void) {
         char *t = strrchr(s, '.');
         if (!t || t == s)
             FatalCmdLineErr("TO expected");
-        omfOutName             = xstrdup(inName);
+        omfOutName             = safeStrdup(inName);
         omfOutName[t - inName] = '\0'; // remove ext
     }
 
@@ -65,7 +66,7 @@ void ProcArgsInit(void) {
     /* check we have a relocation file */
     GetRecord();
     if (inType != R_MODHDR)
-        FatalError("%s: has no module header record", omfInName);
+        fatal("%s: has no module header record", omfInName);
     ProcHdrAndComDef();
 
     /* process the rest of the command args */
@@ -140,7 +141,7 @@ void AssignAddress(void) {
         if (!(segFlags[seg] & FHASADDR)) { /* no address specified */
             if (atTop) {                   /* check for going over 64k */
                 if (size > 0)
-                    FatalError("%s: Program exceeds 64k", omfOutName);
+                    fatal("%s: Program exceeds 64k", omfOutName);
                 segFlags[seg] |= FWRAP0;
             }
         } else { /* user specified address */
@@ -151,7 +152,7 @@ void AssignAddress(void) {
         /* update this segments base address allowing for alignment */
         segBases[seg] = AlignAddress(segFlags[seg] & AMASK, size, loadAddress);
         if (segBases[seg] == 0 && loadAddress)
-            FatalError("%s: Program exceeds 64k", omfOutName);
+            fatal("%s: Program exceeds 64k", omfOutName);
         if (seg == SMEMORY && size == 0 && loadHasSize) { // size memory segment
             /* change from Intel - in addition to using MEMCK, reduce the size
                if there is another segment allocated above it.
@@ -168,7 +169,7 @@ void AssignAddress(void) {
         /* advance loadAddress and check for memory wrap around */
         if ((loadAddress = segBases[seg] + size) < segBases[seg]) {
             if (loadAddress) /* beyond 64k boundary */
-                FatalError("%s: Program exceeds 64k", omfOutName);
+                fatal("%s: Program exceeds 64k", omfOutName);
             else
                 atTop = true;
         }

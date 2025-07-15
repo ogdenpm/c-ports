@@ -16,6 +16,32 @@
 // static byte copyright[] = "(C) 1976, 1977, 1979 INTEL CORP";
 #define VERSION "V3.0"
 
+char const help[] =
+    "Usage: %s inputFile [TO targetFile] [locate option]*\n"
+    "Where locate options are:\n"
+    "segmentName(address)   Set the start address for a specific segment\n"
+    "COLUMNS(num)           Number of columns in symbol table (1-3)\n"
+    "LINES                  Show line information in listing\n"
+    "MAP                    Show memory map in listing\n"
+    "NAME(name)             Override main module name\n"
+    "OVERLAPOK              Allow overlaps\n"
+    "EXTERNOK               Allow unresolved externals\n"
+    "ORDER(segment_list)    Override the default segment ordering\n"
+    "PRINT(file)            Use file rather than stdout for listing\n"
+    "PUBLICS                Show public symbols in listing\n"
+    "PURGE                  Purge symbols and debug information\n"
+    "RESTART0               Add jmp instruction at address 0 to start of code\n"
+    "STACKSIZE(size)        Override stack size\n"
+    "START(addr)            Override main module start address\n"
+    "SYMBOLS                Show local symbols in listing\n"
+    "See Intel locate documentation for more details\n"
+    "Notes:\n"
+    "* For ORDER, space or comma can be used as a separator between segment names\n"
+    "* File names are of the format [:Fx:]path, where x is a digit and path\n"
+    "  The :Fx: maps to a directory prefix from the same named environment variable\n"
+    "* Response file input for locating is supported by using \"%s <file\"\n"
+    "* targetFile is deleted on error, which helps with make builds\n";
+
 uint16_t columns = 1;
 seen_t seen; /* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
 pstr_t const *moduleName;
@@ -67,7 +93,7 @@ void AddSegFrag(uint8_t flags, uint8_t seg, uint16_t start, uint16_t len) {
         }
     }
     if (segFragCnt >= segFragSize)
-        segFrags = xrealloc(segFrags, (segFragSize += SFCHUNK) * sizeof(segFrag_t));
+        segFrags = safeRealloc(segFrags, (segFragSize += SFCHUNK) * sizeof(segFrag_t));
     memmove(&segFrags[i + 1], &segFrags[i], (segFragCnt++ - i) * sizeof(segFrag_t));
     segFrags[i].flags = flags; /* set all of the values */
     segFrags[i].seg   = seg;
@@ -116,7 +142,7 @@ void AddDataFrag(uint16_t saddr, uint16_t eaddr) {
         }
     }
     if (dataFragCnt >= dataFragSize)
-        dataFrags = xrealloc(dataFrags, (dataFragSize += DFCHUNK) * sizeof(dataFrag_t));
+        dataFrags = safeRealloc(dataFrags, (dataFragSize += DFCHUNK) * sizeof(dataFrag_t));
     memmove(&dataFrags[i + 1], &dataFrags[i], (dataFragCnt++ - i) * sizeof(dataFrag_t));
     dataFrags[i].saddr = saddr;
     dataFrags[i].eaddr = eaddr;
@@ -131,38 +157,4 @@ void Start(void) {
     ProcArgsInit();
     LocateFile();
     Exit(warnings != 0);
-}
-
-void usage(void) {
-    printf("Usage: %s inputFile [TO targetFile] [locate option]*\n"
-           "or:    %s (-h | -v | -V)\n",
-           invokeName, invokeName);
-    printf("Where:\n"
-           "-h                     Show this help\n"
-           "-v / -V                Show simple / extended version information\n"
-           "Locate options are:\n"
-           "segmentName(address)   Set the start address for a specific segment\n"
-           "COLUMNS(num)           Number of columns in symbol table (1-3)\n"
-           "LINES                  Show line information in listing\n"
-           "MAP                    Show memory map in listing\n"
-           "NAME(name)             Override main module name\n"
-           "OVERLAPOK              Allow overlaps\n"
-           "EXTERNOK               Allow unresolved externals\n"
-           "ORDER(segment_list)    Override the default segment ordering\n"
-           "PRINT(file)            Use file rather than stdout for listing\n"
-           "PUBLICS                Show public symbols in listing\n"
-           "PURGE                  Purge symbols and debug information\n"
-           "RESTART0               Add jmp instruction at address 0 to start of code\n"
-           "STACKSIZE(size)        Override stack size\n"
-           "START(addr)            Override main module start address\n"
-           "SYMBOLS                Show local symbols in listing\n"
-           "See Intel locate documentation for more details\n"
-           "Notes:\n"
-           "For ORDER, space or comma can be used as a separator between segment names\n"
-           "* File names are of the format [:Fx:]path, where x is a digit and path\n"
-           "  The :Fx: maps to a directory prefix from the same named environment variable\n"
-           "* Response file input for locating is supported by using \"%s <file\"\n"
-           "* targetFile is deleted on error, which helps with make builds\n",
-           invokeName);
-    exit(0);
 }

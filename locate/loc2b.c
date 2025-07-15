@@ -114,7 +114,7 @@ void ProcModdat(void) {
     while (inType == R_FIXEXT || inType == R_FIXLOC || inType == R_FIXSEG) {
         if (inType == R_FIXEXT) {
             // append a copy of the externals fix record(s) to emit after data
-            extFixup          = xrealloc(extFixup, extFixupSize + recLen + 3);
+            extFixup          = safeRealloc(extFixup, extFixupSize + recLen + 3);
             uint8_t *extStart = extFixup + extFixupSize;
             memcpy(extStart, inRec, recLen + 3);
             extFixupSize += recLen + 3;
