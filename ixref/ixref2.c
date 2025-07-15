@@ -7,10 +7,11 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "ixref.h"
-#include "../shared/os.h"
-#include "../shared/cmdline.h"
+#include "os.h"
+#include "cmdline.h"
 #include <stdlib.h>
 #include <string.h>
+#include "utility.h"
 #ifdef _MSC_VER
 #include <io.h>
 #endif
@@ -60,7 +61,7 @@ void newXref(sym_t *ps, char const *module, record_t *rec) {
     for (px = (xref_t *)&ps->xrefList; px->next && (cmp = strcmp(module, px->next->module));
          px = px->next)
         ;
-    xref_t *newXref   = xmalloc(sizeof(xref_t));
+    xref_t *newXref   = safeMalloc(sizeof(xref_t));
     newXref->next     = px->next;
     px->next          = newXref;
     newXref->module   = module;
@@ -104,10 +105,10 @@ static void AddIxi() {
             while (p->next && (cmp = strcmp(symname, p->next->name)) > 0)
                 p = p->next;
             if (!p->next || cmp != 0) { // new entry
-                newSym           = xmalloc(sizeof(sym_t));
+                newSym           = safeMalloc(sizeof(sym_t));
                 newSym->next     = p->next;
                 p->next          = newSym;
-                newSym->name     = xstrdup(symname);
+                newSym->name     = safeStrdup(symname);
                 newSym->xrefList = NULL;
             }
             newXref(p->next, module, &inRec);
@@ -129,7 +130,7 @@ void collectRecords() {
                 char const *s     = strrchr(fname, '.');
                 if (!s || s == fname)
                     s = strchr(fname, '\0');
-                outFileName = xmalloc(s - path + 4);
+                outFileName = safeMalloc(s - path + 4);
                 memcpy(outFileName, fname, s - path);
                 strcpy(outFileName + (s - path), ".ixo");
                 InitPrint();

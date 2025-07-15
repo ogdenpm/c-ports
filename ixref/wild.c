@@ -6,7 +6,7 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +36,7 @@ char *expandPath(char const *token) {
         if (hfile == -1)
             return NULL;
         if (strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
-            return xstrdup(file.name);
+            return safeStrdup(file.name);
     }
 }
 
@@ -60,7 +60,7 @@ char *expandPath(char const *token) {
             free(pattern);
         }
         lastToken = token;
-        path      = xstrdup(token);
+        path      = safeStrdup(token);
         char *s   = (char *)basename(path);
         if (!strpbrk(s, "?*")) {
             pattern = NULL;
@@ -80,7 +80,7 @@ char *expandPath(char const *token) {
         if ((entry = readdir(dir))) {
             if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") &&
                 match(pattern, entry->d_name))
-                return xstrdup(entry->d_name);
+                return safeStrdup(entry->d_name);
         } else {
             closedir(dir);
             dir = NULL;

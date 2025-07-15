@@ -9,3 +9,7 @@
 #pragma once
 #define APP_NAME    "ixref"
 #define APP_PRODUCT "ixref-1.3"
+#define APP_OWNER   "Intel"
+#define CPORT
+
+

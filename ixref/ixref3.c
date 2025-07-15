@@ -7,7 +7,7 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "ixref.h"
-#include "../shared/os.h"
+#include "os.h"
 #include <stdlib.h>
 #include <string.h>
 

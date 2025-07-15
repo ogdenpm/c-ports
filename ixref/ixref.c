@@ -7,12 +7,25 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "ixref.h"
-#include "../shared/os.h"
-#include "../shared/cmdline.h"
+#include "cmdline.h"
+#include "os.h"
 #include <stdarg.h>
 #include <string.h>
 
 #define VERSION "V1.3"
+
+char const help[]        = "usage: %s ixifiles [,ixifile]* options*\n"
+                           "Where options are:\n"
+                           "TITLE(text)     title to show on listings. text can be quoted\n"
+                           "PRINT(file)     save listing to file rather than show on the console\n"
+                           "PUBLICS         include Public symbols only, cannot be used with EXTERNALS\n"
+                           "EXTERNALS       include external symbols only, cannot be used with PUBLICS\n"
+                           "PAGEWIDTH(val)  set page width to val (60-132) rather than 120\n"
+                           "\n"
+                           "Spaces can be used instead of commas to separate ixi file names\n"
+                           "also * and  ? are supported for multiple file selection\n"
+                           "File names are of the format [:Fx:]path, where x is a digit and path\n"
+                           "The :Fx: maps to a directory prefix from the ISIS_Fx environment variable\n";
 
 char *insufficientMemory = " ,  NOT ENOUGH MEMORY\n";
 
@@ -223,22 +236,3 @@ void Start() {
     Exit(0);
 }
 
-void usage() {
-    printf("Command line usage: %s (-v | -V | -h) | ixifiles [,ixifile]* options*\n",
-           invokeName);
-    printf("Where:\n"
-           "-h              Show this help\n"
-           "-v / -V         Show simple / extended version information\n"
-           "\n"
-           "and options are:\n"
-           "TITLE(text)     title to show on listings. text can be quoted\n"
-           "PRINT(file)     save listing to file rather than show on the console\n"    
-           "PUBLICS         include Public symbols only, cannot be used with EXTERNALS\n"
-           "EXTERNALS       include external symbols only, cannot be used with PUBLICS\n"
-           "PAGEWIDTH(val)  set page width to val (60-132) rather than 120\n"
-           "\n"
-           "Spaces can be used instead of commas to separate ixi file names\n"
-           "also * and  ? are supported for multiple file selection\n"
-           "File names are of the format [:Fx:]path, where x is a digit and path\n"
-           "The :Fx: maps to a directory prefix from the ISIS_Fx environment variable\n");
-}
