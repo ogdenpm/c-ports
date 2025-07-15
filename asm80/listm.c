@@ -7,7 +7,7 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "asm80.h"
-#include "../shared/cmdline.h"
+#include "cmdline.h"
 #include <stdarg.h>
 
 int maxSymWidth = 6; // for formatting symbol tables

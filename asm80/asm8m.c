@@ -101,7 +101,7 @@ void initMacroParam(void) {
 
 static pointer AddMacroText(byte len, pointer arg) {
     if (topMacroArg + len + 1 >= &macroArgs[MAXMACROARGTEXT])
-        FatalError("Out of macro Arg space");
+        fatal("Out of macro Arg space");
     *topMacroArg++ = (len + 1) | 0x80;
     while (len-- != 0)
         *topMacroArg++ = *arg++;

@@ -395,7 +395,7 @@ byte GetCh(void) {
         if (expandingMacro > 1) /* in pass 2 print expanded macro code if required */
             if (IsPhase2Print()) {
                 if (macroPIdx >= macroLineSize - 1) // allow for '\0'
-                    macroLine = xrealloc(macroLine, macroLineSize += MCHUNK);
+                    macroLine = safeRealloc(macroLine, macroLineSize += MCHUNK);
                 macroLine[macroPIdx++] = curCH;
             }
 

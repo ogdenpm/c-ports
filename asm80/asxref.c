@@ -36,13 +36,13 @@ int nameWidth = 6;
 
 static int NewLineRef(void) {
     if (cntLine >= maxLines)
-        lines = xrealloc(lines, sizeof(line_t) * (maxLines += LCHUNK));
+        lines = safeRealloc(lines, sizeof(line_t) * (maxLines += LCHUNK));
     return cntLine++;
 }
 
 static int NewXref(char const *name) {
     if (cntXref >= maxXrefs)
-        xrefs = xrealloc(xrefs, sizeof(xref_t) * (maxXrefs += XCHUNK));
+        xrefs = safeRealloc(xrefs, sizeof(xref_t) * (maxXrefs += XCHUNK));
     xrefs[cntXref].name = AllocStr(name, false);
     return cntXref++;
 }

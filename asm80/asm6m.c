@@ -163,7 +163,7 @@ void CollectByte(byte c) {
     int n;
     n = token.start + token.size++;
     if (n >= lineBufSize - 1) // allow room for a possible '\0'
-        lineBuf = xrealloc(lineBuf, lineBufSize += LCHUNK);
+        lineBuf = safeRealloc(lineBuf, lineBufSize += LCHUNK);
     lineBuf[n] = c;
 }
 

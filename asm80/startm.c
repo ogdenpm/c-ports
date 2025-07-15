@@ -6,11 +6,57 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
+#include "cmdline.h"
+#include "os.h"
 #include "asm80.h"
-#include "../shared/os.h"
-#include "../shared/cmdline.h"
 #include <ctype.h>
-#include  <time.h>
+#include <time.h>
+
+char const help[] =
+    "Usage: %s (-h | -v | -V | inputFile [asm-80 option]*)\n"
+    "Where the - options are  (h) show help, (v) show simple version, (V) show extended "
+    "version\n"
+    "and the case insensitive asm-80 options are shown below. (* indicates default):\n"
+    "COND*                | NOCOND        Turn on/off listing of conditional lines in listing.\n"
+    "DEBUG                | NODEBUG*      Include local symbols and line information in object "
+    "file.\n"
+    "EJECT                                Eject listing to next page\n"
+    "GEN*                 | MOGEN         Show macro expansion in listing\n"
+    "INCLUDE (file)                       Set an initial include file to read\n"
+    "ISISNAME                             Labels are limited to 6 characters and under bar is not "
+    "allowed\n"
+    "LIST*                | NOLIST        Turn on/off listing.\n"
+    "MACRODEBUG           | NOMACRODEBUG* Include generated macro symbols in listing and object "
+    "file\n"
+    "MACROFILE* [(drive)] | NOMACROFILE   Add support for MACROS, reserves associated keywords. "
+    "Drive ignored\n"
+    "MAKEDEPEND [(file)]                  Generate makefile dependencies. File defaults to "
+    ".deps/{src}.d\n"
+    "MOD85*               | MOMOD85       Enable RIM & SIM instructions for 8085\n"
+    "OBJECT* [(file)]     | NOOBJECT      Object file. Default OBJECT({src}.obj)\n"
+    "PAGELENGTH (length)                  Change length of page for listing from 60\n"
+    "PAGEWIDTH (width)                    Change width of page listing from 120\n"
+    "PAGING               | NOPAGING*     Enable listing pagination\n"
+    "PRINT* [(file)]      | NOPRINT       Listing file. File defaults to {src}.lst\n"
+    "RESTORE                              Pop controls (LIST, COND and GEN) from stack\n"
+    "SAVE                                 Push controls (LIST, COND and GEN) on stack\n"
+    "SYMBOLS*             | NOSYMBOLS     Symbol table in listing file.\n"
+    "TITLE('titleString')                 Optional title to show in listing header.\n"
+    "TTY                  | NOTTY         Simulate form-feed for teletypewriter output\n"
+    "XREF                 | NOXREF*       Cross ref in listing file.\n"
+    "See Intel ASM-80 documentation for more details, except for the MAKEDEPEND and ISISNAME "
+    "extensions\n"
+    "Notes:\n"
+    "* {src} is source file name minus any extent\n"
+    "* MOD85 and MACROFILE are changed defaults from the ISIS hosted assembler\n"
+    "* PL/M style labels and numbers are supported. Under bar is also allowed unless ISISNAME is "
+    "specified\n"
+    "* File names are of the format [:Fx:]path, where x is a digit and path\n"
+    "  The :Fx:, (x is a digit), maps to a directory prefix from the corresponding ISIS_Fx "
+    "environment variable\n"
+    "* Long lines are supported, as is the Intel '&' line continuation option\n"
+    "* Response file input for compiling is supported by using \"%s <file\"\n"
+    "* The object file created. is deleted on error, which helps with make builds\n";
 
 byte b3782[2]                   = { 0x81, 0x80 };
 char moduleName[MAXSYMSIZE + 1] = "MODULE";
@@ -156,7 +202,7 @@ void SourceError(byte errCh) {
 
 void InsertByteInMacroTbl(byte c) {
     if (macroInIdx >= macroTextSize)
-        macroText = xrealloc(macroText, macroTextSize += 256);
+        macroText = safeRealloc(macroText, macroTextSize += 256);
     macroText[macroInIdx++] = c;
 }
 
@@ -215,14 +261,14 @@ void InitLine(void) {
 }
 
 void Start() {
-    GetToken();         // skip invoke name
-    char *srcName = GetToken();   //
-    newInclude(srcName);    // treat as an include for makedepend usage
+    GetToken();                 // skip invoke name
+    char *srcName = GetToken(); //
+    newInclude(srcName);        // treat as an include for makedepend usage
     PrepSrcFile(srcName);
     controlsP = cmdP; /* controls start after file name */
     phase     = 1;
     ResetData();
-    
+
     time_t now;
     time(&now);
     strftime(dateStr, sizeof(dateStr), " [%F %R]", localtime(&now));
@@ -263,49 +309,3 @@ void Start() {
     Exit(errCnt != 0);
 }
 
-
-
-
-void usage() {
-    printf(
-        "Usage: %s (-h | -v | -V | inputFile [asm-80 option]*)\n"
-        "Where the - options are  (h) show help, (v) show simple version, (V) show extended "
-        "version\n"
-        "and the case insensitive asm-80 options are shown below. (* indicates default):\n"
-           
-        "COND*                | NOCOND        Turn on/off listing of conditional lines in listing.\n"
-        "DEBUG                | NODEBUG*      Include local symbols and line information in object "
-        "file.\n"
-        "EJECT                                Eject listing to next page\n"
-        "GEN*                 | MOGEN         Show macro expansion in listing\n"
-        "INCLUDE (file)                       Set an initial include file to read\n"
-        "ISISNAME                             Labels are limited to 6 characters and under bar is not allowed\n"    
-        "LIST*                | NOLIST        Turn on/off listing.\n"
-        "MACRODEBUG           | NOMACRODEBUG* Include generated macro symbols in listing and object file\n"
-        "MACROFILE* [(drive)] | NOMACROFILE   Add support for MACROS, reserves associated keywords. Drive ignored\n"
-        "MAKEDEPEND [(file)]                  Generate makefile dependencies. File defaults to "
-        ".deps/{src}.d\n"
-        "MOD85*               | MOMOD85       Enable RIM & SIM instructions for 8085\n"
-        "OBJECT* [(file)]     | NOOBJECT      Object file. Default OBJECT({src}.obj)\n"
-        "PAGELENGTH (length)                  Change length of page for listing from 60\n"
-        "PAGEWIDTH (width)                    Change width of page listing from 120\n"
-        "PAGING               | NOPAGING*     Enable listing pagination\n"
-        "PRINT* [(file)]      | NOPRINT       Listing file. File defaults to {src}.lst\n"
-        "RESTORE                              Pop controls (LIST, COND and GEN) from stack\n"
-        "SAVE                                 Push controls (LIST, COND and GEN) on stack\n"
-        "SYMBOLS*             | NOSYMBOLS     Symbol table in listing file.\n"
-        "TITLE('titleString')                 Optional title to show in listing header.\n"
-        "TTY                  | NOTTY         Simulate form-feed for teletypewriter output\n"
-        "XREF                 | NOXREF*       Cross ref in listing file.\n"
-        "See Intel ASM-80 documentation for more details, except for the MAKEDEPEND and ISISNAME extensions\n"
-        "Notes:\n"
-        "* {src} is source file name minus any extent\n"
-        "* MOD85 and MACROFILE are changed defaults from the ISIS hosted assembler\n"
-        "* PL/M style labels and numbers are supported. Under bar is also allowed unless ISISNAME is specified\n"
-        "* File names are of the format [:Fx:]path, where x is a digit and path\n"
-        "  The :Fx:, (x is a digit), maps to a directory prefix from the corresponding ISIS_Fx environment variable\n"
-        "* Long lines are supported, as is the Intel '&' line continuation option\n"
-        "* Response file input for compiling is supported by using \"%s <file\"\n"
-        "* The object file created. is deleted on error, which helps with make builds\n",
-        invokeName, invokeName);
-}

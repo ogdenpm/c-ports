@@ -7,7 +7,7 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "asm80.h"
-#include "../shared/os.h"
+#include "os.h"
 #include <stdint.h>
 
 #define SCHUNK 4096
@@ -35,7 +35,7 @@ static char *AllocSpc(uint16_t spc, bool isTemp) {
             return p->str + p->used - spc;
         }
     }
-    p = xmalloc(sizeof(strspace_t));
+    p = safeMalloc(sizeof(strspace_t));
     if (isTemp) {
         p->next    = tmpStrings;
         tmpStrings = p;
@@ -69,7 +69,7 @@ static byte *blk2Buf(word blk) {
     mfile_t *p = &mfile;
     while (blk >= MCHUNK) {
         if (!p->next) {
-            p->next       = xmalloc(sizeof(mfile_t));
+            p->next       = safeMalloc(sizeof(mfile_t));
             p->next->next = NULL;
         }
         p = p->next;

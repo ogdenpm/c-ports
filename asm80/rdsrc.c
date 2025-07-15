@@ -7,7 +7,7 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "asm80.h"
-#include "../shared/os.h"
+#include "os.h"
 
 bool pendingInclude   = false;
 bool includeOnCmdLine = false;
@@ -38,12 +38,12 @@ static char *getLine() {
     int c;
     int i = 0;
     if (!inBuf)
-        inBuf = xrealloc(inBuf, inBufSize += 256);
+        inBuf = safeRealloc(inBuf, inBufSize += 256);
     while ((c = getc(srcfp)) != '\n' && c != EOF) {
         if (c >= ' ' || c == '\t' ||
             c == '\f') {            // only allow tab or FF as a control char, others are stripped
             if (i >= inBufSize - 2) // allow room for "\n\0"
-                inBuf = xrealloc(inBuf, inBufSize += 256); // auto grow to allow very long lines
+                inBuf = safeRealloc(inBuf, inBufSize += 256); // auto grow to allow very long lines
             inBuf[i++] = c;
         }
     }

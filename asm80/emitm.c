@@ -10,7 +10,7 @@
 // vim:ts=4:expandtab:shiftwidth=4:
 //
 #include "asm80.h"
-#include "../shared/os.h"
+#include "os.h"
 
 static byte b6D7E[] = { 10, 0x12, 0x40 }; /* 11 bits 00010010010 index left to right */
 

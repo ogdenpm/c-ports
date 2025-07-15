@@ -6,10 +6,11 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
+#include "os.h"
 #include "asm80.h"
 #include <ctype.h>
 #include <stdint.h>
+#include "utility.h"
 
 static struct {
     byte flags; /* format of entries
@@ -192,7 +193,7 @@ static void ProcessControl(byte id) {
         if (ChkParen('(')) {
             while ((curChar = GetCh()) != ')')
                 if (IsEOL())
-                    FatalError("Missing ')' parsing MACROFILE (drive)");
+                    fatal("Missing ')' parsing MACROFILE (drive)");
         } else
             reget = 1;
         return;
@@ -267,11 +268,11 @@ static void ProcessControl(byte id) {
         if (ChkParen('(')) {
             GetFileParam();
             if (!depFile)
-                depFile = xstrdup(tokBuf);
+                depFile = safeStrdup(tokBuf);
         } else if (!depFile) {
             char const *s = basename((char *)includes[0]);
             int len       = (int)(strrchr(s, '.') ? strrchr(s, '.') - s : strlen(s));
-            depFile       = xmalloc(len + 9); //  .deps/{src}.d;
+            depFile       = safeMalloc(len + 9); //  .deps/{src}.d;
             sprintf(depFile, ".deps/%.*s.d", len, s);
         }
         controls.makedepend = true;
@@ -324,8 +325,8 @@ char const *newInclude(char const *fname) {
         if (strcmp(includes[i], fname) == 0) // already known
             return includes[i];
     if (includeCnt == MAXINCLUDES)
-        FatalError("Too many include files");
-    return includes[includeCnt++] = xstrdup(fname);
+        fatal("Too many include files");
+    return includes[includeCnt++] = safeStrdup(fname);
 }
 
 void WriteDepend(char *depFileName) {

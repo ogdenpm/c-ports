@@ -7,8 +7,9 @@
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
 #include "asm80.h"
-#include "../shared/os.h"
+#include "os.h"
 #include <ctype.h>
+#include "utility.h"
 
 byte aExtents[] = " lstobj";
 
@@ -51,8 +52,8 @@ void PrepSrcFile(char *srcName) {
     // .LST or .OBJ are used else .lst or .obj
     s           = strrchr(basename(srcName), '.');
     size_t flen = s ? s - srcName : strlen(srcName);
-    lstFile     = xmalloc(flen + 5);
-    objFile     = xmalloc(flen + 5);
+    lstFile     = safeMalloc(flen + 5);
+    objFile     = safeMalloc(flen + 5);
     strncpy(lstFile, srcName, flen);
     strcpy(lstFile + flen, useLC ? ".lst" : ".LST");
     strncpy(objFile, srcName, flen);
