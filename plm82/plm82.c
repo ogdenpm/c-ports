@@ -148,7 +148,7 @@
 /*   146     procedure optimization stack underflow.  may be a */
 /*           return IN outer block. */
 
-/*   147     pass-2 compiler error IN loadv. register */
+/*   147     stack NOT empty at END of compilation. register */
 /*           stack order is invalid.  may be due to previous error. */
 
 /*   148     pass-2 compiler error.  attempt to unstack too*/
@@ -185,7 +185,7 @@
 /*    as follows*/
 
 /*    1)   the fortran logical unit numbers for various devices*/
-/*         may have to be changed IN the 'gnc' AND 'writel' subrou-*/
+/*         may have to be changed IN the 'getc' AND 'writel' subrou-*/
 /*         tines (see the file definitions below).*/
 
 /*     2)   the host machine may NOT have the pl/m 52 character set*/
@@ -334,7 +334,7 @@
 /*   all input records are 80 characters OR less.  all*/
 /*   output records are 120 characters OR less.*/
 /*   the fortran unit numbers can be changed IN the*/
-/*   subroutines gnc AND writel (these are the only oc-*/
+/*   subroutines getc AND writel (these are the only oc-*/
 /*   currences of references to these units).*/
 
 /*    0 1 2 3 4 5 6 7 8 9*/
@@ -355,7 +355,7 @@
 /*  16740000      subroutine put(ip,x) */
 /*  16960000      integer function alloc(i) */
 /*  17150000      function icon(i) */
-/*  17340000      integer function gnc(q) */
+/*  17340000      integer function getc(q) */
 /*  18690000      function imin(i,j) */
 /*  18760000      subroutine _form(cc,chars,start,finish,length) */ // no longer used
 /*  19040000      subroutine writel(nspace) */
@@ -392,8 +392,8 @@
 /*  52230000      subroutine operat(val) */
 /*  66220000      subroutine sydump */
 
+#include "utility.h"
 #include <ctype.h>
-#include <showVersion.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -599,7 +599,7 @@ int defrl  = -1;
 
 /* inter */
 
-int intpro[8 + 1];
+int intpro[8];
 
 /* built-IN function code (multiplication AND division)*/
 /* built-IN function vector --*/
@@ -849,7 +849,7 @@ int accum[32 + 1];
 
 /* function declarations */
 int main(const int argc, char **argv);
-void inital();
+void initial();
 int get(int ip);
 int getword(int ip);
 void put(int ip, const int x);
@@ -857,17 +857,14 @@ void putword(int ip, const int x);
 
 int alloc(const int i);
 
-// int icon(const int i); // no longer used
-
-int gnc(FILE *fp);
-int imin(const int i, const int j);
 void Printf(char *fmt, ...); // ascii version using printf formats
 void putch(const int chr);
 void writel(FILE *fp);
 
-void error(const int i, const int level);
+// void error(const int i, const int level);
 
-void errors(char const *msg, int level);
+void nonFatal(char const *msg, ...);
+void fatal(char const *msg, ...);
 
 int shr(const int i, const int j);
 int shl(const int i, const int j);
@@ -904,7 +901,6 @@ void compare16(bool icom, int flag, int iq);
 void updateHL(int jp);
 
 void controlLine(const char *s);
-FILE *setFile(char const *name, char const *ext, char const *mode, int fortId);
 
 /* the following scanner commands are defined */
 /* analysis         (12) */
@@ -937,29 +933,24 @@ FILE *setFile(char const *name, char const *ext, char const *mode, int fortId);
 
 #define errorCnt        contrl[1]
 #define C_ANALYSIS      contrl[CHA]
-#define C_BPNF          contrl[CHB]
 #define C_COUNT         contrl[CHC]
 #define C_DELETE        contrl[CHD]
 #define C_EOF           contrl[CHE]
 #define C_FINISH        contrl[CHF]
 #define C_GENERATE      contrl[CHG]
-#define C_HEADER        contrl[CHH]
 #define C_INPUT         contrl[CHI]
 #define C_JFILE         contrl[CHJ]
-#define C_LEFTMARG      contrl[CHL]
+#define C_LOAD          contrl[CHL]
 #define C_MAP           contrl[CHM]
 #define C_NUMERIC       contrl[CHN]
 #define C_OUTPUT        contrl[CHO]
-#define C_PRINT         contrl[CHP]
-#define C_QUICKDUMP     contrl[CHQ]
-#define C_RIGHTMARG     contrl[CHR]
 #define C_SYMBOLS       contrl[CHS]
-#define C_TERMINAL      contrl[CHT]
 #define C_USYMBOL       contrl[CHU]
 #define C_VARIABLES     contrl[CHV]
 #define C_WIDTH         contrl[CHW]
+#define C_HEXFILE       contrl[CHX]
 #define C_YPAD          contrl[CHY]
-#define C_ZMARGIN       contrl[CHZ]
+
 #define C_STACKHANDLING contrl[STAR]
 
 // HL tracking uses the following flags
@@ -973,28 +964,7 @@ FILE *outFp;
 FILE *polFp;
 FILE *lstFp;
 FILE *symFp;
-
-char *basename(char *path) {
-    char *s;
-#ifdef _WIN32
-    if (path[0] && path[1] == ':') // skip leading device
-        path += 2;
-#ifdef UNC
-    else if (path[0] == '\\' && path[1] == '\\') // skip \\computer\share\ part
-        if ((s = strchr(path + 2, '\\')) && (s = strchr(s, '\\')))
-            path = s + 1;
-        else
-            path = strchr(path, '\0');
-#endif
-#endif
-    if ((s = strrchr(path, '/')))
-        path = s + 1;
-#if _WIN32
-    if ((s = strrchr(path, '\\')))
-        path = s + 1;
-#endif
-    return path;
-}
+char *src;
 
 bool isBase32(int n) {
     return isalnum(n) && toupper(n) <= 'V';
@@ -1009,104 +979,95 @@ int base32ToInt(int n) {
     return -1;
 }
 
-/*
-    although fort.nn is still supported, this routine presets up several files based
-    on fname. This allows a command line to specify plm81 file.plm and the fort.nn files
-    are named to reflect the file stem
-*/
-FILE *setFile(char const *name, char const *ext, char const *mode, int fortId) {
-    FILE *fp;
-    char path[_MAX_PATH];
-    if (name) {
-        strcpy(path, name);
-        char *s = basename(path);
-        char *t = strrchr(s, '.');
-        if (t && t != s)
-            *t = '\0';
-        strcat(s, ext);
-    } else
-        sprintf(path, "fort.%d", *mode == 'r' ? fortId : fortId + 10);
-    if (!(fp = fopen(path, mode))) {
-        if (fortId != 1) {
-            fprintf(stderr, "can't %s %s\n",
-                    *mode == 'r'   ? "open"
-                    : *mode == 'w' ? "create"
-                                   : "append",
-                    path);
-            exit(1);
-        }
+void closefiles(void) {
+    if (polFp) {
+        fclose(polFp);
+        if (errorCnt == 0)
+            unlink(makeFilename(src, ".pol", true));
     }
-    return fp;
+    if (symFp) {
+        fclose(symFp);
+        if (errorCnt == 0)
+            unlink(makeFilename(src, ".sym", true));
+    }
+    if (lstFp)
+        fclose(lstFp);
+    if (hexFp) {
+        fclose(hexFp);
+        if (errorCnt)
+            unlink(makeFilename(src, ".hex", true));
+    }
 }
 
-void initFiles(char *fname) {
-    polFp = setFile(fname, ".pol", "rb", C_JFILE);
-    symFp = setFile(fname, ".sym", "rt", C_USYMBOL);
-    lstFp = setFile(fname, ".lst", "at", C_OUTPUT);
-    hexFp = setFile(fname, ".hex", "wt", C_BPNF);
-    outFp = lstFp;
+void openfiles(char *srcFile) {
+    src = srcFile;
+    char *path;
+    atexit(closefiles);
+    if (!(polFp = fopen(path = makeFilename(srcFile, ".pol", true), "rb"))) {
+        fprintf(stderr, "can't open pol file %s\n", path);
+        exit(1);
+    }
+    if (!(symFp = fopen(path = makeFilename(srcFile, ".sym", true), "rt"))) {
+        fprintf(stderr, "can't open symbol file %s\n", path);
+        exit(1);
+    }
+    if (!(lstFp = fopen(path = makeFilename(srcFile, ".lst", true), "at"))) {
+        fprintf(stderr, "can't open listing file %s\n", path);
+        exit(1);
+    }
+    if (C_HEXFILE && !(hexFp = fopen(path = makeFilename(srcFile, ".hex", true), "at"))) {
+        fprintf(stderr, "can't create hex file %s\n", path);
+        exit(1);
+    }
 }
 
-// get the file to use
-// auto open file if first use
-void closefiles() {
-    fclose(lstFp);
-    fclose(hexFp);
-}
+char const help[] =
+    "Usage: %s [-a n] [-d nn] [-f] [-g n] [-l nn] [-m] [-n] [-s n] [-v nn] [-x] [-# nn] plmfile\n"
+    "Where\n"
+    "-a n       debug - set analysis level != 0 show state, >= 2 show registers\n"
+    "-d nn      set output width, min 72 default 132\n"
+    "-f         disable code dump at finish\n"
+    "-g n       trace - 0 no trace, 1 lines vs locs, 2 full interlist- default 1\n"
+    "-l nn      start machine code generation at location nn\n"
+    "-m         turn off symbol map\n"
+    "-n         write emitter trace\n"
+    "-s n       debug - write symbol info. 0 none, != 0 address , >= 2 detailed info\n"
+    "-v nn      set first page of RAM\n"
+    "-x         disable hex file\n"
+    "-@ nn      stack handling. 0 system determined, 1 user specified, > 1 stack size\n"
+    "plmfile    is the same source file name used in plm81 of the form prefix.ext\n"
+    "           intermediate files prefix.lst, prefix.pol and prefix.sym are used\n"
+    "           optionally prefix.cfg can be used to hold plm82 configuration flags\n"
+    "           prefix.lst is updated with pass2 output added and prefix.hex is created\n"
+    "           Note the .pol and .sym files are deleted if pass 2 is successful\n\n";
 
 int main(int argc, char **argv) {
     int i, j, jp, jl, jn, np, k;
 
-    CHK_SHOW_VERSION(argc, argv);
-
-    if (argc > 2 || strcasecmp(argv[1], "-h") == 0) {
-        printf(
-            "\nUsage: plm82 -v | -V  | -h | [plmfile]\n"
-            "Where\n"
-            "-v/-V      provide version infomation\n"
-            "-h         shows this help\n"
-            "plmfile    is the same source file name used in plm81 of the form prefix.ext\n"
-            "           intermediate files prefix.lst, prefix.pol and prefix.sym are used\n"
-            "           optionally prefix.cfg can be used to hold plm82 configuration flags\n"
-            "           prefix.lst is updated with pass2 output added and prefix.hex is created\n"
-            "           Note the intermediate .pol and .sym files are not deleted automatically\n\n"
-            "If plmfile is not specified, input is taken from fort.4 (pol) and fort.7 (sym)\n"
-            "The plm81 output files will need to be renamed accordingly and fort.12 saved\n"
-            "the created files are fort.12 (lst) and fort.17 (hex)\n");
-        exit(0);
-    }
-
     /* initialize memory */
-    inital();
+    initial();
 
     /* contrl(1) holds the error count */
     for (i = 1; i <= 64; i++)
         contrl[i] = -1;
-    errorCnt        = 0;
-    C_ANALYSIS      = 0;
-    C_BPNF          = 7;
-    C_COUNT         = 0;
-    C_DELETE        = 120;
-    C_EOF           = 0;
-    C_FINISH        = 1;
-    C_GENERATE      = 1;
-    C_HEADER        = 0;
-    C_INPUT         = 1;
-    C_JFILE         = 4;
-    C_LEFTMARG      = 1;
-    C_MAP           = 1;
-    C_NUMERIC       = 0;
-    C_OUTPUT        = 2;
-    C_PRINT         = 0;
-    C_QUICKDUMP     = 1;
-    C_RIGHTMARG     = 73;
-    C_SYMBOLS       = 0;
-    C_TERMINAL      = 0;
-    C_USYMBOL       = 7;
+    errorCnt   = 0;
+    C_ANALYSIS = 0;
+    C_COUNT    = 0;
+    C_DELETE   = 132;
+    // C_EOF           = 0;
+    C_FINISH   = 1;
+    C_GENERATE = 1;
+    C_LOAD     = 0;
+    C_MAP      = 1;
+    C_NUMERIC  = 0;
+    C_OUTPUT   = 2;
+    // C_QUICKDUMP = 1;
+    C_SYMBOLS   = 0;
+ 
+    // C_USYMBOL       = 7;
     C_VARIABLES     = 0;
     C_WIDTH         = 120;
     C_YPAD          = 1;
-    C_ZMARGIN       = 2;
     C_STACKHANDLING = 0;
     // setup the input translation map
     memset(itran, SPACE, sizeof(itran)); // default is char maps to SPACE
@@ -1116,33 +1077,67 @@ int main(int argc, char **argv) {
             itran[tolower(otran[i])] = i; // map lower case to same as upper case
     }
 
-    // allow for a configuration file
-    // file assignments can only be done in the config file
-    inFp = setFile(argc > 1 ? argv[1] : NULL, ".cfg", "rt", C_INPUT);
-    if (!inFp && C_TERMINAL)
-        inFp = stdin;
-    gnc(inFp); // process any controls (NULL is safe)
-    // now assign all of the remaining files
-    // note subsequent changes are ignored
-    initFiles(argc > 1 ? argv[1] : NULL);
+    while (getopt(argc, argv, "a:d:fg:l:mn:s:v:x@:") != EOF) {
+        switch (optopt) {
+        case 'a':
+            C_ANALYSIS = atoi(optarg);
+            break;
+        case 'd':
+            if ((C_DELETE = atoi(optarg)) < 72)
+                C_DELETE = 72;
+            break;
+        case 'f':
+            C_FINISH = !C_FINISH;
+            break;
+        case 'g':
+            C_GENERATE = atoi(optarg);
+            break;
+        case 'l':
+            C_LOAD = atoi(optarg);
+            break;
+        case 'm':
+            C_MAP = !C_MAP;
+            break;
+        case 'n':
+            C_NUMERIC = !C_NUMERIC;
+            break;
+        case 's':
+            C_SYMBOLS = atoi(optarg);
+            break;
+        case 'V':
+            if ((C_VARIABLES = atoi(optarg)) > 63)
+                C_VARIABLES = 0;
+            break;
+        case 'x':
+            C_HEXFILE = !C_HEXFILE;
+            break;
+        case '@':
+            if ((C_STACKHANDLING = atoi(optarg)) >= 0x10000)
+                C_STACKHANDLING = 0;
+            break;
+        }
+    }
+    if (optind != argc - 1)
+        usage("Expected single file name");
+
+    openfiles(argv[optind]);
+
     Printf("\n8080 PLM2 VERS %d.%d", vers / 10, vers % 10);
     writel(lstFp);
     ;
     /* change margins for reading intermediate language */
-    C_LEFTMARG = C_ZMARGIN;
-    writel(lstFp);
-    ;
-    codloc = C_HEADER;
+
+    codloc = C_LOAD;
     loadsy();
     readcd();
     if (!errflg) {
         /* make sure compiler stack is empty */
         if (sp != 0)
-            error(144, 1);
+            nonFatal("144: stack not empty at end of compilation");
 
         /* make sure execution stack is empty */
         if (curdep[0] != 0)
-            error(150, 1);
+            nonFatal("150: stack not empty at end of compilation. Register stack order is invalid");
         reloc();
 
         /* may want a symbol table for the simulator */
@@ -1152,12 +1147,9 @@ int main(int argc, char **argv) {
             /* dump the preamble */
             i      = offset;
             offset = 0;
-            if (intpro[1])
-                dump(0, 2, true);
-            for (int ii = 2; ii <= 8; ii++) {
-                if (intpro[ii])
-                    dump(8 * ii - 8, ii * 8 - 6, true);
-            }
+            for (int ii = 0; ii < 64; ii += 8)
+                if (intpro[ii / 8])
+                    dump(ii, ii + 2, true);
 
             offset = i;
 
@@ -1204,21 +1196,18 @@ int main(int argc, char **argv) {
         if (codloc != isave && C_FINISH)
             dump(kval, codloc - 1, false); /* dump the initialized variables */
 
-        if (C_BPNF) {
+        if (C_HEXFILE) {
             /* punch deck */
             k         = offset;
             offset    = 0;
 
             int mode1 = 1;
-            if (intpro[1]) {
-                puncod(0, 2, mode1);
-                mode1 = 3;
-            }
-            for (int ii = 2; ii <= 8; ii++)
-                if (intpro[ii]) {
-                    puncod(ii * 8 - 8, ii * 8 - 6, mode1);
+            for (int ii = 0; ii < 64; ii += 8)
+                if (intpro[ii / 8]) {
+                    puncod(ii, ii + 2, mode1);
                     mode1 = 3;
                 }
+
             offset = k;
             if (codloc != isave) {
                 puncod(offset + preamb, isave - 1, mode1);
@@ -1230,17 +1219,12 @@ int main(int argc, char **argv) {
         /* write error count */
         writel(lstFp);
         outFp = lstFp;
-        if (errorCnt == 0)
-            Printf("\nNO PROGRAM ERRORS\n \n");
-        else
-            Printf("%d PROGRAM ERROR%s\n \n", i, errorCnt == 1 ? "S" : "");
-        writel(lstFp);
-        if (C_OUTPUT != 1 || C_TERMINAL == 0) { // echo to console as well
-            writel(stdout);
-            if (errorCnt == 0)
-                Printf("\nNO PROGRAM ERRORS\n \n");
-            else
-                Printf("%d PROGRAM ERROR%s\n \n", i, errorCnt == 1 ? "S" : "");
+        if (errorCnt == 0) {
+            fputs("\nNO PROGRAM ERRORS\n\n", lstFp);
+            fputs("\nNO PROGRAM ERRORS\n\n", stdout);
+        } else {
+            fprintf(lstFp, "%d PROGRAM ERROR%s\n \n", i, errorCnt == 1 ? "S" : "");
+            fprintf(stdout, "%d PROGRAM ERROR%s\n \n", i, errorCnt == 1 ? "S" : "");
         }
     }
     closefiles();
@@ -1248,7 +1232,7 @@ int main(int argc, char **argv) {
     return errorCnt;
 }
 
-void inital() {
+void initial() {
     memtop = MAXMEM + 1;
     membot = -1;
     memset(mem, 0, sizeof(mem));
@@ -1257,7 +1241,7 @@ void inital() {
 int get(int ip) {
     ip -= offset;
     if (ip >= sizeof(mem)) {
-        error(101, 5);
+        fatal("101: pass-2 address outside available storage");
         return 0;
     }
     return mem[ip];
@@ -1270,7 +1254,7 @@ int getword(int ip) {
 void put(int ip, const int x) {
     ip -= offset;
     if (ip >= sizeof(mem))
-        error(102, 5);
+        fatal("102: pass-2 address outside available storage");
     else
         mem[ip] = x;
 }
@@ -1284,120 +1268,17 @@ int alloc(const int i) {
     if (i < 0) { /* allocation is from top */
         memtop += i;
         if (memtop <= membot)
-            error(104, 5);
+            fatal("104: pass-2 program too large to compile");
         return memtop + offset;
     }
 
     /* allocation is from bottom */
     membot += i;
     if (membot > memtop)
-        error(103, 5);
+        fatal("103: pass-2 program too large to compile");
     return membot + offset + 1 - i;
 }
 
-int gnc(FILE *fp) {
-    static char *s = ""; // used to track next char
-    if (!fp) {
-        s = "";
-        return 0;
-    }
-
-    /* get next character from the input stream (OR 0 if */
-    /* no character is found) */
-    while (!*s) {
-        if (!fgets(ibuff, 82, fp)) {
-            if (fp != inFp)
-                fprintf(stderr, "EOF reached\n");
-            return 0;
-        }
-
-        if ((s = strchr(ibuff, '\n')))
-            *s = 0;
-        else {
-            ibuff[80] = 0;
-            int c; // and gobble up rest of line
-            while ((c = getc(fp)) != '\n' && c != EOF)
-                ;
-        }
-        int len = (int)strlen(ibuff);
-        if (C_PRINT) {
-            if (len < C_LEFTMARG)
-                Printf("%s", len == 0 ? " " : ibuff); // single space forces new line
-            else {
-                if (C_LEFTMARG != 1)
-                    Printf("%.*s   ", C_LEFTMARG - 1, ibuff);
-                if (len <= C_RIGHTMARG)
-                    Printf("%s", ibuff + C_LEFTMARG - 1);
-                else {
-                    Printf("%.*s", C_RIGHTMARG - C_LEFTMARG, ibuff + C_LEFTMARG - 1);
-                    Printf("   %s", ibuff + C_RIGHTMARG - 1);
-                }
-                writel(lstFp);
-                ;
-            }
-        }
-
-        if (len >= C_LEFTMARG) {
-            s = ibuff + C_LEFTMARG - 1;
-            if (len < C_RIGHTMARG) // compenstate for all trailing spaces removed by adding one back
-                strcpy(ibuff + len, " ");
-            else
-                ibuff[C_RIGHTMARG] = 0;
-            if (*s == '$')
-                controlLine(s);
-            else
-                break;
-        }
-        s = "";
-    }
-    if (itran[*(uint8_t *)s] == 1) // map illegal chars to a space
-        *s = ' ';
-    return toupper(*s++);
-}
-
-void controlLine(const char *s) {
-    int code;
-    int j, k, l;
-    while (*s) {
-        while (*s == ' ')
-            s++;
-
-        if (*s++ != '$' || (code = *s++) == ' ')
-            return;
-
-        if (code == '$') { // display $parameters
-            if (*s == ' ') {
-                l = 2;
-                k = 64;
-            } else
-                l = k = itran[*(uint8_t *)s];
-            s++;
-            for (int i = l; i <= k; i++)
-                if ((j = contrl[i]) >= 0)
-                    Printf("$%c=%d", otran[i], j);
-            if (C_TERMINAL)
-                Printf("\n \n");
-            writel(stdout);
-        } else {
-            code = toupper(code);
-            j    = itran[code];
-            k    = 0;
-            if (*s == '=') {
-                while (isdigit(*++s) || *s == ' ')
-                    if (*s != ' ')
-                        k = k * 10 + *s - '0';
-            } else if (contrl[j] > 1)
-                errors("Control toggle used improperly", 1);
-            else
-                k = !contrl[j];
-            contrl[j] = k;
-        }
-    }
-}
-
-int imin(const int i, const int j) {
-    return i < j ? i : j;
-}
 
 void Printf(char *fmt, ...) {
     va_list args;
@@ -1435,24 +1316,16 @@ void writel(FILE *fp) {
     return;
 }
 
-void error(const int i, const int level) {
-    char buf[10];
-    sprintf(buf, "%d", i);
-    errors(buf, level);
-}
-
 // string msg variant of error
-void errors(char const *msg, int level) {
-    /* print error message - level is severity code (terminate at 5) */
+void nonFatal(char const *msg, ...) {
     errorCnt++;
     Printf("\n(%05d)  ERROR %s\n", C_COUNT, msg);
+}
 
-    /* check for severe error - level greater than 4 */
-    if (level > 4) {
-        /* terminate compilation */
-        Printf("\nCOMPILATION TERMINATED\n");
-        errflg = true;
-    }
+void fatal(char const *msg, ...) {
+    nonFatal(msg);
+    Printf("\nCOMPILATION TERMINATED\n");
+    errflg = true;
 }
 
 int shr(const int i, const int j) {
@@ -1472,7 +1345,7 @@ void _delete(int n) /* _delete the top n elements from the stack */
     int i;
     while (n-- > 0) {
         if (sp <= 0) {
-            errors("106: register allocation table underflow", 1);
+            nonFatal("106: register allocation table underflow");
             return;
         }
         if ((i = (rasn[sp] >> 4) & 0x7)) {
@@ -1508,7 +1381,7 @@ void apply(const int op, const int op2, const bool com, const int cyflag) {
             genreg(-2, &ia, &ib);
             regs[ia] = j;
             if (ip != 0)
-                errors("Invalid stack order in 'apply'", 1);
+                nonFatal("152: Invalid stack order in 'apply'");
             ip = ib;
             if (prec[j] > 1) /* double byte operand */
                 regs[ib] = j;
@@ -1541,7 +1414,7 @@ void apply(const int op, const int op2, const bool com, const int cyflag) {
                     continue;
             }
         } else if ((ia = REGLOW(rasn[sp - 1])) == 0) { /* reg assigned, lock regs containing var */
-            errors("107: register allocation error. No registers available", 5);
+            fatal("107: register allocation error. No registers available");
             return;
         } else {
             lock[ia] = true;
@@ -1571,7 +1444,7 @@ void apply(const int op, const int op2, const bool com, const int cyflag) {
                 if (ia <= 1) {            /* op1 must be IN memory, so load into gpr */
                     loadv(sp - 1, 0);
                     if ((ia = rasn[sp - 1] & 0xf) == 0) {
-                        error(107, 5);
+                        fatal("107: register allocation error. No registers available");
                         return;
                     }
                     lastIncReg = codloc; /* ...may change to inr memory if STD to op1 follows... */
@@ -1592,7 +1465,7 @@ void apply(const int op, const int op2, const bool com, const int cyflag) {
         /* (loadv will load the low order byte into the ACC) */
         loadv(sp - 1, 1);
         if ((ia = REGLOW(rasn[sp - 1])) == 0) {
-            errors("107: register allocation error. No registers available", 5);
+            fatal("107: register allocation error. No registers available");
             return;
         }
         lock[ia] = true;
@@ -1602,7 +1475,7 @@ void apply(const int op, const int op2, const bool com, const int cyflag) {
         if (ib <= 0 && prec[sp] != 1) {
             /* get a spare register */
             if ((ib = ia - 1) == 0) { // ia was A reg so can't double byte
-                errors("107: register allocation error. No registers available", 5);
+                fatal("107: register allocation error. No registers available");
                 return;
             }
             lock[ib] = true;
@@ -1766,13 +1639,12 @@ void loadsy() {
     int ch;
     bool ok = false;
 
-    gnc(NULL); /// make sure line refresh is done
-    while ((ch = gnc(symFp)) == ' ')
+    while ((ch = getc(symFp)) == ' ')
         ;
 
     /* look for initial '/' */
     if (ch == '/') {
-        while ((ch = gnc(symFp)) != '/') {
+        while ((ch = getc(symFp)) != '/') {
             /* load the interrupt vector */
             if (ch < '0' || ch > '7')
                 goto badData;
@@ -1780,7 +1652,7 @@ void loadsy() {
 
             /* get the procedure name corresponding to interrupt i */
             int symId = 0;
-            for (int shift = 1; (ch = gnc(symFp)) != '/'; shift *= 32) {
+            for (int shift = 1; (ch = getc(symFp)) != '/'; shift *= 32) {
                 if (isBase32(ch))
                     symId += base32ToInt(ch) * shift; // add in next base 32 digit
                 else
@@ -1792,13 +1664,13 @@ void loadsy() {
         }
 
         /* interrupt procedures are handled. */
-        while ((ch = gnc(symFp)) == ' ')
+        while ((ch = getc(symFp)) == ' ')
             ;
 
         if (ch == '/') {
-            while ((ch = gnc(symFp)) != '/') { // process next symbol table entry
+            while ((ch = getc(symFp)) != '/') { // process next symbol table entry
                 if (++sytop >= syinfo) {
-                    errors("108: pass-2 symbol table overflow", 5);
+                    fatal("108: pass-2 symbol table overflow");
                     syinfo = symax;
                 }
                 if (C_SYMBOLS >= 2) // write symbol number AND symbol table address
@@ -1811,13 +1683,13 @@ void loadsy() {
                         goto badData;
                     int sign = ch;
                     int info = 0;
-                    for (int shift = 1; isBase32(ch = gnc(symFp)); shift *= 32)
+                    for (int shift = 1; isBase32(ch = getc(symFp)); shift *= 32)
                         /* get next digit */
                         info += base32ToInt(ch) * shift;
 
                     /* END of number */
                     if (syinfo <= sytop) {
-                        errors("109: symbol table overflow", 5);
+                        fatal("109: symbol table overflow");
                         syinfo = symax;
                     }
                     if (C_SYMBOLS >= 2) // write symbol table address AND entry
@@ -1862,7 +1734,7 @@ void loadsy() {
                             lmem &= ~1;
 
                         if ((lmem -= prec * ecnt) < 0) {
-                            errors("110: Data storage too big", 1);
+                            nonFatal("110: data storage too big");
                             lmem = 0xff00;
                         }
                         addr = lmem;
@@ -1877,7 +1749,7 @@ void loadsy() {
     }
 badData:
     if (!ok)
-        errors("111: inline data format error", 1);
+        nonFatal("111: inline data format error");
 
     /* now assign the last address to the variable 'memory' */
     /* ** note that 'memory' must be at location 5 IN the symbol table ** */
@@ -1987,7 +1859,7 @@ void loadv(int s, int typ) {
 
                 /* ia is low order byte, ib is high order byte. */
                 if (ia <= 0) {
-                    error(112, 5);
+                    fatal("112: register allocation error");
                     return;
                 }
             } else {
@@ -1999,7 +1871,8 @@ void loadv(int s, int typ) {
                         if (st[i] == 0 && rasn[i] == 0 && litv[i] < 0)
 
                             /* found another stacked value */
-                            error(147, 1);
+                            nonFatal("147: stack not empty at end of compilation. Register stack "
+                                     "order is invalid");
                         i = i + 1;
                     } else {
                         /* available cpu register is based at k */
@@ -2127,7 +2000,7 @@ void loadv(int s, int typ) {
 void setadr(const int val) { // set top of stack to address reference
     alter = true;
     if (sp > maxsp) {
-        error(113, 5);
+        fatal("113: register allocation stack overflow.");
         sp = 1;
     } else { // mark as address reference
         st[sp]   = -val;
@@ -2141,7 +2014,7 @@ void ustack() {
     /* decrement curdep AND check for underflow */
     if (--curdep[prsp] < 0) {
         curdep[prsp] = 0;
-        error(148, 1);
+        nonFatal("148: pass-2 compiler error. Attempt to unstack too many values");
     }
 }
 
@@ -2347,7 +2220,7 @@ void litadd(const int s) {
     l  = ih;
 
     if (ih < 0)
-        error(114, 1);
+        nonFatal("114: pass-2 compiler error in 'litadd'");
     else if ((i = rasn[s]) != REGPAIR(RH, RL)) { /* deassign registers */
         jp = regs[RA];
         if ((k = REGLOW(i))) {
@@ -2384,7 +2257,7 @@ void litadd(const int s) {
                     else { /* the LXI must be backstuffed later */
                         it = st[s];
                         if (it >= 0) {
-                            error(115, 1);
+                            nonFatal("115: pass-2 compiler error in 'litadd'");
                             return;
                         }
                         it = -it;
@@ -2394,12 +2267,12 @@ void litadd(const int s) {
                 } else if (l <= 255)
                     emit(LD, ir, -l);
                 else if ((it = st[s]) >= 0) { /* the address must be backstuffed later */
-                    error(115, 1);
+                    nonFatal("115: pass-2 compiler error in 'litadd'");
                     return;
                 } else {
                     it = -it;
                     if (symAddr(it) <= 0) {
-                        error(116, 1);
+                        nonFatal("116: pass-2 compiler error in 'litadd'");
                         break;
                     }
                     /* place link into code */
@@ -2433,7 +2306,7 @@ void dump(int lp, const int u, bool symbolic) {
     itemsOnLine = symbolic ? (C_WIDTH - 5) / 7 : (C_WIDTH - 5) / 4;
 
     if (itemsOnLine <= 0)
-        error(117, 1);
+        nonFatal("117: line width set too narrow for code dump");
 
     else {
         for (int i = 0; i < 29; i++)
@@ -2778,11 +2651,10 @@ void puncod(int start, const int end, const int mode) {
         crc       = -(1 + entry / 256 + entry % 256);
         fprintf(hexFp, ":00%04X01%02X\n", entry, crc);
     } else {
-        int maxToWrite = C_QUICKDUMP < 16 ? 16 : C_QUICKDUMP;
         int toWrite;
         while ((toWrite = end - start + 1) > 0) {
-            if (toWrite > maxToWrite)
-                toWrite = maxToWrite;
+            if (toWrite > 16)
+                toWrite = 16;
 
             fprintf(hexFp, ":%02X%04X00", toWrite, start);
             crc = -(toWrite + start % 256 + start / 256);
@@ -2797,21 +2669,21 @@ void puncod(int start, const int end, const int mode) {
 }
 
 void cvcond(const int s) {
-    int i, j, k, ia, jp;
+    int i, j, ia, jp;
 
     /* convert the condition code at s IN the stack to a boolean value */
-    i  = rasn[s];
-    ia = i & 0xf;
-    k  = (i >> 8) & 0xf;
-    j  = (i >> 12) & 0xf;
+    i        = rasn[s];
+    ia       = i & 0xf;
+    int test = (i >> 8) & 0xf;
+    j        = (i >> 12) & 0xf;
 
     /* j = 1 if true , j = 0 if false */
 
     /* k = 1 if CARRY, 2 if ZERO, 3 if SIGN, AND 4 if PARITY */
 
     /* we may generate a short sequence */
-    if (k <= 2 && ia != 0 && regs[RA] == ia) {
-        if (k != 2) {
+    if (test <= 2 && ia != 0 && regs[RA] == ia) {
+        if (test != 2) {
             /* short conversion for true OR false CARRY */
             emit(SB, RA, 0);
             if (j == 0)
@@ -2832,7 +2704,7 @@ void cvcond(const int s) {
                 regs[ia] = sp;
                 i        = ia;
             } else {
-                error(118, 5);
+                fatal("118: register allocation error");
                 return;
             }
         }
@@ -2845,7 +2717,7 @@ void cvcond(const int s) {
                 regs[RA] = 0;
             }
         emit(LD, RA, -255);
-        j = (FAL + j) * 32 + (CARRY + k - 1);
+        j = (FAL + j) * 32 + (CARRY + test - 1);
         emit(JMC, j, codloc + 4);
         emit(XR, RA, 0);
     }
@@ -2889,7 +2761,7 @@ void saver() {
 
         /* lmem is now properly aligned. */
         if (lmem < 0) {
-            error(119, 1);
+            nonFatal("119: memory allocation error");
             return;
         } else {
             int loc = lmem;
@@ -2900,7 +2772,7 @@ void saver() {
                     wordChain = st[i = wordChain];
 
                 if (i <= 0) {
-                    error(120, 1);
+                    nonFatal("120: memory allocation error");
                     return;
                 }
 
@@ -2918,7 +2790,7 @@ void saver() {
                 /* leave room for LXI chain */
                 symbol[--syinfo] = 0;
                 if (sytop > --syinfo) {
-                    error(121, 5);
+                    fatal("121: pass-2 symbol table overflow");
                     return;
                 }
 
@@ -2966,7 +2838,7 @@ void reloc() {
 
     /* compute max stack depth required for correct execution */
     stsize = maxdep[0];
-    for (int n = 1; n <= 8; n++) {
+    for (int n = 0; n < 8; n++) {
         if (intpro[n]) /* get interrupt procedure depth */
             /* note that i exceeds depth by 1 since RET may be pending */
             stsize += symIProcDepth(intpro[n]) + 1;
@@ -2997,7 +2869,7 @@ void reloc() {
     /* compute first relative address page */
     j = lmem / 256 - i;
     if (j < 0)
-        error(122, 1);
+        nonFatal("122: program requires too much program and variable storage");
 
     else {
         for (int i = 1; i <= sytop; i++) {
@@ -3057,25 +2929,22 @@ void reloc() {
             }
         }
         if (preamb > 0) {
-            for (int i = 1; i <= 8; i++)
+            for (int i = 0; i < 8; i++)
                 if (intpro[i])
                     intpro[i] = symRef(intpro[i]) * 256 + 0xc3;
-            if (intpro[1] == 0 && offset == 0 && C_STACKHANDLING != 1) // V4
-                intpro[1] = (offset + preamb) * 256 + 0xc3;
+            if (intpro[0] == 0 && offset == 0 && C_STACKHANDLING != 1) // V4
+                intpro[0] = (offset + preamb) * 256 + 0xc3;
 
             k      = offset;
             offset = 0;
-            for (int i = 0, j = 1;; j++) {
-                for (int l = intpro[j];; l /= 256) {
-                    put(i++, l % 256);
-                    if (i >= preamb) {
-                        offset = k;
-                        return;
-                    }
-                    if (i % 8 == 0)
-                        break;
-                }
+            for (int i = 0, j = 0, l; i < preamb; i++) {
+                if (i % 8 == 0)
+                    l = intpro[j++];
+                put(i, l % 256);
+                l /= 256;
             }
+            offset = k;
+            return;
         }
     }
     return;
@@ -3085,23 +2954,21 @@ int loadin() // modified for V4
 {
     int i;
     int addr = -1;
-    /* save the current input file number */
-    gnc(NULL); // make sure line refresh is done
 
-    while ((i = gnc(symFp)) == ' ')
+    while ((i = getc(symFp)) == ' ')
         ;
 
     if (i != '/')
-        error(124, 1);
+        nonFatal("124: initialization table format error");
 
     else
-        while ((i = gnc(symFp)) != '/') {
+        while ((i = getc(symFp)) != '/') {
             /* process next symbol table entry */
 
             /* build address of initialized symbol */
             i = base32ToInt(i);
-            i += base32ToInt(gnc(symFp)) * 32;
-            i += base32ToInt(gnc(symFp)) * 32 * 32;
+            i += base32ToInt(getc(symFp)) * 32;
+            i += base32ToInt(getc(symFp)) * 32 * 32;
 
             int prec  = INFO_PREC(symAttrib(i));
             int sAddr = symAddr(i);
@@ -3109,19 +2976,17 @@ int loadin() // modified for V4
             /* j is starting address, AND k is the precision of */
             /* the base variable */
             if (codloc > sAddr)
-                error(123, 1);
-            while (codloc < sAddr) {
-                put(codloc, 0);
-                codloc = codloc + 1;
-            }
+                nonFatal("123: initialized storage overlaps previously initialized storage");
+            while (codloc < sAddr)
+                put(codloc++, 0);
 
             /* read hex values until next '/' is encountered */
             if (addr < 0)
                 addr = sAddr;
-            for (int lp = 0; (i = gnc(symFp)) != '/'; lp++) {
+            for (int lp = 0; (i = getc(symFp)) != '/'; lp++) {
                 i     = base32ToInt(i);
                 int l = HIGHNIBBLE(i);
-                i     = LOWNIBBLE(i) * 16 + base32ToInt(gnc(symFp));
+                i     = LOWNIBBLE(i) * 16 + base32ToInt(getc(symFp));
 
                 /* i is the next hex value, AND l=1 if beginning of a new bvalue */
                 if (prec != 2)
@@ -3204,13 +3069,13 @@ int getNextPol() {
 }
 
 void inldat() {
-    int ic = 0; // assign to appease GCC
+    int ic   = 0; // assign to appease GCC
     int type = 0;
     int val  = 0;
 
     /* emit data inline */
-    int iq = codloc;
-    int cnt  = 0;
+    int iq  = codloc;
+    int cnt = 0;
     for (;;) {
         while (lapol != 0) {
             val  = lapol / 8;
@@ -3226,7 +3091,7 @@ void inldat() {
                     /* backstuff jump address */
                     /* now fix symbol table entries */
                     symAddr(abs(ic)) = -iq;
-                    int j                = INFO_ECNT(symAttrib(abs(ic)));
+                    int j            = INFO_ECNT(symAttrib(abs(ic)));
                     /* check symbol length against count */
                     symAttrib(abs(ic)) = PACK_ATTRIB(--cnt, 1, VARB);
                     if (ic < 0) { /* this is an address reference to a constant, so.. */
@@ -3261,7 +3126,7 @@ void inldat() {
         if (type == LIN)
             C_COUNT = val;
         else {
-            error(125, 1);
+            nonFatal("125: inline data error");
             return;
         }
     }
@@ -3394,7 +3259,7 @@ void unary(const int val) {
         rasn[sp] = REGLOW(rasn[sp]);
         return;
     }
-    error(126, 1);
+    nonFatal("126: built-in function improperly called");
     return;
 }
 
@@ -3416,7 +3281,7 @@ void exch() {
                     /* POP element (second if drop thru, top if from 30) */
                     genreg(-1, &ia, &ib);
                     if (ia == 0) {
-                        error(107, 5);
+                        fatal("107: register allocation error. No registers available");
                         break;
                     } else {
                         if (prec[j] > 1)
@@ -3480,14 +3345,14 @@ void readcd() {
     lloc             = 0;
     lcnt             = C_WIDTH / 12;
     alter            = false;
-    gnc(NULL); // force line refresh
-    polcnt = 0;
+
+    polcnt           = 0;
 
     /* reserve space for interrupt locations */
     preamb = 0;
-    for (int i = 8; i > 0; i--) {
+    for (int i = 7; i >= 0; i--) {
         if (intpro[i] != 0) {
-            preamb = (i - 1) * 8 + 3;
+            preamb = i * 8 + 3;
             break;
         }
     }
@@ -3565,7 +3430,7 @@ void readcd() {
             k = lapol;
             if (lapol != 0 && (lapol = getNextPol()) == EOF) {
                 lapol = 0;
-                error(127, 5);
+                fatal("127: invalid intermediate language format");
                 return;
             }
         } while (!(k >= 0));
@@ -3613,7 +3478,7 @@ void readcd() {
                 }
         }
         if (++sp > maxsp) { /* stack overflow */
-            error(128, 5);
+            fatal("128: register allocation stack overflow");
             sp = 1;
         }
         prec[sp] = 0;
@@ -3747,7 +3612,7 @@ void readcd() {
             } else if (type == PROC) {
                 /* set up procedure stack for procedure entry */
                 if (++prsp > prsmax)
-                    error(145, 5);
+                    fatal("145: procedures nested too deeply");
 
                 else {
                     // V4
@@ -3767,7 +3632,7 @@ void readcd() {
                     /* set up stack depth counters */
                     maxdep[prsp] = 0;
                     curdep[prsp] = 0;
-                    for (int i = 1; i <= 8; i++)
+                    for (int i = 0; i < 8; i++)
                         if (val == intpro[i]) {
                             /* interrupt procedure is marked with ho 1 */
                             prstk[prsp] = j + 65536;
@@ -3790,7 +3655,7 @@ void readcd() {
             j = i % 4;
             i = i / 4;
             if (j != 1)
-                error(131, 1);
+                nonFatal("131: label resolution error in pass-2");
             // V4
             symAddr(val) = -(shl(i, 2) + 3);
             symRef(val)  = k;
@@ -3808,7 +3673,7 @@ void readcd() {
                         i = 2;
                     for (int j = 1; j <= i; j++) {
                         if (++sp > maxsp) {
-                            error(113, 5);
+                            fatal("113: register allocation stack overflow");
                             sp = 1;
                         }
 
@@ -3818,7 +3683,7 @@ void readcd() {
                         litv[sp] = -1;
                         prec[sp] = 2;
                         if (++sp > maxsp) {
-                            error(113, 5);
+                            fatal("113: register allocation stack overflow");
                             sp = 1;
                         }
                         rasn[sp] = 0;
@@ -3870,13 +3735,13 @@ void readcd() {
                 if (val != 5) {
                     /* ** note that 'stackptr' must be at 6 IN sym tab */
                     if (val != 6)
-                        error(129, 1);
+                        nonFatal("129: invalid use of built-in function in an assignment");
 
                     else {
                         /* load value of stackpointer to registers immediately */
                         genreg(2, &ia, &ib);
                         if (ib == 0)
-                            error(107, 5);
+                            fatal("107: register allocation error. No registers available");
 
                         else {
                             rasn[sp] = REGPAIR(ib, ia);
@@ -3928,7 +3793,7 @@ void readcd() {
                 litv[sp] = right(shr(j, 4), 16);
 
             else {
-                error(130, 1);
+                nonFatal("130: pass-2 compiler error. Invalid variable precision");
                 continue;
             }
         }
@@ -4154,7 +4019,7 @@ bool doBuiltin(int val) {
             /* ZERO the register */
             emit(LD, ib, 0);
             if (ib == 0)
-                error(133, 5);
+                fatal("133: register allocation stack overflow");
         }
         return true;
     case B_DEC:
@@ -4175,7 +4040,7 @@ bool doBuiltin(int val) {
     }
 
     /* built IN function error */
-    error(136, 1);
+    nonFatal("136: error in built-in function call");
     return false;
 }
 
@@ -4363,7 +4228,7 @@ bool operat(int val) {
                 for (int k = 1; k <= sp; k++) { /* check for value to PUSH */
                     if (rasn[k] == 0) { /* registers NOT assigned - check for stacked value */
                         if (st[k] == 0 && litv[k] < 0 && it != 0)
-                            errors("pass - 2 compiler error in 'loadv'", 1);
+                            nonFatal("150: pass-2 compiler error in 'loadv'");
                     } else if (k <= j) { /* possible PUSH if NOT a parameter */
                                          /* registers must be pushed */
                         jph = REGHIGH(rasn[k]);
@@ -4475,7 +4340,7 @@ bool operat(int val) {
     case RET:
         jp = prsp;
         if (jp <= 0) {
-            error(146, 1);
+            nonFatal("146: procedure optimization stack underflow");
             regv[RH] = regv[RL] = -255; /* mark as nil */
             return true;
         }
@@ -4512,7 +4377,7 @@ bool operat(int val) {
             emit(EI, 0, 0);
             emit(RTN, 0, 0);
             if (prsp <= 0) {
-                error(146, 1);
+                nonFatal("146: procedure optimization stack underflow");
                 regv[RH] = regv[RL] = -255; /* mark as nil */
                 return true;
             }
@@ -4636,7 +4501,7 @@ bool operat(int val) {
             if (ib == ia - 1)
                 il = ib;
             if (ia * ib == 0) {
-                error(138, 5);
+                fatal("138: register allocation error");
                 return true;
             }
             /* may be possible to use LDAX OR XCHG */
@@ -4727,7 +4592,7 @@ bool operat(int val) {
 
         /* casjmp will be used to update the length field */
         if (--syinfo <= sytop)
-            errors("108: pass-2 symbol table overflow", 5);
+            fatal("108: pass-2 symbol table overflow");
         lock[ib] = false;
         regv[RH] = regv[RL] = -255; /* mark as nil */
         return true;
@@ -4754,14 +4619,15 @@ bool operat(int val) {
             jp = litv[sp];
             if (jp <= 65535) {
                 if (jp < 0)
-                    error(149, 1);
+                    nonFatal("149: pass-2 compiler error. Attempt to convert invalid value to "
+                             "address type");
                 /* leave literal value */
                 st[sp] = 0;
                 return true;
             } /* do LXI r with the address */
             genreg(2, &ia, &ib);
             if (ia <= 0) {
-                error(140, 5);
+                fatal("140: register allocation error");
                 return false;
             } else {
                 j = chain(-st[sp], codloc + 1);
@@ -4777,7 +4643,7 @@ bool operat(int val) {
             loadv(sp, 3);
             return true;
         } else {
-            error(139, 1);
+            nonFatal("139: error in changing variable to address reference");
             return false;
         }
         break; // not needed no path to here
@@ -4785,10 +4651,10 @@ bool operat(int val) {
         i = litv[sp];
         // V4
         if (i < 0)
-            errors("Bad code origin from pass-1", 1);
+            nonFatal("154: bad code origin from pass-1");
         else {
             if (codloc > i)
-                error(141, 1);
+                nonFatal("141: invalid origin");
             j = C_STACKHANDLING;
             k = j == 1 ? 0 : 3; // allow space for lxi sp, if not user allocated
             if (codloc == offset + preamb + k) {
@@ -4823,7 +4689,7 @@ bool operat(int val) {
         /* get stack depth for symbol table */
         if (jp > 0) {
             if (curdep[jp] != 0)
-                error(150, 1);
+                nonFatal("150: stack not empty at end of compilation");
             k = maxdep[jp];
             l = prstk[jp] % 65536 - 1;
 
@@ -4847,7 +4713,7 @@ bool operat(int val) {
                 updateHL(jp);
                 return true;
             } else
-                error(146, 1);
+                nonFatal("146: procedure optimization stack underflow");
         }
         regv[RH] = regv[RL] = -255; /* mark as nil */
         return true;
@@ -4892,7 +4758,8 @@ bool operat(int val) {
         /* may be a simple variable */
         if (iop != 1 || j != VARB) {
             if ((iop != 3 || j != PROC) && j != LABEL) {
-                error(135, 1);
+                nonFatal("135: invalid program transfer (only computed jumps are allowed with a "
+                         "'go to')");
                 sp--;
                 return true;
             } else {
@@ -5105,7 +4972,7 @@ bool operat(int val) {
             }
         }
     } else if (iop != 1 || i != 0) { /* could be a computed address */
-        error(134, 1);
+        nonFatal("134: invalid program transfer (only computed jumps are allowed with a 'go to')");
         sp--;
         return true;
     }
@@ -5348,23 +5215,22 @@ void sydump() {
     /* dump the symbol table for the simulator */
     /* clear the output buffer */
     writel(lstFp);
-    gnc(NULL); // force get fresh line next time
 
-    while ((ch = gnc(symFp)) == ' ')
+    while ((ch = getc(symFp)) == ' ')
         ;
     if (ch != '/')
-        error(143, 1);
+        nonFatal("143: invalid format for the simulator symbol table dump");
 
     else
-        while ((ch = gnc(symFp)) != '/') { /* process next symbol table entry */
+        while ((ch = getc(symFp)) != '/') { /* process next symbol table entry */
 
             /* process the next symbol */
             int symNo = base32ToInt(ch); // build address of initialized symbol
-            symNo += base32ToInt(gnc(symFp)) * 32;
-            symNo += base32ToInt(gnc(symFp)) * 32 * 32;
+            symNo += base32ToInt(getc(symFp)) * 32;
+            symNo += base32ToInt(getc(symFp)) * 32 * 32;
 
             if (symNo <= 4 || symNo == 6)
-                while ((ch = gnc(symFp)) != '/')
+                while ((ch = getc(symFp)) != '/')
                     ;
             else {
                 /* write symbol number, symbol */
@@ -5372,7 +5238,7 @@ void sydump() {
                 memset(label, '.', MAXLABEL);
                 label[MAXLABEL] = '\0';
                 int ichar       = 0;
-                while ((ch = gnc(symFp)) != '/') /* read until next / symbol */
+                while ((ch = getc(symFp)) != '/') /* read until next / symbol */
                     if (ichar < MAXLABEL)
                         label[ichar++] = ch;
 
@@ -5384,7 +5250,7 @@ void sydump() {
                 if (ch == PROC || ch == LABEL)
                     j -= 2;
                 int addr = abs(symbol[j]);
-                if (C_BPNF)
+                if (C_HEXFILE)
                     fprintf(hexFp, " %-5d %.*s %05XH\n", symNo, ichar, label, addr);
                 if (C_MAP)
                     fprintf(lstFp, " %s%04XH\n", label, addr);
