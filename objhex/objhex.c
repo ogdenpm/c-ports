@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <showVersion.h>
+#include "utility.h"
 #ifdef _WIN32
 #define DIRSEP "/\\:"
 #else
@@ -31,12 +31,12 @@
 
 #define MAXHEX  16
 
+char const help[] = "Usage: %s objfile [to] hexfile";
+
 uint8_t getByte(FILE *fp) {
     int c = getc(fp);
-    if (c == EOF) {
-        fprintf(stderr, "Unexpected EOF in obj file\n");
-        exit(1);
-    }
+    if (c == EOF)
+        fatal("Unexpected EOF in obj file\n");
     return (uint8_t)c;
 }
 
@@ -56,23 +56,19 @@ const char *basename(const char *path) {
 }
 
 int main(int argc, char **argv) {
-    CHK_SHOW_VERSION(argc, argv);
+    chkStdOptions(argc, argv);
 
-    if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0))) {
-        fprintf(stderr, "usage: %s -v | -V | objfile [to] hexfile\n", basename(argv[0]));
-        exit(1);
-    }
+    if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0)))
+        usage("Bad command line");
 
     FILE *fpin, *fpout;
 
-    if ((fpin = fopen(argv[1], "rb")) == NULL) {
-        fprintf(stderr, "Cannot open obj file %s\n", argv[1]);
-        exit(1);
-    }
+    if ((fpin = fopen(argv[1], "rb")) == NULL)
+        fatal("Cannot open obj file %s\n", argv[1]);
+
     if ((fpout = fopen(argv[argc - 1], "wt")) == NULL) {
         fclose(fpin);
-        fprintf(stderr, "Cannot create hex file %s\n", argv[2]);
-        exit(1);
+        fatal("Cannot create hex file %s\n", argv[2]);
     }
 
     /*
@@ -83,10 +79,9 @@ int main(int argc, char **argv) {
         uint16_t addr;
         uint8_t type = getByte(fpin);
 
-        if (type < MODHDR || type >= RELOC || (type & 1)) {
-            fprintf(stderr, "Unsupported type %02x\n", type);
-            exit(1);
-        }
+        if (type < MODHDR || type >= RELOC || (type & 1))
+            fatal("Unsupported type %02x\n", type);
+
         uint16_t reclen = getAddress(fpin);
         if (type == MODEND) {
             getByte(fpin);
