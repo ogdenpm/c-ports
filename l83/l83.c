@@ -9,18 +9,33 @@
  ****************************************************************************/
 
 #include <memory.h>
-#include <showVersion.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include "utility.h"
 
 #define SCODE  1
 #define SDATA  2
 #define SLOCAL 3
 
-char *rootDir;
+#ifdef _TRACE
+char const *options = "sl:t";
+char const help[]   = "Usage: %s [-s] [-l addr] [-t] file\n"
+                      "Where:\n"
+                      "-s       produce symbol listing file\n"
+                      "-l addr  set loading address. addr is in hex\n"
+                      "-t       enable tracing\n";
+#else
+char const *options = "sl:";
+char const help[]   = "Usage: %s [-s] [-l addr] file\n"
+                      "Where:\n"
+                      "-s       produce symbol listing file\n"
+                      "-l addr  set loading address. addr is in hex\n";
+
+#endif
 
 FILE *fpCom;
 FILE *fpPrn;
@@ -101,8 +116,6 @@ uint8_t *symAddress;
 bool trace;
 uint16_t tract;
 #endif
-
-char *MkPath(char *file, char *ext);
 
 #ifndef _MSC_VER
 #include <ctype.h>
@@ -227,44 +240,13 @@ void ReadRR() { // read logical record from rt path
 
 void OpenRT() {
     free(rtFile);
-    char *rtFile = MkPath(mName[m], ".80r");
+    char *rtFile = makeFilename(mName[m], ".80r", true);
     if ((fpRel = fopen(rtFile, "rb")) == NULL)
         Error(5);
     symList = mSymb[m];
 }
 
-uint16_t GetDirLen(char *path) {
-    char *s = path;
-    char *t;
-    if ((t = strrchr(s, '\\'))) // find last \ directory separator if one
-        s = t + 1;
-    if ((t = strrchr(s, '/'))) // find last / directory separator just in case
-        s = t + 1;
-    if (*s && s[1] == ':') // for windows check for device
-        s += 2;
-    return (uint16_t)(s - path);
-}
 
-char *getFile(char *file) // assumes dir already stripped !!!
-{
-    char *s = strdup(file);
-    char *t = strrchr(s, '.');
-    if (t)
-        *t = 0;
-    return s;
-}
-
-char *MkPath(char *file, char *ext) {
-    char *fn = malloc(strlen(rootDir) + strlen(file) + strlen(ext) + 1);
-    if (fn == NULL)
-        Error(6);
-    strcpy(fn, rootDir);
-    char *s = strchr(fn, '\0'); // locate file name as this will  be lowercased
-    strcat(s, file);
-    strcat(s, ext);
-    strlwr(s);
-    return fn;
-}
 
 uint8_t *ReadF(char *fn) {
     FILE *fp;
@@ -293,13 +275,13 @@ uint8_t *ReadF(char *fn) {
 }
 
 bool Compar(char const *a1, char const *a2) { /* true if strings at a1,a2 are equal */
-    return strcmp(a1, a2) == 0;
+    return stricmp(a1, a2) == 0;
 } /* Compar() */
 
 uint8_t HashF(char const *a) { /* return hascode of name at address symAddress */
     uint8_t h = 0;
     while (*a)
-        h += *a++;
+        h += toupper(*a++);
     return h & 0x7f;
 }
 
@@ -373,60 +355,51 @@ void LstRef() {
 
 int main(int argc, char **argv) {
     int i;
-    uint16_t dirLen;
 
-    CHK_SHOW_VERSION(argc, argv);
-
-    for (i = 1; i < argc - 1; i++) {
-        if (strcmp(argv[i], "-s") == 0)
+    while (getopt(argc, argv, options) != EOF) {
+        switch (optopt) {
+        case 's':
             lstReq = true;
+            break;
 #ifdef _TRACE
-        else if (strcmp(argv[i], "-t") == 0)
+        case 't':
             trace = true;
+            break;
 #endif
-        else if (strcmp(argv[i], "-l") == 0 && i + 1 < argc) {
-            int addr;
-            char junk;
-            if (scanf(argv[++i], "%x%c", &addr, &junk) != 1 || addr > 0xffff) {
-                fprintf(stderr, "Error parsing hex address %s\n", argv[i]);
-                Exit(1);
-            } else
+        case 'l':
+            {
+                int addr;
+                char junk;
+                if (scanf(optarg, "%x%c", &addr, &junk) != 1 || addr > 0xffff)
+                    usage("Invalid hex address %s\n", optarg);
                 loadAdr = addr;
-        } else {
-#ifdef _TRACE
-            fprintf(stderr, "Usage: l83 [-v|V] | [-s] [-l addr] [-t] file\n");
-#else
-            fprintf(stderr, "Usage: l83 [-s] [-l addr] file\n");
-
-#endif
-
-            Exit(1);
+            }
         }
     }
-    dirLen  = GetDirLen(argv[i]);
-    rootDir = malloc(dirLen + 1);
-    strncpy(rootDir, argv[1], dirLen);
-    rootDir[dirLen] = 0;
-    mName[0]        = strupr(strdup(argv[i] + dirLen));
 
-    la              = loadAdr;
-    mHash[0]        = HashF(mName[0]);
+    if (optind != argc - 1)
+        usage("Expecting single file");
+
+    mName[0] = argv[optind];
+
+    la       = loadAdr;
+    mHash[0] = HashF(basename(mName[0]));
     for (m = 0; m <= mTop; m++) {
-        mSymb[m] = ReadF(MkPath(mName[m], ".80s")); // load symbol list into memory
-        OpenRT();                                   // open rt file of module m
-        ReadRR();                                   // read record from rt file
-        while (rec != '.') {                        // not end
-            if (rec == 'R' && rExt != 0) {          // relocation record & ext reference
-                symAddress = &symList[rExt];        // address of the symbol
-                if (New(symAddress)) {              // not yet in module map
+        mSymb[m] = ReadF(makeFilename(mName[m], ".80s", true)); // load symbol list into memory
+        OpenRT();                                               // open rt file of module m
+        ReadRR();                                               // read record from rt file
+        while (rec != '.') {                                    // not end
+            if (rec == 'R' && rExt != 0) {                      // relocation record & ext reference
+                symAddress = &symList[rExt];                    // address of the symbol
+                if (New(symAddress)) {                          // not yet in module map
                     if (++mTop >= MSIZE)
                         Error(0);
                     symList[rExt - 1] = mTop;               // set pointer to mm
                     mName[mTop]       = (char *)symAddress; // set pointer from mm to symbol
                     mHash[mTop]       = hashCode;           // save syymbol hashcode in mm
-                }                                           // installed
-            }                                               // created
-            ReadRR();                                       // read next record from rt file
+                } // installed
+            } // created
+            ReadRR(); // read next record from rt file
         }
         fclose(fpRel);
         mCA[m] = nCA[m] = caSize;
@@ -441,12 +414,12 @@ int main(int argc, char **argv) {
 #endif
     // construct the object module
     // create the .com file
-    comFile = MkPath(mName[0], ".com");
+    comFile = makeFilename(mName[0], ".com", true);
     if ((fpCom = fopen(comFile, "wb")) == NULL)
         Error(1);
 
     if (lstReq) {
-        prnFile = MkPath(mName[0], ".prn");
+        prnFile = makeFilename(mName[0], ".prn", true);
         if ((fpPrn = fopen(prnFile, "wt")) == NULL) {
             fprintf(stderr, "Error creating symbols listing file %s.prn. Skipping\n", mName[0]);
             lstReq = false;
@@ -454,7 +427,7 @@ int main(int argc, char **argv) {
     }
 
     for (m = 0; m <= mTop; m++) { // process all of the code modules
-        seg = ReadF(MkPath(mName[m], ".80c"));
+        seg = ReadF(makeFilename(mName[m], ".80c", true));
 #ifdef _TRACE
         tract = nCA[m];
         Trac('A');
@@ -474,7 +447,7 @@ int main(int argc, char **argv) {
         free(seg); // give back the seg memory
     }
     for (m = 0; m <= mTop; m++) { // do same for data records
-        seg = ReadF(MkPath(mName[m], ".80d"));
+        seg = ReadF(makeFilename(mName[m], ".80d", true));
 #ifdef _TRACE
         tract = nIDA[m];
         Trac('B');
