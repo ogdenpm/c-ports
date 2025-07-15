@@ -9,7 +9,7 @@
  ****************************************************************************/
 
 #include <memory.h>
-#include <showVersion.h>
+#include "utility.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -77,6 +77,9 @@ void printg(uint16_t n);
 #define TSTACK        0x2e
 #define TPSW          0x3e
 #define TCY           0x1e
+
+
+char const help[] = "Usage: %s file";
 
 FILE *fpPol;
 FILE *fpCode;
@@ -1616,50 +1619,22 @@ void Reduce(uint16_t pn) {
     }
 } /* Reduce() */
 
-char *GetExt(
-    char *file) // helper function for C-port locate position of .ext or return end of src if none
-{
-    char *s, *t;
-    for (s = file; (t = strpbrk(s, DIRSEP)); s = t + 1) // skip directory separators
-        ;
-    if ((t = strrchr(s, '.'))) // we have an extent
-        return t;
-    else
-        return strchr(s, '\0'); // return end of src
-}
-
-char *NewExt(char *src, size_t len, char *ext) { // helper function for C-port
-    char *s = malloc(len + strlen(ext) + 1);
-    if (s == 0) {
-        fprintf(stderr, "Out of memory in NewExt(%s, %zd, %s)\n", src, len, ext);
-        exit(1);
-    } else {
-        strncpy(s, src, len);
-        strcpy(s + len, ext);
-    }
-    return s;
-}
 
 void LoadSymbols(char *fn) {
     FILE *fp;
     long size;
 
-    if ((fp = fopen(fn, "rb")) == NULL) {
-        fprintf(stderr, "Cannot open symbol file %s\n", fn);
-        Exit(1);
-    }
+    if ((fp = fopen(fn, "rb")) == NULL)
+        fatal("Cannot open symbol file %s\n", fn);
+  
     fseek(fp, 0, SEEK_END);
     size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
-    if ((symList = malloc(size)) == NULL) {
-        fprintf(stderr, "Out of memory!!!\n");
-        fclose(fp);
-        Exit(1);
-    }
+    symList = safeMalloc(size);
+
     if (fread(symList, 1, size, fp) != size) {
-        fprintf(stderr, "Error reading in symbol file %s\n", fn);
         fclose(fp);
-        Exit(1);
+        fatal("Error reading in symbol file %s\n", fn);
     }
     fclose(fp);
 }
@@ -1669,44 +1644,32 @@ void LoadSymbols(char *fn) {
 int main(int argc, char **argv) {
     uint8_t i;
 
-    if (argc != 2) {
-        fprintf(stderr, "Usage: l82 [-v] | [-V] | file\n");
-        Exit(1);
-    }
-
-    CHK_SHOW_VERSION(argc, argv);
+    chkStdOptions(argc, argv);
+    if (argc != 2)
+        usage("Expected single file");
 
 #ifdef _TRACE
     printf("TRACE(C,D,P,N):");
     trace = getche();
 #endif
 
-    char *s = GetExt(argv[1]);
 
-    sFile   = NewExt(argv[1], s - argv[1], ".80s");
-    pFile   = NewExt(argv[1], s - argv[1], ".80p");
-    dFile   = NewExt(argv[1], s - argv[1], ".80d");
-    cFile   = NewExt(argv[1], s - argv[1], ".80c");
-    rFile   = NewExt(argv[1], s - argv[1], ".80r");
+    sFile   = makeFilename(argv[1], ".80s", true);
+    pFile   = makeFilename(argv[1], ".80p", true);
+    dFile   = makeFilename(argv[1], ".80d", true);
+    cFile   = makeFilename(argv[1], ".80c", true);
+    rFile   = makeFilename(argv[1], ".80r", true);
 
     LoadSymbols(sFile);
 
-    if ((fpPol = fopen(pFile, "rb")) == NULL) {
-        fprintf(stderr, "can't open %s\n", pFile);
-        Exit(1);
-    }
-    if ((fpCode = fopen(cFile, "wb")) == NULL) {
-        fprintf(stderr, "can't create %s\n", cFile);
-        Exit(1);
-    }
-    if ((fpData = fopen(dFile, "wb")) == NULL) {
-        fprintf(stderr, "can't create %s\n", dFile);
-        Exit(1);
-    }
-    if ((fpReloc = fopen(rFile, "wb")) == NULL) {
-        fprintf(stderr, "can't create %s\n", rFile);
-        Exit(1);
-    }
+    if ((fpPol = fopen(pFile, "rb")) == NULL)
+        fatal("can't open %s\n", pFile);
+    if ((fpCode = fopen(cFile, "wb")) == NULL)
+        fatal("can't create %s\n", cFile);
+    if ((fpData = fopen(dFile, "wb")) == NULL)
+        fatal("can't create %s\n", dFile);
+    if ((fpReloc = fopen(rFile, "wb")) == NULL)
+        fatal("can't create %s\n", rFile);
     // initialise the relocation table
     for (i = 0; i < RELTSIZE; i++) { // fix 20230429 avoid write beyond end of rsb
         SRBase(i, UNUSED);
