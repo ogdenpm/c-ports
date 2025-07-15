@@ -6,11 +6,11 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/os.h"
-#include "../shared/cmdline.h"
+#include "os.h"
+#include "cmdline.h"
 #include <ctype.h>
 #include <errno.h>
-#include <showVersion.h>
+#include "utility.h"
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -54,20 +54,7 @@ void RmOnError(char const *fname) {
 }
 
 int main(int argc, char **argv) {
-    CHK_SHOW_VERSION(argc, argv); // version info
-
-    invokeName = basename(argv[0]); // remove the directory part
-#ifdef _WIN32
-    char *s;
-    // remove .exe under windows
-    if ((s = strrchr(invokeName, '.')) && stricmp(s, ".exe") == 0)
-        *s = '\0';
-#endif
-    // check for help request
-    if (argc == 2 && strcmp(argv[1], "-h") == 0) {
-        usage();
-        exit(0);
-    }
+    chkStdOptions(argc, argv); // version info
     ttyin  = isatty(STDIN);
     ttyout = ttyin && isatty(STDOUT);
     cmdP   = getCmdLine(argc, argv);
@@ -91,19 +78,6 @@ bool hasIsisDrive(char const *path) {
     return path[0] == ':' && toupper(path[1]) == 'F' && isdigit(path[2]) && path[3] == ':';
 }
 
-char const *basename(char const *path) {
-    char *s;
-    if (hasIsisDrive(path))
-        path += 4;
-#ifdef _WIN32
-    else if (path[0] && path[1] == ':') // skip leading device
-        path += 2;
-#endif
-    while ((s = strpbrk(path, DIRSEP))) // skip all directory components
-        path = s + 1;
-    return path;
-}
-
 /*
     map a filename of the form [:Fx:]path to host OS format
 */
@@ -117,7 +91,7 @@ char *MapFile(char *osName, const char *isisPath) {
         if (!deviceMap[i] && !(deviceMap[i] = getenv(dev)))
             deviceMap[i] = ".";                                          // give a minimal default
         if (strlen(deviceMap[i]) + strlen(isisPath + 4) + 1 > _MAX_PATH) // will it fit
-            FatalError("Mapped path name too long:\n %s", isisPath);
+            fatal("Mapped path name too long:\n %s", isisPath);
 
         strcpy(osName, deviceMap[i]);
         s = strchr(osName, '\0'); // append point
@@ -125,7 +99,7 @@ char *MapFile(char *osName, const char *isisPath) {
             strcpy(s, "/"); // make sure there is a directory separator
         strcat(s, isisPath + 4);
     } else if (strlen(isisPath) > _MAX_PATH) {
-        FatalError("Path name too long:\n %s", isisPath);
+        fatal("Path name too long:\n %s", isisPath);
     } else
         strcpy(osName, isisPath);
     return osName;
@@ -204,16 +178,6 @@ void printDriveMap(FILE *fp) { // show which :Fx: drive maps are  used
 
 
 
-_Noreturn void FatalError(char const *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    fputs("Fatal Error: ", stderr);
-    vfprintf(stderr, fmt, args);
-    va_end(args);
-    fputc('\n', stderr);
-    Exit(1);
-}
-
 _Noreturn void IoError(char const *path, char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -231,21 +195,6 @@ _Noreturn void IoError(char const *path, char const *fmt, ...) {
     Exit(1);
 }
 
-// safe memory allocation
-void *xmalloc(size_t size) {
-    void *p = malloc(size);
-    if (!p)
-        FatalError("Out of memory");
-    return p;
-}
-
-void *xrealloc(void *p, size_t size) {
-    void *q = realloc(p, size);
-    if (!q)
-        FatalError("Out of memory");
-    return q;
-}
-
-char *xstrdup(char const *str) {
-    return strcpy(xmalloc(strlen(str) + 1), str);
+char *safeStrdup(char const *str) {
+    return strcpy(safeMalloc(strlen(str) + 1), str);
 }

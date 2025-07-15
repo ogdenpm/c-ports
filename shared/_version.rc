@@ -1,16 +1,16 @@
 #include <verrsrc.h>
 
 #include <_version.h>
-#include <appinfo.h>
-// in the unlikely case that APP_PRODUCT and APP_OWNER are not
-// defined given them sensible values
+#include <_appinfo.h>
+
+
+// common defaults if not specified
 #ifndef APP_PRODUCT
 #define APP_PRODUCT APP_NAME
 #endif
 #ifndef APP_OWNER
-#define APP_OWNER   "Mark Ogden"
+#define APP_OWNER "Mark Ogden"
 #endif
-
 
 
 VS_VERSION_INFO VERSIONINFO

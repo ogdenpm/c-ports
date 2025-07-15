@@ -6,8 +6,8 @@
  *                                                                          *
  *  It is released for academic interest and personal use only              *
  ****************************************************************************/
-#include "../shared/omf.h"
-#include "../shared/os.h"
+#include "omf.h"
+#include "os.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,7 +71,7 @@ void WriteLocation(uint32_t loc) {
 void EndRecord(void) {
     // 1025 (+3 for type & len, -1 for pending crc)
     if (putWord(&outRec[REC_LEN], (uint16_t)(outP - outRec - 2)) > 1025)
-        FatalError("%s: Record length > 1025", omfOutName);
+        fatal("%s: Record length > 1025", omfOutName);
     uint8_t crc;
     uint8_t *p;
     for (crc = 0, p = outRec; p < outP; crc -= *p++) /* calculate and insert crc */
@@ -84,7 +84,7 @@ void EndRecord(void) {
 void EndUserRecord(uint8_t *content, uint32_t len) {
     uint32_t outLen = (uint32_t)(outP - outRec);
     if (outLen - 3 + len + 1 > 0xffff)
-        FatalError("User record type %02XH, length too long", outRec[0]);
+        fatal("User record type %02XH, length too long", outRec[0]);
     putWord(&outRec[REC_LEN], outLen - 3 + len + 1);
 
     uint8_t crc = 0;
@@ -145,7 +145,7 @@ void openOMFIn(char const *name) {
     if (!(omfInFp = Fopen(name, "rb")))
         IoError(name, "Open error");
     free(omfInName);
-    omfInName    = xstrdup(name);
+    omfInName    = safeStrdup(name);
     inModuleName = NULL;
 }
 
@@ -181,12 +181,12 @@ uint8_t ReadByte(void) {
 
 void GetRecord(void) {
     if (fread(inRec, 1, 3, omfInFp) != 3)
-        FatalError("%s: Premature EOF", omfInName);
+        fatal("%s: Premature EOF", omfInName);
     recLen = getWord(inRec + REC_LEN);
     inP    = inRec + REC_DATA;
     inEnd  = inRec + recLen + 2; // exclude CRC
     if (fread(inP, 1, recLen, omfInFp) != recLen)
-        FatalError("%s: Premature EOF", omfInName);
+        fatal("%s: Premature EOF", omfInName);
     recNum++;
 
     uint8_t crc = 0;
@@ -237,7 +237,7 @@ pstr_t const *GetModuleName(char const *token) {
 
 /* creates a copy of pstr also adding a trailing '\0' for C string */
 pstr_t const *pstrdup(pstr_t const *pstr) {
-    pstr_t *ps = (pstr_t *)xmalloc(pstr->len + 2);
+    pstr_t *ps = (pstr_t *)safeMalloc(pstr->len + 2);
     memcpy(ps, pstr, pstr->len + 1);
     ps->str[ps->len] = '\0';
     return ps;
@@ -245,7 +245,7 @@ pstr_t const *pstrdup(pstr_t const *pstr) {
 // create a copy of a C string with a pascal string len prefix
 pstr_t const *c2pstrdup(char const *s) {
     uint8_t len = (uint8_t)strlen(s);
-    pstr_t *ps  = (pstr_t *)xmalloc(len + 2);
+    pstr_t *ps  = (pstr_t *)safeMalloc(len + 2);
     ps->len     = len;
     strcpy(ps->str, s);
     return ps;

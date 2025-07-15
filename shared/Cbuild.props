@@ -17,13 +17,13 @@
       <SDLCheck>true</SDLCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\shared;..\utility;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS</PreprocessorDefinitions>
     </ClCompile>
     <PreBuildEvent />
     <PreBuildEvent />
     <PostBuildEvent>
-        <Command>if exist "$(SolutionDir)install.cfg" "$(SolutionDir)Tools/install.exe" "$(TargetPath)" "$(SolutionDir)\"</Command>
+      <Command>if exist "$(SolutionDir)install.cfg" "$(SolutionDir)Tools\install.exe" "$(TargetPath)" "$(SolutionDir)\"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Install</Message>

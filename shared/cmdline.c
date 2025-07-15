@@ -10,8 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../shared/cmdline.h"
-#include "../shared/os.h"
+#include "cmdline.h"
+#include "os.h"
+#include "utility.h"
 
 #define CLCHUNK 256 // size increase as command line grows
 
@@ -34,7 +35,7 @@ static bool appendCmdLine(char const *s) {
     int len = (int)strlen(s);
 
     while (cmdLineLen + len + 3 > cmdLineSize) // allow for #\n\0 for error reporting
-        commandLine = xrealloc(commandLine, cmdLineSize += CLCHUNK);
+        commandLine = safeRealloc(commandLine, cmdLineSize += CLCHUNK);
     while ((c = *s++)) {
         if (c != '\n')
             commandLine[cmdLineLen++] = c >= ' ' ? c : ' '; // control char -> space
@@ -72,7 +73,7 @@ static char *getLine(char *line) {
     }
     commandLine[cmdLineLen] = '\0';
     free(tokenLine);
-    tokenLine = xstrdup(commandLine);
+    tokenLine = safeStrdup(commandLine);
     return commandLine;
 }
 
@@ -86,7 +87,7 @@ char *getInteractiveLine() {
 char *getCmdLine(int argc, char **argv) {
     cmdLineLen = 0;
     appendCmdLine(argc == 1 ? "*" : "-");
-    appendCmdLine(invokeName);
+    appendCmdLine(programName);
     if (argc == 1)
         appendCmdLine("&");
     else {

@@ -26,7 +26,6 @@
 #endif
 #endif
 // linkage to application
-void usage();
 void Start();
 
 // io.c routines
@@ -34,7 +33,6 @@ void SetITrap(void (*trap)(int retCode));
 void RmOnError(char const *fname);
 
 bool hasIsisDrive(char const *path);
-char const *basename(char const *path);
 char *MapFile(char *osName, const char *isisPath);
 FILE *Fopen(char const *pathP, char *access);
 int Delete(char const *ipath);
@@ -46,7 +44,7 @@ _Noreturn void Exit(int retCode);
 
 // error handlers
 _Noreturn void FatalCmdLineErr(char const *errMsg);
-_Noreturn void FatalError(char const *fmt, ...);
+_Noreturn void fatal(char const *fmt, ...);
 _Noreturn void IoError(char const *path, char const *fmt, ...);
 
 // cmd line variables and support functions
@@ -58,11 +56,11 @@ extern bool ttyout;
 
 void printDriveMap(FILE *fp);
 
-void *xmalloc(size_t size);
-void *xrealloc(void *p, size_t size);
-char *xstrdup(char const *str);
+void *safeMalloc(size_t size);
+void *safeRealloc(void *p, size_t size);
+char *safeStrdup(char const *str);
 
-void *xmalloc(size_t size);
-void *xrealloc(void *p, size_t size);
-char *xstrdup(char const *str);
+void *safeMalloc(size_t size);
+void *safeRealloc(void *p, size_t size);
+char *safeStrdup(char const *str);
 

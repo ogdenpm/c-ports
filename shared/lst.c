@@ -15,9 +15,9 @@
 #include <unistd.h>
 #endif
 
-#include "../shared/lst.h"
-#include "../shared/os.h"
-#include "../shared/cmdline.h"
+#include "lst.h"
+#include "os.h"
+#include "cmdline.h"
 
 FILE *lstFp;
 char *lstName;

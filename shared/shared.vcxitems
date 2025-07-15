@@ -14,13 +14,9 @@
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(MSBuildThisFileDirectory)_version.c" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="$(MSBuildThisFileDirectory)_version.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(MSBuildThisFileDirectory)appinfo.h" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)showVersion.h" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)_appinfo.c" />
   </ItemGroup>
 </Project>
