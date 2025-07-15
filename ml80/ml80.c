@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <showVersion.h>
+#include "utility.h"
 /*
       ml80 reconstructed from binary
 */
@@ -58,6 +58,8 @@ FILE *inFp, *outFp;
 #else
 #define DIRSEP "/"
 #endif
+
+char const help[] = "Usage: %s file";
 
 #define STACKSIZE 30
 uint16_t pStack[STACKSIZE]; // parse stack
@@ -239,63 +241,34 @@ uint8_t Getc() { // getc with check for EOF and line count
     return c;
 }
 
-void Exit() { // all done
+void Exit(int exitCode) { // all done
     printf("\nEnd M81\n");
-    exit(0);
+    exit(exitCode);
 }
 
-char *GetExt(
-    char *file) // helper function for C-port locate position of .ext or return end of src if none
-{
-    char *s, *t;
 
-    for (s = file; (t = strpbrk(s, DIRSEP)); s = t + 1) // skip directory separators
-        ;
-    if ((t = strrchr(s, '.'))) // we have an extent
-        return t;
-    else
-        return strchr(s, '\0'); // return end of src
-}
-
-char *NewExt(char *src, size_t len, char *ext) { // helper function for C-port
-    char *s = malloc(len + strlen(ext) + 1);
-    if (s == 0) {
-        fprintf(stderr, "Out of memory in NewExt(%s, %zd, %s)\n", src, len, ext);
-        exit(1);
-    } else {
-        strncpy(s, src, len);
-        strcpy(s + len, ext);
-    }
-    return s;
-}
 
 void InitFiles(char *src) { /* open input and output files, using common filename prefix */
-    char *s = GetExt(src);
-    if (*s)
-        inFile = strdup(src); // already has extension
-    else
-        inFile = NewExt(src, s - src, ".m80"); // add .m80
-    outFile = NewExt(src, s - src, ".l80");    // create the .l80 file
+    inFile  = makeFilename(src, ".m80", false); // add .m80 if  needed
+    outFile = makeFilename(src, ".l80", true);  // create the .l80 file
 
-    if ((inFp = fopen(inFile, "rt")) == NULL) {
-        fprintf(stderr, "Cannot open %s\n", inFile);
-        Exit();
-    }
-    if ((outFp = fopen(outFile, "wt")) == NULL) {
-        fprintf(stderr, "Cannot create %s\n", outFile);
-        Exit();
-    }
+    if ((inFp = fopen(inFile, "rt")) == NULL)
+        fatal("Cannot open %s", inFile);
+
+    if ((outFp = fopen(outFile, "wt")) == NULL)
+        fatal("Cannot create %s\n", outFile);
+
     line = 1;
 }
 
-void Terminate() // finalise output file
+_Noreturn void Terminate() // finalise output file
 {
     Putc(CPMEOF);
     if (fclose(outFp) != 0)
         fprintf(stderr, "Cannot close %s\n", outFile);
     fclose(inFp);
     printf("Errors: %d\n", errorCount); // log error count
-    Exit();
+    Exit(errorCount);
 }
 
 void Error(uint8_t n) { // log error with line number
@@ -630,10 +603,13 @@ void PushSt() { /* push status quo (nc, ncp, tsave, dsave) into the status stack
     TRACE('+');
     if (++qTop >= STSSIZE)
         Error(ERR_TOOMUCHNESTING);
+    // above error will not return
+#pragma warning(disable: 6386)
     qtSave[qTop] = tSave;
     qdSave[qTop] = dSave;
     qcSave[qTop] = nc;
     qnSave[qTop] = ncP;
+#pragma warning(default: 6386)
     outside      = 1; // begin to scan a macrobody in 'outside' mode
 }
 
@@ -1027,8 +1003,11 @@ void Pop(uint8_t n) { /* pop n topmost states of the parse stack */
 void Push(uint16_t s, uint16_t v) { /* push state s and value v into the parse stacks */
     if ((pTop = pTop + 1) >= 30)
         Error(0xf4);
+    // error call does not return
+#pragma warning(disable: 6386)
     pStack[pTop] = s;
     vStack[pTop] = v;
+#pragma warning(default: 6386)
 }
 
 uint16_t GotoF(uint16_t state, uint16_t nonTerm) { /* return next state after a reduction */
@@ -1146,11 +1125,10 @@ void InitTab() {
 } /* InitTab */
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: ml80 [-v] | [-V] | file\n");
-        Exit();
-    }
-    CHK_SHOW_VERSION(argc, argv);
+    chkStdOptions(argc, argv);
+
+    if (argc != 2)
+        usage("Expected single file");
 
     InitTab();
     InitFiles(argv[1]);
