@@ -18,10 +18,32 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <showVersion.h>
+#include "utility.h"
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
+
+char const help[] = "Usage: %s srcfile[.ext] [lstfile[.ext]] ((-|$|,| )* runtimeOption)*\n"
+                    "Where:\n"
+                    "srcfile[.ext]  is the tex source file. If ext is missing .TEX is added\n"
+                    "lstfile[.ext]  is the listing file. If ext is missing .PRN is added\n"
+                    "               if the option is missing srcfile.PRN is used\n"
+                    "The first runtime option must be prefixed by '-' or '$'. The options are:\n"
+                    "S         paging or manual feed for non file\n"
+                    "F         use form feed\n"
+                    "D         use proportional spacing\n"
+                    "O nn [mm] range to print nn-mm. If mm is missing print to end\n"
+                    "N nn      initialise page number to nn\n"
+                    "R         alternative cgetc\n"
+                    "Q         assume Qume printer\n"
+                    "C         prompt for continue at .NX\n"
+                    "T path    text directory path\n"
+                    "P path    print path. If path is '-' then use stdout\n"
+                    "EY        enable error printing\n"
+                    "EX        no error printing (default)\n"
+                    "X path    cross reference file. If path is '-' disable cross reference\n";
+                    
+
 
 /* common definitions of getch, kbhit and isdevice as implemented in rawio.c */
 bool kbhit();
@@ -109,7 +131,6 @@ void selectDst(void);
 void selectSrc(byte n);
 void selectSrcAndGetc(byte n);
 byte getUCChar(void);
-char *basename(char *name);
 bool initFCB(FCB *fcb);
 void putCon(char c);
 void putPrn(char c);
@@ -431,12 +452,6 @@ byte getUCChar() {
     return inputChar = toupper(cgetc());
 }
 
-char *basename(char *name) {
-    char *s;
-    while ((s = strpbrk(name, DIRSEP)))
-        name = s + 1;
-    return name;
-}
 
 bool initFCB(FCB *fcb) {
     int nameIdx  = 0;
@@ -1239,7 +1254,8 @@ void getOptions() {
                     QOpt = true;
                 else if (inputChar == 'C') /* prompt for continue at .NX */
                     COpt = true;
-                else if (inputChar != '$' && inputChar != ' ' && inputChar != ',')
+                else if (inputChar != '$' && inputChar != ' ' && inputChar != ',' &&
+                         inputChar != '-')
                     fileOptChar = inputChar;
             } else {
                 if (fileOptChar == 'T') /* $Tpath where path is tex file directory path */
@@ -1708,7 +1724,7 @@ void mkName(FCB *fcb, char *ext) {
     char *s;
     if (fcb->path) {
         strcpy(fcb->name, fcb->path); // copy dir / fullpath
-        s = basename(fcb->name);
+        s = (char *)basename(fcb->name);
         if (strcmp(s, ".") == 0 || strcmp(s, "..") == 0)
             strcat(strcat(s, "/"), basename(texFCB.name));
         else if (*s == 0) // was dir so add input file name
@@ -1731,7 +1747,7 @@ void signalHandler(int signal) { // cleanup
 }
 
 int main(int argc, char **argv) {
-    CHK_SHOW_VERSION(argc, argv);
+    chkStdOptions(argc, argv);
 
     _argc = argc;
     _argv = argv;
