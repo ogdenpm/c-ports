@@ -13,7 +13,7 @@ ml80 reconstructed from binary
 */
 
 #include <memory.h>
-#include <showVersion.h>
+#include "utility.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -59,6 +59,9 @@ ml80 reconstructed from binary
 extern uint16_t lract[], lrpact[];
 extern uint8_t llr1[], lrpgo[], lrgo[];
 extern uint8_t llr2[];
+
+
+char const help[] = "Usage: %s file";
 
 FILE *inFp, *outFp, *symFp;
 char *inFile, *pFile, *sFile;
@@ -166,49 +169,22 @@ uint8_t Getc() {
     return c;
 }
 
-char *GetExt(
-    char *file) // helper function for C-port locate position of .ext or return end of src if none
-{
-    char *s, *t;
-    for (s = file; (t = strpbrk(s, DIRSEP)); s = t + 1) // skip directory separators
-        ;
-    if ((t = strrchr(s, '.'))) // we have an extent
-        return t;
-    else
-        return strchr(s, '\0'); // return end of src
-}
-
-char *NewExt(char *src, size_t len, char *ext) { // helper function for C-port
-    char *s = malloc(len + strlen(ext) + 1);
-    if (s == 0) {
-        fprintf(stderr, "Out of memory in NewExt(%s, %zd, %s)\n", src, len, ext);
-        exit(1);
-    } else {
-        strncpy(s, src, len);
-        strcpy(s + len, ext);
-    }
-    return s;
-}
 
 void InitFiles(char *src) { /* open input and output files, using common filename prefix */
-    char *s = GetExt(src);
 
-    inFile  = NewExt(src, s - src, ".l80"); // add .l80
+    inFile  = makeFilename(src, ".l80", false); // add .l80 if no extent
 
-    if ((inFp = fopen(inFile, "rt")) == NULL) {
-        fprintf(stderr, "Cannot open %s\n", inFile);
-        Exit(1);
-    }
-    pFile = NewExt(src, s - src, ".80p");
-    if ((outFp = fopen(pFile, "wb")) == NULL) {
-        fprintf(stderr, "Cannot create %s\n", pFile);
-        Exit(1);
-    }
-    sFile = NewExt(src, s - src, ".80s");
-    if ((symFp = fopen(sFile, "wb")) == NULL) {
-        fprintf(stderr, "Cannot create %s\n", sFile);
-        Exit(1);
-    }
+    if ((inFp = fopen(inFile, "rt")) == NULL)
+        fatal("Cannot open %s\n", inFile);
+
+    pFile = makeFilename(src, ".80p", true);
+    if ((outFp = fopen(pFile, "wb")) == NULL)
+        fatal("Cannot create %s\n", pFile);
+
+    sFile = makeFilename(src, ".80s", true);
+    if ((symFp = fopen(sFile, "wb")) == NULL)
+        fatal("Cannot create %s\n", sFile);
+
 }
 
 bool Blank(uint8_t c) { /* true if c is whitespace char */
@@ -245,16 +221,16 @@ void KError(uint8_t n) {
         errstr = "syntax error near";
         break;
     case 1:
-        errstr = "unexpected eof";
+        errstr = "unexpected EOF";
         break;
     case 2:
-        errstr = "mispelled number:";
+        errstr = "misspelled number:";
         break;
     case 3:
         errstr = "number too large:";
         break;
     default:
-        errstr = "unkown error";
+        errstr = "unknown error";
         break;
     }
     ++errorCount;
@@ -702,13 +678,13 @@ void InitTab() {
     }
 }
 
-int main(int argc, char **argv) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: l81 [-v] | [-V] | file\n");
-        Exit(1);
-    }
 
-    CHK_SHOW_VERSION(argc, argv);
+
+int main(int argc, char **argv) {
+
+    chkStdOptions(argc, argv);
+    if (argc != 2)
+        usage("Expected single file");
 
     InitTab();
 
