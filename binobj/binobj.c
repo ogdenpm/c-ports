@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "showVersion.h"
+#include "utility.h"
 
 #ifndef _MSC_VER
 #define stricmp strcasecmp
@@ -26,6 +26,8 @@
 #define MODEND  4
 #define CONTENT 6
 #define MODEOF  14
+
+char const help[] = "usage : %s binfile [to] objfile";
 
 uint16_t readWord(uint8_t *p) {
     return p[0] + p[1] * 256;
@@ -89,16 +91,6 @@ uint8_t calcCRC(uint8_t *p, int len) {
     return crc;
 }
 
-// return the trailing filename part of the passed in path
-const char *basename(const char *path) {
-    const char *t;
-    while ((t = strpbrk(
-                path,
-                ":\\/"))) // allow windows & unix separators - will fail for unix if : in filename!!
-        path = t + 1;
-    return path;
-}
-
 /* *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
    *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
@@ -113,21 +105,18 @@ int main(int argc, char **argv) {
     FILE *fpin, *fpout;
     uint16_t length, addr;
 
-    CHK_SHOW_VERSION(argc, argv);
+    chkStdOptions(argc, argv);
 
-    if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0))) {
-        fprintf(stderr, "usage: %s -v | -V | binfile [to] objfile\n", basename(argv[0]));
-        exit(1);
-    }
+    if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0)))
+        usage("Invalid command line");
 
-    if ((fpin = fopen(argv[1], "rb")) == NULL) {
-        fprintf(stderr, "can't open %s\n", argv[1]);
-        exit(1);
-    }
+
+    if ((fpin = fopen(argv[1], "rb")) == NULL)
+        fatal("can't open %s\n", argv[1]);
+
     if ((fpout = fopen(argv[argc - 1], "wb")) == NULL) {
-        fprintf(stderr, "can't create %s\n", argv[2]);
         fclose(fpin);
-        exit(1);
+        fatal("can't create %s\n", argv[2]);
     }
 
     /*
@@ -145,20 +134,17 @@ int main(int argc, char **argv) {
     modhdr.name[i++] = 0; // TRN ID
     modhdr.name[i++] = 0; // TRN VN
     modhdr.name[i]   = -calcCRC((uint8_t *)&modhdr, i + 6);
-    if (fwrite(&modhdr, 1, i + 5, fpout) != i + 5) {
-        fprintf(stderr, "failed to write obj file header\n");
-        exit(1);
-    }
+    if (fwrite(&modhdr, 1, i + 5, fpout) != i + 5)
+        fatal("failed to write obj file header\n");
 
     /*
      * read all bin records and write as obj records
      * until length of record is 0
      */
     while (true) {
-        if (fread(&binHeader, 1, 4, fpin) != 4) {
-            fprintf(stderr, "unexpected EOF\n");
-            exit(1);
-        }
+        if (fread(&binHeader, 1, 4, fpin) != 4)
+            fatal("unexpected EOF\n");
+
         length = readWord(binHeader.length);
         addr   = readWord(binHeader.addr);
         if (length == 0)
@@ -168,17 +154,14 @@ int main(int argc, char **argv) {
         // type & segId initialised already
         writeWord(contentHeader.length, length + 4); // data + addr + crc
         writeWord(contentHeader.addr, addr);
-        if (fwrite(&contentHeader, 1, 6, fpout) != 6) {
-            fprintf(stderr, "failed to write obj file content\n");
-            exit(1);
-        }
+        if (fwrite(&contentHeader, 1, 6, fpout) != 6)
+            fatal("failed to write obj file content\n");
+
         uint8_t crc = calcCRC((uint8_t *)&contentHeader, 6);
         while (length-- > 0) {
             int c;
-            if ((c = getc(fpin)) == EOF) {
-                fprintf(stderr, "unexpected EOF reading bin file\n");
-                exit(1);
-            }
+            if ((c = getc(fpin)) == EOF)
+                fatal("unexpected EOF reading bin file\n");
             crc += c; // update CRC
             putc(c, fpout);
         }
@@ -190,10 +173,9 @@ int main(int argc, char **argv) {
     */
     writeWord(modend.addr, addr);
     modend.crc = -calcCRC((uint8_t *)&modend, 7);
-    if (fwrite(&modend, 1, 8, fpout) != 8 || fwrite(&modeof, 1, 4, fpout) != 4) {
-        fprintf(stderr, "failed to write obj file end information\n");
-        exit(1);
-    }
+    if (fwrite(&modend, 1, 8, fpout) != 8 || fwrite(&modeof, 1, 4, fpout) != 4)
+        fatal("failed to write obj file end information\n");
+
     fclose(fpin);
     fclose(fpout);
     return 0;
