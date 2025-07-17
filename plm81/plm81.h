@@ -57,6 +57,7 @@ struct _symbol {
         uint16_t len; // symbol info length field
         uint16_t refCnt;
         uint16_t dim;
+        uint16_t iVal;
     };
     uint8_t prec;            // symbol precision
     uint8_t type;            // symbol type
@@ -134,8 +135,6 @@ int varHash(uint8_t *str, int len);
 int lookup(const int iv);
 int enter(uint16_t len, uint8_t prec, uint8_t type, bool hasHash);
 void install(void);
-void putSymInt(int n, int width);
-void putSymHex2(int n, bool tag);
 void dumpsy(void);
 void recov(void);
 int intcmp(const void *a, const void *b);

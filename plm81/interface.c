@@ -1,23 +1,13 @@
 #include "plm81.h"
 
-
-
-
-void putSymInt(int n, int width) {
-    do {
-        int digit = n % 32;                                  // convert to base 32
-        putc(digit < 10 ? '0' + digit : 'A' + digit - 10, symFp); // convert to ASCII
-        width--;
-    } while (n /= 32);
-    while (width-- > 0)
-        putc('0', symFp); // pad with zeros
+void putSym32(uint32_t val) {
+    fwrite(&val, sizeof(val), 1, symFp);
 }
 
-void putSymHex2(int n, bool tag) {
-    static const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUV";
-    putc(digits[HIGHNIBBLE(n) + (tag ? 16 : 0)], symFp);
-    putc(digits[LOWNIBBLE(n)], symFp);
+void putSym16(uint16_t val) {
+    fwrite(&val, sizeof(val), 1, symFp);
 }
+
 
 // to map to original code info
 #define MkInfo(packed, prec, type) (((int)(packed) << 8) | ((prec) << 4) | (type))
@@ -35,12 +25,11 @@ void dumpsy() {
                 fprintf(lstFp, "S%05d", symIdx);
 
             if (ic >= 2) {
-                fprintf(lstFp, "%c ",
-                        symbol[symIdx].outOfScope ? '*' : ' '); // * if now out of scope
-                fprintf(lstFp, "%04d %3d %4d ", symIdx, symbol[symIdx].strId,
+                putc(symbol[symIdx].outOfScope ? '*' : ' ', lstFp); // * if now out of scope
+                fprintf(lstFp, " %04d %3d %4d ", symIdx, symbol[symIdx].strId,
                         symbol[symIdx].strLen);
-                fprintf(lstFp, "%c ", symbol[symIdx].based ? 'B' : 'R'); // based or regular
-                fprintf(lstFp, "%06d%3d%3d", symbol[symIdx].len, symbol[symIdx].prec,
+                putc(symbol[symIdx].based ? 'B' : 'R', lstFp); // based or regular
+                fprintf(lstFp, " %06d%3d%3d", symbol[symIdx].len, symbol[symIdx].prec,
                         symbol[symIdx].type);
             }
             putc(' ', lstFp);
@@ -60,17 +49,9 @@ void dumpsy() {
 
     if (errorCnt)
         return;
-    /*     write the interrupt procedure names */
-    putc('/', symFp);
-    for (int intProcNum = 0; intProcNum < 8; intProcNum++) {
-        int intProcAddr = intpro[intProcNum]; /* interrupt procedure address */
-        if (intProcAddr > 0) {                /* write intnumber symbolnum (4 base-32 digits) */
-            putc(intProcNum + '0', symFp);
-            putSymInt(intProcAddr, 3);
-            putc('/', symFp);
-        }
-    }
-    putc('/', symFp);
+    /*     write the interrupt procedure names, use binary */
+    for (int intProcNum = 0; intProcNum < 8; intProcNum++)
+        putSym16(intpro[intProcNum]);
 
     // mark internal labels
     for (int symIdx = 1; symIdx < symNext; symIdx++) {
@@ -78,25 +59,20 @@ void dumpsy() {
             setInfo(symIdx, 1, CompilerLabel, LABEL); // set to compiler label
     }
 
-    putc('/', symFp);
     for (int symIdx = 1; symIdx < symNext; symIdx++) {
         int info = MkInfo(symbol[symIdx].len, symbol[symIdx].prec, symbol[symIdx].type);
         if (symbol[symIdx].based) {
-            putc('-', symFp);
-            putSymInt(info, 0); // print the Info word
-            putc(' ', symFp);
-            putSymInt(symbol[symIdx].based, 0); // print the Info word
+            putc(2, symFp);
+            putSym32(info);                 // emit the info word
+            putSym32(symbol[symIdx].based); // emit the based symbol
         } else {
-            putc(' ', symFp);
-            putSymInt(info, 0); // print the Info word
+            putc(1, symFp);
+            putSym32(info); // print the Info word
         }
-        putc('/', symFp);
     }
 
-    putc('/', symFp);
+    putc(0, symFp);
 }
-
-
 
 int wrdata(const int sy) {
     /*     if sy is negative, the call comes from synth -- data is inserted */
@@ -118,30 +94,31 @@ int wrdata(const int sy) {
 
     int len    = symbol[symIdx].prec;
     if (len <= 2 && !dflag) { // single or double byte constant
-        uint16_t n = symbol[symIdx].len;
+        uint16_t n = symbol[symIdx].iVal;
         if (len) {
             if (sy < 0) {
                 if (len == 2)
                     emit(HIGHBYTE(n), LIT);
                 emit(LOWBYTE(n), LIT);
             } else {
+                putc(len, symFp);
                 if (len == 2)
-                    putSymHex2(HIGHBYTE(n), true);
-                putSymHex2(LOWBYTE(n), len != 2);
+                    putc(HIGHBYTE(n), symFp);
+                putc(LOWBYTE(n), symFp);
+
             }
         }
     } else {
-
         len             = symbol[symIdx].strLen;
         uint8_t *symStr = idToStr(symbol[symIdx].strId);
 
-        for (int lp = 0; lp < len; lp++) {
-            if (dflag) /*     write out the identifier name */
-                putc(symStr[lp], symFp);
-            else if (sy < 0) /*     emit string data inline */
+        if (sy < 0)                          // emit string data inline
+            for (int lp = 0; lp < len; lp++)
                 emit(symStr[lp], LIT);
-            else
-                putSymHex2(symStr[lp], lp == 0);
+        else {
+            putc(3, symFp);
+            fwrite(symStr, 1, len, symFp);  // emit string, terminate with '\0'
+            putc(0, symFp);
         }
     }
     return len;
@@ -150,7 +127,6 @@ int wrdata(const int sy) {
 void dumpch() {
     /*     dump the symbolic names for the simulator */
 
-    putc('/', symFp);
     if (C_MEMORY) {
         int i = 2;
         for (int symIdx = 1; symIdx < symNext; symIdx++) {
@@ -158,18 +134,18 @@ void dumpch() {
                 int type = symbol[symIdx].type;
                 if (type == LABEL || type == VARB || type == PROC) {
                     /* check if real symbol */
-                    if (symbol[symIdx].strLen) {
-                        putSymInt(symIdx, 3); /* write symbol number */
-                        wrdata(symIdx);       /* now write the string */
-                        putc('/', symFp);
+                    int len = symbol[symIdx].strLen;
+                    if (len) {
+                        putc(len, symFp);
+                        putSym16(symIdx);
+                        fwrite(idToStr(symbol[symIdx].strId), 1, len, symFp);
                     }
                 }
             }
         }
     }
-    putc('/', symFp);
+    putc(0, symFp);
 }
-
 
 void dumpin() {
     /*     dump the initialization table */
@@ -194,15 +170,14 @@ void dumpin() {
     /*     ready to write the initialization table */
     if (errorCnt)
         return;
-    putc('/', symFp);
 
     for (int i = 0; i < initialDataSP;) {
-        putSymInt(initialData[i] >> 15, 3);
+        putc(4, symFp);     // mark start of block
+        putSym16(initialData[i] >> 15);
         for (int jp = initialData[i++] & 0x7fff; jp > 0; jp--)
             wrdata(initialData[i++] & 0xffff);
-        putc('/', symFp);
     }
-    putc('/', symFp);
+    putc(0, symFp); // mark all done
 
     return;
 }

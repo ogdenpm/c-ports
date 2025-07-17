@@ -405,7 +405,7 @@ int main(int argc, char **argv) {
 
     time_t now;
     time(&now);
-    fprintf(lstFp, "         pl/m-8080  version 4.0 - %s\n", ctime(&now));
+    fprintf(lstFp, "         pl/m-8080 pass1 Version 4.0 - %s\n", ctime(&now));
 
     sp               = 4;
     pstack[sp].tokId = EOFILE;

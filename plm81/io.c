@@ -51,7 +51,7 @@ void openfiles(char *srcFile) {
         fprintf(stderr, "can't create pol file %s\n", path);
         exit(1);
     }
-    if (!(symFp = fopen(path = makeFilename(srcFile, ".sym", true), "wt"))) {
+    if (!(symFp = fopen(path = makeFilename(srcFile, ".sym", true), "wb"))) {
         fprintf(stderr, "can't create symbol file %s\n", path);
         exit(1);
     }
