@@ -664,7 +664,7 @@ char const help[] =
     "           intermediate files prefix.lst, prefix.pol and prefix.sym are used\n"
     "           optionally prefix.cfg can be used to hold plm82 configuration flags\n"
     "           prefix.lst is updated with pass2 output added and prefix.hex is created\n"
-    "           Note the .pol and .sym files are deleted if pass 2 is successful\n\n";
+    "           Note the .pol and .sym files are deleted if pass 2 is successful\n";
 
 int main(int argc, char **argv) {
     int i, j, jp, jl, jn, np, k;
