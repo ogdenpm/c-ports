@@ -1,0 +1,2 @@
+[_utility.c]
+static char ver[] ="Version: @V@ Released: @D@";
