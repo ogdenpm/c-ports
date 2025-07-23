@@ -29,7 +29,7 @@
 
 
 /* pol types */
-enum { OPR = 0, ADR, VLU, DEF, LIT, LIN };
+enum { OPR = 0, ADR, VLU, DEF, LIT, LIN, FIN};
 // clang-format off
 enum {
     NOP = 0,
@@ -69,7 +69,7 @@ extern struct _symbol symbol[];
 extern int symNext;
 extern uint32_t initialData[];
 extern uint16_t initialDataSP;
-extern int intpro[];
+extern uint16_t intpro[];
 
 // io.c
 extern FILE *srcFp;

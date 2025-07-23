@@ -278,7 +278,7 @@ int contrl[26];
 
 const int VERS = 40;
 /* interrupts */
-int intpro[8];
+uint16_t intpro[8];
 
 #define MAXBLK 30
 
@@ -412,7 +412,7 @@ int main(int argc, char **argv) {
 
     scan();         // prime the first token
     cloop();        // parse the program
-    emit(NOP, OPR); // mark end
+    emit(0, FIN); // mark end
 
     if (errorCnt) {
         fprintf(lstFp, "\n\n%d PROGRAM ERROR%s\n\n", errorCnt, errorCnt != 1 ? "S" : "");
@@ -986,7 +986,7 @@ void synth(const int prod, const int newId) {
         i      = pstack[sp - 1].fixv; // interrupt number
         if (i > 7)
             error("39: invalid interrupt number");
-        else if (intpro[i] <= 0)
+        else if (!intpro[i])
             intpro[i] = symIdx;
         else
             error("40: duplicate interrupt procedure");

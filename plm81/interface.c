@@ -50,8 +50,7 @@ void dumpsy() {
     if (errorCnt)
         return;
     /*     write the interrupt procedure names, use binary */
-    for (int intProcNum = 0; intProcNum < 8; intProcNum++)
-        putSym16(intpro[intProcNum]);
+    fwrite(intpro, sizeof(intpro[0]), 8, symFp);
 
     // mark internal labels
     for (int symIdx = 1; symIdx < symNext; symIdx++) {
@@ -185,7 +184,7 @@ void dumpin() {
 void emit(const int val, const int typ) {
 
     static int polcnt     = 0;
-    static char *polchr[] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN" };
+    static char *polchr[] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN", "FIN" };
     static char *opcval[] = { "NOP", "ADD", "ADC", "SUB", "SBC", "MUL", "DIV", "REM", "NEG",
                               "AND", "IOR", "XOR", "NOT", "EQL", "LSS", "GTR", "NEQ", "LEQ",
                               "GEQ", "INX", "TRA", "TRC", "PRO", "RET", "STO", "STD", "XCH",
@@ -216,13 +215,14 @@ void emit(const int val, const int typ) {
             break;
         case LIT:
         case LIN:
+        case FIN:
             fprintf(lstFp, " %05d", val);
         }
         /*     now store the polish element in the polish array. */
         putc('\n', lstFp);
     }
-
-    uint16_t pol = (val << 3) + typ;
-    fwrite(&pol, sizeof(pol), 1, polFp); // write the polish element
+    putc(typ, polFp); // write the type
+    putc(val & 0xff, polFp); // write the low value byte
+    putc(val >> 8, polFp); // write the value high byte
     return;
 }
