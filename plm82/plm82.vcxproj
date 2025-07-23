@@ -221,9 +221,13 @@
     <PreBuildEvent />
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="interface.c" />
+    <ClCompile Include="io.c" />
     <ClCompile Include="plm82.c" />
+    <ClCompile Include="tables.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="plm82.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />
   </ItemGroup>
