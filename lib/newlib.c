@@ -60,9 +60,9 @@ typedef struct {
     uint8_t *content;
 } bigbuf_t;
 #define BBCHUNK 2048
-bigbuf_t libnam = { "names" };
-bigbuf_t libloc = { "locations" };
-bigbuf_t libdic = { "dictionary" };
+bigbuf_t libnam = { "names", 0, 0, 0 };
+bigbuf_t libloc = { "locations", 0, 0, 0 };
+bigbuf_t libdic = { "dictionary", 0, 0, 0 };
 
 void appendBigBuf(bigbuf_t *p, uint8_t *content, uint32_t len) {
     if (p->len + len >= 0xffff)
