@@ -503,6 +503,7 @@ void putPrn(char c) {
 }
 
 void nullSub(char c) {
+    (void)c;
 }
 
 void putTextCh(char c) {
@@ -1743,6 +1744,7 @@ void mkName(FCB *fcb, char *ext) {
 }
 
 void signalHandler(int signal) { // cleanup
+    (void)signal;
     wrapup();
 }
 
