@@ -77,7 +77,7 @@ void EndRecord(void) {
     for (crc = 0, p = outRec; p < outP; crc -= *p++) /* calculate and insert crc */
         ;
     *outP++ = crc; // add the crc
-    if (fwrite(outRec, 1, outP - outRec, omfOutFp) != outP - outRec)
+    if ((int)fwrite(outRec, 1, outP - outRec, omfOutFp) != (int)(outP - outRec))
         IoError(omfOutName, "Write error");
 }
 
@@ -212,7 +212,7 @@ void SeekOMFIn(long loc) {
 }
 
 void CopyRecord(void) {
-    if (fwrite(inRec, 1, recLen + 3, omfOutFp) != recLen + 3)
+    if ((int)fwrite(inRec, 1, recLen + 3, omfOutFp) != recLen + 3)
         IoError(omfOutName, "Write error");
 }
 
