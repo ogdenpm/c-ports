@@ -76,7 +76,7 @@ void ProcessControls(void) {
         type = 9;
     else {
         type = 0;
-        for (int i = 0; i < sizeof(controls) / sizeof(controls[0]); i++)
+        for (uint32_t i = 0; i < sizeof(controls) / sizeof(controls[0]); i++)
             if (stricmp(token, controls[i].name) == 0) {
                 type = controls[i].type;
                 aux  = controls[i].aux;

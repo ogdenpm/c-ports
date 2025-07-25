@@ -173,7 +173,7 @@ void ProcModdat(void) {
     }
     if (extFixup) {
         EmitModDat(&inBlock); /* emit the data record fragment as it needs fixup */
-        if (fwrite(extFixup, 1, extFixupSize, omfOutFp) != extFixupSize)
+        if ((int)fwrite(extFixup, 1, extFixupSize, omfOutFp) != extFixupSize)
             IoError(omfOutName, "Write error");
         free(extFixup);
     } else

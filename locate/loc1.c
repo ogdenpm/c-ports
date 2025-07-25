@@ -149,6 +149,7 @@ void AddDataFrag(uint16_t saddr, uint16_t eaddr) {
 }
 
 void LoadModdat(uint8_t segId) {
+    (void)segId; // suppress unused warning
     /* when called the segId and offset have already been read */
     memcpy(AddrInMem(inBlock.saddr), inP, recLen - 4);
 }
