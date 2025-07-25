@@ -179,7 +179,7 @@ bool morefiles() {
         return true;
     }
     char *ntoken = PeekToken();
-    for (int i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
+    for (uint32_t i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
         if (stricmp(reserved[i], ntoken) == 0)
             return false;
     return true;

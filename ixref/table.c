@@ -48,7 +48,7 @@ void updateFname(FILE *fp) {
         return;
     int nameLen = c1 + 256 * c2;
     char *fname = safeMalloc(nameLen + 2); // allow for ' ' prefix and trailing '\0'
-    if (fread(fname + 1, 1, nameLen, fp) != nameLen) {
+    if ((int)fread(fname + 1, 1, nameLen, fp) != nameLen) {
         free(fname);
         return;
     }

@@ -14,6 +14,7 @@
 #include <io.h>
 #else
 #include <dirent.h>
+#include <libgen.h>
 #endif
 
 #ifdef _MSC_VER
