@@ -1,1 +1,1 @@
-static char ver[] ="Version: 2025.7.17.3 Released: 2025-07-17 19:27:19";
+char utilityLib[] ="utility library version: 2025.7.25.4 Released: 2025-07-25 13:29:17";

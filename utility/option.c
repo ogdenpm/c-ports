@@ -19,9 +19,9 @@
  *   optind    -> argv index to process next
  */
 
-int optind = 1;
-int optopt;
-char const *optarg;
+int optInd = 1;
+int optOpt;
+char const *optArg;
 
 char *programName = "???";
 
@@ -64,47 +64,47 @@ void chkStdOptions(int argc, char **argv) {
 /// the return value. In addition the following globals are updated optopt contains the option
 /// selected, optarg is the argument or NULL optind is index of the next argv argument to process
 /// </returns>
-int getopt(int argc, char **argv, char const *opts) {
+int getOpt(int argc, char **argv, char const *opts) {
     static char const *place = ""; // force new arg
     char *cp                 = NULL;
 
     if (!*place) {
-        if (optind == 1)
+        if (optInd == 1)
             chkStdOptions(argc, argv);
-        if (optind >= argc || *(place = argv[optind]) != '-' || place[1] == '\0')
+        if (optInd >= argc || *(place = argv[optInd]) != '-' || place[1] == '\0')
             return (EOF);
         else if (*++place == '-') { // -- finishes
-            optind++;
+            optInd++;
             return (EOF);
         }
     }
 
-    if ((optopt = *place++) != ':' && (cp = strchr(opts, optopt)) && (*++cp == ':' || *cp == '=')) {
+    if ((optOpt = *place++) != ':' && (cp = strchr(opts, optOpt)) && (*++cp == ':' || *cp == '=')) {
         if (*place)
-            optarg = place;
+            optArg = place;
         else {
-            if (++optind >= argc) {
+            if (++optInd >= argc) {
                 if (*cp != '=')
-                    usage("Missing argument to -%c option", optopt);
+                    usage("Missing argument to -%c option", optOpt);
                 else
-                    optarg = "";
+                    optArg = "";
             } else
-                optarg = argv[optind];
+                optArg = argv[optInd];
         }
-        if (*cp == '=' && *optarg++ != '=')
-            optarg = NULL; // backup and leave for next option
+        if (*cp == '=' && *optArg++ != '=')
+            optArg = NULL; // backup and leave for next option
         else {
-            optind++;
+            optInd++;
             place = "";
         }
     } else if (cp == NULL)
-        usage("Invalid option -%c", optopt);
+        usage("Invalid option -%c", optOpt);
     else {
-        optarg = NULL;
+        optArg = NULL;
         if (!*place)
-            optind++;
+            optInd++;
     }
-    return optopt;
+    return optOpt;
 }
 
 /// <summary>

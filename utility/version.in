@@ -1,2 +1,2 @@
 [_utility.c]
-static char ver[] ="Version: @V@ Released: @D@";
+char utilityLib[] ="utility library version: @V@ Released: @D@";

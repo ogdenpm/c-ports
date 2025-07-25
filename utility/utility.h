@@ -3,7 +3,6 @@
 #include <stdbool.h>
 // message.c
 
-
 bool openLog(char const *name);
 void closeLog();
 void logMsg(char const *fmt, ...);
@@ -29,12 +28,12 @@ void *safeRealloc(void *old, size_t size);
     run the application
 */
 extern char const help[];
-extern char const *optarg; // optional argument (or error message)
-extern int optind;         // current index into argv
-extern int optopt;         // option scanned
+extern char const *optArg; // optional argument (or error message)
+extern int optInd;         // current index into argv
+extern int optOpt;         // option scanned
 extern char *programName;
 
-int getopt(int argc, char **argv, const char *options);
+int getOpt(int argc, char **argv, const char *options);
 void chkStdOptions(int argc, char **argv);
 _Noreturn void usage(char *fmt, ...);
 void showVersion(FILE *fp, bool full);
