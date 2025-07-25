@@ -109,7 +109,7 @@ int wrdata(const int sy) {
         }
     } else {
         len             = symbol[symIdx].strLen;
-        uint8_t *symStr = idToStr(symbol[symIdx].strId);
+        uint8_t *symStr = (uint8_t *)idToStr(symbol[symIdx].strId);
 
         if (sy < 0)                          // emit string data inline
             for (int lp = 0; lp < len; lp++)
@@ -127,7 +127,6 @@ void dumpch() {
     /*     dump the symbolic names for the simulator */
 
     if (C_MEMORY) {
-        int i = 2;
         for (int symIdx = 1; symIdx < symNext; symIdx++) {
             if (!symbol[symIdx].based) {
                 int type = symbol[symIdx].type;
@@ -206,7 +205,7 @@ void emit(const int val, const int typ) {
         fprintf(lstFp, "%5d %s ", ++polcnt, polchr[typ]);
         switch (typ) {
         case OPR:
-            fprintf(lstFp, opcval[val]);
+            fputs(opcval[val], lstFp);
             break;
         case ADR:
         case VLU:

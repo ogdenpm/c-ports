@@ -179,7 +179,7 @@
 
 
 
-/*************************************************************************/
+*************************************************************************/
 #include "plm81.h"
 #include <stdarg.h>
 #include <time.h>
@@ -205,7 +205,7 @@ struct {
 } pstack[PSTACK + 1];
 
 // int var[MSTACK + 1];
-uint8_t varc[MVAR + 1];
+char varc[MVAR + 1];
 
 bool failsf = false;
 bool compil = true;
@@ -250,7 +250,6 @@ struct {
     uint16_t len;
     uint8_t prec;
     uint8_t type;
-    int32_t info;
 } builtins[] = {
     { "CARRY", 0, 1, VARB },  { "ZERO", 0, 1, VARB },   { "SIGN", 0, 1, VARB },
     { "PARITY", 0, 1, VARB }, { "MEMORY", 0, 1, VARB }, { "STACKPTR", 0, 2, VARB },
@@ -360,8 +359,8 @@ int main(int argc, char **argv) {
     C_UPPER    = 0;
     C_WIDTH    = 132; // line width for listings
 
-    while (getopt(argc, argv, "abl:gmps:t:uw:") != EOF) {
-        switch (optopt) {
+    while (getOpt(argc, argv, "abl:gmps:t:uw:") != EOF) {
+        switch (optOpt) {
         case 'a':
             C_ANALYZE = !C_ANALYZE;
             break;
@@ -369,7 +368,7 @@ int main(int argc, char **argv) {
             C_BYPASS = !C_BYPASS;
             break;
         case 'l':
-            C_LINECNT = atoi(optarg);
+            C_LINECNT = atoi(optArg);
             break;
         case 'g':
             C_GENERATE = !C_GENERATE;
@@ -381,25 +380,25 @@ int main(int argc, char **argv) {
             C_PRINT = !C_PRINT;
             break;
         case 's':
-            C_SYMBOLS = atoi(optarg);
+            C_SYMBOLS = atoi(optArg);
             break;
         case 't':
-            if ((C_TAB = atoi(optarg)) < 1 || C_TAB > 8)
+            if ((C_TAB = atoi(optArg)) < 1 || C_TAB > 8)
                 C_TAB = 1;
             break;
         case 'u':
             C_UPPER = !C_UPPER;
             break;
         case 'w':
-            if ((C_WIDTH = atoi(optarg)) < 72)
+            if ((C_WIDTH = atoi(optArg)) < 72)
                 C_WIDTH = 72;
             break;
         }
     }
-    if (optind != argc - 1)
+    if (optInd != argc - 1)
         usage("Expected single source file");
 
-    openfiles(argv[optind]);
+    openfiles(argv[optInd]);
 
     install();
 
@@ -437,7 +436,6 @@ void dumpsym(int idx) {
     int len   = symbol[idx].strLen;
     int type  = symbol[idx].type;
     int prec  = symbol[idx].prec;
-    int cnt   = 0;
     switch (type) {
     case VARB:
     case LITER:
@@ -523,7 +521,7 @@ void exitb() {
     }
 }
 
-int varHash(uint8_t *str, int len) {
+int varHash(char *str, int len) {
     int hval = 0;
     for (int tokId = 0; tokId < len; tokId++)
         hval = (hval << 1) + (hval >> 7) + str[tokId];
@@ -587,7 +585,7 @@ int enter(uint16_t len, uint8_t prec, uint8_t type, bool hasHash) {
 
 void install() {
     symloc = 0;
-    for (int tokId = 0; tokId < ASIZE(builtins); tokId++) {
+    for (uint32_t tokId = 0; tokId < ASIZE(builtins); tokId++) {
         strcpy(varc, builtins[tokId].name);
         hcode = varHash(varc, symlen = (int)strlen(builtins[tokId].name)) % 127 + 1; // hash code
         enter(builtins[tokId].len, builtins[tokId].prec, builtins[tokId].type, true);
@@ -1344,7 +1342,7 @@ void synth(const int prod, const int newId) {
         emit(TRA, OPR);
         emit(DAT, OPR);
         emit(0, DEF);
-        /*     drop through to next production */
+        /* fallthrough */
     case 114: // <PRIMARY> ::= <CONSTANT HEAD> <CONSTANT> ')'
         wrdata(-pstack[mp + 1].fixv);
         emit(DAT, OPR);
@@ -1488,9 +1486,9 @@ void synth(const int prod, const int newId) {
         len = pstack[sp].len;
         if (0 < len && len <= 2) {
             i = pstack[sp].loc;
-            k = varc[i];
+            k = *(uint8_t *)(varc + i);
             if (len == 2)
-                k = k * 256 + varc[i + 1];
+                k = k * 256 + *(uint8_t *)(varc + i + 1);
         } else {
             len = 3;
             k   = 0;
@@ -1593,7 +1591,7 @@ void error(char const *fmt, ...) {
 void showTopTokens(int start, int col) {
     for (int tokId = start; tokId <= sp; tokId++) {
         char const *token = tokens[pstack[tokId].tokId];
-        if (col + strlen(token) + (*token == '<' && token[1] ? 1 : 3) > C_WIDTH)
+        if (col + (int)strlen(token) + (*token == '<' && token[1] ? 1 : 3) > C_WIDTH)
             col = fprintf(lstFp, "\n%*s", 8, "") - 1;
         if (*token == '<')
             col += fprintf(lstFp, " %s", token);

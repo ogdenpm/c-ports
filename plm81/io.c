@@ -66,10 +66,10 @@ void openfiles(char *srcFile) {
 
 
 #define INMAX 256
-static uint8_t ibuff[INMAX + 1];
+static char ibuff[INMAX + 1];
 char *ibptr = "";
 
-uint8_t *getline(FILE *srcFp) {
+char *readline(FILE *srcFp) {
     /* read a line from the input stream
        return a pointer to the line or NULL if no line is available
        expands TABs as determined by the $T option
@@ -106,7 +106,7 @@ int gnc() {
 
     while (!*ibptr) {
         for (;;) {
-            if ((ibptr = getline(srcFp)))
+            if ((ibptr = readline(srcFp)))
                 break;      // got a line
             if (inSP < 1)   // check if we are in an include file
                 return EOF; // no more input
@@ -136,10 +136,10 @@ int gnc() {
         }
     }
 
-    return *ibptr++;
+    return *(uint8_t *)ibptr++; // make sure 0x80-0xff are returned as unsigned
 }
 
-void parseOptions(uint8_t *s) {
+void parseOptions(char *s) {
 
     while (*s && *s != '\n') {     // process all of line
         while (*s && !isalpha(*s)) // skip to option
@@ -217,13 +217,13 @@ uint16_t macdefSP        = 0;
 static uint16_t macuseSP = 0;
 uint16_t maxMacDef       = 0;
 
-bool defMacro(int idLen, uint8_t *id, int valLen, uint8_t *val) {
+bool defMacro(int idLen, char *id, int valLen, char *val) {
     if (macdefSP + 1 >= ASIZE(macdef))
         return false; // Not enough space for new macro definition
 
     int idStr;
     // string is stored as identifier, text, '\0'
-    if (!((idStr = newString(idLen, id)) && newString(valLen, val) && newString(1, "")))
+    if (!((idStr = newString(idLen, id)) && newString(valLen, val) && newString(1,"")))
         return false;                 // Failed to create string
     macdef[++macdefSP].idLen = idLen; // create the macro definition
     macdef[macdefSP].idStr   = idStr;
@@ -275,7 +275,7 @@ int macGetc() {
     int ch;
     while (macuseSP) {
         if (macuse[macuseSP].macId) { // ignore if macro now out of scope
-            if ((ch = *(idToStr(macuse[macuseSP].macStr++))))
+            if ((ch = *(uint8_t *)(idToStr(macuse[macuseSP].macStr++))))
                 return ch;
             if (macuse[macuseSP].macId)
                 macdef[macuse[macuseSP].macId].idLen = -macdef[macuse[macuseSP].macId].idLen;

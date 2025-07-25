@@ -228,7 +228,6 @@
     <ClCompile Include="tables.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="istring.h" />
     <ClInclude Include="plm81.h" />
     <ClInclude Include="_appinfo.h" />
     <ClInclude Include="_version.h" />

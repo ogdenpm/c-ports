@@ -1,7 +1,5 @@
 #include "plm81.h"
 
-
-
 // vindx contains the start index of the first token of a given length
 const uint8_t vindx[] = { 0, 1, 14, 20, 26, 35, 39, 41, 45, 47, 50 };
 // clang-format off
@@ -41,16 +39,16 @@ const char *tokens[]  = {
 };
 /* token ids */
 
-int acclen;
+uint16_t acclen;
 #define MAXSTR 4096
-uint8_t accum[MAXSTR + 1];
+char accum[MAXSTR + 1];
 int accumIVal = 0;
 int token = 0;
 
 uint16_t topStr = 1;
-static uint8_t string[0x10000];
+static char string[0x10000];
 
-int newString(uint16_t len, const uint8_t *str) {
+int newString(uint16_t len, const char *str) {
     if (topStr + len >= sizeof(string)) {
         fatal("2: pass-1 string table overflow");
         return 0; // Not enough space
@@ -62,13 +60,13 @@ int newString(uint16_t len, const uint8_t *str) {
     return base;
 }
 
-bool strequ(int strId, uint8_t const *str, int len) {
+bool strequ(int strId, char const *str, int len) {
     if (strId < 0 || strId >= topStr || len < 0)
         return false;
     return memcmp(&string[strId], str, len) == 0;
 }
 
-uint8_t *idToStr(int loc) {
+char *idToStr(int loc) {
     return string + loc;
 }
 
@@ -105,7 +103,10 @@ void scan() {
             else if (ch == 'Q' || ch == 'O') // Q or O
                 radix = 8;
             else {
+#ifdef _MSC_VER
 #pragma warning(suppress: 6385)
+#endif
+                
                 if (accum[acclen - 1] == 'B') { // B
                     radix = 2;
                     acclen--;

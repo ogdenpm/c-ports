@@ -38,9 +38,6 @@
     <ClInclude Include="_version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="istring.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="plm81.h">
       <Filter>Header Files</Filter>
     </ClInclude>

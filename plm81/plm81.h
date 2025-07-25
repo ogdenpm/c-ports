@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#ifdef linux
+#include <unistd.h>
+#endif
 #include "utility.h"
-
 
 #define C_ANALYZE  contrl['A' - 'A'] // action/reduction trace
 #define C_BYPASS   contrl['B' - 'A'] // bypass stack dump on error
@@ -24,7 +26,7 @@
 #define LOWNIBBLE(n)  ((n) & 0x0f)
 #define HIGHNIBBLE(n) LOWNIBBLE((n) >> 4)
 
-#define ASIZE(x)      (sizeof(x) / sizeof((x)[0]))
+#define ASIZE(x)      (int)(sizeof(x) / sizeof((x)[0]))
 
 
 
@@ -78,8 +80,8 @@ extern FILE *symFp;
 extern FILE *lstFp;
 
 // lexer.c
-extern int acclen;
-extern uint8_t accum[];
+extern uint16_t acclen;
+extern char accum[];
 extern int accumIVal;
 extern int token;
 extern const char *tokens[];
@@ -131,7 +133,7 @@ void closefiles(void);
 int main(int argc, char **argv);
 void dumpsym(int idx);
 void exitb(void);
-int varHash(uint8_t *str, int len);
+int varHash(char *str, int len);
 int lookup(const int iv);
 int enter(uint16_t len, uint8_t prec, uint8_t type, bool hasHash);
 void install(void);
@@ -148,9 +150,9 @@ int wrdata(const int sy);
 void dumpch(void);
 void procHead(int plist, int rtype);
 void synth(const int prod, const int curTokId);
-uint8_t *getline(FILE *srcFp);
+char *readline(FILE *srcFp);
 int gnc(void);
-void parseOptions(uint8_t *s);
+void parseOptions(char *s);
 void decibp(void);
 void stackc(char *fname);
 void enterb(void);
@@ -163,10 +165,10 @@ void redpr(const int prod, const int sym);
 void emit(const int val, const int typ);
 
 /* lexer.c */
-int newString(uint16_t len, const uint8_t *str);
-bool strequ(int strId, uint8_t const *str, int len);
-uint8_t *idToStr(int loc);
-bool defMacro(int idLen, uint8_t *id, int valLen, uint8_t *val);
+int newString(uint16_t len, const char *str);
+bool strequ(int strId, char const *str, int len);
+char *idToStr(int loc);
+bool defMacro(int idLen, char *id, int valLen, char *val);
 bool useMacro(int len, char *str);
 void dropMacro(int newTop);
 int macGetc(void);

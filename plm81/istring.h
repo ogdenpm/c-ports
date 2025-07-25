@@ -16,7 +16,7 @@ uint16_t topStr;
 
 int newString ( uint16_t len , const uint8_t *str );
 bool strequ(int strId, uint8_t const *str, int len);
-uint8_t *idToStr( int loc );
+char *idToStr( int loc );
 bool defMacro ( int idLen , uint8_t *id , int valLen , uint8_t *val );
 bool useMacro ( int len , char *str );
 void dropMacro ( int newTop );
