@@ -57,7 +57,7 @@ struct {
     uint8_t segId;
     uint8_t addr[2];
     uint8_t dat[BUFFERSIZE + 1]; // allow for crc
-} content = { CONTENT };
+} content = { CONTENT, { 0 }, 0, { 0 }, { 0 } };
 
 
 char const help[] =
@@ -71,7 +71,7 @@ void OutRecord(uint8_t *p, FILE *fpout) {
     for (int i = 0; i <= addr + 1; i++)
         crc += p[i];
     p[addr + 2] = -crc;
-    if (fwrite(p, 1, addr + 3, fpout) != addr + 3) {
+    if ((int)fwrite(p, 1, addr + 3, fpout) != addr + 3) {
         fprintf(stderr, "%s: write error\n", outFile);
         exit(1);
     }
@@ -214,7 +214,7 @@ void writeModHdr(FILE *fp, char *path) {
         uint8_t length[2];
         uint8_t nameLen;
         uint8_t name[MAXNAME + 3]; // allow for trnId, trnVn and checksum
-    } modhdr = { MODHDR };
+    } modhdr = { MODHDR, { 0 }, 0, { 0 } };
 
     int i    = 0;
     for (const char *name = basename(path); *name && *name != '.'; name++)
@@ -235,7 +235,7 @@ void writeContent(FILE *fpin, FILE *fpout) {
         uint8_t offset[2];
         uint8_t namelen;
         uint8_t name[MAXNAME + 2]; // allow for 0 and crc
-    } modloc     = { MODLOC };
+    } modloc     = { MODLOC, { 0 }, 0, { 0 }, 0, { 0 } };
 
     uint8_t rlen = 1;
     uint8_t c;
@@ -314,7 +314,7 @@ void writeModEnd(FILE *fpin, FILE *fpout) {
         uint8_t segId;
         uint8_t offset[2];
         uint8_t crc;
-    } modend = { MODEND, { 5, 0 }, 1 };
+    } modend = { MODEND, { 5, 0 }, 1, 0, { 0 }, 0 };
 
     // note rlen byte already read
     uint16_t recordAddress = getWord(fpin);
@@ -331,7 +331,7 @@ void writeModEof(FILE *fpout) {
         uint8_t type;
         uint8_t length[2];
         uint8_t crc;
-    } modeof = { MODEOF, { 1, 0 } };
+    } modeof = { MODEOF, { 1, 0 }, 0 };
     OutRecord((uint8_t *)&modeof, fpout);
 }
 
