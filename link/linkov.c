@@ -61,8 +61,8 @@ bool ExtendRec(uint16_t cnt) {
     return true;
 } /* ExtendRec() */
 
-void static EmitMODHDRComSegInfo(uint8_t seg, uint16_t len, uint8_t combine) {
-    if (ExtendRec(SEGDEF_sizeof))                             /* make sure enough room */
+static void EmitMODHDRComSegInfo(uint8_t seg, uint16_t len, uint8_t combine) {
+    if (ExtendRec(SEGDEF_sizeof))                        /* make sure enough room */
         fatal("%s: Module header too long", omfOutName); /* mod hdr too long */
     WriteByte(seg);
     WriteWord(len);
@@ -144,8 +144,9 @@ void EmitEXTNAMES() {
     unresolved = 0;
 
     for (symbol_t *symbol = unresolvedList; symbol; symbol = symbol->nxtSymbol) {
-        if (ExtendRec(2 + symbol->name->len)) /* check room for len, symbol && 0 */
-            ;                                 /* no need for special action on extend */
+        if (ExtendRec(2 + symbol->name->len)) { /* check room for len, symbol && 0 */
+            ;                                   /* no need for special action on extend */
+        }
         WriteName(symbol->name);
         WriteByte(0);
         symbol->offsetOrSym = unresolved++; /* record the final ext sym id */
@@ -252,7 +253,7 @@ void Pass2CONTENT() {
     if (recLen > 1025) {
         if (ReadByte() == 0) { // ok for ABS segment
             // copy as large records shouldn't have fixup
-            if (fwrite(inRec, 1, recLen + REC_DATA, omfOutFp) != recLen + 3)
+            if ((int)fwrite(inRec, 1, recLen + REC_DATA, omfOutFp) != recLen + 3)
                 IoError(omfOutName, "Write error");
             GetRecord();
             return;
@@ -483,8 +484,8 @@ void Phase2() {
                 }
             }
             closeOMFIn();
-        }         /* of else */
-    }             /* of do while */
+        } /* of else */
+    } /* of do while */
     EmitEnding(); /* write final modend and eof record */
     if (fclose(omfOutFp))
         IoError(omfOutName, "Close error");
