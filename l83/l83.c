@@ -17,6 +17,10 @@
 #include <ctype.h>
 #include "utility.h"
 
+#ifdef __GNUC__
+#define stricmp strcasecmp
+#endif
+
 #define SCODE  1
 #define SDATA  2
 #define SLOCAL 3
@@ -265,7 +269,7 @@ uint8_t *ReadF(char *fn) {
         fprintf(stderr, "Out of memory reading %s\n", fn);
         Exit(1);
     }
-    if (fread(fdata, 1, size, fp) != size) {
+    if ((long)fread(fdata, 1, size, fp) != size) {
         fprintf(stderr, "Error reading in file %s\n", fn);
         fclose(fp);
         Exit(1);
@@ -356,8 +360,8 @@ void LstRef() {
 int main(int argc, char **argv) {
     int i;
 
-    while (getopt(argc, argv, options) != EOF) {
-        switch (optopt) {
+    while (getOpt(argc, argv, options) != EOF) {
+        switch (optOpt) {
         case 's':
             lstReq = true;
             break;
@@ -370,17 +374,17 @@ int main(int argc, char **argv) {
             {
                 int addr;
                 char junk;
-                if (scanf(optarg, "%x%c", &addr, &junk) != 1 || addr > 0xffff)
-                    usage("Invalid hex address %s\n", optarg);
+                if (scanf(optArg, "%x%c", &addr, &junk) != 1 || addr > 0xffff)
+                    usage("Invalid hex address %s\n", optArg);
                 loadAdr = addr;
             }
         }
     }
 
-    if (optind != argc - 1)
+    if (optInd != argc - 1)
         usage("Expecting single file");
 
-    mName[0] = argv[optind];
+    mName[0] = argv[optInd];
 
     la       = loadAdr;
     mHash[0] = HashF(basename(mName[0]));
