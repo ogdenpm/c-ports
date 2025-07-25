@@ -230,7 +230,8 @@ uint16_t DoubleT(uint8_t l, uint8_t h) { /* return address formed by bytes l, h 
 
 uint8_t Get1() {
     /* read next character from input buffer */
-    return (c = getc(fpPol)) == EOF ? 0 : c;
+    int ch = getc(fpPol);
+    return c = ch == EOF ? 0 : (uint8_t)ch;
 }
 
 uint16_t Get2() { /* read j 16 bit value from the input buffer */
@@ -1632,7 +1633,7 @@ void LoadSymbols(char *fn) {
     fseek(fp, 0, SEEK_SET);
     symList = safeMalloc(size);
 
-    if (fread(symList, 1, size, fp) != size) {
+    if ((long)fread(symList, 1, size, fp) != size) {
         fclose(fp);
         fatal("Error reading in symbol file %s\n", fn);
     }
