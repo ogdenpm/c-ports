@@ -604,12 +604,16 @@ void PushSt() { /* push status quo (nc, ncp, tsave, dsave) into the status stack
     if (++qTop >= STSSIZE)
         Error(ERR_TOOMUCHNESTING);
     // above error will not return
+#ifdef _MSC_VER
 #pragma warning(disable: 6386)
+#endif
     qtSave[qTop] = tSave;
     qdSave[qTop] = dSave;
     qcSave[qTop] = nc;
     qnSave[qTop] = ncP;
-#pragma warning(default: 6386)
+#ifdef _MSC_VER
+#pragma warning(disable : 6386)
+#endif
     outside      = 1; // begin to scan a macrobody in 'outside' mode
 }
 
@@ -996,18 +1000,23 @@ uint16_t Table(uint16_t s, uint16_t i) { /* return ith entry in the action table
 }
 
 void Pop(uint8_t n) { /* pop n topmost states of the parse stack */
-    if ((pTop = pTop - n) < 0)
+    if (pTop < n)
         Error(ERR_M81ERROR);
+    pTop -= n;
 }
 
 void Push(uint16_t s, uint16_t v) { /* push state s and value v into the parse stacks */
     if ((pTop = pTop + 1) >= 30)
         Error(0xf4);
     // error call does not return
-#pragma warning(disable: 6386)
+#ifdef _MSC_VER
+#pragma warning(disable : 6386)
+#endif
     pStack[pTop] = s;
     vStack[pTop] = v;
-#pragma warning(default: 6386)
+#ifdef _MSC_VER
+#pragma warning(disable : 6386)
+#endif
 }
 
 uint16_t GotoF(uint16_t state, uint16_t nonTerm) { /* return next state after a reduction */
