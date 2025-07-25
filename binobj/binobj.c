@@ -46,7 +46,7 @@ struct {
     uint8_t length[2];
     uint8_t nameLen;
     uint8_t name[MAXNAME + 3]; // name + trnId + trnVn + crc
-} modhdr = { MODHDR };
+} modhdr = { MODHDR, { 0 }, 0, { 0 } };
 
 /* intermediate storate for length & address */
 struct {
@@ -59,7 +59,7 @@ struct {
     uint8_t length[2];
     uint8_t segId;
     uint8_t addr[2];
-} contentHeader = { CONTENT };
+} contentHeader = { CONTENT, { 0 }, 0, { 0 } };
 
 /*                                 */
 /*  module end record definition   */
@@ -71,7 +71,7 @@ struct {
     uint8_t segId;
     uint8_t addr[2];
     uint8_t crc;
-} modend = { MODEND, { 5, 0 }, 1, 0 };
+} modend = { MODEND, { 5, 0 }, 1, 0, { 0 }, 0 };
 
 /*                                 */
 /*  module end of file record      */
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
     modhdr.name[i++] = 0; // TRN ID
     modhdr.name[i++] = 0; // TRN VN
     modhdr.name[i]   = -calcCRC((uint8_t *)&modhdr, i + 6);
-    if (fwrite(&modhdr, 1, i + 5, fpout) != i + 5)
+    if ((int)fwrite(&modhdr, 1, i + 5, fpout) != i + 5)
         fatal("failed to write obj file header\n");
 
     /*
