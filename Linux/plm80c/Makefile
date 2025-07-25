@@ -11,9 +11,8 @@ include ../common.mk
 
 $(APPOBJS) : errors.h int.h plm.h vfile.h
 fatal.o main.o main0.o main1.o main3.o main4.o main5.o main6.o plm0b.o plm0g.o\
-plm1f.o plm2a.o plm2e.o plm3b.o plm4b.o plm4c.o plma.o plmfile.o symtab.o vfile.o: os.h
+plm1f.o plm2a.o plm2e.o plm3b.o plm4b.o plm4c.o plma.o plmfile.o symtab.o vfile.o: os.h plm.h
 main4.o main6.o plma.o: cmdline.h
 # common dependencies
-cmdline.o: cmdline.h os.h
-os.o: cmdline.h os.h showVersion.h
-_version.o: _appinfo.h _version.h
+cmdline.o os.o: cmdline.h os.h utility.h
+main5.o plma.o: utility.h

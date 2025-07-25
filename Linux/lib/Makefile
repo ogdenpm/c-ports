@@ -6,7 +6,6 @@ include ../common.mk
 lib.o : lib.h cmdline.h omf.h os.h
 newlib.o: lib.h
 # common dependencies
-cmdline.o: cmdline.h os.h
 omf.o: omf.h os.h
-os.o: cmdline.h os.h showVersion.h
-_version.o: _appinfo.h _version.h
+cmdline.o os.o: cmdline.h os.h utility.h
+os.o: utility.h

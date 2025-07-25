@@ -48,10 +48,11 @@ endef
 SRCDIR=$(subst /Linux,,$(realpath .))
 ROOT:=$(realpath ../..)
 INSTALLDIR = $(ROOT)/Linux/Install
+LIBS = $(INSTALLDIR)/utility.a
 
-CFLAGS = -O3 -Wall -I$(SRCDIR) -I$(ROOT)/shared $(addprefix -I,$(subst ^,$(ROOT),$(INCLUDES)))
+CFLAGS = -O3 -Wall -Wextra -I$(SRCDIR) -I$(ROOT)/utility -I$(ROOT)/shared $(addprefix -I,$(subst ^,$(ROOT),$(INCLUDES)))
 CXXFLAGS = $(CFLAGS)
-VPATH = $(SRCDIR):$(ROOT)/shared
+VPATH = $(SRCDIR):$(ROOT)/shared:$(ROOT)/utility
 
 LINKER ?= gcc
 
@@ -69,19 +70,23 @@ mkversion: $(INSTALLDIR)/getVersion
 $(INSTALLDIR)/getVersion:
 	(cd $(ROOT)/Linux/bootGetVersion; ./mkGetVersion)
 
-_version.o: _version.h _appinfo.h appinfo.h
+$(INSTALLDIR)/utility.a:
+	$(MAKE) -C $(ROOT)/Linux/utility utility.a
+
 
 $(SRCDIR)/_version.h: $(INSTALLDIR)/getVersion
 	$(INSTALLDIR)/getVersion -f $(SRCDIR)
 
-$(TARGET): $(OBJS) _version.o $(LIBS)
+ifndef OWNTARGET
+$(TARGET): $(OBJS) _appinfo.o $(LIBS)
 	$(LINKER) -o $@ $^
+endif
 
 clean:
 	rm -f *.o
 
 distclean: clean
-	rm -f $(TARGET)
+	rm -f $(TARGET) _version.h
 
 rebuild: distclean
 	$(MAKE)
@@ -89,4 +94,4 @@ rebuild: distclean
 $(INSTALLDIR):
 	mkdir $@
 
-_version.o: _version.c showVersion.h appinfo.h 
+_appinfo.o: _appinfo.h _version.h verInfo.h

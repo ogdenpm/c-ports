@@ -11,5 +11,5 @@ listm.o startm.o: cmdline.h
 
 # common dependencies
 cmdline.o: cmdline.h os.h
-os.o: cmdline.h os.h showVersion.h
-_version.o: _appinfo.h _version.h
+os.o: cmdline.h os.h
+os.o cntrlm.o initm.o cmdline.o os.o: utility.h
