@@ -36,10 +36,10 @@ word wB53C[10];
 //    byte exprLoc;
 //    word cnt;
 //} tx2_t;
-tx2_t tx2[255] = { { T2_SEMICOLON, 0, 0, 0, LIT_A },
+tx2_t tx2[255] = { { T2_SEMICOLON, 0, 0, 0, LIT_A, 0, 0 },
                    { T2_LOCALLABEL, 0, 0, 0, LABEL_A, 0, 1 },
-                   { T2_SEMICOLON },
-                   { T2_SEMICOLON } };
+                   { T2_SEMICOLON, 0, 0, 0, 0, 0, 0 },
+                   { T2_SEMICOLON, 0, 0, 0, 0, 0, 0 }};
 
 byte bC045[9];
 byte bC04E[9];

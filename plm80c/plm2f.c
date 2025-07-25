@@ -14,7 +14,7 @@ static word wC2A9, first, last;
 static bool Sub_8861(byte  lrIdx) {
     for (wC1D6 = first; wC1D6 <= last; wC1D6++) {
         byte i = Sub_5679(lrIdx);
-        if ((0 <= i && i <= 3) || (12 <= i && i <= 14))
+        if (i <= 3 || (12 <= i && i <= 14))
             return true;
     }
     return false;

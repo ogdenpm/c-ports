@@ -156,7 +156,7 @@ void SignOnAndGetSourceName() {
 } /* SignOnAndGetSourceName() */
 
 static void InstallBuiltins() {
-    for (int i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
+    for (uint32_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
         Lookup(builtins[i].name);
         CreateInfo(0, BUILTIN_T, curSym);
         info->builtinId  = builtins[i].id;
@@ -169,7 +169,7 @@ static void InstallBuiltins() {
 } /* InstallBuiltins() */
 
 static void InstallKeywords() {
-    for (int i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
+    for (uint32_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
         Lookup(keywords[i].name);
         curSym->infoChain = infotab + MAXINFO + keywords[i].id;
     }

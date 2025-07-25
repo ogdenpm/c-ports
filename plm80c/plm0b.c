@@ -853,7 +853,7 @@ static void ParseControlExtra() {
 }
 
 static void FindOption() {
-    for (int i = 0; i < sizeof(optTable) / sizeof(optTable[0]); i++) {
+    for (uint32_t i = 0; i < sizeof(optTable) / sizeof(optTable[0]); i++) {
         if (optTable[i].optLen == optVal.len &&
             strnicmp(optVal.str, optTable[i].optName, optVal.len) == 0) {
             tknFlagsP = &optTable[i];

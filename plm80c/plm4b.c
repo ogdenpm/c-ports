@@ -292,7 +292,7 @@ void EmitLabel(char const *label) {
 }
 
 char const *FindErrStr() {
-    for (int i = 0;
+    for (uint32_t i = 0;
          i < sizeof(errStrings) / sizeof(errStrings[0]) && errStrings[i].errCode <= errData.num;
          i++)
         if (errStrings[i].errCode == errData.num)

@@ -10,7 +10,7 @@
 #include "os.h"
 #include <string.h>
 #define VFCHUNK 4096
-static void vfExpand(vfile_t *vf, uint32_t minSize) {   // grow vfile if needed
+static void vfExpand(vfile_t *vf, uint32_t minSize) { // grow vfile if needed
     if (vf->capacity >= minSize)
         return;
     while (vf->capacity < minSize)
@@ -70,7 +70,7 @@ int32_t vfRword(vfile_t *vf) {
         return *p;
     vf->pos = vf->size;
     return -1;
- }
+}
 
 // dump vfile to real file for diagnostics
 
@@ -80,5 +80,8 @@ void dump(vfile_t *vf, char const *fname) {
     if (vf->size)
         fwrite(vf->content, 1, vf->size, fp);
     fclose(fp);
+#else
+    (void)vf;
+    (void)fname;
 #endif
 }
