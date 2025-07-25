@@ -51,7 +51,7 @@ void PrepSrcFile(char *srcName) {
     // if the filename part of src was all upper case then
     // .LST or .OBJ are used else .lst or .obj
     s           = strrchr(basename(srcName), '.');
-    size_t flen = s ? s - srcName : strlen(srcName);
+    size_t flen = s ? (size_t)(s - srcName) : strlen(srcName);
     lstFile     = safeMalloc(flen + 5);
     objFile     = safeMalloc(flen + 5);
     strncpy(lstFile, srcName, flen);

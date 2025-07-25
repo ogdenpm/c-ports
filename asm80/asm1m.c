@@ -87,6 +87,7 @@ void Tokenise(void) {
                 yyType    = NULVAL;
                 return;
             }
+            // fallthrough
         case CC_BAD:
             IllegalCharError();
             break;
@@ -165,7 +166,7 @@ void Tokenise(void) {
                 IllegalCharError();
                 break;
             }
-            // FALLTRHOUGH
+            // fallthrough
         case CC_LET:
             startMacroTokenIdx = macroInIdx - 1;
             GetTokenText(O_NAME);        /* assume it's a name */

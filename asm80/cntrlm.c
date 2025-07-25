@@ -271,7 +271,7 @@ static void ProcessControl(byte id) {
                 depFile = safeStrdup(tokBuf);
         } else if (!depFile) {
             char const *s = basename((char *)includes[0]);
-            int len       = (int)(strrchr(s, '.') ? strrchr(s, '.') - s : strlen(s));
+            int len       = strrchr(s, '.') ? (int)(strrchr(s, '.') - s) : (int)strlen(s);
             depFile       = safeMalloc(len + 9); //  .deps/{src}.d;
             sprintf(depFile, ".deps/%.*s.d", len, s);
         }
