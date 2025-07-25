@@ -3,13 +3,19 @@
 
 int32_t getSym32() {
     int32_t val;
-    fread(&val, sizeof(val), 1, symFp);
+    if (fread(&val, sizeof(val), 1, symFp) != 1) {
+        Fatal("112: symbol table read error");
+        return 0; // to avoid compiler warning
+    }
     return val;
 }
 
 uint16_t getSym16() {
     uint16_t val;
-    fread(&val, sizeof(val), 1, symFp);
+    if (fread(&val, sizeof(val), 1, symFp) != 1) {
+        Fatal("113: symbol table read error");
+        return 0; // to avoid compiler warning
+    }
     return val;
 }
 
@@ -19,7 +25,10 @@ void loadsy() {
 
     // binary format now dumps the 8 interrupt symbols in native format
     // 0 implies none
-    fread(intpro, sizeof(intpro[0]), 8, symFp);
+    if (fread(intpro, sizeof(intpro[0]), 8, symFp) != 8) {
+        Fatal("114: symbol table read error");
+        return; // to avoid compiler warning
+    }
     if (C_SYMBOLS >= 2)
         for (int i = 0; i < 8; i++)
             if (intpro[i])
@@ -31,7 +40,7 @@ void loadsy() {
         if (ch != 1 && ch != 2)
             goto badData;
         if (++sytop >= syinfo) {
-            fatal("108: pass-2 symbol table overflow");
+            Fatal("108: pass-2 symbol table overflow");
             syinfo = symax;
         }
         if (C_SYMBOLS >= 2) // write symbol number AND symbol table address
@@ -40,7 +49,7 @@ void loadsy() {
         symbol[sytop] = syinfo;
         int attribIdx = --syinfo;
         if (syinfo - ch <= sytop) {
-            fatal("109: symbol table overflow");
+            Fatal("109: symbol table overflow");
             syinfo = symax;
         }
         while (ch-- > 0) {

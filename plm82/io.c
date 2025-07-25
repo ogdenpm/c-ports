@@ -9,6 +9,9 @@ FILE *lstFp;
 FILE *symFp;
 char *src;
 
+#ifdef linux
+#include <unistd.h>
+#endif
 void closefiles(void) {
     if (polFp) {
         fclose(polFp);
@@ -51,7 +54,6 @@ void openfiles(char *srcFile) {
     }
 }
 
-
 // string msg variant of error
 void error(char const *fmt, ...) {
     va_list args;
@@ -63,13 +65,12 @@ void error(char const *fmt, ...) {
     va_end(args);
 }
 
-void fatal(char const *msg, ...) {
+void Fatal(char const *msg, ...) {
     error(msg);
     fprintf(lstFp, "\nCompilation Terminated\n");
     fprintf(stderr, "\nCompilation Terminated\n");
     errflg = true;
 }
-
 
 /*
     simplified as only base 16 is used
@@ -130,7 +131,6 @@ void dump(int lp, const int u, bool symbolic) {
     }
 }
 
-
 // BPNF support removed
 void puncod(int start, const int end) {
     for (int remaining = end - start + 1, toWrite = 16; remaining > 0; remaining -= toWrite) {
@@ -155,7 +155,6 @@ void puntrailer() { // write end of file record
     fprintf(hexFp, ":00%04X01%02X\n", entry, crc);
 }
 
-
 #define MAXLABEL 32
 void sydump() {
     /* dump the symbol table for the simulator */
@@ -171,16 +170,18 @@ void sydump() {
         char label[MAXLABEL + 1];
         memset(label, '.', MAXLABEL);
 
-        fread(label, 1, len <= MAXLABEL ? len : MAXLABEL, symFp);
+        int toRead = (int)(len <= MAXLABEL ? len : MAXLABEL);
+        if ((int)fread(label, 1, toRead, symFp) != toRead)
+            error("xx: read error in symbol file");
+
         if (len > MAXLABEL) {
             error("xx: symbol too long - truncated");
             fseek(symFp, len - MAXLABEL, SEEK_CUR);
         }
         label[MAXLABEL] = '\0';
         if (symNo == 5 || symNo > 6) { /* write hex address */
-            int j    = symbol[symNo];
-            int type = LOWNIBBLE(symbol[j - 1]);
-            int ch   = symbol[j - 1] & 0xf;
+            int j  = symbol[symNo];
+            int ch = symbol[j - 1] & 0xf;
             if (ch == PROC || ch == LABEL)
                 j -= 2;
             int addr = abs(symbol[j]);
@@ -193,7 +194,7 @@ void sydump() {
     putc('\n', lstFp);
 
     if (len < 0)
-        fatal("xx: premature EOF reading symbol file");
+        Fatal("xx: premature EOF reading symbol file");
 }
 
 void cmpuse() {

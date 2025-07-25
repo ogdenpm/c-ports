@@ -340,17 +340,17 @@ int parseNum(char const *s) {
 
 int main(int argc, char **argv) {
 
-    while (getopt(argc, argv, "a:e:fg:i:l:mn:Os:v:w:x") != EOF) {
-        switch (optopt) {
+    while (getOpt(argc, argv, "a:e:fg:i:l:mn:Os:v:w:x") != EOF) {
+        switch (optOpt) {
         case 'a':
-            C_ANALYSIS = parseNum(optarg);
+            C_ANALYSIS = parseNum(optArg);
             break;
         case 'e':
-            if ((entry = parseNum(optarg)) > 0xffff)
-                usage("Entry point %s out of range", optarg);
+            if ((entry = parseNum(optArg)) > 0xffff)
+                usage("Entry point %s out of range", optArg);
             break;
         case 'w':
-            if ((C_WIDTH = parseNum(optarg)) < 72)
+            if ((C_WIDTH = parseNum(optArg)) < 72)
                 C_WIDTH = 72;
             else if (C_WIDTH > 132)
                 C_WIDTH = 132;
@@ -359,15 +359,15 @@ int main(int argc, char **argv) {
             C_FINISH = !C_FINISH;
             break;
         case 'g':
-            C_GENERATE = parseNum(optarg);
+            C_GENERATE = parseNum(optArg);
             break;
         case 'i':
-            if ((C_STACKHANDLING = parseNum(optarg)) >= 0x10000)
-                usage("Stack address %s out of range", optarg);
+            if ((C_STACKHANDLING = parseNum(optArg)) >= 0x10000)
+                usage("Stack address %s out of range", optArg);
             break;
         case 'l':
-            if ((C_LOAD = parseNum(optarg)) > 0xffff)
-                usage("Load address %s out of range", optarg);
+            if ((C_LOAD = parseNum(optArg)) > 0xffff)
+                usage("Load address %s out of range", optArg);
             break;
         case 'm':
             C_MAP = !C_MAP;
@@ -379,21 +379,21 @@ int main(int argc, char **argv) {
             v4Opt = true;
             break;
         case 's':
-            C_SYMBOLS = parseNum(optarg);
+            C_SYMBOLS = parseNum(optArg);
             break;
         case 'V':
-            if ((C_VARIABLES = parseNum(optarg)) >= 0x100)
-                usage("Variables page address %s out of range", optarg);
+            if ((C_VARIABLES = parseNum(optArg)) >= 0x100)
+                usage("Variables page address %s out of range", optArg);
             break;
         case 'x':
             C_HEXFILE = !C_HEXFILE;
             break;
         }
     }
-    if (optind != argc - 1)
+    if (optInd != argc - 1)
         usage("Expected single file name");
 
-    openfiles(argv[optind]);
+    openfiles(argv[optInd]);
 
     time_t now;
     time(&now);
@@ -497,7 +497,7 @@ int main(int argc, char **argv) {
 
 uint8_t get(uint32_t ip) {
     if (ip >= MAXMEM) {
-        fatal("101: pass-2 address outside available storage");
+        Fatal("101: pass-2 address outside available storage");
         return 0;
     }
     return mem[ip];
@@ -509,8 +509,9 @@ uint16_t getword(int ip) {
 
 void put(uint32_t ip, uint8_t val) {
     if (ip >= MAXMEM)
-        fatal("102: pass-2 address outside available storage");
-    mem[ip] = val;
+        Fatal("102: pass-2 address outside available storage");
+    else
+        mem[ip] = val;
 }
 
 void putword(uint32_t ip, uint16_t val) {
@@ -606,7 +607,7 @@ void apply(int op, int op2, bool com, int cyflag) {
             }
         } else if ((ia = REGLOW(regAlloc[sp - 1].rasn)) ==
                    0) { /* reg assigned, lock regs containing var */
-            fatal("107: register allocation error. No registers available");
+            Fatal("107: register allocation error. No registers available");
             return;
         } else {
             reg[ia].lock = true;
@@ -636,7 +637,7 @@ void apply(int op, int op2, bool com, int cyflag) {
                 if (ia <= 1) {                   /* op1 must be IN memory, so load into gpr */
                     loadv(sp - 1, 0);
                     if ((ia = regAlloc[sp - 1].rasn & 0xf) == 0) {
-                        fatal("107: register allocation error. No registers available");
+                        Fatal("107: register allocation error. No registers available");
                         return;
                     }
                     lastIncReg = codloc; /* ...may change to inr memory if STD to op1 follows... */
@@ -657,7 +658,7 @@ void apply(int op, int op2, bool com, int cyflag) {
         /* (loadv will load the low order byte into the ACC) */
         loadv(sp - 1, 1);
         if ((ia = REGLOW(regAlloc[sp - 1].rasn)) == 0) {
-            fatal("107: register allocation error. No registers available");
+            Fatal("107: register allocation error. No registers available");
             return;
         }
         reg[ia].lock = true;
@@ -667,7 +668,7 @@ void apply(int op, int op2, bool com, int cyflag) {
         if (ib <= 0 && regAlloc[sp].prec != 1) {
             /* get a spare register */
             if ((ib = ia - 1) == 0) { // ia was A reg so can't double byte
-                fatal("107: register allocation error. No registers available");
+                Fatal("107: register allocation error. No registers available");
                 return;
             }
             reg[ib].lock = true;
@@ -923,7 +924,7 @@ void loadv(int s, int typ) {
 
                 /* ia is low order byte, ib is high order byte. */
                 if (ia <= 0) {
-                    fatal("112: register allocation error");
+                    Fatal("112: register allocation error");
                     return;
                 }
             } else {
@@ -1064,7 +1065,7 @@ void loadv(int s, int typ) {
 void setadr(const int val) { // set top of stack to address reference
     alter = true;
     if (sp > maxsp) {
-        fatal("113: register allocation stack overflow.");
+        Fatal("113: register allocation stack overflow.");
         sp = 1;
     } else { // mark as address reference
         int attrib   = symAttrib(val);
@@ -1547,7 +1548,7 @@ void emit(int opr, int opa, int opb) {
         case CLC: /* condiitonal jmp & call */
             n       = 3;
             operand = opb;
-            /* fall through to common cc adjustment */
+            // fallthrough
         case RTC: /* conditional return */
             opcode += cc[(opa / 32 - FAL) & 1][(opa % 32 - CARRY) & 3];
             break;
@@ -1601,7 +1602,7 @@ void emit(int opr, int opa, int opb) {
                 opcode += regmap[RH] * 8;
                 break;
             }
-            /* else drop through... */
+            // fallthrough
         case POP:
         case DAD:
         case STAX:
@@ -1653,7 +1654,7 @@ void cvcond(const int s) {
                 reg[ia].regs = sp;
                 i            = ia;
             } else {
-                fatal("118: register allocation error");
+                Fatal("118: register allocation error");
                 return;
             }
         }
@@ -1739,7 +1740,7 @@ void saver() {
                 /* leave room for LXI chain */
                 symbol[--syinfo] = 0;
                 if (sytop > --syinfo) {
-                    fatal("121: pass-2 symbol table overflow");
+                    Fatal("121: pass-2 symbol table overflow");
                     return;
                 }
 
@@ -2052,7 +2053,7 @@ void exch() {
                     /* POP element (second if drop thru, top if from 30) */
                     genreg(-1, &ia, &ib);
                     if (ia == 0) {
-                        fatal("107: register allocation error. No registers available");
+                        Fatal("107: register allocation error. No registers available");
                         break;
                     } else {
                         if (regAlloc[j].prec > 1)
@@ -2192,7 +2193,7 @@ void readcd() {
             k = lapol;
             if (lapol != FIN && (lapol = getNextPol()) == EOF) {
                 lapol = FIN;
-                fatal("127: invalid intermediate language format");
+                Fatal("127: invalid intermediate language format");
                 return;
             }
         } while (k < 0);
@@ -2243,7 +2244,7 @@ void readcd() {
                 }
         }
         if (++sp > maxsp) { /* stack overflow */
-            fatal("128: register allocation stack overflow");
+            Fatal("128: register allocation stack overflow");
             sp = 1;
         }
         regAlloc[sp] = (regAlloc_t){ 0, -1, 0, 0 };
@@ -2367,7 +2368,7 @@ void readcd() {
             } else if (type == PROC) {
                 /* set up procedure stack for procedure entry */
                 if (++prsp > prsmax)
-                    fatal("145: procedures nested too deeply");
+                    Fatal("145: procedures nested too deeply");
 
                 else {
                     // V4
@@ -2428,14 +2429,14 @@ void readcd() {
                         i = 2;
                     for (int j = 1; j <= i; j++) {
                         if (++sp > maxsp) {
-                            fatal("113: register allocation stack overflow");
+                            Fatal("113: register allocation stack overflow");
                             sp = 1;
                         }
 
                         /* (RD,RE) = 69    (RB,RC) = 35 */
                         regAlloc[sp] = (regAlloc_t){ 0, -1, j == 1 ? 35 : 69, 2 };
                         if (++sp > maxsp) {
-                            fatal("113: register allocation stack overflow");
+                            Fatal("113: register allocation stack overflow");
                             sp = 1;
                         }
                         regAlloc[sp].rasn = 0;
@@ -2492,7 +2493,7 @@ void readcd() {
                         /* load value of stackpointer to registers immediately */
                         genreg(2, &ia, &ib);
                         if (ib == 0)
-                            fatal("107: register allocation error. No registers available");
+                            Fatal("107: register allocation error. No registers available");
                         else {
                             regAlloc[sp] = (regAlloc_t){ 0, -1, REGPAIR(ib, ia), 2 };
                             reg[ib].regs = reg[ia].regs = sp;
@@ -2588,7 +2589,7 @@ bool doBuiltin(int val) {
                 j = regAlloc[sp - 1].prec != 1 ? 2 : val == B_SHR ? 3 : 6;
                 if (i <= j) {
                     pop(1);
-                    for (int j = 1; j <= i; j++)
+                    for (int j = 0; j < i; j++)
                         unary(val);
                     return true;
                 }
@@ -2605,9 +2606,7 @@ bool doBuiltin(int val) {
 
             /* load the value which is to be operated upon */
             kp = regAlloc[sp].prec;
-            i  = 1;
-            if (kp > 1)
-                i = 0;
+            i  = kp > 1 ? 0 : 1;
             if (regAlloc[sp].rasn == 0) {
                 loadv(sp, i);
                 if (i == 1)
@@ -2749,7 +2748,7 @@ bool doBuiltin(int val) {
             /* ZERO the register */
             emit(LD, ib, 0);
             if (ib == 0)
-                fatal("133: register allocation stack overflow");
+                Fatal("133: register allocation stack overflow");
         }
         return true;
     case B_DEC:
@@ -2796,7 +2795,8 @@ bool operat(int val) {
             apply(AD, AC, true, 1);
             lastin = codloc;
             return true;
-        } // fall through to add
+        }
+        // fallthrough
     case ADD:
         /* may do the ADD IN h AND l (using INX operator) */
         if (regAlloc[sp].prec != 1)
@@ -2866,6 +2866,7 @@ bool operat(int val) {
         return true;
     case GTR: /* GTR - change to LSS */
         exch();
+        // fallthrough
     case LSS: /* LSS set to tru/CARRY (1 * 16 + 1) */
         if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) {
             apply(regAlloc[sp].litv != 1 ? SU : CP, 0, false, 0);
@@ -2882,6 +2883,7 @@ bool operat(int val) {
         return true;
     case LEQ: /* LEQ - change to GEQ */
         exch();
+        // fallthrough
     case GEQ:
         if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) {
             apply(regAlloc[sp].litv != 1 ? SU : CP, 0, false, 0);
@@ -3234,7 +3236,7 @@ bool operat(int val) {
             if (ib == ia - 1)
                 il = ib;
             if (ia * ib == 0) {
-                fatal("138: register allocation error");
+                Fatal("138: register allocation error");
                 return true;
             }
             /* may be possible to use LDAX OR XCHG */
@@ -3325,7 +3327,7 @@ bool operat(int val) {
 
         /* casjmp will be used to update the length field */
         if (--syinfo <= sytop)
-            fatal("108: pass-2 symbol table overflow");
+            Fatal("108: pass-2 symbol table overflow");
         reg[ib].lock = false;
         reg[RH].regv = reg[RL].regv = -255; /* mark as nil */
         return true;
@@ -3360,7 +3362,7 @@ bool operat(int val) {
             } /* do LXI r with the address */
             genreg(2, &ia, &ib);
             if (ia <= 0) {
-                fatal("140: register allocation error");
+                Fatal("140: register allocation error");
                 return false;
             } else {
                 j = chain(-regAlloc[sp].st, codloc + 1);
@@ -3464,7 +3466,8 @@ bool operat(int val) {
         pop(1);
         reg[RH].regv = -1;
         reg[RL].regv = -1;
-        // fall through to shared code
+        // fallthrough
+
     case TRA: /* TRA -   check stack for simple LABEL variable */
         iop          = 1;
         reg[RH].lock = reg[RL].lock = true; /* IN case there are any pending values ... */

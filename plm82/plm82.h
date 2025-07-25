@@ -157,7 +157,7 @@ extern FILE *polFp;
 extern FILE *inFp;
 extern FILE *lstFp;
 extern FILE *symFp;
-char *src;
+extern char *src;
 
 extern uint8_t multiply[];
 extern uint8_t divide[];
@@ -181,7 +181,7 @@ uint16_t getword(int ip);
 void put(uint32_t ip, uint8_t val);
 void putword(uint32_t ip, uint16_t val);
 void error(char const *fmt, ...);
-void fatal(char const *msg, ...);
+void Fatal(char const *msg, ...);
 int shr(const int i, const int j);
 int shl(const int i, const int j);
 int right(const int i, const int j);
