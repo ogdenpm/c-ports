@@ -19,6 +19,25 @@ uint16_t getSym16() {
     return val;
 }
 
+/*
+* SYMBOL TABLE FORMAT
+* 
+* 
+* symbol[++sytop] =  syinfo                    // address
+*                    symbol[--syinfo]          // attributes aka info from pass 1
+ *              VARB
+*               opt  symbol[--syinfo]          // based symbol
+*                    symbol[--syinfo]          // 1 entry for variable
+* 
+* 
+*               PROC symbol[--syinfo]          // 3 entries for procedure
+*                    symbol[--syinfo]
+*                    symbol[--syinfo]
+* 
+* 
+*              LABEL symbol[--syinfo]         // simple label
+ *               opt symbol[--syinfo]        // HL tracker
+ */
 void loadsy() {
     int ch;
     bool ok = false;
@@ -161,12 +180,13 @@ int loadin() // modified for V4
     return addr;
 }
 
+int polCnt = 0;
 
 int32_t getNextPol() {
     uint8_t typ  = getc(polFp);
     uint16_t val = getc(polFp);
     val += getc(polFp) * 256;
-   
+    polCnt++;
     return feof(polFp) ? EOF : (val << 3) + typ;
 }
 

@@ -76,7 +76,7 @@ void Fatal(char const *msg, ...) {
     simplified as only base 16 is used
     also uses pre decoded instructions to simplify the logic
  */
-void dump(int lp, const int u, bool symbolic) {
+void dump(int lp, int u, bool symbolic) {
     // items on line = (line width - address width) / (length of item + a space)
     int itemsOnLine = symbolic ? (C_WIDTH - 5) / 7 : (C_WIDTH - 5) / 4;
 
@@ -132,7 +132,7 @@ void dump(int lp, const int u, bool symbolic) {
 }
 
 // BPNF support removed
-void puncod(int start, const int end) {
+void puncod(int start, int end) {
     for (int remaining = end - start + 1, toWrite = 16; remaining > 0; remaining -= toWrite) {
         if (remaining < 16)
             toWrite = remaining; // adjust to write less than 16 bytes if needed

@@ -29,7 +29,7 @@
 #define symAttrib(ch)                  symbol[symbol[ch] - 1]
 #define symAddr(ch)                    symbol[symbol[ch]]
 #define symRef(ch)                     symbol[symbol[ch] - 2]
-#define symF3(ch)                      symbol[symbol[ch] - 3]
+#define symTrackHL(ch)                 symbol[symbol[ch] - 3]
 #define symIProcDepth(ch)              symbol[symbol[ch] - 4]
 // VARB e..e ssss 0001   e..e - number of elements, ssss size of element
 #define INFO_TYPE(a)                   (abs(a) & 0xf)
@@ -77,27 +77,29 @@ enum {
 
 // clang-format on
 // flag values stored  in rasn bits 8-12
-#define ZFLAG             ((16 + 2) << 8)
-#define NZFLAG            (2 << 8)
-#define CFLAG             ((16 + 1) << 8)
-#define NCFLAG            (1 << 8)
+#define ZFLAG                ((16 + 2) << 8)
+#define NZFLAG               (2 << 8)
+#define CFLAG                ((16 + 1) << 8)
+#define NCFLAG               (1 << 8)
 
-#define HIGHNIBBLE(n)     (((n) >> 4) & 0xf)
-#define LOWNIBBLE(n)      ((n) & 0xf)
-#define REGPAIR(h, shift) (((h) << 4) + (shift))
-#define REGLOW(hl)        ((hl) & 0x7)
-#define REGHIGH(hl)       (((hl) >> 4) & 0x7)
-#define HIGH(n)           (((n) >> 8) & 0xff)
-#define LOW(n)            ((n) & 0xff)
-#define HIGHWORD(n)       (((n) >> 16) & 0xffff)
-#define LOWWORD(n)        ((n) & 0xffff)
+#define HIGHNIBBLE(n)        (((n) >> 4) & 0xf)
+#define LOWNIBBLE(n)         ((n) & 0xf)
+#define ASSIGN(cond, rh, rl) (((cond) << 8) + ((rh) << 4) + (rl))
+#define REGPAIR(rh, rl)      ASSIGN(0, rh, rl)
+#define REGLOW(hl)           ((hl) & 0x7)
+#define REGHIGH(hl)          (((hl) >> 4) & 0x7)
+#define COND(assignment)     HIGH(assignment)
+#define HIGH(n)              (((n) >> 8) & 0xff)
+#define LOW(n)               ((n) & 0xff)
+#define HIGHWORD(n)          (((n) >> 16) & 0xffff)
+#define LOWWORD(n)           ((n) & 0xffff)
 
 // HL tracking uses the following flags
 // the LVALUE is in bits 0-7, the HVALUE is in bits 8-16 (9 bits wide)
-#define LVALID            0x20000
-#define HVALID            0x40000
-#define LNOTSET           0x80000
-#define HNOTSET           0x100000
+#define LVALID               0x20000
+#define HVALID               0x40000
+#define LNOTSET              0x80000
+#define HNOTSET              0x100000
 
 extern int outloc;
 extern int firsti;
@@ -142,14 +144,10 @@ extern int sp;    // stack pointer for register allocation
 typedef struct {
     int32_t st;
     int32_t litv;
-    uint16_t rasn;
+    uint16_t assignment; // (cond << 8) | (rh << 4) | rl
     uint8_t prec;
 } regAlloc_t;
 extern regAlloc_t regAlloc[16 + 1];
-
-
-
-
 
 extern FILE *hexFp;
 extern FILE *outFp;
@@ -168,8 +166,7 @@ typedef struct {
 } ctran_t;
 
 extern ctran_t ctran[];
-
-
+extern int polCnt;
 
 /* plm82.c */
 void closefiles(void);
@@ -182,26 +179,24 @@ void put(uint32_t ip, uint8_t val);
 void putword(uint32_t ip, uint16_t val);
 void error(char const *fmt, ...);
 void Fatal(char const *msg, ...);
-int shr(const int i, const int j);
-int shl(const int i, const int j);
-int right(const int i, const int j);
+int right(int i, int j);
 void pop(int n);
 void apply(int op, int op2, bool com, int cyflag);
-void genreg(const int np, int *ia, int *ib);
+void genreg(int np, int *ia, int *ib);
 int32_t getSym32(void);
 uint16_t getSym16(void);
 void loadsy(void);
 void loadv(int s, int typ);
-void setadr(const int val);
+void setadr(int val);
 void ustack(void);
-int chain(const int sy, const int loc);
-void gensto(const int keep);
-void litadd(const int s);
-void dump(int lp, const int u, bool symbolic);
+int chain(int sy, int loc);
+void gensto(bool keep);
+void litadd(int s);
+void dump(int lp, int u, bool symbolic);
 void emit(int opr, int opa, int opb);
-void puncod(int start, const int end);
+void puncod(int start, int end);
 void puntrailer(void);
-void cvcond(const int s);
+void cvcond(int s);
 void saver(void);
 void reloc(void);
 void put2(int ch1, int ch2, int prec);
