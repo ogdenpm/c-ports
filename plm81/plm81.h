@@ -162,7 +162,7 @@ void error(char const *fmt, ...);
 void showTopTokens(int start, int col);
 void sdump(void);
 void redpr(const int prod, const int sym);
-void emit(const int val, const int typ);
+void emit(int val, int typ);
 
 /* lexer.c */
 int newString(uint16_t len, const char *str);

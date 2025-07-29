@@ -180,7 +180,7 @@ void dumpin() {
     return;
 }
 
-void emit(const int val, const int typ) {
+void emit(int val, int typ) {
 
     static int polcnt     = 0;
     static char *polchr[] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN", "FIN" };
