@@ -8,7 +8,7 @@
 
 // clang-format off
 
-uint8_t multiply[] = {
+const uint8_t multiply[] = {
 //  tag   data
     5,    0x79,             /*        mov   a, c  */
           0x93,             /*        sub   e     */
@@ -43,7 +43,7 @@ uint8_t multiply[] = {
     0
 };
 
-uint8_t divide[] = {
+const uint8_t divide[] = {
     //  tag   data
     15,   0x7A,             /*        mov  a, d   */
           0x2F,             /*        cma         */
@@ -102,7 +102,7 @@ void emitbf(int bf) {
         emit(JMP, 0, 0);     // jump around the code - back stuffed later
         biftab[bf] = codloc; // update to record location of routine
 
-        for (uint8_t *codePtr = bf == 0 ? multiply : divide; *codePtr; codePtr++) {
+        for (uint8_t const *codePtr = bf == 0 ? multiply : divide; *codePtr; codePtr++) {
             if (*codePtr == 0xff) { // relocatable address
                 int target = biftab[bf] + *++codePtr;
                 put(codloc++, LOW(target));
@@ -153,7 +153,7 @@ void emitbf(int bf) {
 #endif
 
 // clang-format off
-ctran_t ctran[256] = {
+ctran_t const ctran[256] = {
    { 0, "NOP" },    { 2, "LXI B" },  { 0, "STAX B" }, { 0, "INX B" },  { 0, "INR B" },  { 0, "DCR B" },  { 1,  MVI(B) },  { 0, "RLC" },
    { 0, "DB 08H" }, { 0, "DAD B" },  { 0, "LDAX B" }, { 0, "DCX B" },  { 0, "INR C" },  { 0, "DCR C" },  { 1,  MVI(C) },  { 0, "RRC" },
    { 0, "DB 10H" }, { 2, "LXI D" },  { 0, "STAX D" }, { 0, "INX D" },  { 0, "INR D" },  { 0, "DCR D" },  { 1,  MVI(D) },  { 0, "RAL" },

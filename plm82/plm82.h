@@ -34,7 +34,7 @@
 // VARB e..e ssss 0001   e..e - number of elements, ssss size of element
 #define INFO_TYPE(a)                   (abs(a) & 0xf)
 #define INFO_PREC(a)                   ((abs(a) >> 4) & 0xf)
-#define INFO_ECNT(a)                   ((abs(a) >> 8) & 0xffff)
+#define INFO_ECNT(a)                   (abs(a) >> 8)
 #define PACK_ATTRIB(extra, prec, type) ((extra) * 256 + (prec) * 16 + type)
 #define MAXSYM                         16000
 #define MAXMEM                         0x10000
@@ -50,9 +50,9 @@ enum ops {
     DAA,    SHLD, LHLD, EI,  DI,   LXI,  PUSH, POP, DAD, STAX,
     LDAX,   INCX, DCX
 };
-enum reg { RA = 1, RB = 2, RC = 3, RD = 4, RE = 5, RH = 6, RL = 7, RSP = 9, ME = 8 };
+enum state { RA = 1, RB = 2, RC = 3, RD = 4, RE = 5, RH = 6, RL = 7, RSP = 9, ME = 8 };
 enum flags {
-    LFT   = 9,  RGT  = 10, TRU  = 12, FAL    = 11, CY = 13, ACC = 14,
+    LFT   = 9,  RGT  = 10, FAL    = 11, TRU  = 12, CY = 13, ACC = 14,
     CARRY = 15, ZERO = 16, SIGN = 17, PARITY = 18
 };
 
@@ -132,7 +132,6 @@ extern int symax;
 extern int sytop;
 extern int syinfo;
 extern int lmem;
-extern int memtop;
 extern uint8_t mem[MAXMEM]; // upto max memory of 8080
 extern int codeBase;
 extern int entry; // entry point for hex trailer
@@ -141,13 +140,18 @@ extern int codloc;
 extern bool alter;
 extern int lapol; // current position in pol file
 extern int sp;    // stack pointer for register allocation
+
 typedef struct {
-    int32_t st;
-    int32_t litv;
     uint16_t assignment; // (cond << 8) | (rh << 4) | rl
     uint8_t prec;
+    int16_t st;
+    int32_t litv;
+
 } regAlloc_t;
+
 extern regAlloc_t regAlloc[16 + 1];
+regAlloc_t newReg(uint16_t assignment, uint8_t prec, int16_t st, int32_t litv);
+
 
 extern FILE *hexFp;
 extern FILE *outFp;
@@ -157,15 +161,12 @@ extern FILE *lstFp;
 extern FILE *symFp;
 extern char *src;
 
-extern uint8_t multiply[];
-extern uint8_t divide[];
-
 typedef struct {
     uint8_t extra;
     uint8_t opcode[7];
 } ctran_t;
 
-extern ctran_t ctran[];
+extern ctran_t const ctran[];
 extern int polCnt;
 
 /* plm82.c */
@@ -181,7 +182,7 @@ void error(char const *fmt, ...);
 void Fatal(char const *msg, ...);
 int right(int i, int j);
 void pop(int n);
-void apply(int op, int op2, bool com, int cyflag);
+void apply(int op, int op2, bool com, bool cyflag);
 void genreg(int np, int *ia, int *ib);
 int32_t getSym32(void);
 uint16_t getSym16(void);
@@ -212,8 +213,8 @@ void readcd(void);
 bool doBuiltin(int val);
 bool operat(int val);
 void updateHL(int jp);
-void compare16(bool icom, int flag, int iq);
-void builtin(int bf, int result);
+void compare16(bool icom, int flag, bool zeroTest);
+void builtin(int bf, int targetReg);
 void inx(int jp);
 void sydump(void);
 void cmpuse(void);

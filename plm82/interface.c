@@ -1,6 +1,5 @@
 #include "plm82.h"
 
-
 int32_t getSym32() {
     int32_t val;
     if (fread(&val, sizeof(val), 1, symFp) != 1) {
@@ -20,22 +19,22 @@ uint16_t getSym16() {
 }
 
 /*
-* SYMBOL TABLE FORMAT
-* 
-* 
-* symbol[++sytop] =  syinfo                    // address
-*                    symbol[--syinfo]          // attributes aka info from pass 1
+ * SYMBOL TABLE FORMAT
+ *
+ *
+ * symbol[++sytop] =  syinfo                    // address
+ *                    symbol[--syinfo]          // attributes aka info from pass 1
  *              VARB
-*               opt  symbol[--syinfo]          // based symbol
-*                    symbol[--syinfo]          // 1 entry for variable
-* 
-* 
-*               PROC symbol[--syinfo]          // 3 entries for procedure
-*                    symbol[--syinfo]
-*                    symbol[--syinfo]
-* 
-* 
-*              LABEL symbol[--syinfo]         // simple label
+ *               opt  symbol[--syinfo]          // based symbol
+ *                    symbol[--syinfo]          // 1 entry for variable
+ *
+ *
+ *               PROC symbol[--syinfo]          // 3 entries for procedure
+ *                    symbol[--syinfo]
+ *                    symbol[--syinfo]
+ *
+ *
+ *              LABEL symbol[--syinfo]         // simple label
  *               opt symbol[--syinfo]        // HL tracker
  */
 void loadsy() {
@@ -191,14 +190,14 @@ int32_t getNextPol() {
 }
 
 void inldat() {
-    int ic   = 0; // assign to appease GCC
-    int type = 0;
-    int val  = 0;
+    int symIdx = 0; // assign to appease GCC
 
     /* emit data inline */
     int iq  = codloc;
     int cnt = 0;
     for (;;) {
+        int type = 0;
+        int val  = 0;
         while (lapol != FIN) {
             val  = lapol / 8;
             type = lapol % 8;
@@ -208,37 +207,34 @@ void inldat() {
                 return;
             }
             /* kp is typ AND k is data */
-            if (cnt > 0) {
-                if (type == OPR && val == DAT) {
-                    /* backstuff jump address */
-                    /* now fix symbol table entries */
-                    symAddr(abs(ic)) = -iq;
-                    int j            = INFO_ECNT(symAttrib(abs(ic)));
-                    /* check symbol length against count */
-                    symAttrib(abs(ic)) = PACK_ATTRIB(--cnt, 1, VARB);
-                    if (ic < 0) /* this is an address reference to a constant, so.. */
-                        regAlloc[++sp] = (regAlloc_t){ ic, iq, 0, 2 };
-                    else if (j != cnt) /* check size declared against size read */
-                        break;
-                    return;
-                } else if (type == LIT)
-                    emit(0, val, 0);
-                else
+            if (cnt == 0) { /* define inline data symbol */
+                if (type == DEF) {
+                    if (val > 0)
+                        symIdx = val; /* this is a symbol reference */
+                    else { /* inline constant -- set up symbol entry */
+                        if (syinfo - 2 < ++sytop)
+                            break;  // overflow
+                        symIdx        = -sytop;
+                        symbol[sytop] = syinfo;
+                        syinfo -= 2; // reserve 2 entries
+                    }
+                } else
                     break;
-            } else { /* define inline data symbol */
-                if (type != DEF)
+            } else if (type == OPR && val == DAT) {
+                /* backstuff jump address */
+                /* now fix symbol table entries */
+                symAddr(abs(symIdx)) = -iq;
+                int ecnt                = INFO_ECNT(symAttrib(abs(symIdx)));
+                symAttrib(abs(symIdx)) = PACK_ATTRIB(--cnt, 1, VARB); // fill in the symbol table
+                if (symIdx < 0) /* this is an address reference to a constant, so.. */
+                    regAlloc[++sp] = newReg(0, 2, symIdx, iq);
+                else if (ecnt != cnt) /* check size declared against size read */
                     break;
-                ic = val;
-                if (val <= 0) { /* inline constant -- set up symbol entry */
-                    ic            = -(++sytop);
-                    symbol[sytop] = syinfo;
-                    syinfo -= 2;
-
-                    /* will be filled later */
-                    if (syinfo < sytop)
-                        break;
-                }
-            }
+                return;
+            } else if (type == LIT)
+                emit(0, val, 0);
+            else
+                break;
             cnt++;
         }
 

@@ -208,6 +208,7 @@ int firsti = 7;
 int casjmp = 0;
 
 /* rgmapp */
+//                             A  B  C  D  E  H  L     M
 int const regmap[9 + 1] = { 0, 7, 0, 1, 2, 3, 4, 5, 6, 6 };
 
 /* ... plm2 vers ...*/
@@ -220,7 +221,7 @@ int sytop  = 0;
 int syinfo = MAXSYM;
 int lmem;
 
-/* xfropt is used IN branch optimiztion*/
+/* xfropt is used in branch optimiztion*/
 int xfrloc = -1;
 int xfrsym = 0;
 int tstloc = -1;
@@ -242,15 +243,15 @@ bool alter;
 // clang-format on
 bool errflg = false;
 
-/* peep is used IN peephole optimization (see emit)*/
+/* peep is used in peephole optimization (see emit)*/
 /* lapol is a one element polish look-ahead*/
 /* lastld is codloc of last register to memory store*/
 /* lastrg is the effected register*/
 /* lastin is the codloc of the last increment*/
-/* (used IN do-loop index increment)*/
+/* (used in do-loop index increment)*/
 /* lastex is location of last XCHG operator*/
 /* lastir is the codloc of the last register increment*/
-/* (used IN apply AND gensto to gen inr memory)*/
+/* (used in apply and gensto to gen inr memory)*/
 typedef struct {
     int8_t typ;
     uint16_t val;
@@ -275,7 +276,6 @@ int lxis   = 0;
 
 // clang-format on
 /* memory */
-int memtop = MAXMEM + 1;
 uint8_t mem[MAXMEM]; // upto max memory of 8080
 int codeBase = 0;
 int entry    = -1; // entry point for hex trailer
@@ -283,12 +283,12 @@ int preamb;
 
 /* regall */
 typedef struct {
-    int regs;
-    int regv;
+    int regSP;
+    int regValue;
     bool lock;
 } reg_t;
-reg_t reg[1 + RL] = { { 0, -1, false }, { 0, -1, false }, { 0, -1, false }, { 0, -1, false },
-                      { 0, -1, false }, { 0, -1, false }, { 0, -1, false }, { 0, -1, false } };
+reg_t state[1 + RL] = { { 0, -1, false }, { 0, -1, false }, { 0, -1, false }, { 0, -1, false },
+                        { 0, -1, false }, { 0, -1, false }, { 0, -1, false }, { 0, -1, false } };
 
 regAlloc_t regAlloc[16 + 1];
 
@@ -314,6 +314,11 @@ bool C_HEXFILE = true;
 int C_STACKHANDLING; // 0->compiler handles stack pointer
                      // 1 - programmer handles stack pointer
                      // > 1 n is stack size
+
+regAlloc_t newReg(uint16_t assignment, uint8_t prec, int16_t st, int32_t litv) {
+    regAlloc_t r = { .assignment = assignment, .prec = prec, .st = st, .litv = litv };
+    return r;
+}
 
 int parseNum(char const *s) {
     int val       = 0;
@@ -415,7 +420,6 @@ int main(int argc, char **argv) {
         reloc();
 
         /* may want a symbol table for the simulator */
-
         sydump();
         if (C_FINISH) {
             /* dump the preamble */
@@ -518,42 +522,42 @@ void putword(uint32_t ip, uint16_t val) {
     put(ip + 1, val / 256);
 }
 
-int right(int i, int j) {
-    return i % (1 << j);
+int right(int reg, int j) {
+    return reg % (1 << j);
 }
 
-void pop(int n) /* pop the top n elements from the stack */
-{
-    int i;
+void pop(int n) { /* pop the top n elements from the stack */
+
     while (n-- > 0) {
         if (sp <= 0) {
             error("106: register allocation table underflow");
             return;
         }
-        if ((i = REGHIGH(regAlloc[sp].assignment))) {
-            if (reg[RA].regs == i)
-                reg[RA].regs = 0;
-            reg[i].lock = false;
-            reg[i].regs = 0;
+        int reg;
+        if ((reg = REGHIGH(regAlloc[sp].assignment))) {
+            if (state[RA].regSP == reg)
+                state[RA].regSP = 0;
+            state[reg].lock  = false;
+            state[reg].regSP = 0;
         }
-        if ((i = REGLOW(regAlloc[sp].assignment))) {
-            if (reg[RA].regs == i)
-                reg[RA].regs = 0;
-            reg[i].lock = false;
-            reg[i].regs = 0;
+        if ((reg = REGLOW(regAlloc[sp].assignment))) {
+            if (state[RA].regSP == reg)
+                state[RA].regSP = 0;
+            state[reg].lock  = false;
+            state[reg].regSP = 0;
         }
 
         sp--;
     }
 }
 
-void apply(int op, int op2, bool com, int cyflag) {
+void apply(int op, int op2, bool com, bool cyflag) {
     int ia, ib, lp, jp, k;
 
     /* apply op to top elements of stack */
     /* use op2 for high order bytes if double byte operation */
-    /* com = 1 if commutative operator, 0 otherwise */
-    /* cyflag = 1 if the CARRY is involved in the operation */
+    /* com = true if commutative operator, false otherwise */
+    /* cyflag = true if the CARRY is involved in the operation */
 
     /* may want to clear the CARRY for this operation */
 
@@ -562,12 +566,12 @@ void apply(int op, int op2, bool com, int cyflag) {
         if (regAlloc[j].st == 0 && regAlloc[j].assignment == 0 &&
             regAlloc[j].litv < 0) { /* operand is stacked */
             genreg(-2, &ia, &ib);
-            reg[ia].regs = j;
+            state[ia].regSP = j;
             if (ip != 0)
                 error("152: Invalid stack order in 'apply'");
             ip = ib;
             if (regAlloc[j].prec > 1) /* double byte operand */
-                reg[ib].regs = j;
+                state[ib].regSP = j;
             else /* single precision result */
                 ib = 0;
             regAlloc[j].assignment = REGPAIR(ib, ia);
@@ -581,7 +585,7 @@ void apply(int op, int op2, bool com, int cyflag) {
         cvcond(sp);
     if (COND((ib = regAlloc[sp - 1].assignment)))
         cvcond(sp - 1);
-    int regA = reg[RA].regs;
+    int regA = state[RA].regSP;
     if (ia && ib && regA && com &&
         regA == ia % 16) /* commutative operator, one may be in the accumulator */
         exch();          /* second operand in gpr's, regA.o. byte in accumulator */
@@ -601,19 +605,19 @@ void apply(int op, int op2, bool com, int cyflag) {
             Fatal("107: register allocation error. No registers available");
             return;
         } else {
-            reg[ia].lock = true;
+            state[ia].lock = true;
             if ((ib = REGHIGH(regAlloc[sp - 1].assignment)))
-                reg[ib].lock = true;
+                state[ib].lock = true;
 
             /* may have to generate one free reg */
             if (regAlloc[sp - 1].prec < regAlloc[sp].prec)
                 ib = ia - 1;
 
             /* check for pending register store */
-            if ((jp = reg[RA].regs) != ia) {
+            if ((jp = state[RA].regSP) != ia) {
                 if (jp)
                     emit(LD, jp, RA);
-                reg[RA].regs = ia;
+                state[RA].regSP = ia;
                 emit(LD, RA, ia);
             }
         }
@@ -633,7 +637,7 @@ void apply(int op, int op2, bool com, int cyflag) {
                     }
                     lastIncReg = codloc; /* ...may change to inr memory if STD to op1 follows... */
                 }
-                emit(op == AD ? IN : DC, reg[RA].regs == ia ? RA : ia, 0);
+                emit(op == AD ? IN : DC, state[RA].regSP == ia ? RA : ia, 0);
                 storeSetup = true;
             }
             break;
@@ -652,8 +656,8 @@ void apply(int op, int op2, bool com, int cyflag) {
             Fatal("107: register allocation error. No registers available");
             return;
         }
-        reg[ia].lock = true;
-        ib           = regAlloc[sp - 1].assignment / 16;
+        state[ia].lock = true;
+        ib             = regAlloc[sp - 1].assignment / 16;
 
         /* is this a single byte / double byte operation */
         if (ib <= 0 && regAlloc[sp].prec != 1) {
@@ -662,7 +666,7 @@ void apply(int op, int op2, bool com, int cyflag) {
                 Fatal("107: register allocation error. No registers available");
                 return;
             }
-            reg[ib].lock = true;
+            state[ib].lock = true;
         } else
             ib &= 7;
 
@@ -685,18 +689,18 @@ void apply(int op, int op2, bool com, int cyflag) {
         /* set up a pending register store */
         /* if this is NOT a compare */
         if (op != CP)
-            reg[RA].regs = ia;
+            state[RA].regSP = ia;
         if (regAlloc[sp].prec == 2) {
             if (k < 0 && lp <= 0) { /* is h.o. byte of op2 IN memory */
                 emit(IN, RL, 0);    /* point to h.o. byte with h AND l */
-                reg[RL].regv++;
+                state[RL].regValue++;
             }
 
             /* do we need to pad with h.o. ZERO for op1 */
-            if ((jp = reg[RA].regs)) {
+            if ((jp = state[RA].regSP)) {
                 if (jp != ib) { // is store pending
                     emit(LD, jp, RA);
-                    reg[RA].regs = 0;
+                    state[RA].regSP = 0;
                     if (regAlloc[sp - 1].prec > 1)
                         emit(LD, RA, ib);
                     else
@@ -719,10 +723,10 @@ void apply(int op, int op2, bool com, int cyflag) {
             /* may not need to perform operations for certain operators, but ... */
             /* perform operation with h.o. byte of op1 */
             /* op1 must be in the gpr's - perform dummy operation with ZERO */
-            if ((jp = reg[RA].regs)) {
+            if ((jp = state[RA].regSP)) {
                 if (jp != ib) {
                     emit(LD, jp, RA);
-                    reg[RA].regs = 0;
+                    state[RA].regSP = 0;
                     emit(LD, RA, ib);
                 }
             } else
@@ -733,20 +737,20 @@ void apply(int op, int op2, bool com, int cyflag) {
     }
     /* set up pending register store */
     if (!storeSetup)
-        reg[RA].regs = ib;
+        state[RA].regSP = ib;
 
     /* save the pending accumulator - register store */
-    jp = reg[RA].regs;
+    jp = state[RA].regSP;
     pop(2);
-    reg[RA].regs   = jp;
-    regAlloc[++sp] = (regAlloc_t){ 0, -1, REGPAIR(ib, ia), 1 };
-    reg[ia].regs   = sp;
-    reg[ia].regv   = -1;
+    state[RA].regSP    = jp;
+    regAlloc[++sp]     = newReg(REGPAIR(ib, ia), 1, 0, -1);
+    state[ia].regSP    = sp;
+    state[ia].regValue = -1;
     if (ib > 0) {
-        regAlloc[sp].prec = 2;
-        reg[ib].regs      = sp;
-        reg[ib].lock      = false;
-        reg[ib].regv      = -1;
+        regAlloc[sp].prec  = 2;
+        state[ib].regSP    = sp;
+        state[ib].lock     = false;
+        state[ib].regValue = -1;
     }
 }
 
@@ -760,25 +764,25 @@ void genreg(int np, int *ia, int *ib) {
     *ia = 0;
 
     /* look for free RC or RE AND allocate in pairs (RC/RB,RE/RD) */
-    while (reg[freeReg = RC].regs && reg[freeReg = RE].regs) {
+    while (state[freeReg = RC].regSP && state[freeReg = RE].regSP) {
         int candidate = 0;
         if (np >= 0 && sp > 0) {
             /* generate temporaries in the stack and re-try */
             /* search for lowest register pair assignment in stack */
-            for (int i = 1; i <= sp; i++) {
-                int assign = regAlloc[i].assignment;
+            for (int reg = 1; reg <= sp; reg++) {
+                int assign = regAlloc[reg].assignment;
                 if (assign == 0) { // not assigned
                     // reset search if already stacked
-                    if (regAlloc[i].st == 0 && regAlloc[i].litv < 0)
+                    if (regAlloc[reg].st == 0 && regAlloc[reg].litv < 0)
                         candidate = 0;
                 } else if (!COND(assign) &&
                            candidate == 0) { // don't look at cond or if already have candidate
                     int lowReg  = REGLOW(assign);
                     int highReg = REGHIGH(assign);
                     // is single reg usage or pair and both not locked
-                    if (!reg[lowReg].lock &&
-                        (highReg == 0 || (highReg == lowReg - 1 && !reg[highReg].lock)))
-                        candidate = i; // have candidate
+                    if (!state[lowReg].lock &&
+                        (highReg == 0 || (highReg == lowReg - 1 && !state[highReg].lock)))
+                        candidate = reg; // have candidate
                 }
             }
         }
@@ -787,17 +791,17 @@ void genreg(int np, int *ia, int *ib) {
             return;
         }
         /* found entry to push at ip */
-        int lowReg       = REGLOW(regAlloc[candidate].assignment);
-        int highReg      = REGHIGH(regAlloc[candidate].assignment);
+        int lowReg          = REGLOW(regAlloc[candidate].assignment);
+        int highReg         = REGHIGH(regAlloc[candidate].assignment);
 
-        reg[lowReg].regs = 0; // mark as freed
-        if (highReg > 0)      // part of a pair
-            reg[highReg].regs = 0;
-        int raRegs = reg[RA].regs;
+        state[lowReg].regSP = 0; // mark as freed
+        if (highReg > 0)         // part of a pair
+            state[highReg].regSP = 0;
+        int raRegs = state[RA].regSP;
         /* check pending register store */
         if (raRegs && (raRegs == lowReg || raRegs == highReg)) {
             emit(LD, raRegs == lowReg ? lowReg : highReg, RA);
-            reg[RA].regs = 0;
+            state[RA].regSP = 0;
         }
 
         /* free the register for allocation */
@@ -819,33 +823,34 @@ void loadv(int s, int typ) {
     int ia, ib;
 
     /* load value to register if not a literal */
+    /* typ = 0, load directly into registers */
     /* typ = 1 if call from 'apply' in which case the l.o. byte is */
     /* loaded into the accumulator instead of a gpr. */
     /* if typ = 2, the address is loaded, but the variable is not. */
     /* if typ = 3, a double byte (address) fetch is forced. */
     /* if typ = 4 then do a quick load into h and l */
     /* if typ = 5, a double byte quick load into h and l is forced */
-    int i = 0;
+    int reg = 0;
     if (typ != 2) {
-        if (COND(regAlloc[s].assignment))
+        if (COND(regAlloc[s].assignment)) // convert conditional register to normal
             cvcond(s);
         if (typ == 4 || typ == 5) {
             int litv = regAlloc[s].litv;
             int st   = regAlloc[s].st;
             if (regAlloc[s].assignment) { /* registers are assigned */
-                int regsA  = reg[RA].regs;
+                int regsA  = state[RA].regSP;
                 int regLow = REGLOW(regAlloc[s].assignment);
-                i          = REGHIGH(regAlloc[s].assignment);
-                if (regsA != 0 && regsA == i)
-                    i = RA;
+                reg        = REGHIGH(regAlloc[s].assignment);
+                if (regsA != 0 && regsA == reg)
+                    reg = RA;
                 if (regsA != 0 && regsA == regLow)
                     regLow = RA;
-                if (regLow == RE && i == RD)
+                if (regLow == RE && reg == RD)
                     emit(XCHG, 0, 0);
                 else { /* NOT IN d AND e, so use two byte move */
                     emit(LD, RL, regLow);
                     /* note that the following may be a lhi 0 */
-                    emit(LD, RH, i);
+                    emit(LD, RH, reg);
                 }
             } else {
                 if (st) {
@@ -855,28 +860,28 @@ void loadv(int s, int typ) {
                     else if (litv < 0) {
                         /* simple variable OR literal ref, may use LHLD */
                         /* may want to check for possible INX OR DCX, but now... */
-                        litv     = reg[RH].regv;
-                        int regL = reg[RL].regv;
+                        litv     = state[RH].regValue;
+                        int regL = state[RL].regValue;
                         if (litv != -3 || (-regL) != st) {
                             if (litv == (-4) && (-regL) == st)
                                 emit(DCX, RH, 0);
                             else
                                 emit(LHLD, chain(st, codloc + 1), 0);
                         }
-                        reg[RH].regv = -1;
-                        reg[RL].regv = -1;
+                        state[RH].regValue = -1;
+                        state[RL].regValue = -1;
                         if (regAlloc[s].prec <= 1 && typ != 5)
                             /* this is a single byte value */
                             emit(LD, RH, 0);
                         else {
-                            reg[RH].regv = -3;
-                            reg[RL].regv = -st;
+                            state[RH].regValue = -3;
+                            state[RL].regValue = -st;
                         }
                     } else {
                         /* literal value to h l */
                         emit(LXI, RH, litv);
-                        reg[RH].regv = HIGH(litv);
-                        reg[RL].regv = LOW(litv);
+                        state[RH].regValue = HIGH(litv);
+                        state[RL].regValue = LOW(litv);
                         return;
                     }
                 } else if (litv < 0) {
@@ -885,13 +890,13 @@ void loadv(int s, int typ) {
                     emit(POP, RH, 0);
                     if (regAlloc[s].prec < 2)
                         emit(LD, RH, 0);
-                    reg[RH].regv = -1;
-                    reg[RL].regv = -1;
+                    state[RH].regValue = -1;
+                    state[RL].regValue = -1;
                 } else {
                     /* literal value to h l */
                     emit(LXI, RH, litv);
-                    reg[RH].regv = litv / 256;
-                    reg[RL].regv = litv % 256;
+                    state[RH].regValue = litv / 256;
+                    state[RL].regValue = litv % 256;
                     return;
                 }
             }
@@ -903,12 +908,12 @@ void loadv(int s, int typ) {
         else { /* check for previously stacked value */
             if (regAlloc[s].st != 0 || regAlloc[s].litv >= 0) {
                 /* no registers assigned.  allocate registers AND load value. */
-                i = regAlloc[s].prec;
+                reg = regAlloc[s].prec;
                 if (typ == 3) { /* force a double byte load */
-                    i   = 2;
+                    reg = 2;
                     typ = 0;
                 }
-                genreg(i, &ia, &ib);
+                genreg(reg, &ia, &ib);
 
                 /* ia is low order byte, ib is high order byte. */
                 if (ia <= 0) {
@@ -918,23 +923,24 @@ void loadv(int s, int typ) {
             } else {
                 genreg(2, &ia, &ib);
                 /* check to ensure the stack is in good shape */
-                for (int i = s + 1; i <= sp; i++) {
-                    if (regAlloc[i].st == 0 && regAlloc[i].assignment == 0 && regAlloc[i].litv < 0)
+                for (int reg = s + 1; reg <= sp; reg++) {
+                    if (regAlloc[reg].st == 0 && regAlloc[reg].assignment == 0 &&
+                        regAlloc[reg].litv < 0)
                         /* found another stacked value */
                         error("147: stack not empty at end of compilation. Register stack "
                               "order is invalid");
                 }
                 /* available cpu register is based at k */
                 emit(POP, ia - 1, 0);
-                reg[ia].regs = s;
+                state[ia].regSP = s;
                 if (regAlloc[sp].prec >= 2) {
-                    reg[ia - 1].regs = s;
-                    ia               = REGPAIR(ia - 1, ia);
+                    state[ia - 1].regSP = s;
+                    ia                  = REGPAIR(ia - 1, ia);
                 }
                 regAlloc[s].assignment = ia;
                 if (typ == 1) {
-                    if (reg[RA].regs)
-                        emit(LD, reg[RA].regs, RA);
+                    if (state[RA].regSP)
+                        emit(LD, state[RA].regSP, RA);
                     emit(LD, RA, ia);
                 }
 
@@ -946,18 +952,18 @@ void loadv(int s, int typ) {
     }
 
     /* check for literal value (in arith exp) */
+    // guard typ == 2 only ever has -ve lit, so doesn't need ia or ib
     int litv = regAlloc[s].litv;
-    if (typ != 2 && 0 <= litv &&
-        litv <= 65535) { // typ == 2 only ever has -ve lit, so doesn't need ia or ib
-        regAlloc[s].litv = -1;
-        lp               = litv % 256;
-        reg[ia].regs     = s;
-        reg[ia].regv     = lp;
+    if (typ != 2 && 0 <= litv && litv <= 65535) {
+        regAlloc[s].litv   = -1;
+        lp                 = litv % 256;
+        state[ia].regSP    = s;
+        state[ia].regValue = lp;
         if (typ == 1) { /* check for pending register store */
-            jp = reg[RA].regs;
+            jp = state[RA].regSP;
             if (jp != 0) { /* store ACC into register before continuing */
                 emit(LD, jp, RA);
-                reg[RA].regs = 0;
+                state[RA].regSP = 0;
             }
             if (lp == 0)
                 emit(XR, RA, 0);
@@ -965,8 +971,8 @@ void loadv(int s, int typ) {
                 emit(LD, RA, -lp);
             if (ib != 0) {
                 emit(LD, ib, -litv / 256);
-                reg[ib].regs = s;
-                reg[ib].regv = -litv;
+                state[ib].regSP    = s;
+                state[ib].regValue = -litv;
             }
         } else {
             /* typ = 0, load directly into registers */
@@ -976,13 +982,13 @@ void loadv(int s, int typ) {
                 emit(LD, ia, -lp);
                 if (ib != 0) {
                     emit(LD, ib, -litv / 256);
-                    reg[ib].regs = s;
-                    reg[ib].regv = -litv;
+                    state[ib].regSP    = s;
+                    state[ib].regValue = -litv;
                 }
             } else {
                 emit(LXI, ib, litv);
-                reg[ib].regs = s;
-                reg[ib].regv = -litv;
+                state[ib].regSP    = s;
+                state[ib].regValue = -litv;
             }
         }
         regAlloc[s].assignment = REGPAIR(ib, ia);
@@ -995,19 +1001,19 @@ void loadv(int s, int typ) {
         if (typ == 0) /* call from gensto (typ = 0) */
             emit(LD, ia, ME);
         else if (typ == 1) { /* call from apply to load value of variable */
-            jp = reg[RA].regs;
+            jp = state[RA].regSP;
             /* check for pending register store */
             if (jp != 0) { /* have to store ACC into register before reloading */
                 emit(LD, jp, RA);
-                reg[RA].regs = 0;
+                state[RA].regSP = 0;
             }
             emit(LD, RA, ME);
         }
 
         /* check for double byte variable */
-        if (typ != 2 && i > 1) { /* load high order byte */
+        if (typ != 2 && reg > 1) { /* load high order byte */
             emit(IN, RL, 0);
-            reg[RL].regv = reg[RL].regv + 1;
+            state[RL].regValue++;
             emit(LD, ib, ME);
         }
 
@@ -1015,11 +1021,11 @@ void loadv(int s, int typ) {
         pop(1);
         if (typ != 2) {
             regAlloc[s].assignment = REGPAIR(ib, ia);
-            reg[ia].regs           = s;
-            reg[ia].regv           = -1;
+            state[ia].regSP        = s;
+            state[ia].regValue     = -1;
             if (ib) {
-                reg[ib].regs = s;
-                reg[ib].regv = -1;
+                state[ib].regSP    = s;
+                state[ib].regValue = -1;
             }
         }
     }
@@ -1033,13 +1039,13 @@ void setadr(int val) { // set top of stack to address reference
     } else { // mark as address reference
         int attrib   = symAttrib(val);
         int addr     = symAddr(val);
-        regAlloc[sp] = (regAlloc_t){ -val, addr < 0 ? (-addr & 0xffff) : 0x10000 + (addr & 0xffff),
-                                     0, INFO_PREC(attrib) };
+        regAlloc[sp] = newReg(0, INFO_PREC(attrib), -val,
+                              addr < 0 ? (-addr & 0xffff) : 0x10000 + (addr & 0xffff));
     }
 }
 
 void ustack() {
-    /* decrement curdep AND check for underflow */
+    /* decrement curdep and check for underflow */
     if (--curdep[prsp] < 0) {
         curdep[prsp] = 0;
         error("148: pass-2 compiler error. Attempt to unstack too many values");
@@ -1057,7 +1063,7 @@ int chain(int sy, int loc) {
 }
 
 void gensto(bool keep) {
-    int i, j;
+    int reg, j;
     static int iq;
 
     /* keep = false if STD, keep = true if STO (value retained) */
@@ -1071,7 +1077,7 @@ void gensto(bool keep) {
     uint8_t regHigh = REGHIGH(regAlloc[sp - 1].assignment);
 
     /* check for pending register store */
-    int regA = reg[RA].regs;
+    int regA = state[RA].regSP;
     if (regA) {
         if (regA == regHigh)
             regHigh = RA;
@@ -1084,52 +1090,52 @@ void gensto(bool keep) {
             if (regAlloc[sp].litv < 0) {
                 bool skipUnlockHL = false; // used to eliminate goto L220
                 do {                       // used change goto L210 & L220 to break
-                    i = regAlloc[sp].assignment;
-                    if (i <= 0 && regAlloc[sp].st ==
-                                      0) { /* registers NOT allocated - check for stacked value */
-                        emit(POP, RH, 0);  // address is stacked so POP to h AND l
+                    reg = regAlloc[sp].assignment;
+                    if (reg <= 0 && regAlloc[sp].st ==
+                                        0) { /* registers NOT allocated - check for stacked value */
+                        emit(POP, RH, 0);    // address is stacked so POP to h AND l
                         ustack();
                         break;
-                    } else if ((i = regAlloc[sp].st) <=
+                    } else if ((reg = regAlloc[sp].st) <=
                                intbas) { /* check for ref to simple based variable */
                         if (regLow)
-                            reg[regLow].lock = true;
+                            state[regLow].lock = true;
                         if (regHigh)
-                            reg[regHigh].lock = true;
+                            state[regHigh].lock = true;
 
                         loadv(sp, 3); /* force a double byte fetch into gprs */
-                        i = regAlloc[sp].assignment;
+                        reg = regAlloc[sp].assignment;
                     } else { /* may be able to simplify (OR eliminate) the LHLD */
-                        int regH = reg[RH].regv;
-                        int regL = reg[RL].regv;
-                        if (regH != -3 || -regL != i) {
-                            if (regH == -4 && -regL == i) {
+                        int regH = state[RH].regValue;
+                        int regL = state[RL].regValue;
+                        if (regH != -3 || -regL != reg) {
+                            if (regH == -4 && -regL == reg) {
                                 emit(DCX, RH, 0);
-                                reg[RH].regv = -3;
+                                state[RH].regValue = -3;
                             } else {
-                                j = chain(i, codloc + 1);
+                                j = chain(reg, codloc + 1);
                                 emit(LHLD, j, 0);
-                                reg[RH].regv = -3;
-                                reg[RL].regv = -i;
+                                state[RH].regValue = -3;
+                                state[RL].regValue = -reg;
                             }
                         }
                         skipUnlockHL = true;
                         break;
                     }
-                    regA = reg[RA].regs;
-                    j    = REGLOW(i);
-                    i /= 16; // PMO - might be able to use REGHIGH
-                    if (regLow == 0 || i != j - 1) {
+                    regA = state[RA].regSP;
+                    j    = REGLOW(reg);
+                    reg /= 16; // PMO - might be able to use REGHIGH
+                    if (regLow == 0 || reg != j - 1) {
                         if (j == regA)
                             j = RA;
-                        if (i == regA)
-                            i = RA;
-                        if (i != RD || j != RE) {
+                        if (reg == regA)
+                            reg = RA;
+                        if (reg != RD || j != RE) {
                             emit(LD, RL, j);
-                            emit(LD, RH, i);
+                            emit(LD, RH, reg);
                             break;
                         }
-                    } else if (i != RD ||
+                    } else if (reg != RD ||
                                lastex != codloc - 1) { /* if prevous syllable is XCHG then do
                                                           another - peep will fix it */
                         if (regLow != RA) {            /* use STAX - set up accumulator */
@@ -1138,24 +1144,24 @@ void gensto(bool keep) {
                             if (regHigh == RA)
                                 regHigh = regA;
                             emit(LD, RA, regLow);
-                            reg[RA].regs = 0;
+                            state[RA].regSP = 0;
                         }
-                        emit(STAX, i, 0);
+                        emit(STAX, reg, 0);
                         if (regAlloc[sp].prec >= 2) { /* if byte dest we are done */
-                            emit(INCX, i, 0);
+                            emit(INCX, reg, 0);
                             if (regHigh != 0) { /* store high order byte */
                                 if (regLow == 1 && keep) {
                                     emit(LD, REGLOW(regAlloc[sp - 1].assignment), RA);
-                                    reg[RA].regs = 0;
+                                    state[RA].regSP = 0;
                                 }
                                 emit(LD, RA, regHigh);
-                                emit(STAX, i, 0);
+                                emit(STAX, reg, 0);
                             } else {                     /* store high order ZERO */
                                 if (regLow == 1 && keep) // V4 fix
                                     emit(LD, REGLOW(regAlloc[sp - 1].assignment), RA);
-                                reg[RA].regs = 0;
+                                state[RA].regSP = 0;
                                 emit(XR, RA, 0);
-                                emit(STAX, i, 0);
+                                emit(STAX, reg, 0);
                             }
                         }
                         pop(1);
@@ -1165,21 +1171,21 @@ void gensto(bool keep) {
                 } while (false);
                 if (!skipUnlockHL) {
                     if (regHigh != 0)
-                        reg[regHigh].lock = false;
+                        state[regHigh].lock = false;
                     if (regLow != 0)
-                        reg[regLow].lock = false;
-                    reg[RH].regv = reg[RL].regv = -1;
+                        state[regLow].lock = false;
+                    state[RH].regValue = state[RL].regValue = -1;
                 }
             } else if (regHigh != RD || regLow != RE || lastex != codloc - 1 ||
                        regAlloc[sp].prec != 2) /* otherwise this is a literal address */
                 litadd(sp);                    /* if possible, generate a SHLD */
             else {
                 emit(XCHG, 0, 0);
-                i = abs(regAlloc[sp].st);
-                j = chain(i, codloc + 1);
+                reg = abs(regAlloc[sp].st);
+                j   = chain(reg, codloc + 1);
                 emit(SHLD, j, 0);
-                reg[RH].regv = -3;
-                reg[RL].regv = -i;
+                state[RH].regValue = -3;
+                state[RL].regValue = -reg;
                 if (keep)
                     emit(XCHG, 0, 0);
                 break;
@@ -1196,13 +1202,13 @@ void gensto(bool keep) {
                 emit(INCX, RH, 0);        /* store second byte */
                 /* regv(RH) = -3 then LHLD has occurred on symbol -regv(RL) */
                 /* regv(RH) = -4 then LHLD AND INCX h has occurred */
-                j = reg[RH].regv;
+                j = state[RH].regValue;
                 if (j >= 0)
-                    reg[RL].regv++;
+                    state[RL].regValue++;
                 else {
-                    reg[RH].regv = -4;
+                    state[RH].regValue = -4;
                     if (j != -3) /* RH AND RL have unknown values */
-                        reg[RH].regv = reg[RL].regv = -1;
+                        state[RH].regValue = state[RL].regValue = -1;
                 }
                 if (regAlloc[sp - 1].prec >= 2) {
                     if (regHigh == 0) /* second byte is literal */
@@ -1218,7 +1224,7 @@ void gensto(bool keep) {
             emit(LD, RL, regLow);
             emit(LD, RH, regHigh);
             emit(SPHL, 0, 0);
-            reg[RH].regv = reg[RL].regv = -1;
+            state[RH].regValue = state[RL].regValue = -1;
         }
     } while (false);
 
@@ -1228,9 +1234,9 @@ void gensto(bool keep) {
     if (iq != codloc)
         pop(1);
     else {
-        i = -regAlloc[sp].st;
+        reg = -regAlloc[sp].st;
         pop(2);
-        regAlloc[++sp] = (regAlloc_t){ i, -1, 0, 1 };
+        regAlloc[++sp] = newReg(0, 1, reg, -1);
     }
 }
 
@@ -1242,20 +1248,20 @@ void litadd(int s) {
     if (regAlloc[s].litv < 0)
         error("114: pass-2 compiler error in 'litadd'");
     else if ((assignment = regAlloc[s].assignment) != REGPAIR(RH, RL)) { /* deassign registers */
-        int jp = reg[RA].regs;
+        int jp = state[RA].regSP;
         if ((k = REGLOW(assignment))) {
             if (k == jp)
-                reg[RA].regs = 0;
-            reg[k].regs = 0;
-            reg[k].lock = false;
-            reg[k].regv = -1;
+                state[RA].regSP = 0;
+            state[k].regSP    = 0;
+            state[k].lock     = false;
+            state[k].regValue = -1;
         }
         if ((k = REGHIGH(assignment))) {
             if (k == jp)
-                reg[RA].regs = 0;
-            reg[k].regs = 0;
-            reg[k].lock = false;
-            reg[k].regv = -1;
+                state[RA].regSP = 0;
+            state[k].regSP    = 0;
+            state[k].lock     = false;
+            state[k].regValue = -1;
         }
         regAlloc[s].assignment = 0;
         int il                 = regAlloc[s].litv % 256;
@@ -1263,20 +1269,20 @@ void litadd(int s) {
         int lp;
         for (int ir = RH; ir <= RL; ir++) {
             int regVal = ir == RH ? ih : il;
-            if ((j = reg[ir].regs)) {
+            if ((j = state[ir].regSP)) {
                 if (REGLOW(regAlloc[j].assignment) == ir)
                     regAlloc[j].assignment &= ~0xf;
                 if (REGHIGH(regAlloc[j].assignment) == ir)
                     regAlloc[j].assignment &= ~0xf0;
             }
-            if ((lp = reg[ir].regv) != regVal) {
+            if ((lp = state[ir].regValue) != regVal) {
                 if (lp == regVal + 1)
                     emit(DC, ir, 0); // dcr reg to make it match
                 else if (lp == regVal - 1 && regVal != 0) {
                     emit(IN, ir, 0); // inc reg to make it match
-                } else if (ir == RH && il != reg[RL].regv) {
+                } else if (ir == RH && il != state[RL].regValue) {
                     // no inc/dec possible, see if l does NOT match
-                    reg[RL].regv = il;
+                    state[RL].regValue = il;
                     if (regVal <= 255) /* otherwise this is a real address */
                         emit(LXI, RH, il + ih * 256);
                     else { /* the LXI must be backstuffed later */
@@ -1311,8 +1317,8 @@ void litadd(int s) {
             if (ir == RL)
                 regAlloc[s].assignment = REGPAIR(RH, RL);
 
-            reg[ir].regs = s;
-            reg[ir].regv = regVal;
+            state[ir].regSP    = s;
+            state[ir].regValue = regVal;
         }
     }
 }
@@ -1384,7 +1390,7 @@ unsigned char cc[2][4]      = { { 0x10, 0x00, 0x30, 0x20 }, { 0x18, 0x08, 0x38, 
 /* call emit(DCX,(RB,RD,RH,RSP),0) */
 
 void emit(int opr, int opa, int opb) {
-    int opcode, operand, n, i;
+    int opcode, operand, n, reg;
 
     n = 1;
     if (C_NUMERIC) /* write emitter trace */
@@ -1442,12 +1448,12 @@ void emit(int opr, int opa, int opb) {
                     /* may change a mov r,m inr/dcr r mov m,r to inr/dcr m */
                 } else if (lastIncReg == codloc - 1) {
                     // other code has flagged this is inc of same register
-                    i = (get(codloc - 1) & 7) + 0x30; // generate the inr/dcr
+                    reg = (get(codloc - 1) & 7) + 0x30; // generate the inr/dcr
 
                     /* the register load may have been eliminated... */
                     if (lastLoad != codloc - 2 || opb != lastReg)
                         codloc--;
-                    put(codloc - 1, i);
+                    put(codloc - 1, reg);
                     lastIncReg = 0; // prevent further attempts to optimise
                     lastReg    = 0;
                     lastLoad   = 0;
@@ -1503,8 +1509,8 @@ void emit(int opr, int opa, int opb) {
             }
             break;
         case ROT: /* rotate group */
-            i = (opa - CY) * 2 + (opb - LFT);
-            opcode += i * 8;
+            reg = (opa - CY) * 2 + (opb - LFT);
+            opcode += reg * 8;
             break;
 
         case JMC:
@@ -1573,8 +1579,8 @@ void emit(int opr, int opa, int opb) {
         case INCX:
         case DCX:
             /* adjust for push/pop psw */
-            i = opa == RA ? 6 : regmap[opa];
-            opcode += i << 3;
+            reg = opa == RA ? 6 : regmap[opa];
+            opcode += reg << 3;
         }
     }
     put(codloc++, opcode);
@@ -1597,7 +1603,7 @@ void cvcond(int s) {
     /* test = 1 if CARRY, 2 if ZERO, 3 if SIGN, AND 4 if PARITY */
 
     /* we may generate a short sequence */
-    if (test <= 2 && ia && reg[RA].regs == ia) {
+    if (test <= 2 && ia && state[RA].regSP == ia) {
         if (test != 2) { /* short conversion for true OR false CARRY */
             emit(SB, RA, 0);
             if (j == 0)
@@ -1614,8 +1620,8 @@ void cvcond(int s) {
         if (ia == 0) {
             genreg(1, &ia, &jp);
             if (ia) {
-                reg[ia].regs = sp;
-                assign       = ia;
+                state[ia].regSP = sp;
+                assign          = ia;
             } else {
                 Fatal("118: register allocation error");
                 return;
@@ -1623,10 +1629,10 @@ void cvcond(int s) {
         }
 
         /* check pending register store */
-        jp = reg[RA].regs;
+        jp = state[RA].regSP;
         if (jp && jp != ia) {
             emit(LD, jp, RA);
-            reg[RA].regs = 0;
+            state[RA].regSP = 0;
         }
         emit(LD, RA, -255);
         j = (FAL + j) * 32 + (CARRY + test - 1);
@@ -1635,13 +1641,13 @@ void cvcond(int s) {
     }
 
     /* set up pending register store */
-    reg[RA].regs           = ia;
+    state[RA].regSP        = ia;
     regAlloc[s].assignment = assign & 0xff;
     return;
 }
 
 void saver() {
-    int byteCnt, wordCnt, byteChain, wordChain, i;
+    int byteCnt, wordCnt, byteChain, wordChain, reg;
 
     /* save the active registers and reset tables */
     /* first determine the stack elements which must be saved */
@@ -1655,12 +1661,12 @@ void saver() {
                 regPair = regAlloc[j].assignment;
             }
             if (regPair >= 16) { /* double byte */
-                if (!(reg[REGLOW(regPair)].lock || reg[REGHIGH(regPair)].lock)) {
+                if (!(state[REGLOW(regPair)].lock || state[REGHIGH(regPair)].lock)) {
                     regAlloc[j].st = wordChain;
                     wordChain      = j;
                     wordCnt++;
                 }
-            } else if (regPair > 0 && !reg[REGLOW(regPair)].lock) { /* single byte */
+            } else if (regPair > 0 && !state[REGLOW(regPair)].lock) { /* single byte */
                 regAlloc[j].st = byteChain;
                 byteChain      = j;
                 byteCnt++;
@@ -1678,23 +1684,23 @@ void saver() {
             int loc = lmem;
             while (byteChain + wordChain) {
                 if (loc % 2 || wordChain == 0) /* single byte */
-                    byteChain = regAlloc[i = byteChain].st;
+                    byteChain = regAlloc[reg = byteChain].st;
                 else /* even byte boundary with double bytes to store */
-                    wordChain = regAlloc[i = wordChain].st;
+                    wordChain = regAlloc[reg = wordChain].st;
 
-                if (i <= 0) {
+                if (reg <= 0) {
                     error("120: memory allocation error");
                     return;
                 }
 
                 /* place temporary into symbol table */
-                regAlloc[i].st = ++sytop;
-                symbol[sytop]  = syinfo;
+                regAlloc[reg].st = ++sytop;
+                symbol[sytop]    = syinfo;
 
-                symbol[syinfo] = loc;
-                loc += REGHIGH(regAlloc[i].assignment) ? 2 : 1;
+                symbol[syinfo]   = loc;
+                loc += REGHIGH(regAlloc[reg].assignment) ? 2 : 1;
 
-                symbol[--syinfo] = PACK_ATTRIB(1, REGHIGH(regAlloc[i].assignment) ? 2 : 1, VARB);
+                symbol[--syinfo] = PACK_ATTRIB(1, REGHIGH(regAlloc[reg].assignment) ? 2 : 1, VARB);
 
                 /* leave room for LXI chain */
                 symbol[--syinfo] = 0;
@@ -1704,32 +1710,32 @@ void saver() {
                 }
 
                 /* store into memory */
-                int regPair            = regAlloc[i].assignment;
-                regAlloc[i].assignment = 0;
+                int regPair              = regAlloc[reg].assignment;
+                regAlloc[reg].assignment = 0;
                 sp++;
                 setadr(sytop);
                 litadd(sp);
                 while (regPair) {
-                    i = REGLOW(regPair);
-                    if (i == reg[RA].regs) {
-                        i            = RA;
-                        reg[RA].regs = 0;
-                        reg[RA].regv = -1;
+                    reg = REGLOW(regPair);
+                    if (reg == state[RA].regSP) {
+                        reg                = RA;
+                        state[RA].regSP    = 0;
+                        state[RA].regValue = -1;
                     }
-                    emit(LD, ME, i);
+                    emit(LD, ME, reg);
                     if ((regPair = REGHIGH(regPair))) { /* double byte store */
                         emit(IN, RL, 0);
-                        reg[RL].regv++;
+                        state[RL].regValue++;
                     }
                 }
                 pop(1);
             }
         }
     }
-    for (int i = RB; i <= RL; i++)
-        if (!reg[i].lock) {
-            reg[i].regs = 0;
-            reg[i].regv = -1;
+    for (int reg = RB; reg <= RL; reg++)
+        if (!state[reg].lock) {
+            state[reg].regSP    = 0;
+            state[reg].regValue = -1;
         }
     return;
 }
@@ -1737,12 +1743,12 @@ void saver() {
 void reloc() {
     int stloc;
     int stsize;
-    int i, j, k, l, n, ip;
+    int reg, j, k, l, n, ip;
     if (C_SYMBOLS >= 2) {
-        for (int i = 1; i <= sytop; i++)
-            fprintf(lstFp, "%4d = %6d\n", i, symbol[i]);
-        for (int i = syinfo; i <= symax; i++)
-            fprintf(lstFp, "%5d = %c%08XH\n", i, (symbol[i] < 0) ? '-' : ' ', abs(symbol[i]));
+        for (int reg = 1; reg <= sytop; reg++)
+            fprintf(lstFp, "%4d = %6d\n", reg, symbol[reg]);
+        for (int reg = syinfo; reg <= symax; reg++)
+            fprintf(lstFp, "%5d = %c%08XH\n", reg, (symbol[reg] < 0) ? '-' : ' ', abs(symbol[reg]));
     }
 
     /* compute max stack depth required for correct execution */
@@ -1768,25 +1774,25 @@ void reloc() {
     n = 0;
 
     /* compute page to start variables */
-    i = 0;
+    reg = 0;
     if (codloc % 256 > lmem % 256)
-        i = 1;
-    i += codloc / 256;
-    if (C_VARIABLES > i)
-        i = C_VARIABLES;
+        reg = 1;
+    reg += codloc / 256;
+    if (C_VARIABLES > reg)
+        reg = C_VARIABLES;
 
     /* compute first relative address page */
-    j = lmem / 256 - i;
+    j = lmem / 256 - reg;
     if (j < 0)
         error("122: program requires too much program and variable storage");
 
     else {
-        for (int i = 1; i <= sytop; i++) {
-            k = symAddr(i);
-            if (k >= 0) {                 /* now fix page number */
-                l          = HIGH(k) - j; /* l is relocated page number */
-                symAddr(i) = (l << 8) + LOW(k);
-                int target = HIGHWORD(k);
+        for (int reg = 1; reg <= sytop; reg++) {
+            k = symAddr(reg);
+            if (k >= 0) {                   /* now fix page number */
+                l            = HIGH(k) - j; /* l is relocated page number */
+                symAddr(reg) = (l << 8) + LOW(k);
+                int target   = HIGHWORD(k);
                 for (;;) {
                     if (target) { /* backstuff lhi l into location target-1 */
                         ip = get(target - 1) * 256 + get(target);
@@ -1794,8 +1800,8 @@ void reloc() {
                         put(target, l);
                         target = ip;
                     } else { /* backstuff LXI references to this variable */
-                        target = symAddr(i);
-                        for (int link = symRef(i); link;) {
+                        target = symAddr(reg);
+                        for (int link = symRef(reg); link;) {
                             int next = getword(link);
                             putword(link, target);
                             link = next;
@@ -1821,26 +1827,26 @@ void reloc() {
             fprintf(lstFp, "STACK SIZE = %d BYTES\n", stsize);
 
         /* now backstuff all other TRC, TRA, AND PRO addresses */
-        for (int i = 1; i <= sytop; i++) {
-            k = -symAddr(i);
-            l = INFO_TYPE(abs(symAttrib(i)));
+        for (int reg = 1; reg <= sytop; reg++) {
+            k = -symAddr(reg);
+            l = INFO_TYPE(abs(symAttrib(reg)));
             if (l == LABEL || l == PROC) {
                 int n       = k & 3;
                 int addr    = k / 4; // does right thing if k -1 .. -3
-                int backref = symRef(i);
+                int backref = symRef(reg);
                 while (addr) { // V4
                     int next = getword(addr);
                     putword(addr, backref);
                     addr = next;
                 }
-                symAddr(i) = n;
+                symAddr(reg) = n;
             }
         }
         if (preamb > 0) {
-            for (int i = 0; i < 8; i++)
-                if (intpro[i]) {
-                    put(i * 8, 0xc3);
-                    putword(i * 8 + 1, symRef(intpro[i]));
+            for (int reg = 0; reg < 8; reg++)
+                if (intpro[reg]) {
+                    put(reg * 8, 0xc3);
+                    putword(reg * 8 + 1, symRef(intpro[reg]));
                 }
             if (intpro[0] == 0 && codeBase == preamb && C_STACKHANDLING != 1) {
                 put(0, 0xc3);
@@ -1867,7 +1873,7 @@ void put1(int ch, int prec) {
 }
 
 void unary(const int val) {
-    int i, j, k, ia, ib, jp, iq;
+    int reg, j, k, ia, ib, jp, iq;
 
     /* 'val' is an integer corresponding to the operations-- */
     /* RTL(1) RTR(2) SFL(3) SFR(4) scl(5) scr(6) HIV(7) LOV(8) */
@@ -1880,24 +1886,24 @@ void unary(const int val) {
         if (ip <= 1) {
             if (regAlloc[sp].assignment == 0) {
                 loadv(sp, 1);
-                reg[RA].regs = REGLOW(regAlloc[sp].assignment);
+                state[RA].regSP = REGLOW(regAlloc[sp].assignment);
             }
-            i = REGLOW(regAlloc[sp].assignment);
-            k = reg[RA].regs;
+            reg = REGLOW(regAlloc[sp].assignment);
+            k   = state[RA].regSP;
             if (k != 0) {
-                if (k != i) {
+                if (k != reg) {
                     emit(LD, k, RA);
-                    emit(LD, RA, i);
-                    reg[RA].regs = i;
+                    emit(LD, RA, reg);
+                    state[RA].regSP = reg;
                 }
             } else {
-                emit(LD, RA, i);
-                reg[RA].regs = i;
+                emit(LD, RA, reg);
+                state[RA].regSP = reg;
             }
-            i = LFT;
+            reg = LFT;
             if (val == B_ROR)
-                i = RGT;
-            emit(ROT, CY, i);
+                reg = RGT;
+            emit(ROT, CY, reg);
             return;
         }
         break;
@@ -1906,23 +1912,23 @@ void unary(const int val) {
     case B_SCL: // SCL
     case B_SCR: // SCR
 
-        j = (val == B_SHR || val == B_SCR) && ip > 1 ? 0 : 1;
+        j   = (val == B_SHR || val == B_SCR) && ip > 1 ? 0 : 1;
 
-        i = regAlloc[sp].assignment;
-        if (i <= 0) {
+        reg = regAlloc[sp].assignment;
+        if (reg <= 0) {
             /* load from memory */
             loadv(sp, j);
-            i = regAlloc[sp].assignment;
+            reg = regAlloc[sp].assignment;
             if (j == 1)
-                reg[RA].regs = REGLOW(i);
+                state[RA].regSP = REGLOW(reg);
         }
 
         /* may have to store the accumulator */
-        ia = REGLOW(i);
-        ib = REGHIGH(i);
+        ia = REGLOW(reg);
+        ib = REGHIGH(reg);
         k  = j != 1 ? ib : ia;
 
-        jp = reg[RA].regs;
+        jp = state[RA].regSP;
 
         /* we want register k to be IN the accumulator */
         if (jp != k) {
@@ -1930,7 +1936,7 @@ void unary(const int val) {
                 emit(LD, jp, RA);
             emit(LD, RA, k);
         }
-        reg[RA].regs = k;
+        state[RA].regSP = k;
 
         /* SFL AND SFR take separate paths now... */
         if (val == B_SHR || val == B_SCR) {
@@ -1941,7 +1947,7 @@ void unary(const int val) {
                 emit(LD, ib, RA);
                 emit(LD, RA, ia);
                 emit(ROT, ACC, RGT);
-                reg[RA].regs = ia;
+                state[RA].regSP = ia;
             }
         } else {
             /* SFL - clear CARRY AND shift */
@@ -1953,7 +1959,7 @@ void unary(const int val) {
                 emit(LD, ia, RA);
                 emit(LD, RA, ib);
                 emit(ROT, ACC, LFT);
-                reg[RA].regs = ib;
+                state[RA].regSP = ib;
             }
         }
         return;
@@ -1965,27 +1971,27 @@ void unary(const int val) {
                 loadv(sp, 0);
             ip = REGHIGH(regAlloc[sp].assignment);
             iq = REGLOW(regAlloc[sp].assignment);
-            if (reg[RA].regs == iq)
-                reg[RA].regs = 0;
-            reg[ip].regs            = 0;
-            reg[ip].regv            = -1;
+            if (state[RA].regSP == iq)
+                state[RA].regSP = 0;
+            state[ip].regSP         = 0;
+            state[ip].regValue      = -1;
             regAlloc[sp].assignment = iq;
             regAlloc[sp].prec       = 1;
-            if (reg[RA].regs != ip)
+            if (state[RA].regSP != ip)
                 emit(LD, iq, ip);
             else
-                reg[RA].regs = iq;
+                state[RA].regSP = iq;
             return;
         }
         break;
     case B_LOW:
         regAlloc[sp].prec = 1;
         /* may have to release register */
-        if ((i = REGHIGH(regAlloc[sp].assignment))) {
-            reg[i].regs = 0;
-            reg[i].regv = -1;
-            if (reg[RA].regs == i)
-                reg[RA].regs = 0;
+        if ((reg = REGHIGH(regAlloc[sp].assignment))) {
+            state[reg].regSP    = 0;
+            state[reg].regValue = -1;
+            if (state[RA].regSP == reg)
+                state[RA].regSP = 0;
         }
         regAlloc[sp].assignment = REGLOW(regAlloc[sp].assignment);
         return;
@@ -2019,9 +2025,9 @@ void exch() {
                             ib = ia - 1;
                         emit(POP, ia - 1, 0);
                         ustack();
-                        reg[ia].regs = j;
+                        state[ia].regSP = j;
                         if (ib != 0)
-                            reg[ib].regs = j;
+                            state[ib].regSP = j;
                         regAlloc[j].assignment = REGPAIR(ib, ia);
                         if (j != sp)
                             break;
@@ -2030,11 +2036,11 @@ void exch() {
                 }
             }
 
-    for (int i = 2; i <= 7; i++) {
-        if (reg[i].regs == sp)
-            reg[i].regs = sp - 1;
-        else if (reg[i].regs == sp - 1)
-            reg[i].regs = sp;
+    for (int reg = 2; reg <= 7; reg++) {
+        if (state[reg].regSP == sp)
+            state[reg].regSP = sp - 1;
+        else if (state[reg].regSP == sp - 1)
+            state[reg].regSP = sp;
     }
     /* now swap the top two elements */
     regAlloc_t tmp;
@@ -2053,7 +2059,7 @@ void stack(const int n) {
 }
 
 void readcd() {
-    int lcnt, typ, lline, lloc, val, i, j, k;
+    int lcnt, typ, lline, lloc, val, reg, j, k;
     int ibase, ip, kp, lp, ia, ib;
     char *rmap       = "-ABCDEFGHIJKLMOP";
     char polchr[][4] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN" };
@@ -2070,12 +2076,11 @@ void readcd() {
     lcnt             = -1;
     alter            = false;
 
-
     /* reserve space for interrupt locations */
     preamb = 0;
-    for (int i = 7; i >= 0; i--) {
-        if (intpro[i] != 0) {
-            preamb = i * 8 + 3;
+    for (int reg = 7; reg >= 0; reg--) {
+        if (intpro[reg] != 0) {
+            preamb = reg * 8 + 3;
             break;
         }
     }
@@ -2121,12 +2126,12 @@ void readcd() {
 
             /* write registers */
             if (C_ANALYSIS >= 2) {
-                for (int i = 1; i <= 7; i++) {
-                    ip = reg[i].regs;
-                    kp = reg[i].lock;
-                    lp = reg[i].regv;
+                for (int reg = 1; reg <= 7; reg++) {
+                    ip = state[reg].regSP;
+                    kp = state[reg].lock;
+                    lp = state[reg].regValue;
                     if (kp + ip + lp >= 0) {
-                        fprintf(lstFp, " %c(%c,", rmap[i], kp == 1 ? 'L' : 'U');
+                        fprintf(lstFp, " %c(%c,", rmap[reg], kp == 1 ? 'L' : 'U');
                         if (ip == 0)
                             putc('*', lstFp);
 
@@ -2171,7 +2176,8 @@ void readcd() {
                 FILE *tmp = lstFp;
                 lstFp     = stdout;
 #endif
-                fprintf(lstFp, "sp=%d, %05d %04XH %d %s ", sp, codloc, codloc, polCnt - 1, polchr[typ]);
+                fprintf(lstFp, "sp=%d, %05d %04XH %d %s ", sp, codloc, codloc, polCnt - 1,
+                        polchr[typ]);
                 switch (typ) {
                 case OPR:
                     fprintf(lstFp, "%s", opcval[val]);
@@ -2211,7 +2217,7 @@ void readcd() {
             Fatal("128: register allocation stack overflow");
             sp = 1;
         }
-        regAlloc[sp] = (regAlloc_t){ 0, -1, 0, 0 };
+        regAlloc[sp] = newReg(0, 0, 0, -1);
 
         alter        = false;
         switch (typ) {
@@ -2247,15 +2253,15 @@ void readcd() {
 
             /* save registers if this is a PROC OR a LABEL which was */
             /* referenced IN a go-to statement OR was compiler-generated. */
-            ip = symbol[val];
-            i  = abs(symAttrib(val));
+            ip  = symbol[val];
+            reg = abs(symAttrib(val));
 
             /* save this DEF symbol number AND the literal values of the */
             /* h AND l registers for possible TRA chain straightening. */
-            if (INFO_TYPE(i) == LABEL) {
+            if (INFO_TYPE(reg) == LABEL) {
                 defsym = val;
-                defrh  = reg[RH].regv;
-                defrl  = reg[RL].regv;
+                defrh  = state[RH].regValue;
+                defrl  = state[RL].regValue;
             }
 
             /* we may convert the sequence */
@@ -2263,7 +2269,7 @@ void readcd() {
             /* TRC l, TRA/PRO/RET, DEF l */
 
             /* to an equivalent conditional TRA/PRO/RET... */
-            if (INFO_ECNT(i) == 1)
+            if (INFO_ECNT(reg) == 1)
                 if (tstloc == codloc)
                     if (conloc == xfrloc - 3) {
                         int addr = -symAddr(val);
@@ -2300,25 +2306,27 @@ void readcd() {
                             }
                         }
                     }
-            int type = INFO_TYPE(i);
+            int type = INFO_TYPE(reg);
 
             if (type == LABEL) { // check for label with references
-                int refCnt = INFO_ECNT(i);
+                int refCnt = INFO_ECNT(reg);
                 if (refCnt == 1) { /* single reference, so no conflict with h and l */
                     int trackHL = symTrackHL(val);
                     /* check for previous reference  forward */
                     if (trackHL && trackHL != -1) {
-                        int16_t regL = (trackHL & LVALID) ? trackHL & 0xff : -1;
-                        int16_t regH = (trackHL & HVALID) ? (trackHL >> 8) & 0x1ff : -1;
-                        reg[RH].lock = true; // don't spill H or L
-                        reg[RL].lock = true;
+                        int16_t regL   = (trackHL & LVALID) ? trackHL & 0xff : -1;
+                        int16_t regH   = (trackHL & HVALID) ? (trackHL >> 8) & 0x1ff : -1;
+                        state[RH].lock = true; // don't spill H or L
+                        state[RL].lock = true;
                         saver();
 
-                        reg[RH].lock = false; // remove lock
-                        reg[RL].lock = false;
+                        state[RH].lock = false; // remove lock
+                        state[RL].lock = false;
                         // check for changes
-                        reg[RH].regv = (reg[RH].regv == -255 || reg[RH].regv == regH) ? regH : -1;
-                        reg[RL].regv = (reg[RL].regv == -255 || reg[RL].regv == regL) ? regL : -1;
+                        state[RH].regValue =
+                            (state[RH].regValue == -255 || state[RH].regValue == regH) ? regH : -1;
+                        state[RL].regValue =
+                            (state[RL].regValue == -255 || state[RL].regValue == regL) ? regL : -1;
                     } else
                         saver();
                 } else if (refCnt != 0)
@@ -2336,15 +2344,15 @@ void readcd() {
                     /* ------------------------------------------- */
                     symbol[j] = HNOTSET | LNOTSET;
                     saver();
-                    reg[RH].regv = -254;
-                    reg[RL].regv = -254;
-                    k            = codloc;
+                    state[RH].regValue = -254;
+                    state[RL].regValue = -254;
+                    k                  = codloc;
 
                     /* set up stack depth counters */
                     maxdep[prsp] = 0;
                     curdep[prsp] = 0;
-                    for (int i = 0; i < 8; i++)
-                        if (val == intpro[i]) {
+                    for (int reg = 0; reg < 8; reg++)
+                        if (val == intpro[reg]) {
                             /* interrupt procedure is marked with ho 1 */
                             prstk[prsp] = j + 65536;
                             emit(PUSH, RH, 0);
@@ -2364,32 +2372,32 @@ void readcd() {
                 k = codloc;
             }
 
-            i = -symAddr(val);
-            j = i % 4;
-            i = i / 4;
+            reg = -symAddr(val);
+            j   = reg % 4;
+            reg = reg / 4;
             if (j != 1)
                 error("131: label resolution error in pass-2");
             // V4
-            symAddr(val) = -((i << 2) + 3);
+            symAddr(val) = -((reg << 2) + 3);
             symRef(val)  = k;
             /* now check for procedure entry point */
-            i = symAttrib(val);
-            if (right(i, 4) == PROC) {
-                i >>= 8;
+            reg = symAttrib(val);
+            if (right(reg, 4) == PROC) {
+                reg >>= 8;
 
                 /* build receiving sequence for register parameters */
-                if (i >= 1) {
-                    k = i < 2 ? 1 : i - 1;
-                    if (i > 2)
-                        i = 2;
-                    for (int j = 0; j < i; j++) {
+                if (reg >= 1) {
+                    k = reg < 2 ? 1 : reg - 1;
+                    if (reg > 2)
+                        reg = 2;
+                    for (int j = 0; j < reg; j++) {
                         if (++sp > maxsp) {
                             Fatal("113: register allocation stack overflow");
                             sp = 1;
                         }
 
                         /* (RD,RE) = 69    (RB,RC) = 35 */
-                        regAlloc[sp] = (regAlloc_t){ 0, -1, j == 0 ? 35 : 69, 2 };
+                        regAlloc[sp] = newReg(j == 0 ? 35 : 69, 2, 0, -1);
                         if (++sp > maxsp) {
                             Fatal("113: register allocation stack overflow");
                             sp = 1;
@@ -2416,8 +2424,8 @@ void readcd() {
             sp--;
             continue;
         }
-        i = symbol[val];
-        j = symAttrib(val);
+        reg = symbol[val];
+        j   = symAttrib(val);
         if (sp > 1)
             /* allow only a LABEL variable to be stacked */
             if (abs(j) % 16 != LABEL) {
@@ -2443,16 +2451,16 @@ void readcd() {
                         if (ib == 0)
                             Fatal("107: register allocation error. No registers available");
                         else {
-                            regAlloc[sp] = (regAlloc_t){ 0, -1, REGPAIR(ib, ia), 2 };
-                            reg[ib].regs = reg[ia].regs = sp;
+                            regAlloc[sp]    = newReg(REGPAIR(ib, ia), 2, 0, -1);
+                            state[ib].regSP = state[ia].regSP = sp;
 
                             emit(LXI, RH, 0);
                             emit(DAD, RSP, 0);
                             emit(LD, ia, RL);
                             emit(LD, ib, RH);
-                            reg[RH].regv = -1;
-                            reg[RL].regv = -1;
-                            alter        = true;
+                            state[RH].regValue = -1;
+                            state[RL].regValue = -1;
+                            alter              = true;
                         }
                     } else
                         error("129: invalid use of built-in function in an assignment");
@@ -2513,7 +2521,7 @@ void readcd() {
 }
 
 bool doBuiltin(int val) {
-    int i, j, k, m;
+    int reg, j, k, m;
     int ip, kp;
     int ia, ib;
 
@@ -2530,15 +2538,15 @@ bool doBuiltin(int val) {
         if (val > B_SCR) /* ** note that this also assumes only 6 such bifs */
             unary(val);
         else {
-            i = regAlloc[sp].litv;
-            if (i > 0) { /* generate in-line code for shift counts of */
-                         /* 1 or 2 for address values */
-                         /* 1 to 3 for shr of byte values */
-                         /* 1 to 6 for all other shift functions on byte values */
+            reg = regAlloc[sp].litv;
+            if (reg > 0) { /* generate in-line code for shift counts of */
+                           /* 1 or 2 for address values */
+                           /* 1 to 3 for shr of byte values */
+                           /* 1 to 6 for all other shift functions on byte values */
                 j = regAlloc[sp - 1].prec != 1 ? 2 : val == B_SHR ? 3 : 6;
-                if (i <= j) {
+                if (reg <= j) {
                     pop(1);
-                    for (int j = 0; j < i; j++)
+                    for (int j = 0; j < reg; j++)
                         unary(val);
                     return true;
                 }
@@ -2547,44 +2555,44 @@ bool doBuiltin(int val) {
             /* load the value to decrement */
             loadv(sp - 1, 0);
             j = REGLOW(regAlloc[sp - 1].assignment);
-            if (reg[RA].regs == j) {
+            if (state[RA].regSP == j) {
                 emit(LD, j, RA);
-                reg[RA].regs = 0;
+                state[RA].regSP = 0;
             }
-            reg[j].lock = true;
+            state[j].lock = true;
 
             /* load the value which is to be operated upon */
-            kp = regAlloc[sp].prec;
-            i  = kp > 1 ? 0 : 1;
+            kp  = regAlloc[sp].prec;
+            reg = kp > 1 ? 0 : 1;
             if (regAlloc[sp].assignment == 0) {
-                loadv(sp, i);
-                if (i == 1)
-                    reg[RA].regs = REGLOW(regAlloc[sp].assignment);
+                loadv(sp, reg);
+                if (reg == 1)
+                    state[RA].regSP = REGLOW(regAlloc[sp].assignment);
             }
             m = REGLOW(regAlloc[sp].assignment);
-            if (i != 1 || reg[RA].regs != m) {
-                if (reg[RA].regs) {
-                    emit(LD, reg[RA].regs, RA);
-                    reg[RA].regs = 0;
+            if (reg != 1 || state[RA].regSP != m) {
+                if (state[RA].regSP) {
+                    emit(LD, state[RA].regSP, RA);
+                    state[RA].regSP = 0;
                 }
-                if (i) {
+                if (reg) {
                     emit(LD, RA, m);
-                    reg[RA].regs = m;
+                    state[RA].regSP = m;
                 }
             }
-            i = codloc;
+            reg = codloc;
             unary(val);
             if (kp != 1) {
-                if (reg[RA].regs)
-                    emit(LD, reg[RA].regs, RA);
-                reg[RA].regs = 0;
+                if (state[RA].regSP)
+                    emit(LD, state[RA].regSP, RA);
+                state[RA].regSP = 0;
             }
             emit(DC, j, 0);
-            emit(JMC, FAL * 32 + ZERO, i);
+            emit(JMC, FAL * 32 + ZERO, reg);
 
             /* END up here after operation completed */
             exch();
-            reg[j].lock = false;
+            state[j].lock = false;
             pop(1);
         }
         return true;
@@ -2606,24 +2614,24 @@ bool doBuiltin(int val) {
         /*          jnz   start  (10 CY* .5 usec = 5.0 usec) */
 
         /*          total time   (200 CY*.5 usec = 100 usec/loop) */
-        j  = reg[RA].regs;
-        ip = REGHIGH(regAlloc[sp].assignment);
-        i  = REGLOW(regAlloc[sp].assignment);
-        if (!j || j != i) {
+        j   = state[RA].regSP;
+        ip  = REGHIGH(regAlloc[sp].assignment);
+        reg = REGLOW(regAlloc[sp].assignment);
+        if (!j || j != reg) {
             /* get time parameter into the accumulator */
             if (j != 0 && j != ip)
                 emit(LD, j, RA);
-            reg[RA].regs = 0;
-            if (i == 0)
+            state[RA].regSP = 0;
+            if (reg == 0)
                 loadv(sp, 1);
-            i = REGLOW(regAlloc[sp].assignment);
+            reg = REGLOW(regAlloc[sp].assignment);
             if (j)
-                emit(LD, RA, i);
+                emit(LD, RA, reg);
         }
-        reg[RA].regs = 0;
-        emit(LD, i - 1, -12);
-        emit(LD, i, i - 1);
-        emit(DC, i, 0);
+        state[RA].regSP = 0;
+        emit(LD, reg - 1, -12);
+        emit(LD, reg, reg - 1);
+        emit(DC, reg, 0);
         emit(JMC, FAL * 32 + ZERO, codloc - 1);
         emit(DC, RA, 0);
         emit(JMC, FAL * 32 + ZERO, codloc - 6);
@@ -2631,31 +2639,31 @@ bool doBuiltin(int val) {
         return true;
     case B_INPUT:
         /* input function. get input port number */
-        i = regAlloc[sp].litv;
-        if (i >= 0 && i <= 255) {
+        reg = regAlloc[sp].litv;
+        if (reg >= 0 && reg <= 255) {
             pop(1);
             sp++;
             genreg(1, &j, &k);
             if (j != 0) {
-                k = reg[RA].regs;
+                k = state[RA].regSP;
                 if (k != 0)
                     emit(LD, k, RA);
-                reg[RA].regs = j;
-                regAlloc[sp] = (regAlloc_t){ 0, -1, j, 1 };
-                reg[j].regs  = sp;
-                emit(INP, i, 0);
+                state[RA].regSP = j;
+                regAlloc[sp]    = newReg(j, 1, 0, -1);
+                state[j].regSP  = sp;
+                emit(INP, reg, 0);
                 return true;
             }
         }
         break;
     case B_OUTPUT:
         /* check for proper output port number */
-        i = regAlloc[sp].litv;
-        if (0 <= i && i <= 255) {
+        reg = regAlloc[sp].litv;
+        if (0 <= reg && reg <= 255) {
             pop(1);
             /* now build an entry which can be recognized by */
             /* operat. */
-            regAlloc[++sp] = (regAlloc_t){ outloc, i, 0, 1 };
+            regAlloc[++sp] = newReg(0, 1, outloc, reg);
             return true;
         }
         break;
@@ -2665,34 +2673,32 @@ bool doBuiltin(int val) {
         if (j > 0) {
             int rval = abs(symAttrib(j)) / 256 + B_LENGTH - val;
             pop(1);
-            regAlloc[++sp] = (regAlloc_t){ 0, rval, 0, rval > 255 ? 2 : 1 };
+            regAlloc[++sp] = newReg(0, rval > 255 ? 2 : 1, 0, rval);
             return true;
         }
         break;
     case B_MOVE: // move is explicitly expanded in pass 1
         break;
     case B_DOUBLE:
-        if (regAlloc[sp].prec > 1)
+        if (regAlloc[sp].prec > 1) // already double
             return false;
         if (regAlloc[sp].assignment == 0) {
             if (regAlloc[sp].litv < 0) {
-                /* load value to accumulator AND get a register */
-                loadv(sp, 1);
-                reg[RA].regs = REGLOW(regAlloc[sp].assignment);
+                loadv(sp, 1); // load value to accumulator and get a register
+                state[RA].regSP = REGLOW(regAlloc[sp].assignment);
             } else {
-                regAlloc[sp].prec = 2;
+                regAlloc[sp].prec = 2; // convert to 2 byte literal
                 regAlloc[sp].st   = 0;
                 return true;
             }
         }
-        ia                = regAlloc[sp].assignment;
         regAlloc[sp].prec = 2;
         regAlloc[sp].st   = 0;
-        if (ia <= CARRY) {
-            reg[ia].lock            = true;
+        if (regAlloc[sp].assignment <= 15) { // only low register
+            ia                      = regAlloc[sp].assignment;
             ib                      = ia - 1;
-            reg[ib].regs            = sp;
-            reg[ia].lock            = false;
+            state[ib].regSP         = sp;
+            state[ia].lock          = false;
             regAlloc[sp].assignment = REGPAIR(ib, ia);
             /* ZERO the register */
             emit(LD, ib, 0);
@@ -2704,12 +2710,12 @@ bool doBuiltin(int val) {
         j = REGLOW(regAlloc[sp].assignment);
         if (j != 0)
             if (regAlloc[sp].prec == 1) {
-                i = reg[RA].regs;
-                if (i != j) { /* may be a pending register store */
-                    if (i != 0)
-                        emit(LD, i, RA);
+                reg = state[RA].regSP;
+                if (reg != j) { /* may be a pending register store */
+                    if (reg != 0)
+                        emit(LD, reg, RA);
                     emit(LD, RA, j);
-                    reg[RA].regs = j;
+                    state[RA].regSP = j;
                 }
                 emit(DAA, 0, 0);
                 return true;
@@ -2724,7 +2730,7 @@ bool doBuiltin(int val) {
 
 bool operat(int val) {
     static int it;
-    int i, j, k, m, l, /* icy, iq,*/ iop = 0, iop2 = 0, ip, jp; // assign to appease GCC
+    int reg, j, k, m, l, /* icy, iq,*/ iop = 0, iop2 = 0, ip, jp; // assign to appease GCC
     int jph, kp, id, ml, mh, ia, ib, il, lp;
     bool skip;
 
@@ -2741,7 +2747,7 @@ bool operat(int val) {
 
         if (regAlloc[sp - 1].prec ==
             1) { /* check for single byte increment, may be comparing with 255 */
-            apply(AD, AC, true, 1);
+            apply(AD, AC, true, true);
             lastin = codloc;
             return true;
         }
@@ -2754,11 +2760,11 @@ bool operat(int val) {
             inx(1); // prec=1 for inx
         else {
             exch();
-            apply(AD, AC, true, 1);
+            apply(AD, AC, true, true);
         }
         return true;
     case ADC:
-        apply(AC, AC, true, 1);
+        apply(AC, AC, true, true);
         return true;
     case SUB: /* change address value - 1 to address value + 65535 AND apply ADD */
         if (regAlloc[sp - 1].prec != 1 && regAlloc[sp].litv == 1) {
@@ -2766,19 +2772,19 @@ bool operat(int val) {
             regAlloc[sp].prec = 2;
             inx(1);
         } else
-            apply(SU, SB, false, 1);
+            apply(SU, SB, false, true);
         return true;
     case SBC:
-        apply(SB, SB, false, 1);
+        apply(SB, SB, false, true);
         return true;
     case MUL:
-        builtin(0, 2);
+        builtin(0, RD);
         return true;
     case DIV:
-        builtin(1, 1);
+        builtin(1, RB);
         return true;
     case MDF: // MOD
-        builtin(1, 2);
+        builtin(1, RD);
         return true;
     case NEG:
     case BIF:
@@ -2788,57 +2794,57 @@ bool operat(int val) {
     case AX3:
         return false;
     case AND:
-        apply(ND, ND, true, 0);
+        apply(ND, ND, true, false);
         return true;
     case IOR:
-        apply(OR, OR, true, 0);
+        apply(OR, OR, true, false);
         return true;
     case XOR:
-        apply(XR, XR, true, 0);
+        apply(XR, XR, true, false);
         return true;
     case NOT:
         if (COND(regAlloc[sp].assignment)) /* condition code - change PARITY */
             regAlloc[sp].assignment ^= 0x1000;
         else { /* perform XOR with 255 OR 65535 (byte OR address) */
-            i                   = regAlloc[sp].prec;
-            regAlloc[++sp].litv = (1 << (i * 8)) - 1;
-            regAlloc[sp].prec   = i;
-            apply(XR, XR, true, 0);
+            int prec            = regAlloc[sp].prec;
+            regAlloc[++sp].litv = prec == 1 ? 0xff : 0xffff;
+            regAlloc[sp].prec   = prec;
+            apply(XR, XR, true, false);
         }
         return true;
     case EQL: /* equal test */
         if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) {
-            apply(SU, 0, true, 0);
+            apply(SU, 0, true, false);
             regAlloc[sp].assignment += ZFLAG; /* mark as true/ZERO (1*16+2) */
         } else
-            compare16(true, ZFLAG, 1);
+            compare16(true, ZFLAG, true);
         return true;
     case GTR: /* GTR - change to LSS */
         exch();
-        // fallthrough
-    case LSS: /* LSS set to tru/CARRY (1 * 16 + 1) */
-        if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) {
-            apply(regAlloc[sp].litv != 1 ? SU : CP, 0, false, 0);
-            regAlloc[sp].assignment += CFLAG; /* mark as condition code */
+        // FALLTHROUGH
+    case LSS:                                                 /* LSS set to true/CARRY */
+        if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) { // both bytes
+            apply(regAlloc[sp].litv != 1 ? SU : CP, 0, false, false);
+            regAlloc[sp].assignment += CFLAG; /* mark as true/CARRY code */
         } else
-            compare16(false, CFLAG, 0);
+            compare16(false, CFLAG, false);
         return true;
     case NEQ:
-        if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) {
-            apply(SU, 0, true, 0);
-            regAlloc[sp].assignment += NZFLAG; /* mark as false/ZERO (0*16 + 2) */
+        if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) { // both bytes
+            apply(SU, 0, true, false);
+            regAlloc[sp].assignment += NZFLAG; /* mark as false/ZERO */
         } else
-            compare16(true, NZFLAG, 1);
+            compare16(true, NZFLAG, true);
         return true;
     case LEQ: /* LEQ - change to GEQ */
         exch();
         // fallthrough
     case GEQ:
-        if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) {
-            apply(regAlloc[sp].litv != 1 ? SU : CP, 0, false, 0);
-            regAlloc[sp].assignment += NCFLAG; /* mark as condition code */
+        if (regAlloc[sp].prec + regAlloc[sp - 1].prec <= 2) { // both bytes
+            apply(regAlloc[sp].litv != 1 ? SU : CP, 0, false, false);
+            regAlloc[sp].assignment += NCFLAG; /* mark as false/CARRY code */
         } else
-            compare16(false, NCFLAG, 0);
+            compare16(false, NCFLAG, false);
         return true;
     case INX:
         inx(regAlloc[sp - 1].prec);
@@ -2853,58 +2859,58 @@ bool operat(int val) {
         /* check for condition code */
         if (COND(regAlloc[sp - 1].assignment)) { /* active condition code, construct mask for JMC */
             int cond = COND(regAlloc[sp - 1].assignment);
-            iop2     = (FAL + 1 - cond / 16) * 32 + (CARRY + cond % 16 - 1);
+            iop2     = (TRU - cond / 16) * 32 + (CARRY + cond % 16 - 1);
         } else {
             if (regAlloc[sp - 1].assignment == 0) { /* load value to accumulator */
                 regAlloc[sp - 1].prec = 1;
                 loadv(sp - 1, 1);
             } else if (REGLOW(regAlloc[sp - 1].assignment) !=
-                       reg[RA].regs) { /* value already loaded */
-                if (reg[RA].regs)
-                    emit(LD, reg[RA].regs, RA);
+                       state[RA].regSP) { /* value already loaded */
+                if (state[RA].regSP)
+                    emit(LD, state[RA].regSP, RA);
                 emit(LD, RA, REGLOW(regAlloc[sp - 1].assignment));
             }
-            reg[RA].regs = 0;
+            state[RA].regSP = 0;
             emit(ROT, CY, RGT);
             iop2 = FAL * 32 + CARRY;
         }
         break;
     case PRO:
-        i = regAlloc[sp].st;
-        if (i > intbas) { /* pass the last two (at most) parameters IN the registers */
-            i = right(regAlloc[sp].st, 16);
-            i = min(INFO_ECNT(symAttrib(i)), 2);
-            if (i < 1) {
-                reg[RH].lock = reg[RL].lock = true;
+        reg = regAlloc[sp].st;
+        if (reg > intbas) { /* pass the last two (at most) parameters IN the registers */
+            reg = right(regAlloc[sp].st, 16);
+            reg = min(INFO_ECNT(symAttrib(reg)), 2);
+            if (reg < 1) {
+                state[RH].lock = state[RL].lock = true;
                 saver();
-                reg[RH].lock = reg[RL].lock = false;
-                iop                         = 3;
+                state[RH].lock = state[RL].lock = false;
+                iop                             = 3;
             } else {
-                j = sp - i - i;
-                for (int k = 1; k <= i; k++) {
+                j = sp - reg - reg;
+                for (int k = 1; k <= reg; k++) {
                     ip = regAlloc[j].assignment & 0xf;
                     jp = (regAlloc[j].assignment >> 4) & 0xf;
                     if (ip != 0)
-                        reg[ip].lock = true;
+                        state[ip].lock = true;
                     if (jp != 0)
-                        reg[jp].lock = true;
+                        state[jp].lock = true;
                     regAlloc[j].prec = min(regAlloc[j].prec, regAlloc[j + 1].prec);
                     if (regAlloc[j].prec <= 1 && jp != 0) {
                         // bug fix from V4 -- clear pending store if passing address var to byte
                         // var
-                        if (reg[RA].regs == jp)
-                            reg[RA].regs = 0;
-                        reg[jp].regs = reg[jp].lock = false;
-                        jp                          = 0;
-                        if (reg[RA].regs == ip)
-                            reg[RA].lock = true;
-                        if (reg[RA].regs == jp)
-                            reg[RA].lock = true;
+                        if (state[RA].regSP == jp)
+                            state[RA].regSP = 0;
+                        state[jp].regSP = state[jp].lock = false;
+                        jp                               = 0;
+                        if (state[RA].regSP == ip)
+                            state[RA].lock = true;
+                        if (state[RA].regSP == jp)
+                            state[RA].lock = true;
                     }
                     regAlloc[j].assignment = REGPAIR(jp, ip);
                     j += 2;
                 }
-                j  = sp - 1 - 2 * i;
+                j  = sp - 1 - 2 * reg;
                 it = 0;
                 /* stack any stuff which does NOT go to the procedure */
                 for (int k = 1; k <= sp; k++) { /* check for value to PUSH */
@@ -2915,15 +2921,15 @@ bool operat(int val) {
                     } else if (k <= j) { /* possible PUSH if NOT a parameter */
                                          /* registers must be pushed */
                         jph = REGHIGH(regAlloc[k].assignment);
-                        kp  = reg[RA].regs;
+                        kp  = state[RA].regSP;
                         jp  = REGLOW(regAlloc[k].assignment);
                         if (kp != 0) {       /* pending ACC store, check ho AND lo registers */
                             if (kp == jph) { /* pending ho byte store */
                                 emit(LD, jph, RA);
-                                reg[RA].regs = 0;
+                                state[RA].regSP = 0;
                             } else if (kp == jp) { /* check lo byte */
                                 emit(LD, jp, RA);
-                                reg[RA].regs = 0;
+                                state[RA].regSP = 0;
                             }
                         }
                         emit(PUSH, jp - 1, 0);
@@ -2931,18 +2937,18 @@ bool operat(int val) {
                         regAlloc[k].st = 0;
                         jp             = REGLOW(regAlloc[k].assignment);
                         if (jp != 0)
-                            reg[jp].regs = 0;
+                            state[jp].regSP = 0;
                         jp = REGHIGH(regAlloc[k].assignment);
                         if (jp != 0)
-                            reg[jp].regs = 0;
+                            state[jp].regSP = 0;
                         regAlloc[k].assignment = 0;
                         regAlloc[k].litv       = -1;
                         it                     = k;
                     }
                 }
                 it = RH;
-                j  = sp - i - i;
-                for (int k = 1; k <= i; k++) {
+                j  = sp - reg - reg;
+                for (int k = 1; k <= reg; k++) {
                     id = 2 * k + 2;
                     jp = REGHIGH(regAlloc[j].assignment);
                     ip = REGLOW(regAlloc[j].assignment);
@@ -2951,8 +2957,8 @@ bool operat(int val) {
                         if (ip == 0)
                             break;
                         if (ip != id) {
-                            if (reg[id].regs != 0) {
-                                m  = reg[id].regs;
+                            if (state[id].regSP != 0) {
+                                m  = state[id].regSP;
                                 mh = REGHIGH(regAlloc[m].assignment);
                                 ml = REGLOW(regAlloc[m].assignment);
                                 if (ml == id)
@@ -2961,71 +2967,71 @@ bool operat(int val) {
                                     mh = it;
                                 // Bug fix from V4 -- CLEAR PENDING STORE WHEN REG PAIRS ARE TO
                                 // BE EXCHANGED ***
-                                if (reg[RA].regs == id) {
+                                if (state[RA].regSP == id) {
                                     emit(LD, it, RA);
-                                    reg[RA].regs = reg[RA].lock = false;
+                                    state[RA].regSP = state[RA].lock = false;
                                 } else
                                     // end of change
                                     emit(LD, it, id);
-                                reg[it].regs           = m;
+                                state[it].regSP        = m;
                                 regAlloc[m].assignment = REGPAIR(mh, ml);
                                 it++;
                             }
-                            reg[ip].regs = reg[ip].lock = false;
-                            if (reg[RA].regs == ip) {
-                                ip           = 1;
-                                reg[RA].regs = reg[RA].lock = false;
+                            state[ip].regSP = state[ip].lock = false;
+                            if (state[RA].regSP == ip) {
+                                ip              = 1;
+                                state[RA].regSP = state[RA].lock = false;
                             }
                             emit(LD, id, ip);
-                            reg[id].regs = j;
+                            state[id].regSP = j;
                         }
-                        reg[id].lock = true;
-                        ip           = jp;
+                        state[id].lock = true;
+                        ip             = jp;
                         if (ip == (-1))
                             break;
                         jp = -1;
                     }
                     j += 2;
                 }
-                j = sp - 2 * i;
-                for (int k = 1; k <= i; k++) {
+                j = sp - 2 * reg;
+                for (int k = 1; k <= reg; k++) {
                     if (regAlloc[j].assignment == 0)
                         loadv(j, 0);
-                    ip           = 2 * k;
-                    reg[ip].regs = j;
-                    reg[ip].lock = true;
+                    ip              = 2 * k;
+                    state[ip].regSP = j;
+                    state[ip].lock  = true;
                     if (regAlloc[j + 1].prec == 2 && regAlloc[j].prec == 1)
                         emit(LD, ip, 0);
                     j += 2;
                 }
-                if (reg[RA].regs != 0)
-                    emit(LD, reg[RA].regs, RA);
+                if (state[RA].regSP != 0)
+                    emit(LD, state[RA].regSP, RA);
                 for (int k = 1; k <= 7; k++) {
-                    reg[k].regs = reg[k].lock = false;
-                    reg[k].regv               = -1;
+                    state[k].regSP = state[k].lock = false;
+                    state[k].regValue              = -1;
                 }
-                j = 2 * i;
+                j = 2 * reg;
                 for (int k = 1; k <= j; k++) {
                     exch();
                     if (regAlloc[sp].st == 0 && regAlloc[sp].assignment == 0 &&
                         regAlloc[sp].litv < 0) {
                         emit(POP, RH, 0);
                         ustack();
-                        reg[RH].regv = reg[RL].regv = -1;
+                        state[RH].regValue = state[RL].regValue = -1;
                     }
                     pop(1);
                 }
                 iop = 3;
             }
             break;
-        } else                                /* this is a built-IN function. */
-            return doBuiltin(i - firsti + 1); // pass function number
+        } else                                  /* this is a built-IN function. */
+            return doBuiltin(reg - firsti + 1); // pass function number
         break;
     case RET:
         jp = prsp;
         if (jp <= 0) {
             error("146: procedure optimization stack underflow");
-            reg[RH].regv = reg[RL].regv = -255; /* mark as nil */
+            state[RH].regValue = state[RL].regValue = -255; /* mark as nil */
             return true;
         }
         // V4 /* check for type AND precision of procedure */
@@ -3034,15 +3040,15 @@ bool operat(int val) {
 
         /* l is the precision of the procedure */
         if (l != 0) {
-            i = regAlloc[sp].assignment;
-            if (i == 0)
+            reg = regAlloc[sp].assignment;
+            if (reg == 0)
                 loadv(sp, 1);
-            else if (i >= 256)
+            else if (reg >= 256)
                 cvcond(sp);
-            jp = reg[RA].regs;
+            jp = state[RA].regSP;
             j  = REGLOW(regAlloc[sp].assignment);
             k  = REGHIGH(regAlloc[sp].assignment);
-            if (i != 0 && j != jp) { /* have to load the accumulator.  may have h.o. byte. */
+            if (reg != 0 && j != jp) { /* have to load the accumulator.  may have h.o. byte. */
                 if (jp != 0 && jp == k)
                     emit(LD, k, RA);
                 emit(LD, RA, j);
@@ -3062,7 +3068,7 @@ bool operat(int val) {
             emit(RTN, 0, 0);
             if (prsp <= 0) {
                 error("146: procedure optimization stack underflow");
-                reg[RH].regv = reg[RL].regv = -255; /* mark as nil */
+                state[RH].regValue = state[RL].regValue = -255; /* mark as nil */
                 return true;
             }
         } else
@@ -3073,15 +3079,15 @@ bool operat(int val) {
     case STO:
     case STD:
         /* STO AND STD */
-        i = regAlloc[sp].st;
+        reg = regAlloc[sp].st;
 
         /* check for output function */
-        if (i != outloc) { /* check for computed address OR saved address */
-            if (i < 0) {   /* check for address reference outside intrinsic range */
-                i = -i;
-                if (i <= intbas) /* check for 'memory' address reference */
-                                 /* ** note that stacktop must be at 6 ** */
-                    if (i > 6) {
+        if (reg != outloc) { /* check for computed address OR saved address */
+            if (reg < 0) {   /* check for address reference outside intrinsic range */
+                reg = -reg;
+                if (reg <= intbas) /* check for 'memory' address reference */
+                                   /* ** note that stacktop must be at 6 ** */
+                    if (reg > 6) {
                         if (val == STD)
                             pop(1);
                         return true;
@@ -3089,24 +3095,24 @@ bool operat(int val) {
             }
             gensto(val != STD);
         } else {
-            j = regAlloc[sp].litv;
-            i = regAlloc[sp - 1].assignment;
-            if (i <= 0 || i >= 256) { /* load value to ACC */
-                i = reg[RA].regs;
-                if (i > 0)
-                    emit(LD, i, RA);
+            j   = regAlloc[sp].litv;
+            reg = regAlloc[sp - 1].assignment;
+            if (reg <= 0 || reg >= 256) { /* load value to ACC */
+                reg = state[RA].regSP;
+                if (reg > 0)
+                    emit(LD, reg, RA);
                 loadv(sp - 1, 1);
-                i = regAlloc[sp - 1].assignment;
+                reg = regAlloc[sp - 1].assignment;
             } else { /* operand is IN the gprs */
-                i %= 16;
-                k = reg[RA].regs;
-                if (k > 0 && k != i)
+                reg %= 16;
+                k = state[RA].regSP;
+                if (k > 0 && k != reg)
                     emit(LD, k, RA);
-                if (k != i)
-                    emit(LD, RA, i);
+                if (k != reg)
+                    emit(LD, RA, reg);
             }
             /* now mark ACC active IN case subsequent STO operator */
-            reg[RA].regs = i % 16;
+            state[RA].regSP = reg % 16;
             emit(OUT, j, 0);
             pop(1);
         }
@@ -3121,7 +3127,7 @@ bool operat(int val) {
         if (regAlloc[sp].st == 0 && regAlloc[sp].assignment == 0 && regAlloc[sp].litv < 0) {
             /* value is stacked, so get rid of it */
             emit(POP, RH, 0);
-            reg[RH].regv = reg[RL].regv = -1;
+            state[RH].regValue = state[RL].regValue = -1;
             ustack();
         }
         pop(1);
@@ -3139,24 +3145,24 @@ bool operat(int val) {
         ia                = regAlloc[sp].assignment;
         if (ia <= 0) {
             /* check for simple based variable case */
-            i = regAlloc[sp].st;
-            if (i > 0) { /* reserve registers for the result */
+            reg = regAlloc[sp].st;
+            if (reg > 0) { /* reserve registers for the result */
                 genreg(2, &ia, &ib);
-                reg[ia].regs            = sp;
-                reg[ib].regs            = sp;
+                state[ia].regSP         = sp;
+                state[ib].regSP         = sp;
                 regAlloc[sp].assignment = REGPAIR(ib, ia);
                 /* may be able to simplify LHLD */
-                lp = reg[RH].regv;
-                l  = reg[RL].regv;
-                if (lp != -3 || (-l) != i) {
-                    if (lp == (-4) && (-l) == i) {
+                lp = state[RH].regValue;
+                l  = state[RL].regValue;
+                if (lp != -3 || (-l) != reg) {
+                    if (lp == (-4) && (-l) == reg) {
                         emit(DCX, RH, 0);
-                        reg[RH].regv = -3;
+                        state[RH].regValue = -3;
                     } else {
-                        j = chain(i, codloc + 1);
+                        j = chain(reg, codloc + 1);
                         emit(LHLD, j, 0);
-                        reg[RH].regv = -3;
-                        reg[RL].regv = -i;
+                        state[RH].regValue = -3;
+                        state[RL].regValue = -reg;
                     }
                 }
                 skip = true;
@@ -3170,12 +3176,12 @@ bool operat(int val) {
             }
         }
         if (!skip) {
-            ib = REGHIGH(ia);
-            ia = REGLOW(ia);
-            i  = reg[RA].regs;
-            if (ia == i)
+            ib  = REGHIGH(ia);
+            ia  = REGLOW(ia);
+            reg = state[RA].regSP;
+            if (ia == reg)
                 ia = 1;
-            if (ib == i)
+            if (ib == reg)
                 ib = 1;
             if (ib == ia - 1)
                 il = ib;
@@ -3187,23 +3193,23 @@ bool operat(int val) {
             if (il != RD) {
                 emit(LD, RL, ia);
                 emit(LD, RH, ib);
-                il           = 0;
-                reg[RH].regv = reg[RL].regv = -1;
+                il                 = 0;
+                state[RH].regValue = state[RL].regValue = -1;
             } else if (lastex == codloc - 1 || regAlloc[sp].prec % 2 != 1) {
                 /* double XCHG OR double byte load with addr IN d AND e */
                 emit(XCHG, 0, 0);
-                il           = 0;
-                reg[RH].regv = reg[RL].regv = -1;
+                il                 = 0;
+                state[RH].regValue = state[RL].regValue = -1;
             }
         }
 
-        i                 = regAlloc[sp].prec - k / 4;
-        regAlloc[sp].prec = i;
+        reg               = regAlloc[sp].prec - k / 4;
+        regAlloc[sp].prec = reg;
 
         /* recover the register assignment from rasn */
         ia = REGLOW(regAlloc[sp].assignment);
         ib = REGHIGH(regAlloc[sp].assignment);
-        j  = reg[RA].regs;
+        j  = state[RA].regSP;
 
         /* skip if j=0, ia, OR ib */
         if (j != 0 && j != ia && j != ib)
@@ -3211,33 +3217,33 @@ bool operat(int val) {
 
         /* may be able to change register assignment to bc */
         if (ia == RE)
-            if (reg[RB].regs == 0 && reg[RC].regs == 0) { /* bc available, so RE-assign */
-                reg[ia].regs = reg[ib].regs = 0;
-                reg[RB].regs = reg[RC].regs = sp;
-                ia                          = RC;
-                ib                          = RB;
-                regAlloc[sp].assignment     = REGPAIR(RB, RC);
+            if (state[RB].regSP == 0 && state[RC].regSP == 0) { /* bc available, so RE-assign */
+                state[ia].regSP = state[ib].regSP = 0;
+                state[RB].regSP = state[RC].regSP = sp;
+                ia                                = RC;
+                ib                                = RB;
+                regAlloc[sp].assignment           = REGPAIR(RB, RC);
             }
-        reg[RA].regs = ia;
+        state[RA].regSP = ia;
         if (il == 0)
             emit(LD, RA, ME);
         else
             emit(LDAX, il, 0);
-        if (i > 1) {
+        if (reg > 1) {
             emit(INCX, RH, 0);
             /* may have done a prevous LHLD, if so mark INCX h */
-            if (reg[RH].regv == -3)
-                reg[RH].regv = -4;
+            if (state[RH].regValue == -3)
+                state[RH].regValue = -4;
             emit(LD, ib, ME);
         } else { /* single byte load - release h.o. register */
             ib = REGHIGH(regAlloc[sp].assignment);
-            if (ib == reg[RA].regs)
-                reg[RA].regs = 0;
-            reg[ib].regs            = 0;
-            reg[ib].regv            = -1;
+            if (ib == state[RA].regSP)
+                state[RA].regSP = 0;
+            state[ib].regSP         = 0;
+            state[ib].regValue      = -1;
             regAlloc[sp].assignment = REGLOW(regAlloc[sp].assignment);
         }
-        reg[RH].regs = reg[RL].regs = regAlloc[sp].st = 0;
+        state[RH].regSP = state[RL].regSP = regAlloc[sp].st = 0;
         return true;
     case CSE:
 
@@ -3245,8 +3251,8 @@ bool operat(int val) {
         /* compute 2*x + codloc, fetch to hl, AND jump with PCHL */
         /* reserve registers for the jump table base */
         genreg(2, &ia, &ib);
-        reg[ia].lock = true;
-        reg[ib].lock = true;
+        state[ia].lock = true;
+        state[ib].lock = true;
 
         /* index is in h AND l, so double it */
         emit(DAD, RH, 0);
@@ -3272,8 +3278,8 @@ bool operat(int val) {
         /* casjmp will be used to update the length field */
         if (--syinfo <= sytop)
             Fatal("108: pass-2 symbol table overflow");
-        reg[ib].lock = false;
-        reg[RH].regv = reg[RL].regv = -255; /* mark as nil */
+        state[ib].lock     = false;
+        state[RH].regValue = state[RL].regValue = -255; /* mark as nil */
         return true;
     case HAL:
         emit(EI, 0, 0);
@@ -3313,8 +3319,8 @@ bool operat(int val) {
                 emit(LXI, ib, j);
                 regAlloc[sp].st         = 0;
                 regAlloc[sp].assignment = REGPAIR(ib, ia);
-                reg[ia].regs            = sp;
-                reg[ib].regs            = sp;
+                state[ia].regSP         = sp;
+                state[ib].regSP         = sp;
                 return true;
             }
         } else if (regAlloc[sp].st > 0) {
@@ -3327,25 +3333,25 @@ bool operat(int val) {
         }
         break; // not needed no path to here
     case ORG:
-        i = regAlloc[sp].litv;
+        reg = regAlloc[sp].litv;
         // V4
-        if (i < 0)
+        if (reg < 0)
             error("154: bad code origin from pass-1");
         else {
-            if (codloc > i)
+            if (codloc > reg)
                 error("141: invalid origin");
             j = C_STACKHANDLING;
             k = j == 1 ? 0 : 3; // asssume lxi sp, if not user allocated
             if (C_LOAD < 0 && codloc == codeBase + k) {
                 /* no real code generated to set new codeBase */
-                codeBase = codloc = i;
+                codeBase = codloc = reg;
                 if (j != 1) {
                     if (j == 0)
                         lxis = codloc + 1; /* linkage chain for stack */
                     emit(LXI, RSP, j);     /* reserve space for stack */
                 }
             } else {
-                codloc = i; // new code point. Don't need to explicitly zero
+                codloc = reg; // new code point. Don't need to explicitly zero
 
                 if (j != 1) {     // not user handled
                     if (j == 0) { // chain system allocated stack
@@ -3376,8 +3382,8 @@ bool operat(int val) {
             /* k is max stack depth, l is symbol table count entry */
             symbol[l] = k;
         }
-        k = reg[RH].regv;
-        l = reg[RL].regv;
+        k = state[RH].regValue;
+        l = state[RL].regValue;
         if (k == (-255) && l == (-255))
             return false;
         if (prstk[jp] > 65535) { /* POP interrupted registers AND enable interrupts */
@@ -3395,7 +3401,7 @@ bool operat(int val) {
             } else
                 error("146: procedure optimization stack underflow");
         }
-        reg[RH].regv = reg[RL].regv = -255; /* mark as nil */
+        state[RH].regValue = state[RL].regValue = -255; /* mark as nil */
         return true;
     case ENA:
         emit(EI, 0, 0);
@@ -3408,19 +3414,19 @@ bool operat(int val) {
         exch();
         loadv(sp, 4);
         pop(1);
-        reg[RH].regv = -1;
-        reg[RL].regv = -1;
+        state[RH].regValue = -1;
+        state[RL].regValue = -1;
         // fallthrough
 
     case TRA: /* TRA -   check stack for simple LABEL variable */
-        iop          = 1;
-        reg[RH].lock = reg[RL].lock = true; /* IN case there are any pending values ... */
+        iop            = 1;
+        state[RH].lock = state[RL].lock = true; /* IN case there are any pending values ... */
         saver();
-        reg[RH].lock = reg[RL].lock = false;
-        m                           = regAlloc[sp].litv;
+        state[RH].lock = state[RL].lock = false;
+        m                               = regAlloc[sp].litv;
         if (m >= 0) { /* absolute jump - probably to assembly language subrtne... */
 
-            reg[RH].regv = reg[RL].regv = -1; /* ...so make h AND l registers unknown */
+            state[RH].regValue = state[RL].regValue = -1; /* ...so make h AND l registers unknown */
             emit(JMP, m, 0);
             pop(1);
             return true;
@@ -3433,9 +3439,9 @@ bool operat(int val) {
         break;
     }
 
-    i = regAlloc[sp].st;
-    if (i > 0) {
-        j = INFO_TYPE(symAttrib(i));
+    reg = regAlloc[sp].st;
+    if (reg > 0) {
+        j = INFO_TYPE(symAttrib(reg));
         /* may be a simple variable */
         if (iop != 1 || j != VARB) {
             if ((iop != 3 || j != PROC) && j != LABEL) {
@@ -3444,11 +3450,11 @@ bool operat(int val) {
                 sp--;
                 return true;
             } else {
-                j = -symAddr(i);
-                m = symRef(i);
+                j = -symAddr(reg);
+                m = symRef(reg);
 
                 if (iop == 1) {
-                    it = INFO_PREC(abs(symAttrib(i)));
+                    it = INFO_PREC(abs(symAttrib(reg)));
 
                     /* it is type of LABEL... */
                     /* 3 is user-defined outer block, 4 is user defined */
@@ -3471,10 +3477,10 @@ bool operat(int val) {
                             symAttrib(defsym) = 84;
 
                             /* i.e., ZERO references to compiler generated LABEL */
-                            if (INFO_ECNT(abs(symAttrib(i))) == 1)
-                                symTrackHL(i) = ib;
+                            if (INFO_ECNT(abs(symAttrib(reg))) == 1)
+                                symTrackHL(reg) = ib;
 
-                            symAttrib(i) += ia * 256;
+                            symAttrib(reg) += ia * 256;
                             for (;;) {
                                 /* corrected reference count for object of the DEF */
                                 /* merge the backstuffing chains */
@@ -3483,11 +3489,11 @@ bool operat(int val) {
                                     /* equate the defs */
                                     for (ia = 1; ia <= sytop; ia++)
                                         if (symbol[ia] == symbol[defsym])
-                                            symbol[ia] = symbol[i];
+                                            symbol[ia] = symbol[reg];
 
                                     /* omit the TRA if no path to it */
-                                    reg[RH].regv = defrh;
-                                    reg[RL].regv = defrl;
+                                    state[RH].regValue = defrh;
+                                    state[RL].regValue = defrl;
                                     break;
                                 } else {
                                     ib = getword(ia);
@@ -3497,12 +3503,12 @@ bool operat(int val) {
                                     // V4
                                     putword(ia, j >> 2);
                                     // V4
-                                    j          = ((ia << 2) + (j & 3));
-                                    symAddr(i) = -j;
+                                    j            = ((ia << 2) + (j & 3));
+                                    symAddr(reg) = -j;
                                 }
                             }
                         }
-                        if (reg[RH].regv == (-255)) {
+                        if (state[RH].regValue == (-255)) {
                             pop(1);
                             return true;
                         }
@@ -3520,7 +3526,7 @@ bool operat(int val) {
                         emit(LXI, RSP, j % 65536);
                     }
                 }
-                j = -symAddr(i);
+                j = -symAddr(reg);
                 m = j / 4;
 
                 /* connect entry into chain */
@@ -3530,10 +3536,10 @@ bool operat(int val) {
 
                 /* iop = 4 if we arrived here from case table JMP */
                 // V4
-                symAddr(i) = -((k << 2) + right(j, 2));
+                symAddr(reg) = -((k << 2) + right(j, 2));
 
                 /* check for single reference */
-                if (INFO_ECNT(abs(symAttrib(i))) == 1) {
+                if (INFO_ECNT(abs(symAttrib(reg))) == 1) {
                     // V4
                     //        note in a do case block, an implicit goto is
                     //        generated at the end of each selective statement
@@ -3547,7 +3553,7 @@ bool operat(int val) {
                     //        h valid | l valid | h value | l value
                     //
 
-                    int lsym = symTrackHL(i);
+                    int lsym = symTrackHL(reg);
 
                     /* PMO simplified the code to propagate HL info also fixed a bug in the
                        original Fortran code which could incorrectly subtract the valid flag
@@ -3555,18 +3561,19 @@ bool operat(int val) {
                     */
                     if (lsym != -1) {
                         int ktotal = 0;
-                        if (0 <= reg[RL].regv && reg[RL].regv < 256) {
-                            ktotal = reg[RL].regv;
-                            if (lsym == 0 || ((lsym & LVALID) && reg[RL].regv == (lsym & 0xff)))
+                        if (0 <= state[RL].regValue && state[RL].regValue < 256) {
+                            ktotal = state[RL].regValue;
+                            if (lsym == 0 ||
+                                ((lsym & LVALID) && state[RL].regValue == (lsym & 0xff)))
                                 ktotal |= LVALID;
                         }
-                        if (0 <= reg[RH].regv && reg[RH].regv < 512) {
-                            ktotal += reg[RH].regv << 8;
+                        if (0 <= state[RH].regValue && state[RH].regValue < 512) {
+                            ktotal += state[RH].regValue << 8;
                             if (lsym == 0 ||
-                                ((lsym & HVALID) && reg[RH].regv == ((lsym >> 8) & 0x1ff)))
+                                ((lsym & HVALID) && state[RH].regValue == ((lsym >> 8) & 0x1ff)))
                                 ktotal |= HVALID;
                         }
-                        symTrackHL(i) = ktotal & (HVALID | LVALID) ? ktotal : -1;
+                        symTrackHL(reg) = ktotal & (HVALID | LVALID) ? ktotal : -1;
                     }
                 }
 
@@ -3586,7 +3593,7 @@ bool operat(int val) {
                         tstloc = codloc + 3;
                         emit(JMP, m, 0);
                         pop(1);
-                        reg[RH].regv = reg[RL].regv = -255; /* mark as nil */
+                        state[RH].regValue = state[RL].regValue = -255; /* mark as nil */
                         return true;
                     }
                     break;
@@ -3604,7 +3611,7 @@ bool operat(int val) {
 
                     /* adjust the maxdepth, if necessary */
                     // V4
-                    j = symIProcDepth(i) + 1;
+                    j = symIProcDepth(reg) + 1;
                     /* j is number of double-byte stack elements reqd */
                     stack(j);
 
@@ -3613,27 +3620,27 @@ bool operat(int val) {
 
                     /* now fix the h AND l values upon return */
                     // V4
-                    j = symTrackHL(i);
+                    j = symTrackHL(reg);
                     if (j < 0)
                         j = 0; // will force regv values to -1
                     /* may be unchanged from call */
                     if ((j >> 19) != 3) {
                         /* compare values */
-                        reg[RL].regv = (j & LVALID) ? j & 0xff : -1;
-                        reg[RH].regv = (j & HVALID) ? (j >> 8) & 0x1ff : -1;
+                        state[RL].regValue = (j & LVALID) ? j & 0xff : -1;
+                        state[RH].regValue = (j & HVALID) ? (j >> 8) & 0x1ff : -1;
                     }
                     pop(1);
 
                     /* may have to construct a returned */
                     /* value at the stack top */
-                    j = INFO_PREC(symAttrib(i));
+                    j = INFO_PREC(symAttrib(reg));
                     if (j > 0) {
                         /* set stack top to precision of procedure */
-                        regAlloc[++sp] = (regAlloc_t){ 0, -1, j > 1 ? REGPAIR(RB, RC) : RC, j };
-                        reg[RA].regs   = RC;
-                        reg[RC].regs   = sp;
+                        regAlloc[++sp]  = newReg(j > 1 ? REGPAIR(RB, RC) : RC, j, 0, -1);
+                        state[RA].regSP = RC;
+                        state[RC].regSP = sp;
                         if (j > 1)
-                            reg[RB].regs = sp;
+                            state[RB].regSP = sp;
                     }
                     return true;
                 case 4:
@@ -3646,7 +3653,7 @@ bool operat(int val) {
                 }
             }
         }
-    } else if (iop != 1 || i != 0) { /* could be a computed address */
+    } else if (iop != 1 || reg != 0) { /* could be a computed address */
         error("134: invalid program transfer (only computed jumps are allowed with a 'go to')");
         sp--;
         return true;
@@ -3659,7 +3666,7 @@ bool operat(int val) {
 
     /* pc has been moved, so mark h AND l unknown */
     // V4
-    reg[RH].regv = reg[RL].regv = -1;
+    state[RH].regValue = state[RL].regValue = -1;
     return true;
 }
 
@@ -3675,10 +3682,10 @@ void updateHL(int jp) {
     xfrloc   = codloc - 1;
     xfrsym   = 0;
     tstloc   = codloc;
-    int i    = prstk[jp] % 65536;
-    int dsym = reg[RH].regv;
-    int l    = reg[RL].regv;
-    int j    = symbol[i]; // masking not needed as implicit in code below
+    int reg  = prstk[jp] % 65536;
+    int dsym = state[RH].regValue;
+    int l    = state[RL].regValue;
+    int j    = symbol[reg]; // masking not needed as implicit in code below
     int lp, kp;
 
     alter = 1; // hoisted here to simplify return
@@ -3699,58 +3706,58 @@ void updateHL(int jp) {
     j = (l >= 0 && lp == l) ? LVALID + l : 0;
     if (dsym >= 0 && kp == dsym)
         j += HVALID + (dsym << 8);
-    symbol[i]    = j;
-    reg[RH].regv = reg[RL].regv = -255;
+    symbol[reg]        = j;
+    state[RH].regValue = state[RL].regValue = -255;
 }
 
-// update condition code for 16 bit, iq == 1 if zero test
-void compare16(bool icom, int flag, int iq) {
-    apply(SU, SB, icom, 1);
-    int ip = REGLOW(regAlloc[sp].assignment);  /* change to condition code */
-    int j  = REGHIGH(regAlloc[sp].assignment); // > 7 would cause memory access error for lock etc.
-    if (iq == 1)
-        emit(OR, ip, 0);
+// update condition code for 16 bit
+void compare16(bool icom, int flag, bool zeroTest) {
+    apply(SU, SB, icom, true);
+    int regLow  = REGLOW(regAlloc[sp].assignment);
+    int regHigh = REGHIGH(regAlloc[sp].assignment);
+    if (zeroTest)
+        emit(OR, regLow, 0);
 
     /* get rid of high order register in the result */
-    reg[RA].regs = ip;
-    regAlloc[sp] = (regAlloc_t){ 0, -1, flag + ip, 1 };
+    state[RA].regSP = regLow;
+    regAlloc[sp]    = newReg(flag + regLow, 1, 0, -1);
 
-    if (j != 0) {
-        reg[j].lock = false;
-        reg[j].regs = 0;
-        reg[j].regv = -1;
+    if (regHigh) { // free high register if previously used
+        state[regHigh].lock     = false;
+        state[regHigh].regSP    = 0;
+        state[regHigh].regValue = -1;
     }
     return;
 }
 
 // genrate call to builtin function bf, result determines result reg pair to use
 // modified to use bf = 0->mutliply 1->divide/mod
-void builtin(int bf, int result) {
+void builtin(int bf, int targetReg) {
     /* clear condition code */
     if (COND(regAlloc[sp].assignment))
         cvcond(sp);
 
     /* clear pending store */
-    if (reg[RA].regs != 0) {
-        emit(LD, reg[RA].regs, RA);
-        reg[RA].regs = 0;
+    if (state[RA].regSP != 0) {
+        emit(LD, state[RA].regSP, RA);
+        state[RA].regSP = 0;
     }
 
     /* lock any correctly assigned registers */
     /* ....AND store the remaining registers. */
     if (REGLOW(regAlloc[sp].assignment) == RE)
-        reg[RE].lock = true;
+        state[RE].lock = true;
     if (REGHIGH(regAlloc[sp].assignment) == RD)
-        reg[RD].lock = true;
+        state[RD].lock = true;
     if (REGLOW(regAlloc[sp - 1].assignment) == RC)
-        reg[RC].lock = true;
+        state[RC].lock = true;
     if (REGHIGH(regAlloc[sp - 1].assignment) == RB)
-        reg[RB].lock = true;
+        state[RB].lock = true;
     saver();
 
     /* mark register c used. */
-    if (reg[RC].regs == 0)
-        reg[RC].regs = -1;
+    if (state[RC].regSP == 0)
+        state[RC].regSP = -1;
 
     /* load top of stack into registers d AND e. */
     loadv(sp, 0);
@@ -3758,8 +3765,8 @@ void builtin(int bf, int result) {
         emit(LD, RD, 0);
 
     /* now deassign register c unless correctly loaded. */
-    if (reg[RC].regs == (-1))
-        reg[RC].regs = 0;
+    if (state[RC].regSP == (-1))
+        state[RC].regSP = 0;
 
     /* load t.o.s. - 1 into registers b AND c. */
     loadv(sp - 1, 0);
@@ -3777,99 +3784,89 @@ void builtin(int bf, int result) {
 
     /* AND then retrieve results */
     for (int dsym = 1; dsym <= 7; dsym++)
-        reg[dsym].lock = false;
+        state[dsym].lock = false;
 
     /* cannot predict where registers h AND l will END up */
-    reg[RH].regv = reg[RL].regv = -1;
-    regAlloc[++sp] = (regAlloc_t){ 0, -1, result == 2 ? REGPAIR(RD, RE) : REGPAIR(RB, RC), 2 };
-    if (result == 2)
-        reg[RD].regs = reg[RE].regs = sp;
-    else
-        reg[RB].regs = reg[RC].regs = sp;
+    state[RH].regValue = state[RL].regValue = -1;
+    // save the result in the target register pair
+    regAlloc[++sp]         = newReg(REGPAIR(targetReg, targetReg + 1), 2, 0, -1);
+    state[targetReg].regSP = state[targetReg + 1].regSP = sp;
 }
 
-/* base may be indexed by ZERO... */
-void inx(int jp) {
-    int i;
+void inx(int prec) {
 
-    if (regAlloc[sp].litv == 0) /* just _delete the index AND ignore the INX operator */
+    if (regAlloc[sp].litv == 0) /* zero index just pop it and ignore the INX operator */
         pop(1);
     else {
         if (COND(regAlloc[sp].assignment))
             cvcond(sp);
-        int j  = reg[RA].regs;
-        int il = REGLOW(regAlloc[sp].assignment);
-        int ih = REGHIGH(regAlloc[sp].assignment);
-        int jl = REGLOW(regAlloc[sp - 1].assignment);
-        int jh = REGHIGH(regAlloc[sp - 1].assignment);
+        int j         = state[RA].regSP;
+        int indexLow  = REGLOW(regAlloc[sp].assignment);
+        int indexHigh = REGHIGH(regAlloc[sp].assignment);
+        int baseLow   = REGLOW(regAlloc[sp - 1].assignment);
+        int baseHigh  = REGHIGH(regAlloc[sp - 1].assignment);
 
-        /* check for pending store to base OR index */
-        if (j && (j == jh || j == jl || j == ih || j == il)) {
+        /* check for pending store to base or index */
+        if (j && (j == baseHigh || j == baseLow || j == indexHigh || j == indexLow)) {
             emit(LD, j, RA);
-            reg[RA].regs = 0;
+            state[RA].regSP = 0;
         }
 
-        /* make sure that d AND e are available */
-        if (reg[RE].regs != 0 || reg[RD].regs != 0)
-            if (il != RE && jl != RE) { /* mark all registers free */
+        /* make sure that d and e are available */
+        if (state[RE].regSP != 0 || state[RD].regSP != 0)
+            if (indexLow != RE && baseLow != RE) { /* mark all registers free */
                 int ia, ib, ic;
-                if (il != 0)
-                    reg[il].regs = 0;
-                if (jl != 0)
-                    reg[jl].regs = 0;
+                if (indexLow)
+                    state[indexLow].regSP = 0;
+                if (baseLow)
+                    state[baseLow].regSP = 0;
                 genreg(2, &ia, &ib);
-                reg[ia].regs = 1;
+                state[ia].regSP = 1; // mark as not free so as to not reallocate
                 genreg(2, &ic, &ib);
-                reg[ia].regs = 0;
+                state[ia].regSP = 0; // back to free
 
-                /* all regs are cleared except base AND index, if allocated. */
-                if (il)
-                    reg[il].regs = sp;
-                if (jl)
-                    reg[jl].regs = sp - 1;
+                /* all regs are cleared except base and index, if allocated. */
+                if (indexLow)
+                    state[indexLow].regSP = sp;
+                if (baseLow)
+                    state[baseLow].regSP = sp - 1;
             }
 
-        /* if literal 1 OR -1, use INX OR DCX */
-        if (regAlloc[sp].litv != 1 && regAlloc[sp].litv != 65535) {
-            /* if the index is constant, AND the base an address variable, */
+        /* if not literal 1 or -1, use DAD else use INX or DCX */
+        int op;
+        if (regAlloc[sp].litv != 1 && regAlloc[sp].litv != 0xffff) {
+            /* if the index is constant, and the base an address variable, */
             /* double the literal value at compile time */
-            if (regAlloc[sp].litv >= 0 && jp != 1) {
+            if (regAlloc[sp].litv >= 0 && prec != 1) {
                 regAlloc[sp].litv *= 2;
-                jp = 1;
+                prec = 1; // pretend byte variable (saves a DAD)
             }
-            i = 0;
-            if (regAlloc[sp].litv >= 0)
-                i = 3;
-            loadv(sp, i);
+            loadv(sp, regAlloc[sp].litv >= 0 ? 3 : 0);
+
+            //  if the index was already in the registers, may have to extend precision to address.
+            indexLow  = REGLOW(regAlloc[sp].assignment);
+            indexHigh = REGHIGH(regAlloc[sp].assignment);
+            if (indexLow != 0 && indexHigh == 0) {
+                indexHigh = indexLow - 1;
+                emit(LD, indexHigh, 0);
+            }
+            op = DAD;
+        } else {
+            op        = regAlloc[sp].litv == 1 ? INCX : DCX;
+            indexHigh = RH;
         }
 
-        /* if the index was already in the registers, may */
-        /* have to extend precision to address. */
-        il = REGLOW(regAlloc[sp].assignment);
-        ih = REGHIGH(regAlloc[sp].assignment);
-        if (il != 0 && ih == 0) {
-            ih = il - 1;
-            emit(LD, ih, 0);
-        }
-        i = DAD;
-        i = regAlloc[sp].litv == 1 ? INCX : regAlloc[sp].litv == 65535 ? DCX : DAD;
-        if (ih == 0)
-            ih = RH;
-        /* _delete the index.  (note that sp will then point to the base) */
+        pop(1);                 /* pop the index.  base is now at top */
+        loadv(sp, 5);           /* load the base into the h and l registers */
+        emit(op, indexHigh, 0); /* add the base and index */
+
+        if (prec != 1)
+            emit(op, indexHigh, 0); /* and add index again if base is an address variable. */
+        emit(XCHG, 0, 0);           /* XCHG here and remove with peephole optimization later */
+        prec = regAlloc[sp].prec;   // get back precision of base
         pop(1);
-        /* load the base into the h AND l registers */
-        loadv(sp, 5);
-        /* ADD the base AND index */
-        emit(i, ih, 0);
-        /* AND ADD index again if base is an address variable. */
-        if (jp != 1)
-            emit(i, ih, 0);
-        emit(XCHG, 0, 0);
-        /* note XCHG here AND remove with peephole optimization later */
-        i = regAlloc[sp].prec;
-        pop(1);
-        regAlloc[++sp] = (regAlloc_t){ 0, -1, REGPAIR(RD, RE), i };
-        reg[RH].regv = reg[RL].regv = -1;
-        reg[RD].regs = reg[RE].regs = sp;
+        regAlloc[++sp]     = newReg(REGPAIR(RD, RE), prec, 0, -1);
+        state[RH].regValue = state[RL].regValue = -1;
+        state[RD].regSP = state[RE].regSP = sp;
     }
 }
