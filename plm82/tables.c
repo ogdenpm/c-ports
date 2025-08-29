@@ -124,7 +124,6 @@ void emitbf(int bf) {
 
 /* inst */
 // replace original ctran array with pre expanded strings to simplify the logic
-// the first byte is the number of additional bytes in ascii
 // the original compiler uses SBC vs. SBB and has non standard immediate forms for mov and arith
 // if STD is defined these are replaced by standard ones, although currently commas are omitted as
 // per the original

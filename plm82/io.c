@@ -180,11 +180,8 @@ void sydump() {
         }
         label[MAXLABEL] = '\0';
         if (symNo == 5 || symNo > 6) { /* write hex address */
-            int j  = symbol[symNo];
-            int ch = symbol[j - 1] & 0xf;
-            if (ch == PROC || ch == LABEL)
-                j -= 2;
-            int addr = abs(symbol[j]);
+            int type = INFO_TYPE(symAttrib(symNo));
+            int addr = type == PROC || type == LABEL ? symRef(symNo) : symAddr(symNo);
             if (C_HEXFILE)
                 fprintf(hexFp, "%-5d %.*s %05XH\n", symNo, len, label, addr);
             if (C_MAP)

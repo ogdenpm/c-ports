@@ -64,25 +64,29 @@ void loadsy() {
         if (C_SYMBOLS >= 2) // write symbol number AND symbol table address
             fprintf(lstFp, "S%05d", sytop);
 
-        symbol[sytop] = syinfo;
-        int attribIdx = --syinfo;
+        symbol[sytop] = syinfo--;
         if (syinfo - ch <= sytop) {
             Fatal("109: symbol table overflow");
             syinfo = symax;
         }
-        while (ch-- > 0) {
-            int info         = getSym32();
-            symbol[syinfo--] = ch ? -info : info;
 
+        int info = getSym32();
+        if (C_SYMBOLS >= 2) // write symbol table address AND entry
+            fprintf(lstFp, "    %05d (%d,%d,%d)", syinfo, INFO_ECNT(info), INFO_PREC(info), INFO_TYPE(info));
+        symbol[syinfo--] = ch == 1 ? info : -info;
+        if (ch == 2) {
+            symbol[syinfo--] = info = getSym32();
             if (C_SYMBOLS >= 2) // write symbol table address AND entry
-                fprintf(lstFp, "    %05d %c%08XH", syinfo, ch ? '-' : ' ', info);
+                fprintf(lstFp, " based S%05d", info);
+            
         }
+
+
         if (C_SYMBOLS >= 2)
             putc('\n', lstFp);
         /* check for special case at END of an entry */
-        int attrib = abs(symbol[attribIdx]);
         // allocate additional cell count
-        switch (attrib & 0xf) {
+        switch (INFO_TYPE(symAttrib(sytop))) {
         case VARB:
             syinfo -= 1;
             break;
@@ -90,7 +94,7 @@ void loadsy() {
             syinfo -= 3;
             break;
         case LABEL:
-            syinfo -= HIGH(attrib) == 1 ? 2 : 1;
+            syinfo -= INFO_ECNT(symAttrib(sytop)) == 1 ? 2 : 1;
             break; // check for single reference to the label
         }
     }
@@ -211,9 +215,9 @@ void inldat() {
                 if (type == DEF) {
                     if (val > 0)
                         symIdx = val; /* this is a symbol reference */
-                    else { /* inline constant -- set up symbol entry */
+                    else {            /* inline constant -- set up symbol entry */
                         if (syinfo - 2 < ++sytop)
-                            break;  // overflow
+                            break; // overflow
                         symIdx        = -sytop;
                         symbol[sytop] = syinfo;
                         syinfo -= 2; // reserve 2 entries
@@ -223,11 +227,11 @@ void inldat() {
             } else if (type == OPR && val == DAT) {
                 /* backstuff jump address */
                 /* now fix symbol table entries */
-                symAddr(abs(symIdx)) = -iq;
-                int ecnt                = INFO_ECNT(symAttrib(abs(symIdx)));
+                symAddr(abs(symIdx))   = -iq;
+                int ecnt               = INFO_ECNT(symAttrib(abs(symIdx)));
                 symAttrib(abs(symIdx)) = PACK_ATTRIB(--cnt, 1, VARB); // fill in the symbol table
                 if (symIdx < 0) /* this is an address reference to a constant, so.. */
-                    regAlloc[++sp] = newReg(0, 2, symIdx, iq);
+                    parseStk[++sp] = stkItem(0, 2, symIdx, iq);
                 else if (ecnt != cnt) /* check size declared against size read */
                     break;
                 return;
