@@ -43,16 +43,18 @@ int execute(char const *const *cmd, string_t *str, bool isInteractive) {
         dup2(pipes[PWRITE], fileno(stderr));
         close(pipes[PWRITE]);
     }
-    int status;
-    pid_t pid;
+
+
 #ifdef _MSC_VER
-    pid = spawnvp(P_NOWAIT, "git.exe", cmd);
+    intptr_t pid = spawnvp(_P_NOWAIT, "git.exe", cmd);
 #else
+    pid_t pid;
     if ((pid = fork()) == 0) {
         execvp("git", (char * const *)cmd);
         fatal("exec failed");
     }
 #endif
+    int status;
     if (str) {
         if (!isInteractive)
             dup2(oldStdout, fileno(stdout));
@@ -67,7 +69,7 @@ int execute(char const *const *cmd, string_t *str, bool isInteractive) {
             appendBuffer(str, "", 1);
         }
 #ifdef _MSC_VER
-        _cwait(&status, pid, WAIT_CHILD);
+        _cwait(&status, pid, _WAIT_CHILD);
 #else
         waitpid(pid, &status, 0);
         if (WIFEXITED(status))
