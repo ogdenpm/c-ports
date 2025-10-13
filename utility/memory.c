@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include "utility.h"
 /// <summary>
 /// helper to malloc memory and check for out of memory
@@ -21,6 +22,13 @@ void *safeMalloc(size_t size) {
 /// <returns></returns>
 void *safeRealloc(void *old, size_t size) {
     void *p = realloc(old, size);
+    if (!p)
+        fatal("Out of memory");
+    return p;
+}
+
+char *safeStrdup(char const *s) {
+    char *p = strdup(s);
     if (!p)
         fatal("Out of memory");
     return p;

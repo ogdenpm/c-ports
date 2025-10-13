@@ -18,8 +18,9 @@ char *makeFilename(char const *path, char const *ext, bool force);
 // memory.c
 void *safeMalloc(size_t size);
 void *safeRealloc(void *old, size_t size);
+char *safeStrdup(char const *s);
 
-// option.c
+    // option.c
 /*
     Help contains the usage syntax and the option descriptions.
     When shown  it is preceded by the simple version information and app desciption
