@@ -197,7 +197,7 @@ void inldat() {
     int symIdx = 0; // assign to appease GCC
 
     /* emit data inline */
-    int iq  = codloc;
+    int startAddr  = codloc;
     int cnt = 0;
     for (;;) {
         int type = 0;
@@ -210,10 +210,10 @@ void inldat() {
                 error("125: inline data error");
                 return;
             }
-            /* kp is typ AND k is data */
+
             if (cnt == 0) { /* define inline data symbol */
                 if (type == DEF) {
-                    if (val > 0)
+                    if (val)
                         symIdx = val; /* this is a symbol reference */
                     else {            /* inline constant -- set up symbol entry */
                         if (syinfo - 2 < ++sytop)
@@ -227,11 +227,11 @@ void inldat() {
             } else if (type == OPR && val == DAT) {
                 /* backstuff jump address */
                 /* now fix symbol table entries */
-                symAddr(abs(symIdx))   = -iq;
+                symAddr(abs(symIdx))   = -startAddr;
                 int ecnt               = INFO_ECNT(symAttrib(abs(symIdx)));
                 symAttrib(abs(symIdx)) = PACK_ATTRIB(--cnt, 1, VARB); // fill in the symbol table
                 if (symIdx < 0) /* this is an address reference to a constant, so.. */
-                    parseStk[++sp] = stkItem(0, 2, symIdx, iq);
+                    parseStk[++sp] = stkItem(0, 2, symIdx, startAddr);
                 else if (ecnt != cnt) /* check size declared against size read */
                     break;
                 return;

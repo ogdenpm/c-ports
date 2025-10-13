@@ -1765,13 +1765,13 @@ void reloc() {
 
     else {
         for (int symId = 1; symId <= sytop; symId++) {
-            int symAddr = symAddr(symId);
-            if (symAddr >= 0) {                           /* now fix page number */
-                int actualPage = HIGH(symAddr) - relPage; /* l is relocated page number */
-                symAddr(symId) = (actualPage << 8) + LOW(symAddr);
+            int addr = symAddr(symId);
+            if (addr >= 0) {                           /* now fix page number */
+                int actualPage = HIGH(addr) - relPage; /* l is relocated page number */
+                symAddr(symId) = (actualPage << 8) + LOW(addr);
 
                 /* backstuff lhi l into location target-1 */
-                for (int next, target = HIGHWORD(symAddr); target; target = next) {
+                for (int next, target = HIGHWORD(addr); target; target = next) {
                     next = get(target - 1) * 256 + get(target);
                     put(target - 1, 0x26);
                     put(target, actualPage);
@@ -2286,7 +2286,7 @@ void readcd() {
                 break;
             case PROC: /* set up procedure stack for procedure entry */
                 if (++prsp <= prsmax) {
-                    prstk[prsp] = TrackHL(ip); // index of symTrackHL
+                    prstk[prsp] = val; // TrackHL(ip); // index of symTrackHL
 
                     /* mark h AND l as unaltered initially */
                     /* /  1b  /  1b  /  1b  /  1b  /  9b  /  8b  / */
@@ -2493,7 +2493,7 @@ void doPRO(int16_t symId) {
                 if (parseStk[stkIdx].st == 0 && parseStk[stkIdx].litv < 0 && pushed)
                     error("150: pass-2 compiler error in 'loadv'");
             } else if (stkIdx < firstSp) { /* possible PUSH if not a parameter */
-                                      /* registers must be pushed */
+                                           /* registers must be pushed */
                 uint8_t regHigh = REGHIGH(parseStk[stkIdx].assignment);
                 uint8_t regSt   = state[RA].regSt;
                 uint8_t regLow  = REGLOW(parseStk[stkIdx].assignment);
@@ -2512,15 +2512,15 @@ void doPRO(int16_t symId) {
                 parseStk[stkIdx].st = 0;
                 if (regLow)
                     state[regLow].regSt = 0;
-                if (regHigh)    
+                if (regHigh)
                     state[regHigh].regSt = 0;
 
                 parseStk[stkIdx].assignment = 0;
                 parseStk[stkIdx].litv       = -1;
-                pushed = true;
+                pushed                      = true;
             }
         }
-        uint8_t it     = RH;
+        uint8_t it = RH;
         for (int stkIdx = firstSp; stkIdx < sp; stkIdx += 2) {
             int8_t paramRegHigh = REGHIGH(parseStk[stkIdx].assignment);
             int8_t paramRegLow  = REGLOW(parseStk[stkIdx].assignment);
@@ -2594,6 +2594,8 @@ bool doBuiltin(int val) {
     int port;
     int ip;
     int ia, ib;
+    int32_t cnt;
+    int pc;
 
     pop(1);
     switch (val) {
@@ -2603,68 +2605,68 @@ bool doBuiltin(int val) {
     case B_SHR:
     case B_SCL:
     case B_SCR:
+
+        cnt = parseStk[sp].litv;
+        /* generate in-line code for shift counts of */
+        /* 1 or 2 for address values */
+        /* 1 to 3 for shr of byte values */
+        /* 1 to 6 for all other shift functions on byte values */
+        if (cnt >= 0 && cnt <= (parseStk[sp - 1].prec != 1 ? 2 : val == B_SHR ? 3 : 6)) {
+            pop(1);
+            while (cnt-- > 0)
+                unary(val);
+            return true;
+        }
+        exch();
+        /* load the value to decrement */
+        loadv(sp - 1, 0);
+        j = REGLOW(parseStk[sp - 1].assignment);
+        if (state[RA].regSt == j) {
+            emit(LD, j, RA);
+            state[RA].regSt = 0;
+        }
+        state[j].lock = true;
+
+        /* load the value which is to be operated upon */
+        uint8_t prec   = parseStk[sp].prec;
+        bool singleReg = prec <= 1;
+        if (parseStk[sp].assignment == 0) {
+            loadv(sp, singleReg);
+            if (singleReg)
+                state[RA].regSt = REGLOW(parseStk[sp].assignment);
+        }
+        m = REGLOW(parseStk[sp].assignment);
+        if (!singleReg || state[RA].regSt != m) {
+            if (state[RA].regSt) {
+                emit(LD, state[RA].regSt, RA);
+                state[RA].regSt = 0;
+            }
+            if (singleReg) {
+                emit(LD, RA, m);
+                state[RA].regSt = m;
+            }
+        }
+        pc = codloc;
+        unary(val);
+        if (prec != 1) {
+            if (state[RA].regSt)
+                emit(LD, state[RA].regSt, RA);
+            state[RA].regSt = 0;
+        }
+        emit(DC, j, 0);
+        emit(JMC, FAL + ZERO, pc);
+
+        /* END up here after operation completed */
+        exch();
+        state[j].lock = false;
+        pop(1);
+        return true;
+
     case B_HIGH:
     case B_LOW:
-        if (val > B_SCR) /* ** note that this also assumes only 6 such bifs */
-            unary(val);
-        else {
-            int32_t cnt = parseStk[sp].litv;
-            if (cnt > 0) { /* generate in-line code for shift counts of */
-                /* 1 or 2 for address values */
-                /* 1 to 3 for shr of byte values */
-                /* 1 to 6 for all other shift functions on byte values */
-                if (cnt <= (parseStk[sp - 1].prec != 1 ? 2 : val == B_SHR ? 3 : 6)) {
-                    pop(1);
-                    for (int j = 0; j < cnt; j++)
-                        unary(val);
-                    return true;
-                }
-            }
-            exch();
-            /* load the value to decrement */
-            loadv(sp - 1, 0);
-            j = REGLOW(parseStk[sp - 1].assignment);
-            if (state[RA].regSt == j) {
-                emit(LD, j, RA);
-                state[RA].regSt = 0;
-            }
-            state[j].lock = true;
-
-            /* load the value which is to be operated upon */
-            uint8_t prec   = parseStk[sp].prec;
-            bool singleReg = prec <= 1;
-            if (parseStk[sp].assignment == 0) {
-                loadv(sp, singleReg);
-                if (singleReg)
-                    state[RA].regSt = REGLOW(parseStk[sp].assignment);
-            }
-            m = REGLOW(parseStk[sp].assignment);
-            if (!singleReg || state[RA].regSt != m) {
-                if (state[RA].regSt) {
-                    emit(LD, state[RA].regSt, RA);
-                    state[RA].regSt = 0;
-                }
-                if (singleReg) {
-                    emit(LD, RA, m);
-                    state[RA].regSt = m;
-                }
-            }
-            int pc = codloc;
-            unary(val);
-            if (prec != 1) {
-                if (state[RA].regSt)
-                    emit(LD, state[RA].regSt, RA);
-                state[RA].regSt = 0;
-            }
-            emit(DC, j, 0);
-            emit(JMC, FAL + ZERO, pc);
-
-            /* END up here after operation completed */
-            exch();
-            state[j].lock = false;
-            pop(1);
-        }
+        unary(val);
         return true;
+
     case B_TIME:
         if (COND(parseStk[sp].assignment))
             cvcond(sp);
@@ -2941,7 +2943,7 @@ bool operat(int val) {
             pop(2);
             return true;
         }
-        iop = 2; /* NOT a literal '1' */
+        iop = 2; /* flag as TRC */
         /* check for condition code */
         if (COND(parseStk[sp - 1].assignment)) { /* active condition code, construct mask for JMC */
             iop2 = COND(parseStk[sp - 1].assignment) ^ TRU;
@@ -2975,8 +2977,8 @@ bool operat(int val) {
             return true;
         }
         // V4 /* check for type AND precision of procedure */
-        l    = LOWWORD(prstk[prsp]) + 2;
-        prec = INFO_PREC(symbol[l]);
+        // l    = LOWWORD(prstk[prsp]) + 2;
+        prec = INFO_PREC(symAttrib(LOWWORD(prstk[prsp])));
 
         /* prec is the precision of the procedure */
         if (prec != 0) {
@@ -3000,7 +3002,7 @@ bool operat(int val) {
                 emit(LD, RB, 0);
         }
         pop(1);
-        if (prstk[prsp] > 65535) { /* interrupt procedure - use the DRT code below */
+        if (prstk[prsp] > 0xffff) { /* interrupt procedure - use the DRT code below */
             emit(POP, RA, 0);
             emit(POP, RB, 0);
             emit(POP, RD, 0);
@@ -3215,7 +3217,7 @@ bool operat(int val) {
 
         /* set entry to len=0/prec=2/type=VARB/ */
         symbol[syinfo] = PACK_ATTRIB(0, 2, VARB);
-        casjmp         = syinfo;
+        casjmp         = sytop;
 
         /* casjmp will be used to update the length field */
         if (--syinfo <= sytop)
@@ -3314,10 +3316,8 @@ bool operat(int val) {
         if (prsp > 0) {
             if (curdep[prsp] != 0)
                 error("150: stack not empty at end of compilation");
-            l = (prstk[prsp] & 0xffff) - 1;
 
-            /*l is symbol table count entry - set max stack depth*/
-            symbol[l] = maxdep[prsp];
+            symIProcDepth(LOWWORD(prstk[prsp])) = maxdep[prsp];
         }
         if ((jp = prsp) > 0)
             prsp--;
@@ -3374,8 +3374,8 @@ bool operat(int val) {
         break;
     case AX2: /* may not be omitted even though no obvious path exists). */
         iop = 4;
-        /* casjmp points to symbol table attributes - INC len field */
-        symbol[casjmp] += (1 << 8);
+        /* reference the symbol attributes for casjmp to update label references field */
+        symAttrib(casjmp) += (1 << 8);
         break;
     }
 
@@ -3516,13 +3516,12 @@ bool operat(int val) {
                         state[RH].regValue = state[RL].regValue = -255; /* mark as nil */
                     }
                     pop(1);
-                    return true;
+                    break;
                 case 2:
                     conloc = codloc;
                     emit(JMC, iop2, m);
                     pop(2);
-                    return true;
-                    ;
+                    break;
                 case 3:
                     xfrloc = codloc;
                     xfrsym = parseStk[sp].st;
@@ -3559,14 +3558,15 @@ bool operat(int val) {
                         if (j > 1)
                             state[RB].regSt = sp;
                     }
-                    return true;
+                    break;
                 case 4:
                     /* came from a case vector */
                     emit(0, m % 256, 0);
                     emit(0, m / 256, 0);
                     pop(1);
-                    return true;
+                    break;
                 }
+                return true;
             }
         }
     } else if (iop != 1 || symId != 0) { /* could be a computed address */
@@ -3601,7 +3601,7 @@ void updateHL(int jp) {
     int reg  = prstk[jp] & 0xffff;
     int dsym = state[RH].regValue;
     int l    = state[RL].regValue;
-    int j    = symbol[reg]; // masking not needed as implicit in code below
+    int j    = symTrackHL(reg); // masking not needed as implicit in code below
     int lp, kp;
 
     alter = true; // hoisted here to simplify return
@@ -3622,7 +3622,7 @@ void updateHL(int jp) {
     j = (l >= 0 && lp == l) ? LVALID + l : 0;
     if (dsym >= 0 && kp == dsym)
         j += HVALID + (dsym << 8);
-    symbol[reg]        = j;
+    symTrackHL(reg)    = j;
     state[RH].regValue = state[RL].regValue = -255;
 }
 
