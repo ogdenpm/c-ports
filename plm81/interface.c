@@ -1,5 +1,8 @@
 #include "plm81.h"
 
+static char *types[] = { "0", "VARB", "INTR", "PROC", "LABEL", "LITER", "NUMBER" };
+static char *sizes[] = { "VOID", "BYTE", "ADDRESS", "OUTER", "LOCAL", "COMPILER" };
+
 void putSym32(uint32_t val) {
     fwrite(&val, sizeof(val), 1, symFp);
 }
@@ -8,17 +11,28 @@ void putSym16(uint16_t val) {
     fwrite(&val, sizeof(val), 1, symFp);
 }
 
-
 // to map to original code info
 #define MkInfo(packed, prec, type) (((int)(packed) << 8) | ((prec) << 4) | (type))
 
+void dumpname(uint16_t symIdx, bool space) {
+    if (symbol[symIdx].strId) { // exists
+        if (space)
+            putc(' ', lstFp);
+        int type = symbol[symIdx].type;
+        if (type == LITER)
+            putc('"', lstFp);
+        fprintf(lstFp, "%.*s", symbol[symIdx].strLen, idToStr(symbol[symIdx].strId));
+        if (type == LITER)
+            putc('"', lstFp);
+    }
+}
 void dumpsy() {
     int ic;
 
     ic = C_SYMBOLS;
     if (ic != 0) {
         if (ic > 1)
-            fprintf(lstFp, "\nSYMBOL  ADDR STR CHRS   LENGTH PR TY");
+            fprintf(lstFp, "\nSYMBOL  TYPE   PR\n");
         for (int symIdx = symNext - 1; symIdx > 0; symIdx--) {
             /*     quick check for zero length name */
             if (ic >= 2 || symbol[symIdx].strLen > 0)
@@ -26,21 +40,48 @@ void dumpsy() {
 
             if (ic >= 2) {
                 putc(symbol[symIdx].outOfScope ? '*' : ' ', lstFp); // * if now out of scope
-                fprintf(lstFp, " %04d %3d %4d ", symIdx, symbol[symIdx].strId,
-                        symbol[symIdx].strLen);
-                putc(symbol[symIdx].based ? 'B' : 'R', lstFp); // based or regular
-                fprintf(lstFp, " %06d%3d%3d", symbol[symIdx].len, symbol[symIdx].prec,
-                        symbol[symIdx].type);
-            }
-            putc(' ', lstFp);
-
-            if (symbol[symIdx].strId) { // exists
-                int type = symbol[symIdx].type;
-                if (type == LITER)
-                    putc('\'', lstFp);
-                fprintf(lstFp, "%.*s", symbol[symIdx].strLen, idToStr(symbol[symIdx].strId));
-                if (type == LITER)
-                    putc('\'', lstFp);
+                fprintf(lstFp, " %-6s", types[symbol[symIdx].type]);
+                if (symbol[symIdx].type == LABEL || symbol[symIdx].prec < 3)
+                    fprintf(lstFp, " %-8s", sizes[symbol[symIdx].prec]);
+                else
+                    fprintf(lstFp, " %-8s", "DATA");
+                dumpname(symIdx, true);
+                switch (symbol[symIdx].type) {
+                case VARB:
+                    if (symbol[symIdx].len != 1)
+                        fprintf(lstFp, "(%d)", symbol[symIdx].len);
+                    if (symbol[symIdx].based) {
+                        fputs(" BASED", lstFp);
+                        dumpname(symbol[symIdx].based, true);
+                    }
+                    break;
+                case LABEL:
+                    if (symbol[symIdx].len)
+                        fprintf(lstFp, " [%d]", symbol[symIdx].len);
+                    break;
+                case NUMBER:
+                    fprintf(lstFp, " %d", symbol[symIdx].len);
+                    break;
+                case INTR:
+                case PROC:
+                    if (symbol[symIdx].len) {
+                        putc('(', lstFp);
+                        for (int i = 0; i < symbol[symIdx].len; i++) {
+                            if (i)
+                                putc(',', lstFp);
+                            if (symbol[symIdx].type == INTR)
+                                fprintf(lstFp, "P%d", i + 1);
+                            else
+                                dumpname(symIdx + 1 + i, false);
+                        }
+                        putc(')', lstFp);
+                    }
+                    break;
+                case LITER:
+                    if (symbol[symIdx].prec < 3)
+                        fprintf(lstFp, " %d", symbol[symIdx].len);
+                    break;
+                }
             }
             putc('\n', lstFp);
         }
@@ -97,26 +138,25 @@ int wrdata(const int sy) {
         if (len) {
             if (sy < 0) {
                 if (len == 2)
-                    emit(HIGHBYTE(n), LIT);
-                emit(LOWBYTE(n), LIT);
+                    emit(LIT, HIGHBYTE(n));
+                emit(LIT, LOWBYTE(n));
             } else {
                 putc(len, symFp);
                 if (len == 2)
                     putc(HIGHBYTE(n), symFp);
                 putc(LOWBYTE(n), symFp);
-
             }
         }
     } else {
         len             = symbol[symIdx].strLen;
         uint8_t *symStr = (uint8_t *)idToStr(symbol[symIdx].strId);
 
-        if (sy < 0)                          // emit string data inline
+        if (sy < 0) // emit string data inline
             for (int lp = 0; lp < len; lp++)
-                emit(symStr[lp], LIT);
+                emit(LIT, symStr[lp]);
         else {
             putc(3, symFp);
-            fwrite(symStr, 1, len, symFp);  // emit string, terminate with '\0'
+            fwrite(symStr, 1, len, symFp); // emit string, terminate with '\0'
             putc(0, symFp);
         }
     }
@@ -156,7 +196,7 @@ void dumpin() {
             int col = 15;
             for (int jp = initialData[i++] & 0x7fff; jp > 0; jp--) {
                 if (col + 7 > C_WIDTH) {
-                    fprintf(lstFp, "\n%.*s", 15, "");
+                    fprintf(lstFp, "\n%15s", "");
                     col = 15;
                 }
                 /*         get the symbol number */
@@ -170,7 +210,7 @@ void dumpin() {
         return;
 
     for (int i = 0; i < initialDataSP;) {
-        putc(4, symFp);     // mark start of block
+        putc(4, symFp); // mark start of block
         putSym16(initialData[i] >> 15);
         for (int jp = initialData[i++] & 0x7fff; jp > 0; jp--)
             wrdata(initialData[i++] & 0xffff);
@@ -180,10 +220,10 @@ void dumpin() {
     return;
 }
 
-void emit(int val, int typ) {
+void emit(int typ, int val) {
 
     static int polcnt     = 0;
-    static char *polchr[] = { "OPR", "ADR", "VAL", "DEF", "LIT", "LIN", "FIN" };
+    static char *polchr[] = { "OPR", "ADR", "VLU", "DEF", "LIT", "LIN", "FIN" };
     static char *opcval[] = { "NOP", "ADD", "ADC", "SUB", "SBC", "MUL", "DIV", "REM", "NEG",
                               "AND", "IOR", "XOR", "NOT", "EQL", "LSS", "GTR", "NEQ", "LEQ",
                               "GEQ", "INX", "TRA", "TRC", "PRO", "RET", "STO", "STD", "XCH",
@@ -220,8 +260,8 @@ void emit(int val, int typ) {
         /*     now store the polish element in the polish array. */
         putc('\n', lstFp);
     }
-    putc(typ, polFp); // write the type
+    putc(typ, polFp);        // write the type
     putc(val & 0xff, polFp); // write the low value byte
-    putc(val >> 8, polFp); // write the value high byte
+    putc(val >> 8, polFp);   // write the value high byte
     return;
 }

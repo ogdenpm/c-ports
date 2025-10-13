@@ -113,7 +113,7 @@ int gnc() {
             fclose(srcFp);
             srcFp = instk[inSP--]; // pop include stack
         }
-        emit(++C_LINECNT, LIN);
+        emit( LIN,++C_LINECNT);
         char *s;
         if ((s = strchr(ibuff, '\r'))) { // line was truncated
             *s = '\n';

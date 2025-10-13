@@ -258,7 +258,7 @@ struct {
     { "TIME", 1, 0, INTR },   { "HIGH", 1, 1, INTR },   { "LOW", 1, 1, INTR },
     { "INPUT", 1, 1, INTR },  { "OUTPUT", 1, 1, INTR }, { "LENGTH", 1, 1, INTR },
     { "LAST", 1, 1, INTR },   { "MOVE", 3, 0, INTR },   { "DOUBLE", 1, 2, INTR },
-    { "DEC", 1, 1, INTR }, // { "", -0, 0, VARB } // keeps block tracking aligned with original
+    { "DEC", 1, 1, INTR },    { "", 0, 0, VARB } // dummy entry pseudo procedure name
 
 };
 
@@ -409,9 +409,9 @@ int main(int argc, char **argv) {
     sp               = 4;
     pstack[sp].tokId = EOFILE;
 
-    scan();         // prime the first token
-    cloop();        // parse the program
-    emit(0, FIN); // mark end
+    scan();       // prime the first token
+    cloop();      // parse the program
+    emit(FIN, 0); // mark end
 
     if (errorCnt) {
         fprintf(lstFp, "\n\n%d PROGRAM ERROR%s\n\n", errorCnt, errorCnt != 1 ? "S" : "");
@@ -741,9 +741,9 @@ void procHead(int plist, int rtype) {
     setInfo(symIdx, plist, rtype, PROC); // set symbol info
     int node = enter(0, LocalLabel, LABEL, false);
     pstack[mp].fixv += node << 15;
-    emit(node, VLU);
-    emit(TRA, OPR);
-    emit(symIdx, DEF);
+    emit(VLU, node);
+    emit(OPR, TRA);
+    emit(DEF, symIdx);
     return;
 }
 
@@ -771,13 +771,13 @@ void synth(const int prod, const int newId) {
         while (acnt > 0) {
             symIdx = assign[acnt];
             if (symIdx <= 0)
-                emit(XCH, OPR);
+                emit(OPR, XCH);
             else
-                emit(symIdx, ADR);
+                emit(ADR, symIdx);
             if (--acnt > 0)
-                emit(STO, OPR);
+                emit(OPR, STO);
         }
-        emit(STD, OPR);
+        emit(OPR, STD);
         return;
     case 7:  // <BASIC STATEMENT> ::= <GROUP> ';'
     case 9:  // <BASIC STATEMENT> ::= <RETURN STATEMENT> ';'
@@ -791,13 +791,13 @@ void synth(const int prod, const int newId) {
             error("11: invalid declaration");
         return;
     case 13: // <BASIC STATEMENT> ::= HALT ';'
-        emit(HAL, OPR);
+        emit(OPR, HAL);
         return;
     case 14: // <BASIC STATEMENT> ::= ENABLE ';'
-        emit(ENA, OPR);
+        emit(OPR, ENA);
         return;
     case 15: // <BASIC STATEMENT> ::= DISABLE ';'
-        emit(DIS, OPR);
+        emit(OPR, DIS);
         return;
     case 16: // <BASIC STATEMENT> ::= ';'
     case 17: // <BASIC STATEMENT> ::= <LABEL DEFINITION> <BASIC STATEMENT>
@@ -806,25 +806,25 @@ void synth(const int prod, const int newId) {
              // fall through to common code
     case 19: // <IF STATEMENT> ::= <IF CLAUSE> <TRUE PART> <STATEMENT>
         tokId = pstack[mp].fixv;
-        emit(tokId, DEF);
+        emit(DEF, tokId);
         setInfo(tokId, 0, LocalLabel, LABEL); // set symbol info
         return;
     case 20: // <IF STATEMENT> ::= <LABEL DEFINITION> <IF STATEMENT>
         return;
     case 21: // <IF CLAUSE> ::= IF <EXPRESSION> THEN
         tokId = enter(0, 0, LABEL, false);
-        emit(tokId, VLU);
-        emit(TRC, OPR);
+        emit(VLU, tokId);
+        emit(OPR, TRC);
         pstack[mp].fixv = tokId;
         return;
     case 22: // <TRUE PART> ::= <BASIC STATEMENT> ELSE
         tokId = enter(0, 0, LABEL, false);
-        emit(tokId, VLU);
-        emit(TRA, OPR);
+        emit(VLU, tokId);
+        emit(OPR, TRA);
         i                   = pstack[mp - 1].fixv;
         pstack[mp - 1].fixv = tokId;
         tokId               = i;
-        emit(tokId, DEF);
+        emit(DEF, tokId);
         setInfo(tokId, 0, LocalLabel, LABEL); // set symbol info
         return;
     case 23: // <GROUP> ::= <GROUP HEAD> <ENDING>
@@ -835,17 +835,17 @@ void synth(const int prod, const int newId) {
 
         switch (dopar[curblk + 1].type) {
         case DO_GROUP:
-            emit(END, OPR);
+            emit(OPR, END);
             return;
         case DO_ITER:
             /*     end of iterative statement */
             k = pstack[mp].fixv;
             if (k != 0) {
                 /*     otherwise increment variable */
-                emit(k, VLU);
-                emit(INC, OPR);
-                emit(k, ADR);
-                emit(STD, OPR);
+                emit(VLU, k);
+                emit(OPR, INC);
+                emit(ADR, k);
+                emit(OPR, STD);
             }
             break;
         case DO_WHILE:
@@ -854,11 +854,11 @@ void synth(const int prod, const int newId) {
             {
                 /*     generate destination of case branch */
                 symIdx = dopar[curblk + 1].clause;
-                emit(symIdx, DEF);
+                emit(DEF, symIdx);
                 int endJmp         = symbol[symIdx].len;
                 symbol[symIdx].len = 0;
                 /*     m is symbol number of LABEL at end of jump table */
-                emit(CSE, OPR);
+                emit(OPR, CSE);
                 /*     define the jump table */
                 /*     reverse the LABEL list */
                 int pIdx = 0, qIdx;
@@ -871,24 +871,24 @@ void synth(const int prod, const int newId) {
                     qIdx = symbol[pIdx].len;
                     setInfo(pIdx, 0, LocalLabel, LABEL); // set symbol info
                     if (qIdx) {
-                        emit(pIdx, VLU);
-                        emit(AX2, OPR);
+                        emit(VLU, pIdx);
+                        emit(OPR, AX2);
                     }
                 } while ((pIdx = qIdx));
                 /*     define end of jump table */
-                emit(endJmp, DEF);
+                emit(DEF, endJmp);
             }
 
             return;
         }
         /*     define end of while statement */
-        emit(dopar[curblk + 1].label, VLU);
-        emit(TRA, OPR);
-        emit(dopar[curblk + 1].clause, DEF);
+        emit(VLU, dopar[curblk + 1].label);
+        emit(OPR, TRA);
+        emit(DEF, dopar[curblk + 1].clause);
         return;
     case 24: // <GROUP HEAD> ::= DO ';'
         enterb();
-        emit(ENB, OPR);
+        emit(OPR, ENB);
         return;
     case 25: // <GROUP HEAD> ::= DO <STEP DEFINITION> ';'
         enterb();
@@ -903,20 +903,20 @@ void synth(const int prod, const int newId) {
         k = enter(0, LocalLabel, LABEL, false);
         /*     k is LABEL after case jump table */
         symIdx = enter(k, LocalLabel, LABEL, false);
-        emit(symIdx, VLU);
-        emit(AX1, OPR);
+        emit(VLU, symIdx);
+        emit(OPR, AX1);
         doHead(curblk, DO_CASE, symIdx);
         symIdx              = enter(0, LocalLabel, LABEL, false);
         dopar[curblk].label = symIdx;
-        emit(symIdx, DEF);
+        emit(DEF, symIdx);
         return;
     case 28:                                 // <GROUP HEAD> ::= <GROUP HEAD> <STATEMENT>
         if (dopar[curblk].type == DO_CASE) { // case stmt
-            emit(symbol[dopar[curblk].clause].len, VLU);
-            emit(TRA, OPR);
+            emit(VLU, symbol[dopar[curblk].clause].len);
+            emit(OPR, TRA);
             symIdx              = enter(dopar[curblk].label, LocalLabel, LABEL, false);
             dopar[curblk].label = symIdx;
-            emit(symIdx, DEF);
+            emit(DEF, symIdx);
         }
         return;
     case 29: // <STEP DEFINITION> ::= <VARIABLE> <REPLACE> <EXPRESSION> <ITERATION CONTROL>
@@ -926,32 +926,32 @@ void synth(const int prod, const int newId) {
         pstack[mp].fixv     = iabs(i);
         return;
     case 30: // <ITERATION CONTROL> ::= <TO> <EXPRESSION>
-        emit(LEQ, OPR);
+        emit(OPR, LEQ);
         tokId = enter(0, LocalLabel, LABEL, false);
-        emit(tokId, VLU);
-        emit(TRC, OPR);
+        emit(VLU, tokId);
+        emit(OPR, TRC);
         pstack[mp].fixv = -((pstack[mp].fixv << 14) + tokId);
         return;
     case 31: // <ITERATION CONTROL> ::= <TO> <EXPRESSION> <BY> <EXPRESSION>
         tokId = pstack[mp - 3].fixv;
         /*     i = symbol number of indexing variable */
-        emit(tokId, VLU);
-        emit(ADD, OPR);
-        emit(tokId, ADR);
-        emit(STD, OPR);
+        emit(VLU, tokId);
+        emit(OPR, ADD);
+        emit(ADR, tokId);
+        emit(OPR, STD);
         /*     branch to compare */
         tokId = pstack[mp + 2].fixv;
-        emit((tokId >> 14), VLU);
-        emit(TRA, OPR);
+        emit(VLU, (tokId >> 14));
+        emit(OPR, TRA);
         /*     define beginning of statements */
-        emit(tokId & 0x3fff, DEF);
+        emit(DEF, tokId & 0x3fff);
         return;
     case 32: // <WHILE CLAUSE> ::= <WHILE> <EXPRESSION>
         tokId           = enter(0, LocalLabel, LABEL, false);
         pstack[mp].fixv = (pstack[mp].fixv << 14) + tokId;
         /*     (back branch number/end loop number) */
-        emit(tokId, VLU);
-        emit(TRC, OPR);
+        emit(VLU, tokId);
+        emit(OPR, TRC);
         return;
     case 33: // <CASE SELECTOR> ::= CASE <EXPRESSION>
         return;
@@ -962,10 +962,10 @@ void synth(const int prod, const int newId) {
             i = -i + 1;
         if (i != 0 && (pstack[mp].fixv & 0x7fff) != i)
             error("13: identifier following END does not match");
-        emit(END, OPR);
+        emit(OPR, END);
         /*     emit a ret just in case he forgot it */
-        emit(DRT, OPR);
-        emit(k, DEF);
+        emit(OPR, DRT);
+        emit(DEF, k);
         return;
     case 35: // <PROCEDURE HEAD> ::= <PROCEDURE NAME> ';'
         procHead(0, 0);
@@ -998,7 +998,7 @@ void synth(const int prod, const int newId) {
             error("48: invalid procedure name");
         }
         enterb();
-        emit(ENP, OPR);
+        emit(OPR, ENP);
         return;
     case 41: // <PARAMETER LIST> ::= <PARAMETER HEAD> <IDENTIFIER> ')'
     case 43: // <PARAMETER HEAD> ::= <PARAMETER HEAD> <IDENTIFIER> ','
@@ -1038,7 +1038,7 @@ void synth(const int prod, const int newId) {
         /* indicate that this is an identifier label */
         pstack[mp].fixc = -1;
         if (token != PROCV)
-            emit(symIdx, DEF);
+            emit(DEF, symIdx);
         return;
     case 48: // <LABEL DEFINITION> ::= <NUMBER> ':'
         k = pstack[mp].fixv;
@@ -1051,36 +1051,36 @@ void synth(const int prod, const int newId) {
 
             /* indicate that this is a numeric label */
             pstack[mp].fixc = symIdx;
-            emit(symIdx, VLU);
-            emit(ORG, OPR);
+            emit(VLU, symIdx);
+            emit(OPR, ORG);
         }
         return;
     case 49: // <RETURN STATEMENT> ::= RETURN
-        emit(0, LIT);
+        emit(LIT, 0);
         if (proctp[curblk] == 2)
             error("45: missing return value for typed procedure");
         else if (proctp[curblk] == 0)
             error("46: return outside procedure definition");
-        emit(RET, OPR);
+        emit(OPR, RET);
         return;
     case 50: // <RETURN STATEMENT> ::= RETURN <EXPRESSION>
         if (proctp[curblk] == 1)
             error("44: return value invalid for untyped procedure");
         else if (proctp[curblk] == 0)
             error("46: return outside procedure definition");
-        emit(RET, OPR);
+        emit(OPR, RET);
         return;
     case 51: // <CALL STATEMENT> ::= CALL <VARIABLE>
         if ((symIdx = pstack[sp].fixv) == 0)
             return;
         if (symIdx > 0) {
             int type = symbol[symIdx].type;
-            emit(symIdx, ADR);
+            emit(ADR, symIdx);
             if (type == PROC) {
-                emit(PRO, OPR);
+                emit(OPR, PRO);
                 return;
             } else if (type == INTR) {
-                emit(BIF, OPR);
+                emit(OPR, BIF);
                 return;
             }
         }
@@ -1093,8 +1093,8 @@ void synth(const int prod, const int newId) {
         if (i == LABEL || i == VARB) {
             if (i == LABEL) // bump the reference counter
                 symbol[symIdx].refCnt++;
-            emit(symIdx, VLU);
-            emit(TRA, OPR);
+            emit(VLU, symIdx);
+            emit(OPR, TRA);
         } else
             error("19: invalid destination for GOTO");
         return;
@@ -1105,8 +1105,8 @@ void synth(const int prod, const int newId) {
         } else {
             if ((symIdx = lookup(sp)) == 0) /*     enter number */
                 symIdx = enter(k, k > 255 ? 2 : 1, NUMBER, true);
-            emit(symIdx, VLU);
-            emit(TRA, OPR);
+            emit(VLU, symIdx);
+            emit(OPR, TRA);
         }
         return;
     case 54: // <GO TO> ::= GO TO
@@ -1122,10 +1122,10 @@ void synth(const int prod, const int newId) {
         return;
     case 60: // <DECLARATION ELEMENT> ::= <IDENTIFIER> <DATA LIST>
         symIdx = pstack[mp].fixv;
-        i     = pstack[mp + 1].fixv;
+        i      = pstack[mp + 1].fixv;
         symbol[symIdx].len += i & 0xffff;
-        emit(DAT, OPR);
-        emit((i >> 16), DEF);
+        emit(OPR, DAT);
+        emit(DEF, (i >> 16));
         return;
     case 61: // <DATA LIST> ::= <DATA HEAD> <CONSTANT> ')'
     case 63: // <DATA HEAD> ::= <DATA HEAD> <CONSTANT> ','
@@ -1133,16 +1133,16 @@ void synth(const int prod, const int newId) {
         return;
     case 62: // <DATA HEAD> ::= DATA '('
         i = enter(0, LocalLabel, LABEL, false);
-        emit(i, VLU);
-        emit(TRA, OPR);
+        emit(VLU, i);
+        emit(OPR, TRA);
         pstack[mp].fixv = (i << 16);
         if (lookup(mp - 1) > blksym)
             error("22: duplicate variable declaration");
         /*     set precision of inline data to 3 */
         symIdx              = enter(0, P_INLINE, VARB, true);
         pstack[mp - 1].fixv = symIdx;
-        emit(DAT, OPR);
-        emit(symIdx, DEF);
+        emit(OPR, DAT);
+        emit(DEF, symIdx);
         return;
     case 64: // <TYPE DECLARATION> ::= <IDENTIFIER SPECIFICATION> <TYPE>
     case 65: // <TYPE DECLARATION> ::= <BOUND HEAD> <NUMBER> ')' <TYPE>
@@ -1253,35 +1253,35 @@ void synth(const int prod, const int newId) {
         if (pstack[mp].fixv == 0)
             error("41: procedure on left-hand side of an assignment");
         else if (symIdx < 0) // PMO added 'else' as symIdx = 0 will cause memory error
-            emit(XCH, OPR);
+            emit(OPR, XCH);
         else
-            emit(symIdx, ADR);
+            emit(ADR, symIdx);
 
-        emit(STO, OPR);
+        emit(OPR, STO);
         return;
     case 87: // <LOGICAL EXPRESSION> ::= <LOGICAL FACTOR>
         return;
     case 88: // <LOGICAL EXPRESSION> ::= <LOGICAL EXPRESSION> OR <LOGICAL FACTOR>
-        emit(IOR, OPR);
+        emit(OPR, IOR);
         return;
     case 89: // <LOGICAL EXPRESSION> ::= <LOGICAL EXPRESSION> XOR <LOGICAL FACTOR>
-        emit(XOR, OPR);
+        emit(OPR, XOR);
         return;
     case 90: // <LOGICAL FACTOR> ::= <LOGICAL SECONDARY>
         return;
     case 91: // <LOGICAL FACTOR> ::= <LOGICAL FACTOR> AND <LOGICAL SECONDARY>
-        emit(AND, OPR);
+        emit(OPR, AND);
         return;
     case 92: // <LOGICAL SECONDARY> ::= <LOGICAL PRIMARY>
         return;
     case 93: // <LOGICAL SECONDARY> ::= NOT <LOGICAL PRIMARY>
-        emit(NOT, OPR);
+        emit(OPR, NOT);
         return;
     case 94: // <LOGICAL PRIMARY> ::= <ARITHMETIC EXPRESSION>
         return;
     case 95: // <LOGICAL PRIMARY> ::= <ARITHMETIC EXPRESSION> <RELATION> <ARITHMETIC
              // EXPRESSION>
-        emit(pstack[mp + 1].fixv, OPR);
+        emit(OPR, pstack[mp + 1].fixv);
         return;
     case 96: // <RELATION> ::= '=' Left context check(<ARITHMETIC EXPRESSION>)
         pstack[mp].fixv = EQL;
@@ -1304,74 +1304,74 @@ void synth(const int prod, const int newId) {
     case 102: // <ARITHMETIC EXPRESSION> ::= <TERM>
         return;
     case 103: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> '+' <TERM>
-        emit(ADD, OPR);
+        emit(OPR, ADD);
         return;
     case 104: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> '-' <TERM>
-        emit(SUB, OPR);
+        emit(OPR, SUB);
         return;
     case 105: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> PLUS <TERM>
-        emit(ADC, OPR);
+        emit(OPR, ADC);
         return;
     case 106: // <ARITHMETIC EXPRESSION> ::= <ARITHMETIC EXPRESSION> MINUS <TERM>
-        emit(SBC, OPR);
+        emit(OPR, SBC);
         return;
     case 107: // <ARITHMETIC EXPRESSION> ::= '-' <TERM>
-        emit(0, LIT);
-        emit(XCH, OPR);
-        emit(SUB, OPR);
+        emit(LIT, 0);
+        emit(OPR, XCH);
+        emit(OPR, SUB);
         return;
     case 108: // <TERM> ::= <PRIMARY>
         return;
     case 109: // <TERM> ::= <TERM> '*' <PRIMARY>
-        emit(MUL, OPR);
+        emit(OPR, MUL);
         return;
     case 110: // <TERM> ::= <TERM> '/' <PRIMARY>
-        emit(DIV, OPR);
+        emit(OPR, DIV);
         return;
     case 111: // <TERM> ::= <TERM> MOD <PRIMARY>
-        emit(REM, OPR);
+        emit(OPR, REM);
         return;
     case 112: // <PRIMARY> ::= <CONSTANT>
         symIdx = pstack[mp].fixv;
-        emit(symIdx, VLU);
+        emit(VLU, symIdx);
         return;
     case 113: // <PRIMARY> ::= '.' <CONSTANT>
         tokId           = enter(0, LocalLabel, LABEL, false);
         pstack[mp].fixv = tokId;
-        emit(tokId, VLU);
-        emit(TRA, OPR);
-        emit(DAT, OPR);
-        emit(0, DEF);
+        emit(VLU, tokId);
+        emit(OPR, TRA);
+        emit(OPR, DAT);
+        emit(DEF, 0);
         /* fallthrough */
     case 114: // <PRIMARY> ::= <CONSTANT HEAD> <CONSTANT> ')'
         wrdata(-pstack[mp + 1].fixv);
-        emit(DAT, OPR);
-        emit(pstack[mp].fixv, DEF);
+        emit(OPR, DAT);
+        emit(DEF, pstack[mp].fixv);
         return;
     case 115: // <PRIMARY> ::= <VARIABLE>
         symIdx = pstack[mp].fixv;
         if (symIdx > 0) {
             /*     simple variable */
-            emit(symIdx, VLU);
+            emit(VLU, symIdx);
             int type = symbol[symIdx].type;
             if (type == PROC)
-                emit(PRO, OPR);
+                emit(OPR, PRO);
             else if (type == INTR)
-                emit(BIF, OPR);
+                emit(OPR, BIF);
         } else if (symIdx != 0)
             /*     subscripted variable */
-            emit(LOD, OPR);
+            emit(OPR, LOD);
         return;
     case 116: // <PRIMARY> ::= '.' <VARIABLE>
         symIdx = pstack[sp].fixv;
         if (symIdx > 0) {
             if (symbol[symIdx].type == VARB) {
-                emit(symIdx, ADR);
-                emit(CVA, OPR); /*     subscripted - change precision to 2 */
+                emit(ADR, symIdx);
+                emit(OPR, CVA); /*     subscripted - change precision to 2 */
                 return;
             }
         } else if (symIdx != 0) { /*     subscripted - change precision to 2 */
-            emit(CVA, OPR);
+            emit(OPR, CVA);
             return;
         }
         error("28: invalid address reference");
@@ -1382,10 +1382,10 @@ void synth(const int prod, const int newId) {
         symIdx          = enter(0, LocalLabel, LABEL, false);
         tokId           = symIdx;
         pstack[mp].fixv = tokId;
-        emit(tokId, VLU);
-        emit(TRA, OPR);
-        emit(DAT, OPR);
-        emit(0, DEF);
+        emit(VLU, tokId);
+        emit(OPR, TRA);
+        emit(OPR, DAT);
+        emit(DEF, 0);
         return;
     case 119: // <CONSTANT HEAD> ::= <CONSTANT HEAD> <CONSTANT> ','
         wrdata(-pstack[mp + 1].fixv);
@@ -1411,31 +1411,31 @@ void synth(const int prod, const int newId) {
         tokId           = symIdx;
         tokId           = ((tokId << 15) + tokId + 1);
         pstack[mp].fixc = 0;
-        emit(tokId >> 15, VLU);
+        emit(VLU, tokId >> 15);
         pstack[mp].fixc = tokId >> 15;
         pstack[mp].fixv = 0;
-        emit(PRO, OPR);
+        emit(OPR, PRO);
         return;
     case 121: // <VARIABLE> ::= <SUBSCRIPT HEAD> <EXPRESSION> ')'
         tokId = pstack[mp].fixv;
         if (tokId >= 0) {
             pstack[mp].fixv = -tokId;
-            emit(INX, OPR);
+            emit(OPR, INX);
             return;
         } else {
             tokId = -tokId;
-            emit(tokId & 0x7fff, ADR);
+            emit(ADR, tokId & 0x7fff);
             if (pstack[mp].fixc != 1)
-                emit(STD, OPR);
+                emit(OPR, STD);
             if (pstack[mp].fixc == 0)
                 error("37: too many actual parameters");
             else if (iabs(pstack[mp].fixc) > 1)
                 error("38: too few parameters");
         }
-        emit(tokId >> 15, VLU);
+        emit(VLU, tokId >> 15);
         pstack[mp].fixc = tokId >> 15;
         pstack[mp].fixv = 0;
-        emit(PRO, OPR);
+        emit(OPR, PRO);
         return;
     case 122: // <SUBSCRIPT HEAD> ::= <IDENTIFIER> '('
         if ((symIdx = lookup(mp)) == 0) {
@@ -1462,7 +1462,7 @@ void synth(const int prod, const int newId) {
             }
         }
         pstack[mp].fixv = symIdx;
-        emit(symIdx, ADR);
+        emit(ADR, symIdx);
         return;
     case 123: // <SUBSCRIPT HEAD> ::= <SUBSCRIPT HEAD> <EXPRESSION> ','
         tokId = -pstack[mp].fixv;
@@ -1471,12 +1471,12 @@ void synth(const int prod, const int newId) {
         else {
             pstack[mp].fixv = -(tokId + 1);
             i               = tokId & 0x7fff;
-            emit(i, ADR);
+            emit(ADR, i);
             if (pstack[mp].fixc == 0)
                 error("37: too many actual parameters");
             else {
                 if (pstack[mp].fixc != 2)
-                    emit(STD, OPR);
+                    emit(OPR, STD);
                 pstack[mp].fixc += (pstack[mp].fixc < 0) ? 1 : -1;
             }
         }
@@ -1513,36 +1513,36 @@ void synth(const int prod, const int newId) {
         } else {
             tokId               = symIdx;
             pstack[mp - 3].fixv = tokId;
-            emit(tokId, ADR);
-            emit(STD, OPR);
+            emit(ADR, tokId);
+            emit(OPR, STD);
             i = enter(0, LocalLabel, LABEL, false);
-            emit(i, DEF);
+            emit(DEF, i);
             pstack[mp].fixv = i;
-            emit(tokId, VLU);
+            emit(VLU, tokId);
         }
         return;
     case 127: // <BY> ::= BY
-        emit(LEQ, OPR);
+        emit(OPR, LEQ);
         tokId = enter(0, LocalLabel, LABEL, false);
         /*     save symbol number at <to> (end loop number) */
         i                   = pstack[mp - 2].fixv;
         pstack[mp - 2].fixv = tokId;
-        emit(tokId, VLU);
-        emit(TRC, OPR);
+        emit(VLU, tokId);
+        emit(OPR, TRC);
         tokId           = enter(0, LocalLabel, LABEL, false);
         pstack[mp].fixv = (i << 14) + tokId;
         /*     <by> is (to number/statement number) */
-        emit(tokId, VLU);
-        emit(TRA, OPR);
+        emit(VLU, tokId);
+        emit(OPR, TRA);
         /*     now define by LABEL */
         tokId = enter(0, LocalLabel, LABEL, false);
         /*     save by LABEL in <to> as branch back number */
         pstack[mp - 2].fixv += tokId << 14;
-        emit(tokId, DEF);
+        emit(DEF, tokId);
         return;
     case 128: // <WHILE> ::= WHILE
         tokId = enter(0, LocalLabel, LABEL, false);
-        emit(tokId, DEF);
+        emit(DEF, tokId);
         pstack[mp].fixv = tokId;
         return;
     }

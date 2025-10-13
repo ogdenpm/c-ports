@@ -1,25 +1,24 @@
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #ifdef linux
 #include <unistd.h>
 #endif
 #include "utility.h"
 
-#define C_ANALYZE  contrl['A' - 'A'] // action/reduction trace
-#define C_BYPASS   contrl['B' - 'A'] // bypass stack dump on error
-#define C_GENERATE contrl['G' - 'A'] // show intermediate code generation
-#define C_LINECNT  contrl['L' - 'A'] // line count start value
-#define C_MEMORY   contrl['M' - 'A'] // dump symbol table (0 = no, 1 = yes)
-#define C_PRINT    contrl['P' - 'A'] // controls printing on lst file
-#define C_SYMBOLS  contrl['S' - 'A'] // control symbol dump
-#define C_TAB      contrl['T' - 'A'] // tab size for listing file
-#define C_UPPER    contrl['U' - 'A'] // convert string text to upper case
-#define C_WIDTH    contrl['W' - 'A'] // listing file line width
-
+#define C_ANALYZE     contrl['A' - 'A'] // action/reduction trace
+#define C_BYPASS      contrl['B' - 'A'] // bypass stack dump on error
+#define C_GENERATE    contrl['G' - 'A'] // show intermediate code generation
+#define C_LINECNT     contrl['L' - 'A'] // line count start value
+#define C_MEMORY      contrl['M' - 'A'] // dump symbol table (0 = no, 1 = yes)
+#define C_PRINT       contrl['P' - 'A'] // controls printing on lst file
+#define C_SYMBOLS     contrl['S' - 'A'] // control symbol dump
+#define C_TAB         contrl['T' - 'A'] // tab size for listing file
+#define C_UPPER       contrl['U' - 'A'] // convert string text to upper case
+#define C_WIDTH       contrl['W' - 'A'] // listing file line width
 
 #define LOWBYTE(n)    ((n) & 0xff)
 #define HIGHBYTE(n)   LOWBYTE((n) >> 8)
@@ -28,10 +27,8 @@
 
 #define ASIZE(x)      (int)(sizeof(x) / sizeof((x)[0]))
 
-
-
 /* pol types */
-enum { OPR = 0, ADR, VLU, DEF, LIT, LIN, FIN};
+enum { OPR = 0, ADR, VLU, DEF, LIT, LIN, FIN };
 // clang-format off
 enum {
     NOP = 0,
@@ -61,12 +58,11 @@ struct _symbol {
         uint16_t dim;
         uint16_t iVal;
     };
-    uint8_t prec;            // symbol precision
-    uint8_t type;            // symbol type
-    uint16_t based;          // based symbol Id
+    uint8_t prec;   // symbol precision
+    uint8_t type;   // symbol type
+    uint16_t based; // based symbol Id
 };
 extern struct _symbol symbol[];
-
 
 extern int symNext;
 extern uint32_t initialData[];
@@ -94,7 +90,6 @@ extern char *productions[];
 /* syntax analyzer tables*/
 #define TRI(a, b, option) (((a) << 16) + ((b) << 8) + option)
 
-
 extern const uint8_t c1[][13];
 extern const int c1tri[243];
 extern const int prtb[];
@@ -107,9 +102,7 @@ extern const uint8_t lefti[];
 extern const uint8_t prind[];
 enum { nt = 50 };
 
-
-
-    // shared definitions
+// shared definitions
 // clang-format off
 enum {
     SEMIV = 1, DOV = 15,   EOFILE = 20, ENDV = 21,   CALLV = 30, DECL = 42, NUMBV = 45,
@@ -122,7 +115,7 @@ enum { OuterLabel = 3, LocalLabel, CompilerLabel }; // LABEL prec values
 
 /* types */
 enum { VARB = 1, INTR, PROC, LABEL, LITER, NUMBER };
-// clang-format on
+    // clang-format on
 
 /* plm81.c */
 unsigned iabs(int a);
@@ -162,7 +155,7 @@ void error(char const *fmt, ...);
 void showTopTokens(int start, int col);
 void sdump(void);
 void redpr(const int prod, const int sym);
-void emit(int val, int typ);
+void emit(int typ, int val);
 
 /* lexer.c */
 int newString(uint16_t len, const char *str);
