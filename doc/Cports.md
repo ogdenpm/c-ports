@@ -220,7 +220,9 @@ filenames can be any valid OS filename
 
 ### Digital Research MAC
 
-Initial port of Digital Research to MAC, not yet Linux compatible due to use of '\r'. Could also benefit from general clean-up.
+Initial port of Digital Research to MAC. Could also benefit from general clean-up.
+
+To support running on Windows and Unix/Linux, '\r' characters are ignored and internally '\n' is translated to "\r\n", as the original code needs both. A minor risk of this is if the last line has an END and terminates in '\r' EOF, i.e. missing the '\n' then the code may report an error. If it does just add the new line.
 
 Note, the code appears to work on the sample files I have tested, including macros and if/else/endif statements, however it has not yet been extensively tested. If you find a bug let me know.
 
