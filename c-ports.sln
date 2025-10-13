@@ -42,6 +42,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ixref", "ixref\ixref.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "utility", "utility\utility.vcxproj", "{DB408318-797A-4739-95C3-BF1E63420EC2}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mac", "mac\mac.vcxproj", "{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -186,6 +188,14 @@ Global
 		{DB408318-797A-4739-95C3-BF1E63420EC2}.Release|x64.Build.0 = Release|x64
 		{DB408318-797A-4739-95C3-BF1E63420EC2}.Release|x86.ActiveCfg = Release|Win32
 		{DB408318-797A-4739-95C3-BF1E63420EC2}.Release|x86.Build.0 = Release|Win32
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Debug|x64.ActiveCfg = Debug|x64
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Debug|x64.Build.0 = Debug|x64
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Debug|x86.ActiveCfg = Debug|Win32
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Debug|x86.Build.0 = Debug|Win32
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Release|x64.ActiveCfg = Release|x64
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Release|x64.Build.0 = Release|x64
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Release|x86.ActiveCfg = Release|Win32
+		{F06AB4D3-8B0B-4160-A8B7-FBC92327E51E}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -208,6 +218,7 @@ Global
 		shared\shared.vcxitems*{c17dfc41-f250-4905-85f4-72a2c3f34938}*SharedItemsImports = 4
 		shared\shared.vcxitems*{d370a442-0a4b-4226-9a88-e7f00f5cc058}*SharedItemsImports = 4
 		shared\shared.vcxitems*{e635b9b4-59aa-4eba-841d-896a8131d3dd}*SharedItemsImports = 4
+		shared\shared.vcxitems*{f06ab4d3-8b0b-4160-a8b7-fbc92327e51e}*SharedItemsImports = 4
 		shared\shared.vcxitems*{f57cb46a-1e54-4943-8092-46386628806c}*SharedItemsImports = 4
 		shared\shared.vcxitems*{fac6ab79-51b5-4934-98d3-6edfd29520e2}*SharedItemsImports = 4
 		shared\shared.vcxitems*{fb7865fa-bab6-45fc-8b79-a81b414c123a}*SharedItemsImports = 4
