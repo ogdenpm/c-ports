@@ -68,7 +68,7 @@ mkversion: $(INSTALLDIR)/getVersion
 	$(INSTALLDIR)/getVersion -f $(SRCDIR) 
 
 $(INSTALLDIR)/getVersion:
-	(cd $(ROOT)/Linux/bootGetVersion; ./mkGetVersion)
+	(cd $(ROOT)/Linux/bootGetVersion; sh mkGetVersion)
 
 $(INSTALLDIR)/utility.a:
 	$(MAKE) -C $(ROOT)/Linux/utility utility.a
