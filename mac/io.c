@@ -1,11 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <string.h>
 #include "mac.h"
 #include "utility.h"
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define _HEXlen 16
 uint16_t HEXadr;
@@ -36,9 +36,8 @@ void PrepLib() {
 
 void IniMAC(int argc, char **argv) {
     fputs("CP/M Macro Assem 2.0\n", stdout);
-    TopPtr = 0xe400; // 0xfff0;
-    SymBot = SymTop = 0x3b01;
-    // 0x100; // allow large symbol space
+    TopPtr = 0xfff0;
+    SymBot = SymTop = 0x100; // allow large symbol space
 
     uint8_t cval;
     while (getOpt(argc, argv, "p:s:h:c:t=") != EOF) {
@@ -144,27 +143,40 @@ void IniLine() {
 
 int mgetc() {
     int c;
+    static bool neednl = false;
 
+    if (neednl) {
+        neednl = false;
+        return '\n';
+    }
     if (InLIB) {
-        //        while ((c = getc(fpLIB)) == '\r')
-        //            ;
-        c = getc(fpLIB);
+        while ((c = getc(fpLIB)) == '\r')
+            ;
+        if (c == '\n') {
+            neednl = true;
+            return '\r';
+        }
         if (c != EOF && c != eof)
             return c & 0x7f;
+
         fclose(fpLIB);
         if (Balance)
-            fatal("%s-Unbalanced Macro Lib", libFile);
+            fatal("%s - Unbalanced Macro Lib", libFile);
         InLIB = false;
     }
-    //    while ((c = getc(fpSRC)) == '\r')
-    //        ;
-    c = getc(fpSRC);
-    if (c == EOF) {
+    while ((c = getc(fpSRC)) == '\r')
+            ;
+    if (c == '\n') {
+        neednl = true;
+        return '\r';
+    }
+    if (c == EOF || c == eof) {
         if (ferror(fpSRC))
-            fatal("%s-Source File Read Error", srcFile);
-        c = eof;
-    } else if (c == eof)
-        ungetc(c, fpSRC); // just incase called again
+            warn("%s - unexpected EOF", srcFile);
+        if (c == eof)
+            ungetc(c, fpSRC); // just incase called again
+        return eof;
+    }
     return c & 0x7f;
 }
 
@@ -184,7 +196,7 @@ void fput_p(uint8_t ch) {
     } else if (ch >= ' ')
         col++;
     if (fpPRN && putc(ch, fpPRN) == EOF)
-        fatal("%s-PRN File Write Error", prnFile);
+        fatal("%s - PRN File Write Error", prnFile);
 }
 
 void fput_x(uint8_t ch) {

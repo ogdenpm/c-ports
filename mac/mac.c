@@ -8,9 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-static char *copyright = "COPYRIGHT (C) 1977 DIGITAL RESEARCH";
-
 #define STMTLOOP 1
 #define LINELOOP 2
 #define PASSLOOP 3
@@ -51,13 +48,9 @@ typedef struct {
     // uint16_t val;
 } sym_t; // sizeof symbol = 5 + len(name)
 
-
-
-
 uint8_t _1_opt;
 
-
-uint16_t altHashTab[SLen];
+uint16_t macHashTab[SLen];
 uint8_t Balance;
 
 struct {
@@ -85,14 +78,14 @@ struct {
     uint8_t str[37 + 1]; // extra byte for zero termination
 } PrnLine;
 
-uint8_t OutLine[120];
+char OutLine[120];
 
 uint8_t OutLen;
 uint8_t tokType;
 uint16_t Value;
 struct {
     uint8_t len;
-    uint8_t str[ArgMax + 1]; // extra byte for zero termination
+    char str[ArgMax + 1]; // extra byte for zero termination
 } token;
 
 uint16_t ExprVal; // Expression value;
@@ -121,6 +114,8 @@ uint8_t P_opt;
 uint8_t R_opt;
 uint8_t expandTab;
 
+mnemonic_t *pMnem;
+
 FILE *fpLIB;
 char const *libFile;
 FILE *fpSRC;
@@ -135,19 +130,19 @@ char const *hexFile;
 
 uint8_t mem[0x10000];
 
-char const help[] = "Usage: %s [options] sourceFile[.asm]\n"
-                    "Where options are\n"
-                    "  -p file[.prn]  override listing file. Default sourceFile.prn\n"
-                    "  -s file[.sym]  override symbol file. Default sourcefile.sym\n"
-                    "  -h file[.hex]  override hex file. Default sourcfile.hex\n"
-                    "  -c controls+   set mac control options\n"
-                    "  -t [=n]        expand tabs to every nth column. If n missing then 8 is used\n"
-                    "Notes:\n"
-                    " * file is the filename or - for standard output or . to disable output\n"
-                    "   If no extent is specified then the relevant extent is added.\n"
-                    " * controls are as per MAC (+|-|*)(1|L|M|Q|R|S). lowercase letters are also supported\n"
-                    "   Due to OS limitations, controls may need to be quoted to allow * and spaces\n";
-                    
+char const help[] =
+    "Usage: %s [options] sourceFile[.asm]\n"
+    "Where options are\n"
+    "  -p file[.prn]  override listing file. Default sourceFile.prn\n"
+    "  -s file[.sym]  override symbol file. Default sourcefile.sym\n"
+    "  -h file[.hex]  override hex file. Default sourcfile.hex\n"
+    "  -c controls+   set mac control options\n"
+    "  -t [=n]        expand tabs to every nth column. If n missing then 8 is used\n"
+    "Notes:\n"
+    " * file is the filename or - for standard output or . to disable output\n"
+    "   If no extent is specified then the relevant extent is added.\n"
+    " * controls are as per MAC (+|-|*)(1|L|M|Q|R|S). lowercase letters are also supported\n"
+    "   Due to OS limitations, controls may need to be quoted to allow * and spaces\n";
 
 int main(int argc, char **argv) {
     PassNr = 0;
@@ -397,11 +392,12 @@ bool IsMacro(uint8_t type) {
 bool l0722(uint8_t a) {
     l305c = a;
     while (1) {
-        if (tokType == _any)
+        if (tokType == _any) {
             if ((token.str[0] == '\r' || token.str[0] == '!'))
                 break;
             else if (token.str[0] == eof)
                 return false;
+        }
         SetErr('S');
         GetToken();
     }
@@ -963,7 +959,7 @@ uint8_t MAC_Mnemo() {
             dst = GetDstReg();
             if (dst & ((_H + 1) << 3)) // Allow B and D only
                 SetErr('R');
-            PutCode(code | dst & (2 << 3));
+            PutCode(code | (dst & (2 << 3)));
             break;
         case _lsd:
             PutCode(code);
@@ -1012,7 +1008,7 @@ uint8_t GetByteOper() {
 }
 
 uint8_t CheckByteOper(uint16_t val) {
-    if ((val & ~0xff) && (val & ~0xff) != 0xff)
+    if ((val & ~0xff) && (val & ~0xff) != 0xff00)
         SetErr('V');
     return val & 0xff;
 }
@@ -1158,7 +1154,6 @@ void StByte(uint8_t val) {
 }
 
 void StWord(uint16_t val) {
-    uint8_t len = ASC_len;
     ASC_len     = 1;
     StByte(val >> 8);
     StByte(val & 0xff);
@@ -1926,7 +1921,7 @@ void IniField_1() {
 }
 
 void IniField_2() {
-    memset(altHashTab, 0, sizeof(altHashTab));
+    memset(macHashTab, 0, sizeof(macHashTab));
 }
 
 void nest() {
@@ -1986,7 +1981,7 @@ bool SymAdr() {
 bool SymMArg() {
     if (PrnLine.len > SymLen)
         PrnLine.len = SymLen;
-    return lookup((pstr_t *)&PrnLine, altHashTab[GetHashIdx((pstr_t *)&PrnLine) & 0xf]);
+    return lookup((pstr_t *)&PrnLine, macHashTab[GetHashIdx((pstr_t *)&PrnLine) & 0xf]);
 }
 
 bool SymSrc() {
@@ -1997,7 +1992,6 @@ bool SymSrc() {
 
 bool lookup(pstr_t *ps, uint16_t head) {
     for (SymHshp = head; SymHshp; SymHshp = WORD(SymHshp)) {
-        uint8_t size = SymSize();
         if (ps->len == SymSize() && memcmp(ps->str, &BYTE(SymHshp + 3), ps->len) == 0)
             return true;
     }
@@ -2040,7 +2034,7 @@ void l1f87() {
 
 void l1fa5() {
     alloc(3);
-    curHashTab = altHashTab;
+    curHashTab = macHashTab;
     l1f31();
     SetSymType(HashIdx);
 }
@@ -2048,7 +2042,7 @@ void l1fa5() {
 void PopParam() {
     while (TopPtr < Stack[0].l2f24) {
         SymHshp                  = TopPtr;
-        altHashTab[GetSymType()] = SYMP(SymHshp)->link;
+        macHashTab[GetSymType()] = SYMP(SymHshp)->link;
         uint16_t hl              = GetSymValAddr(); // point to param value
         while (BYTE(hl++))
             ;
@@ -2126,4 +2120,3 @@ void PutSym(uint8_t ch) {
         SymTop         = CurSym + 1;
     }
 }
-

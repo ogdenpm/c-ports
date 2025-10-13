@@ -16,7 +16,7 @@ enum {ONECHARWORDS = 16};
 ),0,_rpar,0x1e
 *,0,_mul,0x50
 +,0,_plus,0x46
-",0,",_comma,0x0a
+",",0,_comma,0x0a
 -,0,_minus,0x46
 /,0,_div,0x50
 A,0,_regs,0x07

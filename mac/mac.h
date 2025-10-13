@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -50,6 +51,11 @@
 
 #define LINLEN      120
 #define PAGLEN      56
+
+
+#ifndef min
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#endif
     // String states
 
 enum { _label = 1, _digit, _strg, _any, _error, _cmnt };
@@ -131,12 +137,14 @@ enum {
     _stkln
 };
 
-struct mnemonic {
+typedef struct mnemonic {
     char name[7];
     uint8_t tokId;
     uint8_t type;
     uint8_t code;
-} *pMnem;
+} mnemonic_t;
+
+extern mnemonic_t *pMnem;
 
 typedef struct {
     uint16_t de;
@@ -145,7 +153,7 @@ typedef struct {
 
 typedef struct {
     uint8_t len;
-    uint8_t str[1];
+    char str[1];
 } pstr_t;
 
 
@@ -172,7 +180,7 @@ extern uint8_t S_opt;
 extern uint8_t M_opt;
 extern uint8_t _1_opt;
 extern uint8_t PassNr;
-extern uint8_t OutLine[120];
+extern char OutLine[120];
 extern uint8_t OutLen;
 extern uint8_t Balance;
 extern uint16_t Titleptr;

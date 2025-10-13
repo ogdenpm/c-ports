@@ -1,4 +1,4 @@
 #define APP_NAME    "mac"
 #define APP_PRODUCT "mac-2.0"
-#define APP_OWNER   "Digital Research"
+#define APP_OWNER   "Digital Research 1977"
 #define CPORT
