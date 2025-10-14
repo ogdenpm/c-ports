@@ -1365,7 +1365,7 @@ void Term(uint8_t op) {
         result  = operand.hl - operand.de;
         break;
     case _uminus:
-        result = PopExpr();
+        result = -PopExpr();
         break;
     case _eq:
         operand = PopTwoOper();
@@ -1424,7 +1424,7 @@ bool IsExprDel() {
 }
 
 bool IsExprDelOrComma() {
-    return IsExprDel() || token.str[0] == ',';
+    return IsExprDel() || (tokType == _any && token.str[0] == ',');
 }
 
 void Expression() {

@@ -100,24 +100,32 @@ void IniMAC(int argc, char **argv) {
     }
     if (optInd != argc - 1)
         usage("Expected single source file");
+    if (strcmp(argv[optInd], ".") == 0 || strcmp(argv[optInd], "-") == 0)
+        usage("Invalid source file name '%s'", argv[optInd]);
     srcFile = safeStrdup(makeFilename(argv[optInd], ".asm", false));
 
     if (!prnFile)
-        prnFile = safeStrdup(makeFilename(srcFile, ".prn", true));
+        prnFile = srcFile;
     if (strcmp(prnFile, ".") != 0) {
         if (strcmp(prnFile, "-") == 0) {
             fpPRN         = stdout;
             skipFirstLine = false;
-        } else if (!(fpPRN = fopen(prnFile, "wt")))
-            fatal("%s-Cannot Create File", prnFile);
+        } else {
+            prnFile = safeStrdup(makeFilename(prnFile, ".prn", prnFile == srcFile));
+            if (!(fpPRN = fopen(prnFile, "wt")))
+                fatal("%s-Cannot Create File", prnFile);
+        }
     }
     if (!hexFile)
-        hexFile = safeStrdup(makeFilename(srcFile, ".hex", true));
+        hexFile = srcFile;
     if (strcmp(hexFile, ".") != 0) {
         if (strcmp(hexFile, "-") == 0)
             fpHEX = stdout;
-        else if (!(fpHEX = fopen(hexFile, "wt")))
-            fatal("%s-Cannot Create File", hexFile);
+        else {
+            hexFile = safeStrdup(makeFilename(hexFile, ".hex", hexFile == srcFile));
+            if (!(fpHEX = fopen(hexFile, "wt")))
+                fatal("%s-Cannot Create File", hexFile);
+        }
     }
 }
 
@@ -165,7 +173,7 @@ int mgetc() {
         InLIB = false;
     }
     while ((c = getc(fpSRC)) == '\r')
-            ;
+        ;
     if (c == '\n') {
         neednl = true;
         return '\r';
@@ -285,17 +293,17 @@ void PrepSYM() {
         if (fpPRN && fpPRN != stdout)
             fclose(fpPRN);
         fpPRN = NULL;
-        if (symFile) {
-            if (strcmp(symFile, ".") == 0)
-                return;
-            else if (strcmp(symFile, "-") == 0)
-                fpPRN = stdout;
-            else
-                symFile = safeStrdup(makeFilename(symFile, ".sym", false));
-        } else
-            symFile = safeStrdup(makeFilename(srcFile, ".sym", true));
-        if (!fpPRN && !(fpPRN = fopen(symFile, "wt")))
-            fatal("Cannot create symbol file %s", symFile);
+        if (!symFile)
+            symFile = srcFile;
+        if (strcmp(symFile, ".") == 0)
+            return;
+        else if (strcmp(symFile, "-") == 0)
+            fpPRN = stdout;
+        else {
+            symFile = safeStrdup(makeFilename(symFile, ".sym", symFile == srcFile));
+            if (!(fpPRN = fopen(symFile, "wt")))
+                fatal("Cannot create symbol file %s", symFile);
+        }
     }
     Header();
 }
