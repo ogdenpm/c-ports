@@ -195,6 +195,3 @@ _Noreturn void IoError(char const *path, char const *fmt, ...) {
     Exit(1);
 }
 
-char *safeStrdup(char const *str) {
-    return strcpy(safeMalloc(strlen(str) + 1), str);
-}

@@ -59,8 +59,3 @@ void printDriveMap(FILE *fp);
 void *safeMalloc(size_t size);
 void *safeRealloc(void *p, size_t size);
 char *safeStrdup(char const *str);
-
-void *safeMalloc(size_t size);
-void *safeRealloc(void *p, size_t size);
-char *safeStrdup(char const *str);
-
