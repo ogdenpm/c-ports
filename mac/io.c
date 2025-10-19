@@ -234,7 +234,7 @@ void LstPage(uint8_t len) {
 void lstChar(char ch) {
     fput_p(ch);
     if (OutLine[0] != ' ' && PassNr != 2 && fpPRN != stdout)
-        putchar(ch);
+        putc(ch, stderr);
 }
 
 void emitLine() {
