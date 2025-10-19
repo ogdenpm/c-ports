@@ -1,2 +1,2 @@
 [_utility.c]
-char utilityLib[] ="utility library version: @V@ Built: @D@";
+char const utilityLib[] ="Utility library version: @V@";
