@@ -1106,7 +1106,7 @@ void finish() {
     strcpy(OutLine + 5, "H Use Factor\n");
     fputs(OutLine + 2, stdout);
     CurHEX = XFerAdr;
-    FClose();
+    Exit(0);
 }
 
 void SetLocCtr() {

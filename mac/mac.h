@@ -310,7 +310,6 @@ void emitLine(void);
 void SetErr(uint8_t err);
 void CloseLst(void);
 void PrepSYM(void);
-void FClose(void);
 void putHEX(uint8_t ch);
 void PutHexRecord(void);
 

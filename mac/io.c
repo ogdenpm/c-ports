@@ -308,19 +308,23 @@ void PrepSYM() {
     Header();
 }
 
-void FClose() {
+_Noreturn void Exit(int errCode) {
     if (fpPRN && fpPRN != stdout)
         fclose(fpPRN);
     if (fpHEX) {
-        if (HEXlen)
-            PutHexRecord(); // flush pending record
-        HEXadr = CurHEX;
-        PutHexRecord(); // closing record
+        if (errCode == 0) {
+            if (HEXlen)
+                PutHexRecord(); // flush pending record
+            HEXadr = CurHEX;
+            PutHexRecord(); // closing record
+        }
         if (fpHEX != stdout)
             fclose(fpHEX);
+        if (errCode != 0 && strcmp(hexFile, "-") != 0)
+            remove(hexFile);
     }
     fputs("End of Assembly\n", stdout);
-    exit(0);
+    exit(errCode);
 }
 
 void putHEX(uint8_t ch) {
