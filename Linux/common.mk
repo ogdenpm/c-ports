@@ -50,6 +50,7 @@ ROOT:=$(realpath ../..)
 INSTALLDIR = $(ROOT)/Linux/Install
 LIBS = $(INSTALLDIR)/utility.a
 
+CC = gcc
 CFLAGS = -O3 -Wall -Wextra -I$(SRCDIR) -I$(ROOT)/utility -I$(ROOT)/shared $(addprefix -I,$(subst ^,$(ROOT),$(INCLUDES)))
 CXXFLAGS = $(CFLAGS)
 VPATH = $(SRCDIR):$(ROOT)/shared:$(ROOT)/utility

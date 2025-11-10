@@ -9,8 +9,6 @@
 
 #ifdef _MSC_VER
 #include <io.h>
-#else
-#include <unistd.h>
 #endif
 
 #define _HEXlen 16
