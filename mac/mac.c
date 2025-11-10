@@ -14,29 +14,27 @@
 #define FINISH   4
 
 uint8_t l11c2;
-uint16_t ActSym;
+uint16_t label;
 uint16_t l11c5;
 uint16_t XFerAdr; // Transfer address
-uint8_t ASC_len;
+uint8_t outCol;
 uint8_t l11ca;
-uint8_t l11cb;
-uint8_t l11cc;
-uint8_t IF_level;         // IF level
-uint8_t IF_Array[IF_Dep]; // IF level
-uint16_t l11d6;
+uint8_t ifNesting;
+uint8_t macroNesting;
+uint8_t ifLevel;         // IF level
+uint8_t ifStack[IF_Dep]; // IF level
+uint16_t macroChain;
 uint16_t l11d8;
-uint8_t l11da;
-uint8_t supp_0;  // Leading zero flag
-uint16_t val_16; // Current 16 bit value
-uint16_t LocCnt; // Local count
-uint16_t l11e0;
-uint16_t l11e2;
+uint8_t supp_0;    // Leading zero flag
+uint16_t val_16;   // Current 16 bit value
+uint16_t localCnt; // Local count
+uint16_t afterComma;
 
 uint8_t prevCh;
 uint8_t ValBase;
 uint16_t l1613;
-uint8_t l1616;
-uint8_t ChrCnt;
+uint8_t chevronCnt;
+
 uint8_t F_CHR;
 
 // Structure of symbol table
@@ -54,29 +52,28 @@ uint16_t macHashTab[SLen];
 uint8_t Balance;
 
 struct {
-    uint8_t l2ea4;
-    uint16_t l2eb4;
+    uint8_t collectMode;
+    uint16_t topPtr;
     uint16_t l2ed4;
     uint16_t l2ef4;
-    uint8_t l2f14;
-    uint16_t l2f24;
+    uint8_t curCh;
+    uint16_t prevTopPtr;
     uint8_t l2f44; // not used?
-    uint8_t l2f54;
+    uint8_t ifLevel;
 } Stack[16];
 
 // overlapped data area for symbol sorting
 uint8_t l2ea4;
-uint8_t l2ea5;
 uint8_t l2ea6;
 uint8_t l2ea7;
-uint16_t l2eaa;
-uint16_t l2eac[28];
-uint8_t l2f64;
+uint16_t symList[28];
+uint8_t expandChIdx;
 uint8_t lookAhead;
 struct {
     uint8_t len;
     uint8_t str[37 + 1]; // extra byte for zero termination
 } PrnLine;
+
 
 char OutLine[120];
 
@@ -91,23 +88,23 @@ struct {
 uint16_t ExprVal; // Expression value;
 
 uint16_t SymTop;
-uint16_t TopPtr;
+uint16_t topPtr;
 uint8_t PassNr;
 uint16_t CurHEX;
 uint16_t LocCtr;
 
 uint16_t SymBot;
-uint16_t SymHshp;
+uint16_t curSym;
 uint16_t CurSym;
 
-uint8_t l305a;
+uint8_t collectDepth;
 uint8_t curCh;
-uint8_t l305c;
+uint8_t collectMode;
 bool InLIB; // true if from LIB
 uint8_t S_opt = _SPENA;
 uint8_t M_opt = _SPENA;
-uint16_t l3060;
-uint16_t Titleptr;
+uint16_t startMacroBody;
+char const *Titleptr;
 uint8_t Q_opt;
 uint8_t L_opt;
 uint8_t P_opt;
@@ -122,9 +119,9 @@ FILE *fpSRC;
 char const *srcFile;
 FILE *fpPRN;
 char const *prnFile;
-char const *symFile;
 FILE *fpHEX;
 char const *hexFile;
+char const *symFile;
 
 // Cold entry
 
@@ -137,31 +134,33 @@ char const help[] =
     "  -s file[.sym]  override symbol file. Default sourcefile.sym\n"
     "  -h file[.hex]  override hex file. Default sourcfile.hex\n"
     "  -c controls+   set mac control options\n"
-    "  -t [=n]        expand tabs to every nth column. If n missing then 8 is used\n"
+    "  -t[=n]         expand tabs to every nth column. If n missing then 8 is used\n"
     "Notes:\n"
     " * file is the filename or - for standard output or . to disable output\n"
     "   If no extent is specified then the relevant extent is added.\n"
-    " * controls are as per MAC (+|-|*)(1|L|M|Q|R|S). lowercase letters are also supported\n"
-    "   Due to OS limitations, controls may need to be quoted to allow * and spaces\n";
+    " * controls are as per MAC (+|-|*|x)(1|L|M|Q|R|S). lowercase letters are also supported\n"
+    "   Due to OS shell processing, controls may need to be quoted to allow * and spaces\n"
+    "   Note x is an alias for *. If quotes are not used this will avoid shell wild card "
+    "expansion\n";
 
 int main(int argc, char **argv) {
-    PassNr = 0;
-    l305a  = 0;
+    PassNr       = 0;
+    collectDepth = 0;
     IniMAC(argc, argv);
     IniField_1();
-    l11d6       = 0;
+    macroChain  = 0;
 
     uint8_t ret = PASSLOOP;
     while (ret != FINISH) {
         IniField_2();
-        Balance        = 0;
-        Stack[0].l2ea4 = 0;
-        Stack[0].l2f24 = TopPtr;
+        Balance              = 0;
+        Stack[0].collectMode = 0;
+        Stack[0].prevTopPtr  = topPtr;
         l17f1();
-        IniLine();
-        ActSym  = 0;
+        IniPass();
+        localCnt = label   = 0;
         XFerAdr = LocCtr = CurHEX = R_opt ? TPA : 0;
-        IF_level                  = 0;
+        ifLevel                   = 0;
         // MAC_Mainloop:
         do {
             GetToken();
@@ -174,7 +173,7 @@ int main(int argc, char **argv) {
 uint8_t MAC_loop() {
     while (1) {
         uint8_t ret;
-        if (tokType == _digit)
+        if (tokType == _number)
             return LINELOOP;
         if ((ret = MAC_sub()) != STMTLOOP)
             return ret;
@@ -183,18 +182,18 @@ uint8_t MAC_loop() {
 
 uint8_t l02d6() {
     l11c2               = getParamLen();
-    uint16_t saveTopPtr = TopPtr;
+    uint16_t saveTopPtr = topPtr;
     if (l11c2 != 0) {
         while (1) {
             uint8_t next = 0;
             uint8_t a;
-            if (tokType == _any) {
+            if (tokType == _punct) {
                 a = token.str[0];
                 if (testEndInst(a))
                     break;
                 if (a == '%') {
-                    val_16 = GetOpr1();
-                    if (tokType != _any) {
+                    val_16 = getWordValue();
+                    if (tokType != _punct) {
                         SetErr('S');
                         break;
                     }
@@ -210,7 +209,7 @@ uint8_t l02d6() {
             if (next == 0) {
                 l03db();
                 GetToken();
-                if (tokType != _any) {
+                if (tokType != _punct) {
                     SetErr('S');
                     break;
                 }
@@ -234,14 +233,14 @@ uint8_t l02d6() {
     while (!testEndStmt(curCh))
         GetToken();
     curCh          = 0;
-    Stack[0].l2f14 = 0;
+    Stack[0].curCh = 0;
     NewPage();
-    Stack[0].l2f54 = IF_level;
+    Stack[0].ifLevel = ifLevel;
     nest();
-    Stack[0].l2ef4 = tmp;
-    Stack[0].l2f24 = saveTopPtr;
-    Stack[0].l2f14 = 0;
-    Stack[0].l2ea4 = 1;
+    Stack[0].l2ef4       = tmp;
+    Stack[0].prevTopPtr  = saveTopPtr;
+    Stack[0].curCh       = 0;
+    Stack[0].collectMode = 1;
     return LINELOOP;
 }
 
@@ -261,7 +260,7 @@ void LoadSymbol() {
 }
 
 bool testMacro() {
-    return tokType != _error && (pMnem = GetMnemo(token.str, token.len)) &&
+    return tokType == _error && (pMnem = GetMnemo(token.str, token.len)) &&
            pMnem->type == _pseudo && pMnem->code == _macro;
 }
 
@@ -270,7 +269,7 @@ bool testEndInst(uint8_t ch) {
 }
 
 bool testEndStmt(uint8_t ch) {
-    return ch == '\n' || ch == eof || ch == '!';
+    return ch == '\n' || ch == cpmEOF || ch == '!';
 }
 
 void NewPage() {
@@ -283,7 +282,7 @@ void NewPage() {
 
 void l03c1() {
     while (Balance) {
-        if (Stack[0].l2ea4 >= 3 || Stack[0].l2ea4 == 1)
+        if (Stack[0].collectMode >= _irpc_ || Stack[0].collectMode == _macro_)
             return;
         unnest();
     }
@@ -304,9 +303,9 @@ void l03db() {
 
 uint8_t MAC_sub() {
     uint8_t cval;
-    if (tokType == _any) {
+    if (tokType == _punct) {
         if (token.str[0] == '$') {
-            if (IsActSym())
+            if (hasLabel())
                 return EndLine('S');
             if (curCh == '-')
                 cval = _DISA;
@@ -326,28 +325,28 @@ uint8_t MAC_sub() {
             GetToken();
         }
         return EndLine(0);
-    } else if (tokType != _label)
+    } else if (tokType != _id)
         return EndLine('S');
     if ((pMnem = GetMnemo(token.str, token.len)))
         return MAC_Mnemo();
     if (!SymSrc()) { // new symbol
         PostSym();
         if (PassNr)
-            SetErr('P');            // e39
-    } else if (GetSymType() == 6) { // 3e9
-        l11e0 = 0;
+            SetErr('P');                  // e39
+    } else if (GetSymType() == T_MACRO) { // 3e9
+        uint16_t l11e0 = 0;
         if (PassNr) {
-            while (GetSymVal() > SymHshp) { // 23c
-                l11e0 = SymHshp;
-                lookup((pstr_t *)&token, WORD(SymHshp));
-                if (SymHshp) {
-                    if (GetSymType() != 0)
+            while (GetSymVal() > curSym) { // 23c
+                l11e0 = curSym;
+                lookup((pstr_t *)&token, WORD(curSym));
+                if (curSym) {
+                    if (GetSymType() != T_MACRO)
                         return EndLine('P');
                 } else {
                     l1afc();
                     if (!testMacro() || l11e0 != l11d8)
                         return EndLine('P');
-                    ActSym = l11d8;
+                    label = l11d8;
                     return macro();
                 }
             }
@@ -355,32 +354,32 @@ uint8_t MAC_sub() {
         StoreSymbol();
         l1afc();
         if (!testMacro()) {
-            uint16_t tmp = SymHshp; // l02c1
-            CheckSymbol();
+            uint16_t tmp = curSym; // l02c1
+            CheckLabel(LocCtr);
             if (M_opt == _DISA)
                 StWord(LocCtr);
-            SymHshp = tmp;
+            curSym = tmp;
             return l02d6();
         }
-        if (ActSym)
+        if (label)
             SetErr('S');
         if (PassNr) {
             if (l11e0 != l11d8)
                 return EndLine('P');
-            ActSym = l11d8;
+            label = l11d8;
         } else {
             LoadSymbol();
             GetHashIdx((pstr_t *)&token);
             PostSym();
-            ActSym = SymHshp;
+            label = curSym;
         }
         return macro();
     }
-    if (ActSym)
+    if (label)
         SetErr('L');
-    ActSym = SymHshp;
+    label = curSym;
     GetToken();
-    if (tokType != _any || token.str[0] != ':')
+    if (tokType != _punct || token.str[0] != ':')
         return STMTLOOP;
     return LINELOOP;
 }
@@ -389,51 +388,51 @@ bool IsMacro(uint8_t type) {
     return type == _macro || type == _rept || type == _irp || type == _irpc;
 }
 
-bool l0722(uint8_t a) {
-    l305c = a;
+bool collectMaroBody(uint8_t mode) {
+    collectMode = mode;
     while (1) {
-        if (tokType == _any) {
+        if (tokType == _punct) {
             if ((token.str[0] == '\r' || token.str[0] == '!'))
                 break;
-            else if (token.str[0] == eof)
+            else if (token.str[0] == cpmEOF)
                 return false;
         }
         SetErr('S');
         GetToken();
     }
 
-    l3060 = CurSym;
-    l305a = 1;
+    startMacroBody = CurSym;
+    collectDepth   = 1;
     GetToken();
 
     while (1) {
-        l11e0 = CurSym;
+        uint16_t tokStart = CurSym;
         GetToken();
-        if (tokType == _any && token.str[0] == eof)
+        if (tokType == _punct && token.str[0] == cpmEOF)
             return false;
-        if (tokType == _label && (pMnem = GetMnemo(token.str, token.len))) {
-            if (l305c == 1 && PassNr == 0 && token.len != 1 && pMnem->tokId) {
-                CurSym = l11e0;
+        if (tokType == _id && (pMnem = GetMnemo(token.str, token.len))) {
+            if (collectMode == _macro_ && PassNr == 0 && token.len != 1 && pMnem->tokId) {
+                CurSym = tokStart;
                 PutSym(pMnem->tokId | 0x80); // replace token with its id
-                if (curCh)
+                if (curCh)                   // append prepread character
                     PutSym(curCh);
             }
             if (pMnem->type == _pseudo) {
                 if (IsMacro(pMnem->code)) {
-                    if (l305a++ == 0xff)
+                    if (collectDepth++ == 0xff)
                         return false;
-                } else if (pMnem->code == _endm && --l305a == 0)
+                } else if (pMnem->code == _endm && --collectDepth == 0)
                     break;
             }
         }
     }
-    if (l305c == 1) {
-        ActSym = 0;
+    if (collectMode == _macro_) {
+        label = 0;
         if (InLIB)
             PutSymVal(0);
         else {
-            PutSymVal(l11d6);
-            l11d6 = SymHshp;
+            PutSymVal(macroChain);
+            macroChain = curSym;
         }
         if (PassNr)
             return true;
@@ -446,62 +445,62 @@ bool l0722(uint8_t a) {
 }
 
 void PutIF(uint8_t a) {
-    if (IF_level >= IF_Dep)
+    if (ifLevel >= IF_Dep)
         SetErr('O');
     else
-        IF_Array[IF_level++] = a;
+        ifStack[ifLevel++] = a;
 }
 uint8_t GetIF() {
-    if (IF_level == 0) {
+    if (ifLevel == 0) {
         SetErr('B');
         return 0;
     } else
-        return IF_Array[--IF_level];
+        return ifStack[--ifLevel];
 }
 
 void SET_EQU(uint8_t a) {
     uint16_t tmp = LocCtr;
-    StWord(LocCtr = GetOpr1());
+    StWord(LocCtr = getWordValue());
     LocCtr     = tmp;
     OutLine[6] = a;
     return;
 }
 
 uint8_t macro() {
-    if (!IsActSym()) {
+    if (!hasLabel()) {
         SetErr('L');
         return EndLine(0);
     }
     if (PassNr != 0) {
-        if (SymHshp != l11d8)
+        if (curSym != l11d8)
             SetErr('P');
         else
             l11d8 = GetSymVal();
     } else
-        SetSymType(6);
-    l11da = 0;
+        SetSymType(T_MACRO);
+    uint8_t paramterCnt = 0;
     if (PassNr == 0)
-        setParamLen(0);
-    while (GetToken(), tokType == _label) {
+        setParameterCnt(0);
+    while (GetToken(), tokType == _id) {
         if (PassNr == 0)
-            l2065();
-        l11da++;
+            addParameter();
+        paramterCnt++;
         GetToken();
-        if (tokType != _any || token.str[0] != ',')
+        if (tokType != _punct || token.str[0] != ',')
             break;
     }
-    if (!l0722(1))
+    if (!collectMaroBody(_macro_))
         return EndFile(true);
     if (PassNr == 0)
-        setParamLen(l11da);
+        setParameterCnt(paramterCnt);
     GetToken();
     return EndLine(0);
 }
 
 uint8_t l0552() {
     uint16_t ptr;
-    if (Stack[0].l2ea4 == _endm) {
-        uint16_t hl = Stack[0].l2eb4;
+    if (Stack[0].collectMode == _endm) {
+        uint16_t hl = Stack[0].topPtr;
         if ((ptr = WORD(hl)) != 0) {
             WORD(hl)       = ptr - 1;
             OutLen         = _ASCbyt;
@@ -510,11 +509,11 @@ uint8_t l0552() {
             return LINELOOP;
         }
     } else {
-        uint16_t hl = Stack[0].l2eb4;
+        uint16_t hl = Stack[0].topPtr;
         ptr         = WORD(hl);
         if (BYTE(ptr) != '\r') {
             if (BYTE(ptr) != 0) {
-                if (Stack[0].l2ea4 != 3) {
+                if (Stack[0].collectMode != _irpc_) {
                     uint8_t saveLookAhead = lookAhead;
                     lookAhead             = 0;
                     uint8_t saveCh        = curCh;
@@ -534,7 +533,7 @@ uint8_t l0552() {
                         if (BYTE(ptr) == 0)
                             BYTE(ptr) = '\r';
                         else {
-                            ptr = l11e2;
+                            ptr = afterComma;
                             GetToken();
                             if (token.str[0] != ',')
                                 SetErr('S');
@@ -542,16 +541,16 @@ uint8_t l0552() {
                             PrnLine.len = 0;
                         }
                     }
-                    WORD(Stack[0].l2eb4) = ptr; // 5f7
-                    curCh                = saveCh;
-                    lookAhead            = saveLookAhead;
+                    WORD(Stack[0].topPtr) = ptr; // 5f7
+                    curCh                 = saveCh;
+                    lookAhead             = saveLookAhead;
                 } else {
                     WORD(hl)     = ptr + 1;
                     token.len    = 1;
                     token.str[0] = BYTE(ptr);
                     l1f87();
                 }
-                CurSym = Stack[0].l2eb4 + 1; // 606
+                CurSym = Stack[0].topPtr + 1; // 606
                 GetSymbol();
                 l1fa5();
             } else {
@@ -565,11 +564,11 @@ uint8_t l0552() {
             return LINELOOP;
         }
     }
-    NewPage();               // 616
-    TopPtr = Stack[0].l2f24; // Restore top
+    NewPage();                    // 616
+    topPtr = Stack[0].prevTopPtr; // Restore top
     unnest();
-    IF_level = Stack[0].l2f54;
-    if ((curCh = Stack[0].l2f14))
+    ifLevel = Stack[0].ifLevel;
+    if ((curCh = Stack[0].curCh))
         StChar(curCh);
     return LINELOOP;
 }
@@ -577,98 +576,98 @@ uint8_t l0552() {
 uint8_t l0a7e() {
     NewPage();
     GetToken();
-    Stack[0].l2f54 = IF_level;
-    Stack[0].l2f14 = curCh != '\n' ? curCh : 0;
+    Stack[0].ifLevel = ifLevel;
+    Stack[0].curCh   = curCh != '\n' ? curCh : 0;
     nest();
-    Stack[0].l2f24 = TopPtr;
+    Stack[0].prevTopPtr = topPtr;
     while (CurSym >= l11c5)
-        BYTE(--TopPtr) = BYTE(CurSym--);
-    SymTop         = CurSym + 1;
-    Stack[0].l2eb4 = TopPtr;
-    if (l305c != 6)
-        WORD(TopPtr) = TopPtr + BYTE(TopPtr);
-    Stack[0].l2ed4 = TopPtr + (SymHshp - l11c5);
-    Stack[0].l2ea4 = l305c;
+        BYTE(--topPtr) = BYTE(CurSym--);
+    SymTop          = CurSym + 1;
+    Stack[0].topPtr = topPtr;
+    if (collectMode != _rept_)
+        WORD(topPtr) = topPtr + BYTE(topPtr);
+    Stack[0].l2ed4       = topPtr + (curSym - l11c5);
+    Stack[0].collectMode = collectMode;
     return l0552();
 }
 
 uint8_t _ENDM_() {
-    CheckSymbol();
+    CheckLabel(LocCtr);
     l03c1();
     OutLine[5] = '+';
-    if (Stack[0].l2ea4 < 3)
+    if (Stack[0].collectMode < _irpc_) // macro
         PopParam();
     else {
-        uint16_t tmp   = Stack[0].l2f24;
-        Stack[0].l2f24 = Stack[0].l2eb4;
+        uint16_t tmp        = Stack[0].prevTopPtr;
+        Stack[0].prevTopPtr = Stack[0].topPtr;
         PopParam();
-        Stack[0].l2f24 = tmp;
+        Stack[0].prevTopPtr = tmp;
         if (pMnem->code == _endm)
             return l0552();
     }
     NewPage();
-    TopPtr = Stack[0].l2f24; // Restore top
+    topPtr = Stack[0].prevTopPtr; // Restore top
     unnest();
-    IF_level = Stack[0].l2f54;
-    if ((curCh = Stack[0].l2f14))
+    ifLevel = Stack[0].ifLevel;
+    if ((curCh = Stack[0].curCh))
         StChar(curCh);
     return LINELOOP;
 }
 
 uint8_t __FALSE(uint8_t l11ca) {
-    l11cc = l11cb = 0;
+    macroNesting = ifNesting = 0;
     while (1) {
         while (1) {
-            if (tokType == _any) {
+            if (tokType == _punct) {
                 if (token.str[0] == '\r') {
                     GetToken(); // eat '\n'
                     break;
                 } else if (token.str[0] == '!')
                     break;
-                else if (token.str[0] == eof)
+                else if (token.str[0] == cpmEOF)
                     return EndFile(true);
             }
             GetToken();
         }
         GetToken();
-        if (tokType == _digit)
+        if (tokType == _number) // leading line number, so ignore
             GetToken();
-        if (tokType != _label)
+        if (tokType != _id)
             continue;
         if (!(pMnem = GetMnemo(token.str, token.len))) {
             GetToken();
-            if (tokType == _any) {
-                if (token.str[0] != ':')
+            if (tokType == _punct) {
+                if (token.str[0] != ':') // not a label definition
                     continue;
                 GetToken();
             }
-            if (tokType != _label || !(pMnem = GetMnemo(token.str, token.len)))
+            if (tokType != _id || !(pMnem = GetMnemo(token.str, token.len)))
                 continue;
         }
         if (pMnem->type != _pseudo)
             continue;
         if (pMnem->code == _if) {
-            if (l11cb++ == 0xff)
+            if (ifNesting++ == 255) // way too deep
                 SetErr('O');
             continue;
         } else if (pMnem->code == _else) {
-            if (l11cb)
+            if (ifNesting)
                 continue;
-            if (l11ca == 2)
+            if (l11ca == _else_)
                 SetErr('B');
-            PutIF(2);
+            PutIF(_else_);
             GetToken();
         } else if (pMnem->code == _endif) {
-            if (l11cb--)
+            if (ifNesting--)
                 continue;
-            if (l11cc)
+            if (macroNesting)
                 SetErr('B');
             GetToken();
         } else if (IsMacro(pMnem->code)) {
-            if (l11cc++ == 0xff)
+            if (macroNesting++ == 0xff)
                 SetErr('O');
             continue;
-        } else if (pMnem->code != _endm || l11cc--)
+        } else if (pMnem->code != _endm || macroNesting--)
             continue;
         else
             return _ENDM_();
@@ -680,10 +679,10 @@ uint8_t MAC_Mnemo() {
     if (pMnem->type == _pseudo) {
         switch (pMnem->code) {
         case _db:
-            CheckSymbol();
+            CheckLabel(LocCtr);
             do {
                 GetToken();
-                if (tokType == _strg && token.len != 1) {
+                if (tokType == _string && token.len != 1) {
                     for (uint8_t i = 0; i < token.len; i++)
                         PutCode(token.str[i]);
                     GetToken();
@@ -691,40 +690,40 @@ uint8_t MAC_Mnemo() {
                     Expression();
                     PutCode(CheckByteOper(ExprVal));
                 }
-                SetLocCtr();
-            } while (GetDatDelim() == ',');
+                LocCtr = CurHEX;
+            } while (haveComma());
             break;
         case _ds:
-            CheckSymbol();
+            CheckLabel(LocCtr);
             StWord(LocCtr);
-            CurHEX = LocCtr += GetOpr1();
+            CurHEX = (LocCtr += getWordValue());
             break;
         case _dw:
-            CheckSymbol();
+            CheckLabel(LocCtr);
             do {
-                uint16_t hl = GetOpr1();
+                uint16_t hl = getWordValue();
                 PutCode(hl & 0xff);
                 PutCode(hl >> 8);
-                SetLocCtr();
-            } while (GetDatDelim() == ',');
+                LocCtr = CurHEX;
+            } while (haveComma());
             break;
         case _end:
-            CheckSymbol();
+            CheckLabel(LocCtr);
             StWord(LocCtr);
             if (OutLine[0] != ' ')
                 EndLine(0);
-            uint16_t hl = GetOpr1();
+            uint16_t hl = getWordValue();
             if (OutLine[0] == ' ')
                 XFerAdr = hl;
             OutLine[0] = ' '; // clear error
-            if (IF_level)
+            if (ifLevel)
                 SetErr('B');
             GetToken();
-            if (tokType != _any || token.str[0] != '\n')
+            if (tokType != _punct || token.str[0] != '\n')
                 return EndLine('S');
             return EndFile(Balance != 0);
         case _endif:
-            CheckSymbol();
+            CheckLabel(LocCtr);
             GetIF();
             GetToken();
             break;
@@ -732,113 +731,109 @@ uint8_t MAC_Mnemo() {
         case _exitm:
             return _ENDM_();
         case _equ:
-            if (!IsActSym())
+            if (!hasLabel())
                 EndLine('S');
             SET_EQU('=');
-            uint16_t tmp = LocCtr;
-            LocCtr       = ExprVal;
-            CheckSymbol();
-            LocCtr = tmp;
+            CheckLabel(ExprVal);
             break;
         case _if:
-            CheckSymbol();
-            uint16_t opr1 = GetOpr1();
+            CheckLabel(LocCtr);
+            uint16_t opr1 = getWordValue();
             if (OutLine[0] != ' ')
                 return __FALSE(OutLine[0]);
             if (!(opr1 & 1))
-                return __FALSE(1);
-            PutIF(1);
+                return __FALSE(_if_);
+            PutIF(_if_);
             break;
         case _macro:
             return macro();
         case _org:
-            uint16_t val = GetOpr1();
+            uint16_t val = getWordValue();
             if (OutLine[0] == ' ') {
                 if (R_opt)
                     val += 0x100;
-                LocCtr = val;
-                CurHEX = val;
-                CheckSymbol();
+                LocCtr = CurHEX = val;
+                CheckLabel(LocCtr);
                 StWord(LocCtr);
             }
             break;
         case _set:
-            if (!IsActSym())
+            if (!hasLabel())
                 return EndLine('S');
             uint8_t type;
 
-            if ((type = GetSymType()) && type != 5)
+            if ((type = GetSymType()) && type != T_SET)
                 SetErr('L');
-            SetSymType(5);
+            SetSymType(T_SET);
             SET_EQU('#');
-            IsActSym();
+            hasLabel();
             PutSymVal(ExprVal);
-            ActSym = 0;
+            label = 0;
             break;
         case _title:
-            CheckSymbol();
+            CheckLabel(LocCtr);
             GetToken();
-            if (tokType != _strg || l305a)
+            if (tokType != _string || collectDepth)
                 return EndLine('S');
-            if (PassNr == 0) {
-                Titleptr = SymTop;
-                CurSym   = SymTop - 1;
-                for (uint8_t i = 0; i < token.len; i++)
-                    PutSym(token.str[i]);
-                PutSym(0);
-            }
+            // note test added in case of multiple titles
+            // suspect original code would have problems
+            // with multiple titles as it would confuse
+            // the writing of symbols
+            // here allow multiple titles
+            free((void *)Titleptr);
+            Titleptr = safeStrdup(token.str);
             GetToken();
             break;
         case _else:
-            CheckSymbol();
-            if (GetIF() != 1) {
+            CheckLabel(LocCtr);
+            if (GetIF() != _if_) {
                 SetErr('B');
                 GetToken();
                 break;
             }
-            return __FALSE(2);
+            return __FALSE(_else_);
         case _irp:
         case _irpc:
-            l305c = pMnem->code == _irp ? _irp_ : _irpc_;
-            CheckSymbol();
+            collectMode = pMnem->code == _irp ? _irp_ : _irpc_;
+            CheckLabel(LocCtr);
             GetToken();
-            if (tokType == _label) {
+            if (tokType == _id) {
                 l11c5  = SymTop;
                 CurSym = SymTop - 1;
                 PutSym(3 + min(token.len, SymLen));
                 PutSym(0);
-                l2065();
+                addParameter();
                 GetToken();
-                if (tokType == _any && token.str[0] == ',') {
+                if (tokType == _punct && token.str[0] == ',') {
                     l1afc();
                     if (token.len == 0)
                         GetToken();
-                    else if (tokType != _any || !IsDelim(token.str[0])) {
+                    else if (tokType != _punct || !IsTerminator(token.str[0])) {
                         for (uint8_t i = 0; i < token.len; i++)
                             PutSym(token.str[i]);
                         PutSym('\r');
                         GetToken();
                     }
                     PutSym(0);
-                    SymHshp = SymTop;
-                    if (!l0722(l305c))
+                    curSym = SymTop;
+                    if (!collectMaroBody(collectMode))
                         return EndFile(true);
                     return l0a7e();
                 }
             } else {
                 SetErr('S');
-                l0722(l305c);
+                collectMaroBody(collectMode);
                 GetToken();
             }
             break;
         case _rept:
-            val    = GetOpr1(); // get repetition
+            val    = getWordValue(); // get repetition
             l11c5  = SymTop;
             CurSym = SymTop - 1;
             PutSym(val & 0xff);
             PutSym(val >> 8);
-            SymHshp = SymTop;
-            if (!l0722(6))
+            curSym = SymTop;
+            if (!collectMaroBody(_rept_))
                 return EndFile(true);
             return l0a7e();
         case _aseg:
@@ -853,9 +848,9 @@ uint8_t MAC_Mnemo() {
             GetToken();
             break;
         case _page:
-            CheckSymbol();
+            CheckLabel(LocCtr);
             GetToken();
-            if (tokType != _any || !IsDelim(token.str[0])) {
+            if (tokType != _punct || !IsTerminator(token.str[0])) {
                 Expression();
                 if (OutLine[0] == ' ')
                     LstPage((uint8_t)ExprVal);
@@ -869,29 +864,29 @@ uint8_t MAC_Mnemo() {
             if (Balance != 0) {
                 do {
                     GetToken();
-                    if (tokType != _label)
+                    if (tokType != _id)
                         break;
-                    tmp    = SymTop;
-                    CurSym = SymTop - 1;
-                    l2065();
-                    if (++LocCnt > 9999)
+                    uint16_t tmp = SymTop;
+                    CurSym       = SymTop - 1;
+                    addParameter();
+                    if (++localCnt > 9999)
                         SetErr('O');
-                    token.len = sprintf(token.str, "??%04d", LocCnt % 10000);
+                    token.len = sprintf(token.str, "??%04d", localCnt % 10000);
                     l1f87();
                     SymTop = tmp;
                     CurSym = SymTop - 1;
                     GetSymbol();
                     l1fa5();
                     GetToken();
-                    if (tokType == _any && IsDelim(token.str[0]))
+                    if (tokType == _punct && IsTerminator(token.str[0]))
                         return EndLine(0);
-                } while (tokType == _any && token.str[0] == ',');
+                } while (tokType == _punct && token.str[0] == ',');
             }
             SetErr('S');
             break;
         case _maclib:
-            CheckSymbol();
-            if (l11d6 || InLIB || !GetLibName()) {
+            CheckLabel(LocCtr);
+            if (macroChain || InLIB || !GetLibName()) {
                 SetErr('S');
                 break;
             }
@@ -903,10 +898,8 @@ uint8_t MAC_Mnemo() {
             OpenLib();
             if (L_opt)
                 Header();
-            while (curCh != '\r' && curCh != eof)
+            while (curCh != '\n' && curCh != cpmEOF)
                 GetStrChr();
-            if (curCh == '\r')
-                GetStrChr(); // accept cr
             NewPage();
             PrepLib();
             return LINELOOP;
@@ -985,30 +978,33 @@ uint8_t MAC_Mnemo() {
             GetImByte();
             break;
         }
-        CheckSymbol();
-        SetLocCtr();
+        CheckLabel(LocCtr);
+        LocCtr = CurHEX;
     }
     return EndLine(0);
 }
 
-uint8_t GetDatDelim() {
-    if (tokType != _any || (token.str[0] != ',' && token.str[0] != ';' && token.str[0] != '\r'))
+bool haveComma() {
+    if (tokType == _punct && token.str[0] == ',')
+        return true;
+
+    if (tokType != _punct || (token.str[0] != ';' && token.str[0] != '\r'))
         SetErr('D');
-    return token.str[0];
+    return false;
 }
 
-uint16_t GetOpr1() {
+uint16_t getWordValue() {
     GetToken();
     Expression();
     return ExprVal;
 }
 
 uint8_t GetByteOper() {
-    return CheckByteOper(GetOpr1());
+    return CheckByteOper(getWordValue());
 }
 
 uint8_t CheckByteOper(uint16_t val) {
-    if ((val & ~0xff) && (val & ~0xff) != 0xff00)
+    if ((val & ~0xff) != 0 && (val & ~0xff) != 0xff00)
         SetErr('V');
     return val & 0xff;
 }
@@ -1036,11 +1032,11 @@ void GetImByte() {
 }
 
 void GetImWord() {
-    PutWord(GetOpr1());
+    PutWord(getWordValue());
 }
 
 void GetComma() {
-    if (tokType != _any || token.str[0] != ',')
+    if (tokType != _punct || token.str[0] != ',')
         SetErr('C');
 }
 
@@ -1048,25 +1044,25 @@ uint8_t EndLine(uint8_t err) {
     if (err)
         SetErr(err);
     if (err != 'S') {
-        CheckSymbol();
-        if (tokType != _any)
+        CheckLabel(LocCtr);
+        if (tokType != _punct)
             SetErr('S');
         else if (token.str[0] == '\r') {
             GetToken(); // eat '\n'
             return LINELOOP;
         } else if (token.str[0] == ';')
-            CheckSymbol();
+            CheckLabel(LocCtr);
         else if (token.str[0] == '!')
             return LINELOOP;
-        else if (token.str[0] == eof)
+        else if (token.str[0] == cpmEOF)
             return EndFile(Balance != 0);
         else
             SetErr('S');
     }
     while (1) {
         GetToken();
-        if (tokType == _any) {
-            if (token.str[0] == eof)
+        if (tokType == _punct) {
+            if (token.str[0] == cpmEOF)
                 return EndFile(Balance != 0);
             if (token.str[0] == '\n' || token.str[0] == '!')
                 return LINELOOP;
@@ -1077,15 +1073,15 @@ uint8_t EndLine(uint8_t err) {
 uint8_t EndFile(bool err) {
     if (err)
         SetErr('B');
-    l305a = 0;
+    collectDepth = 0;
     if (PassNr++ == 0) {
-        l11d8 = -1;
-        while (l11d6) {
-            SymHshp     = l11d6;
+        l11d8 = 0xffff;
+        while (macroChain) { // invert macro chain
+            curSym      = macroChain;
             uint16_t hl = GetSymVal();
             PutSymVal(l11d8);
-            l11d8 = l11d6;
-            l11d6 = hl;
+            l11d8      = macroChain;
+            macroChain = hl;
         }
         return PASSLOOP;
     }
@@ -1094,49 +1090,42 @@ uint8_t EndFile(bool err) {
 
 void finish() {
     GetToken();
-    StWord(LocCtr);
-    strcpy(&OutLine[5], "\n");
-    fputs(OutLine + 1, stdout);
+    printf("End: %04XH\n", LocCtr);
     if (S_opt) {
         l2ea4 = 1;
         PrepSYM();
         WriteSymbols();
     }
-    StWord((SymTop - SymBot) / ((TopPtr - SymBot) >> 8));
-    strcpy(OutLine + 5, "H Use Factor\n");
-    fputs(OutLine + 2, stdout);
+    printf("Use Factor %2.1f%%\n", (double)(SymTop - SymBot) / (double)(topPtr - SymBot) * 100.0);
+
     CurHEX = XFerAdr;
     Exit(0);
 }
 
-void SetLocCtr() {
-    LocCtr = CurHEX;
+bool hasLabel() {
+    return (curSym = label) != 0;
 }
 
-bool IsActSym() {
-    return (SymHshp = ActSym) != 0;
-}
-
-void CheckSymbol() {
-    if (!IsActSym())
-        return;
-    ActSym = 0;
-    if (PassNr == 0) {
-        uint8_t type;
-        if ((type = GetSymType()) & TYPMASK)
-            SetErr('L');
-        SetSymType(type | 1);
-        PutSymVal(LocCtr);
-    } else if ((GetSymType() & TYPMASK) == 0 || GetSymVal() != LocCtr)
-        SetErr('P');
+void CheckLabel(uint16_t loc) {
+    if (hasLabel()) {
+        label = 0;
+        if (PassNr == 0) {
+            uint8_t type;
+            if ((type = GetSymType()) & TYPMASK)
+                SetErr('L');
+            SetSymType(type | T_DEFINED);
+            PutSymVal(loc);
+        } else if ((GetSymType() & TYPMASK) == 0 || GetSymVal() != loc)
+            SetErr('P');
+    }
 }
 
 void PutCode(uint8_t val) {
     if (PassNr)
         putHEX(val);
-    if (OutLine[1] == ' ')
+    if (OutLine[1] == ' ') // add address if not already present
         StWord(LocCtr);
-    if (ASC_len < _ASCbyt)
+    if (outCol < _ASCbyt) // truncate if too many bytes
         StByte(val);
     CurHEX++;
 }
@@ -1149,15 +1138,15 @@ void PutWord(uint16_t val) {
 char hexDigits[16] = { "0123456789ABCDEF" };
 
 void StByte(uint8_t val) {
-    OutLine[ASC_len++] = hexDigits[val >> 4];
-    OutLine[ASC_len++] = hexDigits[val & 0xf];
+    OutLine[outCol++] = hexDigits[val >> 4];
+    OutLine[outCol++] = hexDigits[val & 0xf];
 }
 
 void StWord(uint16_t val) {
-    ASC_len     = 1;
+    outCol = 1;
     StByte(val >> 8);
     StByte(val & 0xff);
-    ASC_len++;
+    outCol++;
 }
 
 // Convert character to token
@@ -1173,97 +1162,88 @@ uint8_t Ch2Tok(uint8_t ch) {
     return 0x1b;
 }
 
-uint16_t l2eac[0x1c];
+uint16_t symList[0x1c];
 
 void WriteSymbols() {
-    l2ea5   = 0;
-    ASC_len = 0;
-    SymHshp = SymBot;
+
+    curSym = SymBot;
     // sort the symbols
-    while (SymHshp < SymTop) {
-        CurSym    = Titleptr - 1;
-        bool skip = true;
+    while (curSym < SymTop) {
+        CurSym = SymBot;
         uint8_t type;
-        if (Titleptr != SymHshp) {
-            if ((type = GetSymType()) == 6)
-                for (uint8_t i = getParamLen(); i; i--)
-                    GetSymbol();
-            else
-                skip = false;
-        }
-        if (skip) {
-            while (SymbolByte() != 0)
+        if ((type = GetSymType()) == 6) {
+            getParamLen();            // advance to macro params
+            while (SymbolByte() != 0) // skip to end of names
                 ;
-            SymHshp = CurSym + 1;
-            continue;
-        }
-        if (type == l2ea4) {  // l1090
-            l2eaa  = SymHshp; /// overlay data !!
-            CurSym = SymHshp + 1;
-            GetSymbol();
-            if (Q_opt || token.len < 2 || token.str[0] != '?' || token.str[1] != '?') {
-                sym_t *chain = (sym_t *)&l2eac[Ch2Tok(token.str[0])];
-                while ((SymHshp = chain->link) != 0) {
-                    sym_t *sym   = SYMP(SymHshp);
-                    uint8_t slen = (sym->typeSize & LOMASK) + 1;
-                    int8_t cmp   = memcmp(sym->name, token.str, min(slen, token.len));
-                    if (cmp > 0 || (cmp == 0 && slen > token.len))
-                        break;
-                    chain = sym;
+            curSym = CurSym + 1; // next symbol
+        } else {
+            if (type == l2ea4) { // l1090
+                uint16_t reference = curSym;
+                CurSym             = curSym + 1;
+                GetSymbol();
+                if (Q_opt || token.len < 2 || token.str[0] != '?' || token.str[1] != '?') {
+                    sym_t *chain = (sym_t *)&symList[Ch2Tok(token.str[0])];
+                    while ((curSym = chain->link) != 0) {
+                        sym_t *sym   = SYMP(curSym);
+                        uint8_t slen = (sym->typeSize & LOMASK) + 1;
+                        int8_t cmp   = memcmp(sym->name, token.str, min(slen, token.len));
+                        if (cmp > 0 || (cmp == 0 && slen > token.len))
+                            break;
+                        chain = sym;
+                    }
+                    uint16_t tmp       = curSym;
+                    curSym             = reference;
+                    SYMP(curSym)->link = tmp;
+                    chain->link        = curSym;
                 }
-                uint16_t tmp        = SymHshp;
-                SymHshp             = l2eaa;
-                SYMP(SymHshp)->link = tmp;
-                chain->link         = SymHshp;
             }
+            curSym += SymSize() + 5; // SymSize adds 1 anyway
         }
-        SymHshp += SymSize() + 5; // SymSize adds 1 anyway
     }
 
+    uint8_t symCol = 0;
+    outCol         = 0;
     for (uint8_t i = 0; i < 0x1c; i++) {
-        SymHshp = l2eac[i];
-        while (SymHshp) {
-            uint8_t b = l2ea6 = (BYTE(SymHshp + 2) & 0xf) + 1;
-            CurSym            = SymHshp + 2;
-            if (l2ea5) {
+        curSym = symList[i];
+        while (curSym) {
+            uint8_t symWidth = (BYTE(curSym + 2) & 0xf) + 1;
+            CurSym           = curSym + 2;
+            if (symCol) {
                 StASC('\t');
-                l2ea5 = (l2ea5 & 0xf8) + 8;
-                if (l2ea5 & 0xf) {
-                    l2ea5 += 8;
+                symCol = (symCol & 0xf8) + 8;
+                if (symCol & 0xf) {
+                    symCol += 8;
                     StASC('\t');
                 }
             }
-            if (l2ea5 + b + 5 >= 80) {
-                while (OutLine[--ASC_len] == '\t')
-                    ;
-                OutLen  = ASC_len;
-                ASC_len = 0;
+            if (symCol + symWidth + 5 >= 80) {
+                OutLen = outCol;
                 emitLine();
-                l2ea5 = 0;
+                symCol = outCol = 0;
             }
             uint16_t hl = GetSymVal();
             StByte(hl >> 8);
             StByte(hl & 0xff);
             StASC(' ');
-            l2ea5 += 5;
-            for (uint8_t i = l2ea6; i; i--) {
+            symCol += 5;
+            for (uint8_t i = symWidth; i; i--) {
                 StASC(SymbolByte());
-                l2ea5++;
+                symCol++;
             }
-            SymHshp = WORD(SymHshp);
+            curSym = WORD(curSym);
         }
     }
-    OutLen = ASC_len;
-    emitLine();
+    if ((OutLen = outCol))
+        emitLine();
 }
 
 void StASC(uint8_t ch) {
-    OutLine[ASC_len++] = ch;
+    OutLine[outCol++] = ch;
 }
 
 void l11e4(uint16_t de) {
-    if (de == l11e2)
-        BYTE(l11e2) = 0;
+    if (de == afterComma)
+        BYTE(afterComma) = 0;
 }
 
 void l11ee(uint16_t hl) {
@@ -1420,11 +1400,11 @@ void Term(uint8_t op) {
 }
 
 bool IsExprDel() {
-    return tokType == _any && (token.str[0] == '\r' || token.str[0] == ';' || token.str[0] == '!');
+    return tokType == _punct && strchr("\r;!", token.str[0]);
 }
 
 bool IsExprDelOrComma() {
-    return IsExprDel() || (tokType == _any && token.str[0] == ',');
+    return tokType == _punct && strchr(",\r;!", token.str[0]);
 }
 
 void Expression() {
@@ -1443,14 +1423,12 @@ void Expression() {
             return;
         }
         if (OutLine[0] == ' ') {
-            if (tokType == _strg) {
+            if (tokType == _string) {
                 if (token.len == 0 || token.len > 2)
                     SetErr('E');
-                uint16_t val = (token.len == 0) ? 0 : token.str[0];
-                if (token.len > 1)
-                    val += token.str[1] << 8;
-                PushGood(val);
-            } else if (tokType == _digit)
+                // expression relies on string being null terminated
+                PushGood(token.len == 0 ? 0 : token.str[0] + (token.str[1] << 8));
+            } else if (tokType == _number)
                 PushGood(Value);
             else if ((pMnem = GetMnemo(token.str, token.len))) { // Expr_Mnemo?
                 uint8_t type = pMnem->type;
@@ -1458,8 +1436,8 @@ void Expression() {
                 if (type < _regs) {
                     if (type == _nul) {
                         l1afc();
-                        if (!IsExprDel() &&
-                            (tokType != _strg || token.len || (GetToken(), !IsExprDelOrComma()))) {
+                        if (!IsExprDel() && (tokType != _string || token.len ||
+                                             (GetToken(), !IsExprDelOrComma()))) {
                             do {
                                 l1afc();
                             } while (!IsExprDel());
@@ -1498,12 +1476,13 @@ void Expression() {
                         SetErr('E');
                     PushGood(pri);
                 }
-            } else if (tokType == _any) {
-                if (token.str[0] != '$') {
+            } else if (tokType == _punct) {
+                if (token.str[0] == '$')
+                    PushGood(LocCtr);
+                else {
                     SetErr('E');
                     PushGood(0);
-                } else
-                    PushGood(LocCtr);
+                }
             } else {
                 if (!SymSrc()) {
                     SetErr('P');
@@ -1531,24 +1510,24 @@ uint8_t RdSrc() {
         if ((ch = BYTE(Stack[0].l2ef4))) {
             Stack[0].l2ef4++;
             if (ch == ',')
-                l11e2 = Stack[0].l2ef4;
+                afterComma = Stack[0].l2ef4;
             break;
         }
-        if (Stack[0].l2ea4 != 2) {
+        if (Stack[0].collectMode != 2) {
             if (F_CHR++ != 0xff)
                 return 0;
             SetErr('B');
             emitLine();
         }
         unnest();
-        ch = Stack[0].l2f14;
+        ch = Stack[0].curCh;
         if (ch)
             return ch;
     }
     if (Balance == 0)
         ch = mgetc();
     F_CHR = ch;
-    return tokType == _strg ? ch : toupper(ch);
+    return tokType == _string ? ch : toupper(ch);
 }
 
 uint8_t StChar(uint8_t ch) {
@@ -1559,12 +1538,12 @@ uint8_t StChar(uint8_t ch) {
 
 bool GetId() {
     PrnLine.len = 0;
-    l2f64       = 0;
-    lookAhead   = RdSrc();
+    expandChIdx  = 0;
+    lookAhead    = RdSrc();
     if (tokType == _cmnt)
         return false;
     if (lookAhead >= 0x80) {
-        char *p     = getMnemStr(lookAhead);
+        char *p      = getMnemStr(lookAhead);
         PrnLine.len = (uint8_t)strlen(p);
         memcpy(PrnLine.str, p, PrnLine.len);
         lookAhead = RdSrc();
@@ -1574,7 +1553,7 @@ bool GetId() {
         if (PrnLine.len >= SymLen - 1)
             return false;
         PrnLine.str[PrnLine.len++] = lookAhead;
-        lookAhead                  = RdSrc();
+        lookAhead                    = RdSrc();
     }
     PrnLine.str[PrnLine.len] = '\0'; // make C string
     return true;
@@ -1582,35 +1561,39 @@ bool GetId() {
 
 bool l16f3() {
     bool result;
-    l1613 = SymHshp;
+    l1613 = curSym;
     SymMArg();
     if (!(result = l1e47()))
-        SymHshp = l1613;
+        curSym = l1613;
     return result;
 }
 
 uint8_t RdChar() {
-    ChrCnt = 0;
+    uint8_t expandCnt = 0;
     while (1) {
-        if (ChrCnt++ == 255) {
+        if (expandCnt++ == 255) { // too many expansions
             SetErr('O');
-            PrnLine.len    = 0;
-            Stack[0].l2ef4 = 0;
+            PrnLine.len   = 0;
+            Stack[0].l2ef4 = 0; // original was PrnLine
+            // here 0 will access mem[0] which is always 0
         }
-        if (PrnLine.len) {
+        if (PrnLine.len) { // pending char
             PrnLine.len--;
-            return StChar(PrnLine.str[l2f64++]);
+            return StChar(PrnLine.str[expandChIdx++]);
         }
         uint8_t ch = lookAhead;
-        if (Balance == 0) {
-            lookAhead = 0;
-            return StChar(ch ? ch : RdSrc());
+        if (Balance == 0) { // simple read
+            if (lookAhead)
+                lookAhead = 0;
+            else
+                ch = RdSrc();
+            return StChar(ch);
         } else if (lookAhead) {
             if (lookAhead == '^') {
                 if (!GetId() && lookAhead == '&') {
                     PrnLine.len++;
                     PrnLine.str[0] = '&';
-                    lookAhead      = 0;
+                    lookAhead       = 0;
                     return StChar('&');
                 }
                 return StChar('^');
@@ -1622,18 +1605,18 @@ uint8_t RdChar() {
                 return StChar(ch);
             } else if (!GetId() || !l16f3())
                 continue;
-        } else if (!GetId() || (lookAhead != '&' && tokType == _strg) || !l16f3())
+        } else if (!GetId() || (lookAhead != '&' && tokType == _string) || !l16f3())
             continue;
 
-        Stack[0].l2f14 = lookAhead == '&' ? 0x7f : lookAhead;
+        Stack[0].curCh = lookAhead == '&' ? 0x7f : lookAhead;
         lookAhead      = 0;
 
         nest();
-        Stack[0].l2ea4 = 2;
-        Stack[0].l2f24 = TopPtr;
-        Stack[0].l2ef4 = GetSymValAddr();
-        PrnLine.len    = 0;
-        SymHshp        = l1613;
+        Stack[0].collectMode = 2;
+        Stack[0].prevTopPtr  = topPtr;
+        Stack[0].l2ef4       = GetSymValAddr();
+        PrnLine.len         = 0;
+        curSym               = l1613;
         GetId();
     }
 }
@@ -1641,10 +1624,10 @@ uint8_t RdChar() {
 void l17f1() {
     IniEval();
     PrnLine.len = 0;
-    lookAhead   = 0;
-    curCh       = 0;
-    OutLen      = 0;
-    prevCh      = '\n';
+    lookAhead    = 0;
+    curCh        = 0;
+    OutLen       = 0;
+    prevCh       = '\n';
     emitLine();
     OutLen = _ASCbyt;
 }
@@ -1672,49 +1655,60 @@ bool IsLabel(uint8_t ch) {
 }
 
 uint8_t IsValid(uint8_t ch) {
-    if (ch < ' ' && ch != '\t' && ch != '\r' && ch != '\n' && ch != eof)
+    if (ch < ' ' && ch != '\t' && ch != '\r' && ch != '\n' && ch != cpmEOF)
         SetErr('I');
     return ch;
 }
 
 uint8_t GetStrChr() {
     curCh = IsValid(RdChar());
-    if (l305a && (l305c != 1 || PassNr == 0))
+    if (collectDepth && (collectMode != _macro_ || PassNr == 0))
         PutSym(curCh);
     return curCh;
 }
 
 void skipEOL() {
-    while (!IsEOL(curCh))
+    while (!IsEOS(curCh))
         GetStrChr();
 }
 
 bool GetLibName() {
     char name[256];
     uint16_t len = 0;
-    tokType      = _strg; // make sure chars are not mapped to upper case
+    tokType      = _string; // make sure chars are not mapped to upper case
+
+    free((void *)libFile); // incase previously used
+    libFile = NULL;
+
     while (curCh == ' ' || curCh == '\t' || curCh == 0)
         GetStrChr();
-    while (curCh >= ' ' && curCh != ';' && curCh != eof) {
-        if (len < 255)
-            name[len] = curCh;
-        len++;
-        GetStrChr();
+    bool instring = false;
+    if (curCh == '\'') { // collect string to allow any char >= ' '
+        instring = true;
+        while ((curCh = GetStrChr()) >= ' ') {
+            if (curCh == '\'' && (curCh = GetStrChr()) != '\'') {
+                instring = false;
+                break;
+            }
+            if (len < 255)
+                name[len++] = curCh;
+        }
+    } else {
+        while (curCh > ' ' && curCh != ';') {
+            if (len < 255)
+                name[len++] = curCh;
+            GetStrChr();
+        }
     }
     tokType = 0;
-    if (len >= 255) {
+    if (instring || len == 0 || len >= 255) {
         SetErr('V');
         return false;
     }
-    while (len && name[len - 1] == ' ')
-        len--;
+
     name[len] = '\0';
-    if (*name) {
-        free((void *)libFile); // incase previously used
-        libFile = safeStrdup(makeFilename(name, ".lib", false));
-        return true;
-    }
-    return false;
+    libFile   = makeFilename(name, ".lib", false);
+    return true;
 }
 
 void GetToken() {
@@ -1726,18 +1720,18 @@ void GetToken() {
         else if (curCh == ';') {
             tokType = _cmnt;
             GetStrChr();
-            if (l305a && (l305c != 1 || PassNr == 0) && curCh == ';') {
-                for (CurSym -= 2; CurSym != l3060; CurSym--) {
+            if (collectDepth && (collectMode != _macro_ || PassNr == 0) && curCh == ';') {
+                for (CurSym -= 2; CurSym != startMacroBody; CurSym--) {
                     if (BYTE(CurSym) == '\n' || BYTE(CurSym) >= '!')
                         break;
                 }
-                if (CurSym != l3060 && BYTE(CurSym) == '\n')
+                if (CurSym != startMacroBody && BYTE(CurSym) == '\n')
                     CurSym -= 2;
-                uint8_t tmp = l305a;
-                l305a       = 0;
+                uint8_t tmp  = collectDepth;
+                collectDepth = 0;
                 skipEOL();
                 PutSym(curCh);
-                l305a = tmp;
+                collectDepth = tmp;
             } else
                 skipEOL();
             break;
@@ -1748,12 +1742,12 @@ void GetToken() {
 
     tokType = 0;
     if (IsLabCh(curCh))
-        tokType = _label;
+        tokType = _id;
     else if (isdigit(curCh))
-        tokType = _digit;
+        tokType = _number;
     else if (curCh == '\'') {
         curCh   = 0;
-        tokType = _strg;
+        tokType = _string;
     } else {
         if (curCh == '\n') {
             if (Balance)
@@ -1762,14 +1756,14 @@ void GetToken() {
             OutLine[0] = ' ';
             OutLen     = _ASCbyt;
         }
-        tokType = _any;
+        tokType = _punct;
     }
     for (;;) {
         if ((prevCh = curCh))
             addCh();
         GetStrChr();
-        if (tokType == _any) {
-            if (l305a) // Test relation
+        if (tokType == _punct) {
+            if (collectDepth) // Test relation
                 return;
             char *rel;
             if (token.str[0] == '=')
@@ -1793,14 +1787,14 @@ void GetToken() {
                 return;
             token.len = 2;
             strcpy(token.str, rel);
-            tokType = _label;
+            tokType = _id;
             return;
-        } else if (tokType == _label) {
+        } else if (tokType == _id) {
             if (curCh == '$')
                 curCh = 0;
             else if (!IsLabel(curCh))
                 return;
-        } else if (tokType == _digit) {
+        } else if (tokType == _number) {
             if (curCh == '$')
                 curCh = 0;
             else if (!isxdigit(curCh)) {
@@ -1839,11 +1833,15 @@ bool IsSpace(uint8_t ch) {
 }
 
 bool IsDelimiter() {
-    return curCh == ',' || curCh == ';' || curCh == '%' || IsEOL(curCh);
+    return curCh == ',' || curCh == ';' || curCh == '%' || IsEOS(curCh);
 }
 
-bool IsEOL(uint8_t ch) {
-    return ch == '\r' || ch == eof || ch == '!';
+bool IsEOS(uint8_t ch) {
+    return ch == '\r' || ch == cpmEOF || ch == '!';
+}
+
+bool IsTerminator(uint8_t ch) {
+    return ch == '\r' || ch == '!' || ch == ';';
 }
 
 bool IsDelim(uint8_t ch) {
@@ -1852,62 +1850,62 @@ bool IsDelim(uint8_t ch) {
 
 void l1afc() {
     IniEval();
-    tokType = 0;
-    l1616   = 0;
-
+    tokType            = 0;
+    uint8_t chevronCnt = 0;
+    bool setPrev       = false;
     while (IsSpace(curCh))
         GetStrChr();
     if (IsDelimiter()) {
-        tokType = _any;
+        tokType = _punct;
         addCh();
-        prevCh = curCh; // 1b20
-        GetStrChr();
-        if (tokType == _any)
-            return;
+        setPrev = true;
     }
     while (1) { // 1b20
-
+        if (setPrev) {
+            prevCh = curCh; // 1b20
+            GetStrChr();
+            if (tokType == _punct)
+                return;
+        } else
+            setPrev = true;
         while (1) { // 1b2f
-            if (IsEOL(curCh)) {
-                if (tokType == _strg || l1616 != 0)
+            if (IsEOS(curCh)) {
+                if (tokType == _string || chevronCnt != 0)
                     SetErr('V');
                 tokType = _error;
                 return;
             }
-            if (tokType == _strg) {
+            if (tokType == _string) {
                 if (curCh == '\'') {
                     addCh();
                     GetStrChr();
                     if (curCh == '\'')
                         break;
                     tokType = 0;
+                    continue;
                 }
             } else if (curCh == '\'')
-                tokType = _strg;
+                tokType = _string;
             else if (curCh == '^') {
                 GetStrChr();
-                if (curCh != '\t' && curCh >= ' ') {
+                if (curCh != '\t' && curCh < ' ') {
                     SetErr('I');
                     tokType = _error;
                     return;
                 }
             } else if (curCh == '<') {
-                if (l1616++ == 0)
+                if (chevronCnt++ == 0)
                     break;
             } else if (curCh == '>') {
-                if (l1616 && --l1616 == 0)
+                if (chevronCnt && --chevronCnt == 0)
                     break;
-            } else if (l1616 == 0 && IsDelim(curCh)) {
+            } else if (chevronCnt == 0 && IsDelim(curCh)) {
                 tokType = _error;
                 return;
             }
             addCh(); // 1bc9
             break;
         }
-        prevCh = curCh; // 1b20
-        GetStrChr();
-        if (tokType == _any)
-            return;
     }
 }
 
@@ -1917,7 +1915,7 @@ uint16_t *curHashTab = symHashTab;
 
 void IniField_1() {
     memset(symHashTab, 0, sizeof(symHashTab));
-    SymHshp = NIL;
+    curSym = NIL;
 }
 
 void IniField_2() {
@@ -1947,35 +1945,36 @@ uint8_t GetHashIdx(pstr_t *p) {
 
 #if 0
 void l1e31(uint8_t len) {
-    SYMP(SymHshp)->typesize &= 0xf0;
-    SYMP(SymHshp)->typesize |= len;
+    SYMP(curSym)->typesize &= 0xf0;
+    SYMP(curSym)->typesize |= len;
 }
 #endif
 
 uint8_t SymSize() {
-    return (SYMP(SymHshp)->typeSize & 0xf) + 1;
+    return (SYMP(curSym)->typeSize & 0xf) + 1;
 }
 
 bool l1e47() {
-    if (SymHshp == 0)
+    if (curSym == 0)
         return false;
-    uint8_t bc = 0;
-    if (Stack[0].l2ea4 != 1) {
+    uint8_t bc;
+    if (Stack[0].collectMode != _macro_) {
         for (bc = Balance; bc; bc--) {
-            if (Stack[bc].l2ea4 == 1)
+            if (Stack[bc].collectMode == _macro_)
                 break;
         }
         if (bc == 0)
             return false;
-    }
-    if (Stack[bc].l2f24 > SymHshp)
+    } else
+        bc = 0;
+    if (Stack[bc].prevTopPtr > curSym)
         return true;
-    SymHshp = 0;
+    curSym = 0;
     return false;
 }
 
 bool SymAdr() {
-    return SymHshp != 0;
+    return curSym != 0;
 }
 
 bool SymMArg() {
@@ -1991,17 +1990,17 @@ bool SymSrc() {
 }
 
 bool lookup(pstr_t *ps, uint16_t head) {
-    for (SymHshp = head; SymHshp; SymHshp = WORD(SymHshp)) {
-        if (ps->len == SymSize() && memcmp(ps->str, &BYTE(SymHshp + 3), ps->len) == 0)
+    for (curSym = head; curSym; curSym = WORD(curSym)) {
+        if (ps->len == SymSize() && memcmp(ps->str, &BYTE(curSym + 3), ps->len) == 0)
             return true;
     }
     return false;
 }
 
 void PostSym() {
-    SymHshp = SymTop;
+    curSym = SymTop;
     SymTop += token.len + 5; // packed sizeof(sym_t)
-    if (SymTop >= TopPtr)
+    if (SymTop >= topPtr)
         fatal("Symbol Table Overflow");
     curHashTab = symHashTab;
     l1f31();
@@ -2009,10 +2008,10 @@ void PostSym() {
 }
 
 void l1f31() {
-    sym_t *ps           = SYMP(SymHshp);
+    sym_t *ps           = SYMP(curSym);
 
     uint16_t curLink    = curHashTab[HashIdx];
-    curHashTab[HashIdx] = SymHshp;
+    curHashTab[HashIdx] = curSym;
     ps->link            = curLink;
     uint8_t len         = min(SymLen, token.len);
     ps->typeSize        = len - 1;
@@ -2020,16 +2019,16 @@ void l1f31() {
 }
 
 void alloc(uint16_t bc) {
-    SymHshp = TopPtr - (bc + token.len);
-    if (SymHshp < SymTop)
+    curSym = topPtr - (bc + token.len);
+    if (curSym < SymTop)
         fatal("Symbol table overflow");
-    TopPtr = SymHshp;
+    topPtr = curSym;
 }
 
 void l1f87() {
     alloc(1);
-    memcpy(&BYTE(TopPtr), token.str, token.len);
-    BYTE(TopPtr + token.len) = 0;
+    memcpy(&BYTE(topPtr), token.str, token.len);
+    BYTE(topPtr + token.len) = 0;
 }
 
 void l1fa5() {
@@ -2040,33 +2039,33 @@ void l1fa5() {
 }
 
 void PopParam() {
-    while (TopPtr < Stack[0].l2f24) {
-        SymHshp                  = TopPtr;
-        macHashTab[GetSymType()] = SYMP(SymHshp)->link;
-        uint16_t hl              = GetSymValAddr(); // point to param value
-        while (BYTE(hl++))
+    while (topPtr < Stack[0].prevTopPtr) {
+        curSym                   = topPtr;
+        macHashTab[GetSymType()] = SYMP(curSym)->link; // remove from macro hash table
+        uint16_t hl              = GetSymValAddr();    // point to param value
+        while (BYTE(hl++))                             // skip the parameters
             ;
-        TopPtr = hl;
+        topPtr = hl; // update to reflect removal
     }
 }
 
-// Byte 0,1  Link address - if any
+// Byte 0,1  Link address - or zero
 // Byte  2   High: Type - Low: Length
 // Byte 3..n-1   Symbol
 // Byte n,n+1    Symbol value
 
 void SetSymType(uint8_t type) {
-    sym_t *ps    = SYMP(SymHshp);
+    sym_t *ps    = SYMP(curSym);
     ps->typeSize = (ps->typeSize & 0xf) | (type << 4);
 }
 
 uint8_t GetSymType() {
-    sym_t *ps = SYMP(SymHshp);
+    sym_t *ps = SYMP(curSym);
     return ps->typeSize >> 4;
 }
 
 uint16_t GetSymValAddr() {
-    return SymHshp + SymSize() + 3;
+    return curSym + SymSize() + 3;
 }
 
 void PutSymVal(uint16_t val) {
@@ -2077,21 +2076,21 @@ uint16_t GetSymVal() {
     return WORD(GetSymValAddr());
 }
 
-void NextSym() {
+void SeekMacroParam() {
     CurSym = GetSymValAddr() + 2;
 }
 
-void setParamLen(uint8_t val) {
-    NextSym();
+void setParameterCnt(uint8_t val) {
+    SeekMacroParam();
     BYTE(CurSym) = val;
 }
 
 uint8_t getParamLen() {
-    NextSym();
+    SeekMacroParam();
     return BYTE(CurSym);
 }
 
-void l2065() {
+void addParameter() {
     uint8_t type = GetHashIdx((pstr_t *)&token) << 4;
     if (token.len > SymLen)
         token.len = SymLen;
@@ -2113,7 +2112,7 @@ uint8_t SymbolByte() {
 }
 
 void PutSym(uint8_t ch) {
-    if (CurSym + 1 >= TopPtr)
+    if (CurSym + 1 >= topPtr)
         fatal("Symbol Table Overflow");
     else {
         BYTE(++CurSym) = ch;

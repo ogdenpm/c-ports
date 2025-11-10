@@ -4,6 +4,16 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef _DEBUG
+// match locations used when under sid
+#define TOPHEAP 0xe400
+#define BOTHEAP 0x3b01
+#else
+#define TOPHEAP 0xfff0
+#define BOTHEAP 0x100
+#endif
+
+
 
 #define BYTE(addr) (mem[addr])
 #define WORD(addr) (*(uint16_t *)&mem[addr])
@@ -19,7 +29,7 @@
 
 #define TPA         0x100
 
-#define eof         0x1a
+#define cpmEOF      0x1a
 
 #define LOMASK      0xf
 #define COLMASK     0x7
@@ -46,8 +56,14 @@
 
 #define IF_Dep      8 // Max IF levels
 
+
+#define _if_        1
+#define _else_      2
+
+#define _macro_     1
 #define _irpc_      3
 #define _irp_       5
+#define _rept_      6
 
 #define LINLEN      120
 #define PAGLEN      56
@@ -58,7 +74,8 @@
 #endif
     // String states
 
-enum { _label = 1, _digit, _strg, _any, _error, _cmnt };
+enum { _id = 1, _number, _string, _punct, _error, _cmnt };
+    enum { T_DEFINED = 1, T_SET = 5, T_MACRO = 6 };
 
 enum {
     _mul = 0, // *
@@ -153,7 +170,7 @@ typedef struct {
 
 typedef struct {
     uint8_t len;
-    char str[1];
+    char str[];
 } pstr_t;
 
 
@@ -170,7 +187,7 @@ extern bool InLIB; // true if from LIB
 extern uint8_t curCh;
 extern uint16_t SymTop;
 extern uint16_t SymBot;
-extern uint16_t TopPtr;
+extern uint16_t topPtr;
 extern uint8_t Q_opt;
 extern uint8_t L_opt;
 extern uint8_t P_opt;
@@ -183,9 +200,10 @@ extern uint8_t PassNr;
 extern char OutLine[120];
 extern uint8_t OutLen;
 extern uint8_t Balance;
-extern uint16_t Titleptr;
+extern char const *Titleptr;
 extern uint16_t CurHEX;
 extern uint8_t mem[];
+extern bool neednl; // used to support \r\n handling
 
 /* mac.c */
 int main(int argc, char **argv);
@@ -202,7 +220,7 @@ void l03d7(void);
 void l03db(void);
 uint8_t MAC_sub(void);
 bool IsMacro(uint8_t type);
-bool l0722(uint8_t a);
+bool collectMaroBody(uint8_t a);
 void PutIF(uint8_t a);
 uint8_t GetIF(void);
 void SET_EQU(uint8_t a);
@@ -212,8 +230,8 @@ uint8_t l0a7e(void);
 uint8_t _ENDM_(void);
 uint8_t __FALSE(uint8_t);
 uint8_t MAC_Mnemo(void);
-uint8_t GetDatDelim(void);
-uint16_t GetOpr1(void);
+bool haveComma(void);
+uint16_t getWordValue(void);
 uint8_t GetByteOper(void);
 uint8_t CheckByteOper(uint16_t val);
 uint8_t GetSrcReg(void);
@@ -225,9 +243,8 @@ void GetComma(void);
 uint8_t EndLine(uint8_t err);
 uint8_t EndFile(bool err);
 void finish(void);
-void SetLocCtr(void);
-bool IsActSym(void);
-void CheckSymbol(void);
+bool hasLabel(void);
+void CheckLabel(uint16_t  loc);
 void PutCode(uint8_t val);
 void PutWord(uint16_t val);
 void StByte(uint8_t val);
@@ -263,8 +280,8 @@ bool GetLibName(void);
 void GetToken(void);
 bool IsSpace(uint8_t ch);
 bool IsDelimiter(void);
-bool IsEOL(uint8_t ch);
-bool IsDelim(uint8_t ch);
+bool IsEOS(uint8_t ch);
+bool IsTerminator(uint8_t ch);
 void l1afc(void);
 void IniField_1(void);
 void IniField_2(void);
@@ -289,20 +306,20 @@ uint8_t GetSymType(void);
 uint16_t GetSymValAddr(void);
 void PutSymVal(uint16_t val);
 uint16_t GetSymVal(void);
-void NextSym(void);
-void setParamLen(uint8_t val);
+void SeekMacroParam(void);
+void setParameterCnt(uint8_t val);
 uint8_t getParamLen(void);
-void l2065(void);
+void addParameter(void);
 void GetSymbol(void);
 uint8_t SymbolByte(void);
 void PutSym(uint8_t ch);
 void OpenLib(void);
 void PrepLib(void);
 void IniMAC(int argc, char **argv);
-void IniLine(void);
+void IniPass(void);
 int mgetc(void);
 void fput_p(uint8_t ch);
-void fput_x(uint8_t ch);
+
 void Header(void);
 void LstPage(uint8_t len);
 void lstChar(char ch);

@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#include <io.h>
+#endif
+
 #define _HEXlen 16
 uint16_t HEXadr;
 uint8_t HEXlen;
@@ -19,14 +23,15 @@ uint8_t LstLine;
 // %%%%%%%%%%%%%%%%%%
 // %% OS Interface %%
 // %%%%%%%%%%%%%%%%%%
-bool skipFirstLine = true; // to match MAC behaviour for files
+bool squashFirstLine = true; // to match MAC behaviour for files
+bool neednl   = false;
 int col;
 
 void OpenLib() {
     if (fpLIB)
         fclose(fpLIB);
     if (!(fpLIB = fopen(libFile, "rb")))
-        fatal("%s-Cannot open MACLIB file", libFile);
+        fatal("%s - Cannot open MACLIB file", libFile);
 }
 
 void PrepLib() {
@@ -36,8 +41,8 @@ void PrepLib() {
 
 void IniMAC(int argc, char **argv) {
     fputs("CP/M Macro Assem 2.0\n", stdout);
-    TopPtr = 0xfff0;
-    SymBot = SymTop = 0x100; // allow large symbol space
+    topPtr = TOPHEAP;
+    SymBot = SymTop = BOTHEAP; // allow large symbol space
 
     uint8_t cval;
     while (getOpt(argc, argv, "p:s:h:c:t=") != EOF) {
@@ -59,7 +64,7 @@ void IniMAC(int argc, char **argv) {
                        : (*s == '*' || *s == 'x') ? _PART
                                                   : 0xff;
                 if (cval == 0xff)
-                    usage("Missing +/-/*/x in controls at %s", s);
+                    usage("Missing control operation (+,-,* or x) at %s", s);
                 while (*++s == ' ' || *s == '\t')
                     s++;
                 switch (tolower(*s)) {
@@ -84,14 +89,14 @@ void IniMAC(int argc, char **argv) {
                     usage("Unknown control %c", *s);
                 }
                 if (cval == _PART && tolower(*s) != 'm')
-                    warn("*/x operation only applicable to 'M' control");
+                    warn("* or x operation only applicable to 'M' control");
                 s++;
                 while (*s == ' ' || *s == '\t')
                     s++;
             }
             break;
         case 't':
-            if (!optArg)
+            if (!optArg || !*optArg)
                 optArg = "8";
             if ((expandTab = (uint8_t)strtoul(optArg, NULL, 0)) > 8)
                 expandTab = 8;
@@ -100,45 +105,46 @@ void IniMAC(int argc, char **argv) {
     }
     if (optInd != argc - 1)
         usage("Expected single source file");
-    if (strcmp(argv[optInd], ".") == 0 || strcmp(argv[optInd], "-") == 0)
+    if ((argv[optInd][0] == '.' || argv[optInd][0] == '-') && argv[optInd][1] == '\0')
         usage("Invalid source file name '%s'", argv[optInd]);
-    srcFile = safeStrdup(makeFilename(argv[optInd], ".asm", false));
+    srcFile = makeFilename(argv[optInd], ".asm", false);
 
     if (!prnFile)
         prnFile = srcFile;
-    if (strcmp(prnFile, ".") != 0) {
-        if (strcmp(prnFile, "-") == 0) {
-            fpPRN         = stdout;
-            skipFirstLine = false;
+    if (prnFile[0] != '.' || prnFile[1] != '\0') {
+        // MAC has a behaviour quirk where
+        // the call from l17f1 to emitLine emits " \n"
+        // for devices this is fine, but for files the pending output buffer
+        // is reset so removing the "\n"
+        // unfortunately if the option to list on pass one is given
+        // the pass 1 listing can be partially overwritten
+        // this is fixed by squashing the first line output to file
+
+        if (prnFile[0] == '-' && prnFile[1] == '\0') {
+            fpPRN           = stdout;
+            squashFirstLine = false;
         } else {
-            prnFile = safeStrdup(makeFilename(prnFile, ".prn", prnFile == srcFile));
+            prnFile = makeFilename(prnFile, ".prn", prnFile == srcFile);
             if (!(fpPRN = fopen(prnFile, "wt")))
-                fatal("%s-Cannot Create File", prnFile);
+                fatal("%s - Cannot Create File", prnFile);
         }
     }
     if (!hexFile)
         hexFile = srcFile;
-    if (strcmp(hexFile, ".") != 0) {
-        if (strcmp(hexFile, "-") == 0)
+    if (hexFile[0] != '.' || hexFile[1] != '\0') {
+        if (hexFile[0] == '-' && hexFile[1] == '\0')
             fpHEX = stdout;
         else {
-            hexFile = safeStrdup(makeFilename(hexFile, ".hex", hexFile == srcFile));
+            hexFile = makeFilename(hexFile, ".hex", hexFile == srcFile);
             if (!(fpHEX = fopen(hexFile, "wt")))
-                fatal("%s-Cannot Create File", hexFile);
+                fatal("%s - Cannot Create File", hexFile);
         }
     }
 }
 
-void IniLine() {
+void IniPass() {
     pageNo = 0;
     P_opt  = true;
-
-    // there is an inconsistency in mac
-    // the call from l17f1 to emitLine emits " \n"
-    // for devices this is fine, but for files the pendind output buffer
-    // is reset so removing the "\n"
-    // unfortunately if the option to list on pass one is given
-    // the pass 1 listing can be partially overwritten
 
     if (PassNr)
         Header(); // .. pass 2, give header
@@ -146,52 +152,45 @@ void IniLine() {
     if (fpSRC)
         rewind(fpSRC);
     else if (!(fpSRC = fopen(srcFile, "rb")))
-        fatal("%s-Cannot Open Source File", srcFile);
+        fatal("%s - Cannot Open Source File", srcFile);
+    neednl = false;
 }
+
+
 
 int mgetc() {
     int c;
-    static bool neednl = false;
+
 
     if (neednl) {
         neednl = false;
         return '\n';
     }
-    if (InLIB) {
-        while ((c = getc(fpLIB)) == '\r')
-            ;
-        if (c == '\n') {
-            neednl = true;
-            return '\r';
-        }
-        if (c != EOF && c != eof)
-            return c & 0x7f;
-
-        fclose(fpLIB);
-        if (Balance)
-            fatal("%s - Unbalanced Macro Lib", libFile);
-        InLIB = false;
-    }
-    while ((c = getc(fpSRC)) == '\r')
+    FILE *fp = InLIB ? fpLIB : fpSRC;
+    while ((c = getc(fp)) == '\r') // ignore \r so works for either \n or \r\n line endings
         ;
     if (c == '\n') {
         neednl = true;
         return '\r';
     }
-    if (c == EOF || c == eof) {
-        if (ferror(fpSRC))
-            warn("%s - unexpected EOF", srcFile);
-        if (c == eof)
-            ungetc(c, fpSRC); // just incase called again
-        return eof;
+    if (c != EOF && c != cpmEOF)
+        return c & 0x7f;
+    if (InLIB) {
+        fclose(fpLIB);
+        if (Balance)
+            fatal("%s - Unbalanced Macro Lib", libFile);
+        InLIB = false;
+        return mgetc();
     }
-    return c & 0x7f;
+    if (c == cpmEOF)
+        ungetc(c, fpSRC); // just incase called again
+    return cpmEOF;
 }
 
 void fput_p(uint8_t ch) {
-    if (skipFirstLine) {
+    if (squashFirstLine) {
         if (ch == '\n')
-            skipFirstLine = false;
+            squashFirstLine = false;
         return;
     }
     if (ch == '\n')
@@ -203,24 +202,17 @@ void fput_p(uint8_t ch) {
         return;
     } else if (ch >= ' ')
         col++;
-    if (fpPRN && putc(ch, fpPRN) == EOF)
+    if (putc(ch, fpPRN) == EOF)
         fatal("%s - PRN File Write Error", prnFile);
-}
-
-void fput_x(uint8_t ch) {
-    if (fpHEX && putc(ch, fpHEX) == EOF)
-        fatal("%s-HEX File Write Error", hexFile);
 }
 
 void Header() {
     if (LstPaglen && fpPRN) {
         fput_p('\f');
         LstLine = 0;
-        if (Titleptr) {
-            if (fprintf(fpPRN, "CP/M Macro Assem 2.0\t#%03d\t%s\n\n", ++pageNo, &BYTE(Titleptr)) <
-                0)
-                fatal("%s-Write Error", prnFile);
-        }
+        if (Titleptr &&
+            fprintf(fpPRN, "CP/M Macro Assem 2.0\t#%-3d\t%s\n\n", ++pageNo, Titleptr) < 0)
+            fatal("%s - Write Error", prnFile);
     }
 }
 
@@ -233,49 +225,49 @@ void LstPage(uint8_t len) {
 // Put character to list device and console on error
 void lstChar(char ch) {
     fput_p(ch);
-    if (OutLine[0] != ' ' && PassNr != 2 && fpPRN != stdout)
+    if (OutLine[0] != ' ' && PassNr == 1 && fpPRN != stdout)
         putc(ch, stderr);
 }
 
 void emitLine() {
-
-    uint8_t emit = 1; // implicit emit
-    if (!(_1_opt | PassNr)) {
-        if (L_opt && InLIB)
-            emit = 2; // explicit emit
-        else if (!InLIB || OutLine[0] == ' ')
-            emit = 0;
+    if (fpPRN) {          // only if not suppressed
+        uint8_t emit = 1; // implicit emit
+        if (!(_1_opt | PassNr)) {
+            if (L_opt && InLIB)
+                emit = 2; // explicit emit
+            else if (!InLIB || OutLine[0] == ' ')
+                emit = 0;
+        }
+        if (emit == 1) {
+            if (OutLine[0] != ' ')
+                ;
+            else if (!P_opt)
+                emit = 0;
+            else if (OutLine[5] != '+')
+                ;
+            else if (M_opt == _DISA)
+                emit = 0;
+            else if (M_opt == _ENA)
+                ;
+            else if (OutLine[6] == '#' || OutLine[1] == ' ')
+                emit = 0;
+            else if (M_opt != _SPENA)
+                OutLen = _ASCbyt; // truncate
+        }
+        if (emit) {
+            if (LstLine >= LstPaglen)
+                Header();
+            LstLine++;
+            // trim trailing spaces
+            while (OutLen && (OutLine[OutLen] == ' ' || OutLine[OutLen] == '\t'))
+                OutLen--;
+            for (uint8_t i = 0; i <= OutLen; i++)
+                lstChar(OutLine[i]);
+            lstChar('\n');
+        }
     }
-    if (emit == 1) {
-        if (OutLine[0] != ' ')
-            ;
-        else if (!P_opt)
-            emit = 0;
-        else if (OutLine[5] != '+')
-            ;
-        else if (M_opt == _DISA)
-            emit = 0;
-        else if (M_opt == _ENA)
-            ;
-        else if (OutLine[6] == '#' || OutLine[1] == ' ')
-            emit = 0;
-        else if (M_opt != _SPENA)
-            OutLen = _ASCbyt; // truncate
-    }
-    if (emit) {
-        if (LstLine >= LstPaglen)
-            Header();
-        LstLine++;
-        // trim trailing spaces
-        while (OutLen && (OutLine[--OutLen] == ' ' || OutLine[OutLen] == '\t'))
-            ;
-        for (uint8_t i = 0; i <= OutLen; i++)
-            lstChar(OutLine[i]);
-        lstChar('\n');
-    }
-
     OutLen = 0;
-    memset(OutLine, ' ', LINLEN);
+    memset(OutLine, ' ', sizeof(OutLine));
 }
 
 void SetErr(uint8_t err) {
@@ -292,36 +284,40 @@ void PrepSYM() {
     if (S_opt != _ENA) {
         if (fpPRN && fpPRN != stdout)
             fclose(fpPRN);
+        LstPaglen = 0;
         fpPRN = NULL;
         if (!symFile)
             symFile = srcFile;
-        if (strcmp(symFile, ".") == 0)
+        if (symFile[0] == '.' && symFile[1] == '\0')
             return;
-        else if (strcmp(symFile, "-") == 0)
+        else if (symFile[0] == '-' && symFile[1] == '\0')
             fpPRN = stdout;
         else {
-            symFile = safeStrdup(makeFilename(symFile, ".sym", symFile == srcFile));
+            symFile = makeFilename(symFile, ".sym", symFile == srcFile);
             if (!(fpPRN = fopen(symFile, "wt")))
                 fatal("Cannot create symbol file %s", symFile);
         }
-    }
-    Header();
+    } else
+        Header();
 }
 
-_Noreturn void Exit(int errCode) {
+_Noreturn void Exit(int errCode) { // called explicitly or via fatal
     if (fpPRN && fpPRN != stdout)
         fclose(fpPRN);
     if (fpHEX) {
-        if (errCode == 0) {
+        if (!errCode) {
             if (HEXlen)
                 PutHexRecord(); // flush pending record
             HEXadr = CurHEX;
             PutHexRecord(); // closing record
         }
-        if (fpHEX != stdout)
-            fclose(fpHEX);
-        if (errCode != 0 && strcmp(hexFile, "-") != 0)
-            remove(hexFile);
+        if (fpHEX != stdout) {
+            if (errCode && !isatty(fileno(fpHEX))) {
+                fclose(fpHEX);
+                remove(hexFile);
+            } else
+                fclose(fpHEX);
+        }
     }
     fputs("End of Assembly\n", stdout);
     exit(errCode);
@@ -338,12 +334,14 @@ void putHEX(uint8_t ch) {
 }
 
 void PutHexRecord() {
-    fprintf(fpHEX, ":%02X%04X00", HEXlen, HEXadr);
-    uint8_t crc = 0 - HEXlen - HEXadr - (HEXadr >> 8);
-    for (uint8_t i = 0; i < HEXlen; i++) {
-        fprintf(fpHEX, "%02X", HEXline[i]);
-        crc -= HEXline[i];
+    bool ok     = fprintf(fpHEX, ":%02X%04X00", HEXlen, HEXadr) == 9;
+
+    uint8_t crc = HEXlen + HEXadr + (HEXadr >> 8);
+    for (uint8_t i = 0; ok && i < HEXlen; i++) {
+        ok = fprintf(fpHEX, "%02X", HEXline[i]) == 2;
+        crc += HEXline[i];
     }
-    fprintf(fpHEX, "%02X\n", crc);
+    if (!ok || fprintf(fpHEX, "%02X\n", (0 - crc) & 0xff) != 3)
+        fatal("%s - HEX File Write Error", hexFile);
     HEXlen = 0;
 }
