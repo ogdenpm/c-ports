@@ -97,8 +97,8 @@ static struct {
 // clang-format on
 static void InitFilesAndDefaults() {
     LEFTMARGIN      = 1;
-    char const *src = srcFileTable[0].fNam;
-    char *s         = (char *)basename(src);
+    char *src = (char *)srcFileTable[0].fNam;
+    char *s         = basename(src);
     char *t         = strrchr(s, '.');
     if (!t || t == s)
         t = strchr(s, '\0');

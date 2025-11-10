@@ -342,7 +342,7 @@ void CreateIxrefFile() {
     // the newer version will use it as the full filename
     // 
     // note only the file name and not the directory is used
-    char const *name = basename(srcFileTable[0].fNam);
+    char const *name = basename((char *)srcFileTable[0].fNam);
     uint16_t nameLen = (uint16_t)strlen(name);
     char nameRec[20];
     if (nameLen <= 10)  // original format
