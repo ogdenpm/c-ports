@@ -45,15 +45,6 @@ uint16_t getAddress(FILE *fp) {
     return val + getByte(fp) * 256;
 }
 
-// return the trailing filename part of the passed in path
-const char *basename(const char *path) {
-    const char *t;
-    while ((t = strpbrk(
-                path,
-                DIRSEP))) // allow windows & unix separators - will fail for unix if : in filename!!
-        path = t + 1;
-    return path;
-}
 
 int main(int argc, char **argv) {
     chkStdOptions(argc, argv);
