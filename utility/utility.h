@@ -13,7 +13,7 @@ _Noreturn void Exit(int exitCode);   // allows user defined exit
 void warn(char const *fmt, ...);
 
 // file.c
-char const *basename(char const *path);
+char *basename(char *path);
 char *makeFilename(char const *path, char const *ext, bool force);
 // memory.c
 void *safeMalloc(size_t size);
