@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#define GCC_COMPILER (defined(__GNUC__) && !defined(__clang__))
+#if GCC_COMPILER
+#include <unistd.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
