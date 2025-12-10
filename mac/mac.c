@@ -55,7 +55,7 @@ struct {
     uint8_t collectMode;
     uint16_t topPtr;
     uint16_t l2ed4;
-    uint16_t l2ef4;
+    uint16_t chPtr;
     uint8_t curCh;
     uint16_t prevTopPtr;
     uint8_t l2f44; // not used?
@@ -95,7 +95,7 @@ uint16_t LocCtr;
 
 uint16_t SymBot;
 uint16_t curSym;
-uint16_t CurSym;
+uint16_t symBase;
 
 uint8_t collectDepth;
 uint8_t curCh;
@@ -141,7 +141,7 @@ char const help[] =
     " * controls are as per MAC (+|-|*|x)(1|L|M|Q|R|S). lowercase letters are also supported\n"
     "   Due to OS shell processing, controls may need to be quoted to allow * and spaces\n"
     "   Note x is an alias for *. If quotes are not used this will avoid shell wild card "
-    "expansion\n";
+    "   expansion\n";
 
 int main(int argc, char **argv) {
     PassNr       = 0;
@@ -185,7 +185,7 @@ uint8_t l02d6() {
     uint16_t saveTopPtr = topPtr;
     if (l11c2 != 0) {
         while (1) {
-            uint8_t next = 0;
+            uint8_t state = 0;
             uint8_t a;
             if (tokType == _punct) {
                 a = token.str[0];
@@ -200,13 +200,13 @@ uint8_t l02d6() {
                     a         = token.str[0];
                     token.len = sprintf(token.str, "%d", val_16);
                     l03db();
-                    next = 1;
+                    state = 1;
                 } else if (token.str[0] == ',') {
                     l03d7();
-                    next = 2;
+                    state = 2;
                 }
             }
-            if (next == 0) {
+            if (state == 0) {
                 l03db();
                 GetToken();
                 if (tokType != _punct) {
@@ -215,7 +215,7 @@ uint8_t l02d6() {
                 }
                 a = token.str[0];
             }
-            if (next <= 1 && a != ',') {
+            if (state <= 1 && a != ',') {
                 if (!testEndInst(a))
                     SetErr('S');
                 break;
@@ -228,7 +228,7 @@ uint8_t l02d6() {
 
     while (l11c2 != 0)
         l03d7();
-    uint16_t tmp = CurSym + 1;
+    uint16_t tmp = symBase + 1;
 
     while (!testEndStmt(curCh))
         GetToken();
@@ -237,7 +237,7 @@ uint8_t l02d6() {
     NewPage();
     Stack[0].ifLevel = ifLevel;
     nest();
-    Stack[0].l2ef4       = tmp;
+    Stack[0].chPtr       = tmp;
     Stack[0].prevTopPtr  = saveTopPtr;
     Stack[0].curCh       = 0;
     Stack[0].collectMode = 1;
@@ -246,7 +246,7 @@ uint8_t l02d6() {
 
 void StoreSymbol() {
     uint16_t tmp = SymTop;
-    CurSym       = SymTop;
+    symBase       = SymTop;
     for (uint8_t i = 0; i < token.len; i++)
         PutSym(token.str[i]);
     BYTE(SymTop = tmp) = token.len;
@@ -254,7 +254,7 @@ void StoreSymbol() {
 
 void LoadSymbol() {
     token.len = BYTE(SymTop);
-    CurSym    = SymTop;
+    symBase    = SymTop;
     for (uint8_t i = 0; i < token.len; i++)
         token.str[i] = SymbolByte();
 }
@@ -401,18 +401,18 @@ bool collectMaroBody(uint8_t mode) {
         GetToken();
     }
 
-    startMacroBody = CurSym;
+    startMacroBody = symBase;
     collectDepth   = 1;
     GetToken();
 
     while (1) {
-        uint16_t tokStart = CurSym;
+        uint16_t tokStart = symBase;
         GetToken();
         if (tokType == _punct && token.str[0] == cpmEOF)
             return false;
         if (tokType == _id && (pMnem = GetMnemo(token.str, token.len))) {
             if (collectMode == _macro_ && PassNr == 0 && token.len != 1 && pMnem->tokId) {
-                CurSym = tokStart;
+                symBase = tokStart;
                 PutSym(pMnem->tokId | 0x80); // replace token with its id
                 if (curCh)                   // append prepread character
                     PutSym(curCh);
@@ -437,9 +437,9 @@ bool collectMaroBody(uint8_t mode) {
         if (PassNr)
             return true;
     }
-    if (BYTE(CurSym) != '\r')
+    if (BYTE(symBase) != '\r')
         SetErr('S');
-    BYTE(CurSym) = '\r';
+    BYTE(symBase) = '\r';
     PutSym(0);
     return true;
 }
@@ -504,7 +504,7 @@ uint8_t l0552() {
         if ((ptr = WORD(hl)) != 0) {
             WORD(hl)       = ptr - 1;
             OutLen         = _ASCbyt;
-            Stack[0].l2ef4 = Stack[0].l2ed4;
+            Stack[0].chPtr = Stack[0].l2ed4;
             curCh          = 0;
             return LINELOOP;
         }
@@ -518,7 +518,7 @@ uint8_t l0552() {
                     lookAhead             = 0;
                     uint8_t saveCh        = curCh;
                     curCh                 = 0;
-                    Stack[0].l2ef4        = ptr;
+                    Stack[0].chPtr        = ptr;
                     if (BYTE(ptr) == ',') {
                         ptr++;
                         token.len = 0;
@@ -529,7 +529,7 @@ uint8_t l0552() {
                         l1afc();
                         l11e4(ptr);
                         l1f87(); // 5d0
-                        ptr = Stack[0].l2ef4;
+                        ptr = Stack[0].chPtr;
                         if (BYTE(ptr) == 0)
                             BYTE(ptr) = '\r';
                         else {
@@ -550,7 +550,7 @@ uint8_t l0552() {
                     token.str[0] = BYTE(ptr);
                     l1f87();
                 }
-                CurSym = Stack[0].topPtr + 1; // 606
+                symBase = Stack[0].topPtr + 1; // 606
                 GetSymbol();
                 l1fa5();
             } else {
@@ -559,7 +559,7 @@ uint8_t l0552() {
                 l1f87();
             }
             OutLen         = _ASCbyt; // 635
-            Stack[0].l2ef4 = Stack[0].l2ed4;
+            Stack[0].chPtr = Stack[0].l2ed4;
             curCh          = 0;
             return LINELOOP;
         }
@@ -580,9 +580,9 @@ uint8_t l0a7e() {
     Stack[0].curCh   = curCh != '\n' ? curCh : 0;
     nest();
     Stack[0].prevTopPtr = topPtr;
-    while (CurSym >= l11c5)
-        BYTE(--topPtr) = BYTE(CurSym--);
-    SymTop          = CurSym + 1;
+    while (symBase >= l11c5)
+        BYTE(--topPtr) = BYTE(symBase--);
+    SymTop          = symBase + 1;
     Stack[0].topPtr = topPtr;
     if (collectMode != _rept_)
         WORD(topPtr) = topPtr + BYTE(topPtr);
@@ -799,7 +799,7 @@ uint8_t MAC_Mnemo() {
             GetToken();
             if (tokType == _id) {
                 l11c5  = SymTop;
-                CurSym = SymTop - 1;
+                symBase = SymTop - 1;
                 PutSym(3 + min(token.len, SymLen));
                 PutSym(0);
                 addParameter();
@@ -829,7 +829,7 @@ uint8_t MAC_Mnemo() {
         case _rept:
             val    = getWordValue(); // get repetition
             l11c5  = SymTop;
-            CurSym = SymTop - 1;
+            symBase = SymTop - 1;
             PutSym(val & 0xff);
             PutSym(val >> 8);
             curSym = SymTop;
@@ -867,14 +867,14 @@ uint8_t MAC_Mnemo() {
                     if (tokType != _id)
                         break;
                     uint16_t tmp = SymTop;
-                    CurSym       = SymTop - 1;
+                    symBase       = SymTop - 1;
                     addParameter();
                     if (++localCnt > 9999)
                         SetErr('O');
                     token.len = sprintf(token.str, "??%04d", localCnt % 10000);
                     l1f87();
                     SymTop = tmp;
-                    CurSym = SymTop - 1;
+                    symBase = SymTop - 1;
                     GetSymbol();
                     l1fa5();
                     GetToken();
@@ -1169,17 +1169,17 @@ void WriteSymbols() {
     curSym = SymBot;
     // sort the symbols
     while (curSym < SymTop) {
-        CurSym = SymBot;
+        symBase = SymBot;
         uint8_t type;
         if ((type = GetSymType()) == 6) {
             getParamLen();            // advance to macro params
             while (SymbolByte() != 0) // skip to end of names
                 ;
-            curSym = CurSym + 1; // next symbol
+            curSym = symBase + 1; // next symbol
         } else {
             if (type == l2ea4) { // l1090
                 uint16_t reference = curSym;
-                CurSym             = curSym + 1;
+                symBase             = curSym + 1;
                 GetSymbol();
                 if (Q_opt || token.len < 2 || token.str[0] != '?' || token.str[1] != '?') {
                     sym_t *chain = (sym_t *)&symList[Ch2Tok(token.str[0])];
@@ -1207,7 +1207,7 @@ void WriteSymbols() {
         curSym = symList[i];
         while (curSym) {
             uint8_t symWidth = (BYTE(curSym + 2) & 0xf) + 1;
-            CurSym           = curSym + 2;
+            symBase           = curSym + 2;
             if (symCol) {
                 StASC('\t');
                 symCol = (symCol & 0xf8) + 8;
@@ -1247,7 +1247,7 @@ void l11e4(uint16_t de) {
 }
 
 void l11ee(uint16_t hl) {
-    Stack[0].l2ef4 = hl;
+    Stack[0].chPtr = hl;
     if (BYTE(hl) == '\r')
         BYTE(hl) = 0;
 }
@@ -1507,10 +1507,10 @@ uint8_t RdSrc() {
     uint8_t ch;
 
     while (Balance) {
-        if ((ch = BYTE(Stack[0].l2ef4))) {
-            Stack[0].l2ef4++;
+        if ((ch = BYTE(Stack[0].chPtr))) {
+            Stack[0].chPtr++;
             if (ch == ',')
-                afterComma = Stack[0].l2ef4;
+                afterComma = Stack[0].chPtr;
             break;
         }
         if (Stack[0].collectMode != 2) {
@@ -1574,7 +1574,7 @@ uint8_t RdChar() {
         if (expandCnt++ == 255) { // too many expansions
             SetErr('O');
             PrnLine.len   = 0;
-            Stack[0].l2ef4 = 0; // original was PrnLine
+            Stack[0].chPtr = 0; // original was PrnLine
             // here 0 will access mem[0] which is always 0
         }
         if (PrnLine.len) { // pending char
@@ -1614,7 +1614,7 @@ uint8_t RdChar() {
         nest();
         Stack[0].collectMode = 2;
         Stack[0].prevTopPtr  = topPtr;
-        Stack[0].l2ef4       = GetSymValAddr();
+        Stack[0].chPtr       = GetSymValAddr();
         PrnLine.len         = 0;
         curSym               = l1613;
         GetId();
@@ -1721,12 +1721,12 @@ void GetToken() {
             tokType = _cmnt;
             GetStrChr();
             if (collectDepth && (collectMode != _macro_ || PassNr == 0) && curCh == ';') {
-                for (CurSym -= 2; CurSym != startMacroBody; CurSym--) {
-                    if (BYTE(CurSym) == '\n' || BYTE(CurSym) >= '!')
+                for (symBase -= 2; symBase != startMacroBody; symBase--) {
+                    if (BYTE(symBase) == '\n' || BYTE(symBase) >= '!')
                         break;
                 }
-                if (CurSym != startMacroBody && BYTE(CurSym) == '\n')
-                    CurSym -= 2;
+                if (symBase != startMacroBody && BYTE(symBase) == '\n')
+                    symBase -= 2;
                 uint8_t tmp  = collectDepth;
                 collectDepth = 0;
                 skipEOL();
@@ -2077,17 +2077,17 @@ uint16_t GetSymVal() {
 }
 
 void SeekMacroParam() {
-    CurSym = GetSymValAddr() + 2;
+    symBase = GetSymValAddr() + 2;
 }
 
 void setParameterCnt(uint8_t val) {
     SeekMacroParam();
-    BYTE(CurSym) = val;
+    BYTE(symBase) = val;
 }
 
 uint8_t getParamLen() {
     SeekMacroParam();
-    return BYTE(CurSym);
+    return BYTE(symBase);
 }
 
 void addParameter() {
@@ -2108,14 +2108,14 @@ void GetSymbol() {
 }
 
 uint8_t SymbolByte() {
-    return BYTE(++CurSym);
+    return BYTE(++symBase);
 }
 
 void PutSym(uint8_t ch) {
-    if (CurSym + 1 >= topPtr)
+    if (symBase + 1 >= topPtr)
         fatal("Symbol Table Overflow");
     else {
-        BYTE(++CurSym) = ch;
-        SymTop         = CurSym + 1;
+        BYTE(++symBase) = ch;
+        SymTop         = symBase + 1;
     }
 }
