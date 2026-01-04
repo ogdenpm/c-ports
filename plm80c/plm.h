@@ -21,23 +21,15 @@
 
 #define VERSION "V4.0"
 
-typedef unsigned char byte;
-typedef unsigned short word;
-typedef byte *pointer;
-typedef word *wpointer;
-typedef word offset_t;
+
+typedef uint8_t *pointer;
+typedef uint16_t *wpointer;
+typedef uint16_t offset_t;
 typedef uint16_t index_t;
 
 #define High(n)   ((n) >> 8)
 #define Low(n)    ((n)&0xff)
-#define Ror(v, n) (((v) >> n) | ((v) << (8 - n)))
-#define Rol(v, n)	(((v) << n) | (((v) >> (8 - n)))
-#define Move(s, d, c) memcpy(d, s, c)
-#define Length(str)   (sizeof(str) - 1)
 
-#define TAB           9
-#define CR            '\r'
-#define LF            '\n'
 #define QUOTE         '\''
 #define ISISEOF       0x81
 
@@ -150,13 +142,13 @@ enum { DO_PROC = 0, SIMPLE_DO, DO_WHILE, DO_CASE, DO_ITERATIVE };
 /* standard structures */
 
 typedef struct {
-    byte len;
+    uint8_t len;
     char str[1];
 } pstr_t;
 
 #define _pstr_t(name, size)                                                                        \
     struct {                                                                                       \
-        byte len;                                                                                  \
+        uint8_t len;                                                                                  \
         char str[size];                                                                            \
     } name
 
@@ -180,102 +172,102 @@ typedef struct _sym {
     small items considerably.
 */
 typedef struct _info {
-    byte type;
+    uint8_t type;
     sym_t *sym;
-    word scope;
+    uint16_t scope;
     struct _xref *xref; // previously reused scope, now unique to allow immediate build
     union {
         struct _info *ilink;
-        word linkVal;
-        word addr;
+        uint16_t linkVal;
+        uint16_t addr;
     };
     union {
         pstr_t const *lit; // converted to string;
         struct {
             union {
                 uint32_t flag;
-                byte condFlag;
-                byte builtinId;
+                uint8_t condFlag;
+                uint8_t builtinId;
             };
-            word extId;
+            uint16_t extId;
             union {
-                word dim;
-                word codeSize;
+                uint16_t dim;
+                uint16_t codeSize;
             };
             union {
                 struct _info *baseInfo;
-                word baseVal;
-                word stackUsage;
+                uint16_t baseVal;
+                uint16_t stackUsage;
             };
             union {
                 struct _info *parent;
-                word totalSize;
+                uint16_t totalSize;
             };
-            byte returnType;
-            byte intno;
-            byte paramCnt;
-            byte procId;
+            uint8_t returnType;
+            uint8_t intno;
+            uint8_t paramCnt;
+            uint8_t procId;
         };
     };
 } info_t;
 
 typedef struct {
     info_t *info;
-    word codeSize;
-    word wB4B0;
-    word stackSize;
-    byte extProcId;
-    byte next;
+    uint16_t codeSize;
+    uint16_t wB4B0;
+    uint16_t stackSize;
+    uint8_t extProcId;
+    uint8_t next;
     index_t activeGrpCnt; // could have used union
 } blk_t;
 
 typedef struct _xref {
     struct _xref *next;
-    word line;
+    uint16_t line;
 } xref_t;
 
 struct _linfo { // allows type to be read and keep alignment
-    word lineCnt;
-    word stmtCnt;
-    word blkCnt;
+    uint16_t lineCnt;
+    uint16_t stmtCnt;
+    uint16_t blkCnt;
 };
 typedef struct {
-    byte type;
-    word lineCnt;
-    word stmtCnt;
-    word blkCnt;
+    uint8_t type;
+    uint16_t lineCnt;
+    uint16_t stmtCnt;
+    uint16_t blkCnt;
 } linfo_t;
 
 typedef struct {
-    byte type;
+    uint8_t type;
     union {
-        word dataw[3];
+        uint16_t dataw[3];
         struct {
-            word len;
-            byte str[MAXSTRING];
+            uint16_t len;
+            uint8_t str[MAXSTRING];
         };
     };
 } tx1item_t;
 
 typedef struct {
-    byte icode;
-    byte right;
+    uint8_t icode;
+    uint8_t right;
     union {
-        word nodeIdx;
-        word infoIdx;
-        word t2Cnt;
-        word val;
+        uint16_t nodeIdx;
+        uint16_t infoIdx;
+        uint16_t t2Cnt;
+        uint16_t val;
     };
 } operand_t;
 
 typedef struct {
-    byte nodeType;
+    uint8_t nodeType;
     index_t left;
     index_t right;
     index_t extra;
-    byte exprAttr;
-    byte exprLoc;
-    word cnt;
+    uint8_t exprAttr;
+    uint8_t exprLoc;
+    uint16_t cnt;
 } tx2_t;
 
 // record offsets
@@ -304,13 +296,13 @@ typedef struct {
 
 typedef struct {
     index_t infoIdx;
-    word subscript, memberSubscript, val;
+    uint16_t subscript, memberSubscript, val;
 } var_t;
 
 typedef struct {
-    word num;
+    uint16_t num;
     offset_t info;
-    word stmt;
+    uint16_t stmt;
 } err_t;
 extern char *cmdTextP;
 
@@ -328,48 +320,48 @@ extern offset_t MEMORY;
 extern jmp_buf exception;
 
 /* plmc.plm */
-extern byte verNo[];
+extern uint8_t verNo[];
 
 /* plm0A.plm */
-extern byte cClass[];
-extern word curBlkCnt;
-extern word curScope;
+extern uint8_t cClass[];
+extern uint16_t curBlkCnt;
+extern uint16_t curScope;
 #define DOBLKCNT 0 // indexes
 #define PROCID   1
 
 extern info_t *macroInfo;
-extern word curStmtCnt;
-extern word doBlkCnt;
-extern word ifDepth;
-extern byte *inChrP; // has to be pointer as it accesses data outside info/symbol space
+extern uint16_t curStmtCnt;
+extern uint16_t doBlkCnt;
+extern uint16_t ifDepth;
+extern uint8_t *inChrP; // has to be pointer as it accesses data outside info/symbol space
 extern bool isNonCtrlLine;
 extern sym_t *stmtStartSymbol;
-extern byte stmtStartToken;
-extern byte nextCh;
-extern byte startLexCode;
-extern byte lineBuf[];
+extern uint8_t stmtStartToken;
+extern uint8_t nextCh;
+extern uint8_t startLexCode;
+extern uint8_t lineBuf[];
 #define MAXLINE 255
 extern bool lineInfoToWrite;
-extern word macroDepth;
+extern uint16_t macroDepth;
 typedef struct {
-    byte *text;
+    uint8_t *text;
     info_t *macroInfo;
 } macro_t;
 
 extern macro_t macroPtrs[6];
 extern sym_t *markedSym;
 extern bool skippingCOND;
-extern word stateSP;
-extern word stateStack[];
-extern word stmtLabelCnt;
+extern uint16_t stateSP;
+extern uint16_t stateStack[];
+extern uint16_t stmtLabelCnt;
 extern sym_t *stmtLabels[];
-extern byte stmtStartCode;
-extern byte tToLMap[];
-extern word wTokenLen; // used for string and lit
-extern byte tokenStr[];
+extern uint8_t stmtStartCode;
+extern uint8_t tToLMap[];
+extern uint16_t wTokenLen; // used for string and lit
+extern uint8_t tokenStr[];
 
-extern byte tokenType;
-extern word tokenVal;
+extern uint8_t tokenType;
+extern uint16_t tokenVal;
 extern bool yyAgain;
 
 /* plm0A.plm,main1.plm */
@@ -388,7 +380,7 @@ extern bool trunc;
 /* plm0e.plm */
 
 /* plm0f.plm */
-extern word curState;
+extern uint16_t curState;
 extern bool endSeen;
 
 /* File(plm0h.plm) */
@@ -396,12 +388,12 @@ extern bool endSeen;
 /* plm overlay 1 */
 /* main1.plm */
 extern bool tx2LinfoPending;
-extern word curStmtNum;
-extern word markedStSP;
+extern uint16_t curStmtNum;
+extern uint16_t markedStSP;
 extern bool regetTx1Item;
-extern word stmtT2Cnt;
-extern byte tx1ICode;
-extern byte tx1Attr;
+extern uint16_t stmtT2Cnt;
+extern uint8_t tx1ICode;
+extern uint8_t tx1Attr;
 extern tx1item_t tx1Item;
 
 extern var_t var;
@@ -409,163 +401,162 @@ extern var_t var;
 /* main1.plm,plm3a.plm */
 
 /* plm1a.plm */
-extern byte tx1ToTx2Map[];
-extern byte lexHandlerIdxTable[];
-extern byte iToTx2Map[];
-extern byte precedence[];
-extern byte builtinsMap[];
+extern uint8_t tx1ToTx2Map[];
+extern uint8_t lexHandlerIdxTable[];
+extern uint8_t iToTx2Map[];
+extern uint8_t precedence[];
+extern uint8_t builtinsMap[];
 extern operand_t operandStack[];
 
-extern word operandSP;
-extern word operatorSP;
-extern word operatorStack[];
-extern word parseSP;
-extern word parseStack[];
+extern uint16_t operandSP;
+extern uint16_t operatorSP;
+extern uint16_t operatorStack[];
+extern uint16_t parseSP;
+extern uint16_t parseStack[];
 extern operand_t tree[];
-extern word stSP;
+extern uint16_t stSP;
 
 /* plm overlay 2 */
 /* main2.plm */
-extern byte bC045[];
-extern byte bC04E[];
-extern byte bC0A8[];
-extern byte bC0B1;
-extern byte bC0B2;
-extern byte exprAttr[];
-extern byte exprLoc[];
-extern byte curExprLoc[];
-extern byte bC0B9[];
-extern byte bC0BB[];
-extern byte bC0BD[];
-extern byte bC0BF[];
-extern byte bC0C1[];
-extern byte bC0C3[];
-extern byte bC140[];
-extern byte bC1BD;
-extern byte tx2qNxt;
-extern byte nodeControlFlags;
-extern byte bC1D9;
-extern byte bC1DB;
-extern byte fragLen;
-extern byte bC209[];
-extern byte blkOverCnt;
-extern byte activeGrpCnt;
-extern bool boC057[];
-extern bool boC060[];
-extern bool boC069[];
-extern bool boC072[];
-extern bool boC07B[];
-extern bool boC1CC;
-extern bool boC1CD;
+extern uint8_t registerDataType[];
+extern uint8_t registerContents[];
+extern uint8_t registerOffset[];
+extern uint8_t savedRegisterCount;
+extern uint8_t exprRegisterCount;
+extern uint8_t exprAttr[];
+extern uint8_t exprLoc[];
+extern uint8_t curExprLoc[];
+extern uint8_t operandComplexity[];
+extern uint8_t operandRegisterCost[];
+extern uint8_t operandCategory[];
+extern uint8_t operandFragmentType[];
+extern uint8_t iCodeArgsIndex[];
+extern uint8_t stackRegisterAttrs[];
+extern uint8_t stackNodeContents[];
+//extern uint8_t bC1BD;
+extern uint8_t tx2qNxt;
+extern uint8_t nodeControlFlags;
+extern uint8_t selectedOperatorIdx;
+extern uint8_t registersToSaveCount;
+extern uint8_t fragLen;
+extern uint8_t bC209[];
+extern uint8_t blkOverCnt;
+extern uint8_t activeGrpCnt;
+extern bool registerIsDirect[];
+extern bool registerHasValue[];
+extern bool registerInExpression[];
+extern bool registerNeedsSave[];
+extern bool registerWasSaved[];
+extern bool returnGenerated;
+extern bool nextReturnState;
 extern bool boC1D8;
 extern bool boC20F;
-extern byte fragment[];
-extern byte cfrag1;
-extern byte curExtProcId;
-extern byte curNodeType;
+extern uint8_t fragment[];
+extern uint8_t cfrag1;
+extern uint8_t curExtProcId;
+extern uint8_t curNodeType;
 extern bool eofSeen;
-extern byte padC1D3;
-extern word codeSize;
-extern byte procCallDepth;
-extern byte blkId;
+extern uint16_t codeSize;
+extern uint8_t procCallDepth;
+extern uint8_t blkId;
 
 extern tx2_t tx2[255];
-extern byte tx2qEnd;
-extern byte tx2qp;
-extern word wAF54[];
-extern word wB528[];
-extern word wB53C[];
-extern word wC084[];
-extern word wC096[];
-extern word wC1C3;
-extern word stackUsage;
-extern word wC1C7;
-extern word wC1D6;
-extern word iCodeArgs[5];
+extern uint8_t tx2qEnd;
+extern uint8_t tx2qp;
+extern uint16_t nodeTypeToAttribute[];
+extern uint16_t callStackDepth[];
+extern uint16_t callStackBase[];
+extern uint16_t registerStackOffset[];
+extern uint16_t registerStorageClass[];
+extern uint16_t currentStackDepth;
+extern uint16_t stackUsage;
+extern uint16_t localVariableSize;
+extern uint16_t currentFragmentCode;
+extern uint16_t iCodeArgs[5];
 
 /* plm2a.plm */
-extern byte helperModBase[];
-extern byte fragControl[];
-extern byte b4128[];
-extern byte b413B[];
-extern byte helperMap[][11];
-extern byte helperGroup[];
-extern byte b4273[];
-extern byte b42F9[];
-extern byte codeAttrLen[];
-extern byte b44F7[];
-extern byte b46EB[];
-extern byte b499B[];
-extern byte b4A21[];
-extern byte b4C15[];
-extern byte b4C2D[];
-extern byte b4C45[];
-extern byte b4CB4[];
-extern byte b4D23[][16];
-extern byte b4FA3[];
-extern byte b5012[];
-extern byte b5048[];
-extern byte stepTable[];
-extern byte b5112[];
-extern byte nodeControlMap[];
-extern byte step2Map[];
-extern byte step1Map[];
-extern byte b5221[];
-extern byte b528D[];
-extern byte b52B5[];
-extern byte b52DD[][11];
-extern byte unused[];
-extern word w48DF[];
-extern word w493D[];
-extern word w502A[];
+extern uint8_t helperModBase[];
+extern uint8_t fragControlBits[];
+extern uint8_t helperIndexMap[];
+extern uint8_t fragmentHelperIndex[];
+extern uint8_t helperMap[][11];
+extern uint8_t helperGroup[];
+extern uint8_t noteTypeToHelperGroup[];
+extern uint8_t fragmentArgTypes[];
+extern uint8_t fragmentCodeLength[];
+extern uint8_t fragmentOpcodeTable[];
+extern uint8_t fragmentOpcodeIndex[];
+extern uint8_t operatorResultType[];
+extern uint8_t opcodeEncodingMap[];
+extern uint8_t loadOpAttributes[];
+extern uint8_t loadOpTargetReg[];
+extern uint8_t exprComplexity[];
+extern uint8_t exprRegisterCost[];
+extern uint8_t typeConversionTable[][16];
+extern uint8_t nodeExprCategory[];
+extern uint8_t loadOpFragment[];
+extern uint8_t peepholePatterns[];
+extern uint8_t optimisationStepTable[];
+extern uint8_t constFoldRules[];
+extern uint8_t nodeControlMap[];
+extern uint8_t optimisationStep2Map[];
+extern uint8_t optimsationStep1Map[];
+extern uint8_t step2ActionTable[];
+extern uint8_t lookupResultAttr[];
+extern uint8_t lookupResultLoc[];
+extern uint8_t attrLocLookupTable[][11];
+extern uint8_t unused[];
+extern uint16_t operatorPrecedence[];
+extern uint16_t operatorTypeRules[];
+extern uint16_t commonConstants[];
 
 /* plm3a.plm */
-extern byte modHelperIdCnt[];
-extern byte modHelperId[];
-extern byte helperCodeLen[];
-extern byte printOrObj;
-extern byte recLocals[];
-extern byte recPublicAbs[];
-extern byte recPublicCode[];
-extern byte recPublicData[];
-extern byte recPublicMemory[];
-extern byte recExternals[];
-extern byte recModHdr[];
-extern byte recInitContent[];
-extern byte recExec[];
-extern word curOffset;
+extern uint8_t modHelperIdCnt[];
+extern uint8_t modHelperId[];
+extern uint8_t helperCodeLen[];
+extern uint8_t printOrObj;
+extern uint8_t recLocals[];
+extern uint8_t recPublicAbs[];
+extern uint8_t recPublicCode[];
+extern uint8_t recPublicData[];
+extern uint8_t recPublicMemory[];
+extern uint8_t recExternals[];
+extern uint8_t recModHdr[];
+extern uint8_t recInitContent[];
+extern uint8_t recExec[];
+extern uint16_t curOffset;
 
 /* plm3a.plm,pdata4.plm */
-extern byte recExtFixup[];
-extern byte recSelfFixup[];
-extern byte recCodeFixup[];
-extern byte recDataFixup[];
-extern byte recMemoryFixup[];
-extern byte recLineNum[];
-extern byte recEnd[];
+extern uint8_t recExtFixup[];
+extern uint8_t recSelfFixup[];
+extern uint8_t recCodeFixup[];
+extern uint8_t recDataFixup[];
+extern uint8_t recMemoryFixup[];
+extern uint8_t recLineNum[];
+extern uint8_t recEnd[];
 //
 
 /* pdata4.plm */
-extern byte b9692;
-extern byte b969C;
-extern byte b969D;
+extern uint8_t b9692;
+extern uint8_t b969C;
+extern uint8_t b969D;
 extern char valPStr[];
-// extern byte b96B1[];
-extern byte fixupType;
-extern word baseAddr;
+// extern uint8_t b96B1[];
+extern uint8_t fixupType;
+extern uint16_t baseAddr;
 extern bool morePass4;
 extern bool linePrefixChecked;
 extern bool linePrefixEmitted;
-extern byte cfCode;
+extern uint8_t cfCode;
 extern char commentPStr[];
-extern word curExtId;
-extern word blkCnt;
-extern byte fixupSelector;
-// extern byte endHelperId; now local var
-extern byte helperId;
-// extern byte helperModId; now local var
+extern uint16_t curExtId;
+extern uint16_t blkCnt;
+extern uint8_t fixupSelector;
+// extern uint8_t endHelperId; now local var
+extern uint8_t helperId;
+// extern uint8_t helperModId; now local var
 typedef struct {
-    byte len;
+    uint8_t len;
     char str[81];
 } line_t;
 extern line_t line;
@@ -573,55 +564,55 @@ extern char locPStr[];
 extern err_t errData;
 extern uint16_t lstLineLen;
 extern char lstLine[];
-extern byte opByteCnt;
-extern byte opBytes[];
+extern uint8_t opByteCnt;
+extern uint8_t opBytes[];
 
-extern word stmtNo;
+extern uint16_t stmtNo;
 extern pstr_t *sValAry[];
-extern word lineNo;
-extern word locLabelNum;
-extern word wValAry[];
+extern uint16_t lineNo;
+extern uint16_t locLabelNum;
+extern uint16_t wValAry[];
 
 /* pdata4.plm,pdata6.plm */
 extern bool codeOn;
-extern word stmtCnt;
+extern uint16_t stmtCnt;
 extern bool listing;
 extern bool listOff;
 
 /* plm4a.plm */
-extern byte modHelperIdCnt[];
-extern byte modHelperId[];
-extern byte fragControl[];
-extern byte b4128[];
-extern byte b413B[];
-extern byte helperGroup[];
-extern byte b4273[];
-extern byte b4602[];
-extern byte b473D[];
-extern byte b475E[];
-extern byte b4774[];
-extern byte b478A[];
-extern byte helperLen[];
-extern byte codeTable[];
+extern uint8_t modHelperIdCnt[];
+extern uint8_t modHelperId[];
+extern uint8_t fragControlBits[];
+extern uint8_t helperIndexMap[];
+extern uint8_t fragmentHelperIndex[];
+extern uint8_t helperGroup[];
+extern uint8_t noteTypeToHelperGroup[];
+extern uint8_t b4602[];
+extern uint8_t b473D[];
+extern uint8_t b475E[];
+extern uint8_t b4774[];
+extern uint8_t b478A[];
+extern uint8_t helperLen[];
+extern uint8_t codeTable[];
 extern char const *opcodes[];
 extern char const *regStr[];
-extern byte regNo[];
-extern byte stackOrigin[];
+extern uint8_t regNo[];
+extern uint8_t stackOrigin[];
 extern char const *regPairStr[];
-extern byte regPairNo[];
-extern word instuctionSeq[];
-extern word helperStart[];
-extern word codeSeq[];
+extern uint8_t regPairNo[];
+extern uint16_t instuctionSeq[];
+extern uint16_t helperStart[];
+extern uint16_t codeSeq[];
 
 /* main5.plm */
-extern byte groupingChar;
-extern byte maxSymLen;
+extern uint8_t groupingChar;
+extern uint8_t maxSymLen;
 
 /* pdata6.plm */
 extern bool moreLines;
-extern word lineCnt;
-extern word blkCnt;
-extern word stmtNo;
+extern uint16_t lineCnt;
+extern uint16_t blkCnt;
+extern uint16_t stmtNo;
 
 /* files in common dir */
 /* friendly names for the controls */
@@ -637,66 +628,66 @@ extern word stmtNo;
 
 /* data.plm */
 extern vfile_t atf;
-extern byte wrapMarkerCol;
-extern byte wrapTextCol;
-extern byte skipCnt;
-extern word scopeSP;
-extern byte col;
-extern byte controls[];
-extern word csegSize;
+extern uint8_t wrapMarkerCol;
+extern uint8_t wrapTextCol;
+extern uint8_t skipCnt;
+extern uint16_t scopeSP;
+extern uint8_t col;
+extern uint8_t controls[];
+extern uint16_t csegSize;
 extern info_t *info;
 extern sym_t *curSym;
 extern char DATE[];
-extern word DATELEN;
-extern word dsegSize;
-extern word fatalCode;
+extern uint16_t DATELEN;
+extern uint16_t dsegSize;
+extern uint16_t fatalCode;
 extern bool hasErrors;
 extern sym_t *hashTab[];
 extern bool haveModuleLevelUnit;
-extern word helperAddr[];
-extern word intVecLoc;
-extern byte intVecNum;
+extern uint16_t helperAddr[];
+extern uint16_t intVecLoc;
+extern uint8_t intVecNum;
 extern file_t ixiFile;
 extern char *ixiFileName;
 extern char *depFileName;
 
-extern word LEFTMARGIN;
-extern word linesRead;
-extern byte linLft;
-extern word localLabelCnt;
-extern word *localLabels;
+extern uint16_t LEFTMARGIN;
+extern uint16_t linesRead;
+extern uint8_t linLft;
+extern uint16_t localLabelCnt;
+extern uint16_t *localLabels;
 extern file_t lstFile;
 extern char *lstFileName;
 extern bool isList;
-extern byte margin;
+extern uint8_t margin;
 extern file_t objFile;
 extern char *objFileName;
 extern bool moreCmdLine;
-extern byte PAGELEN;
-extern word pageNo;
+extern uint8_t PAGELEN;
+extern uint16_t pageNo;
 
-extern word scopeChains[];
-extern word procCnt;
+extern uint16_t scopeChains[];
+extern uint16_t procCnt;
 extern info_t *procInfo[];
-extern word programErrCnt;
-extern byte PWIDTH;
+extern uint16_t programErrCnt;
+extern uint8_t PWIDTH;
 extern file_t srcFil;
-extern word srcFileIdx;
+extern uint16_t srcFileIdx;
 extern file_t srcFileTable[]; /* 6 * (8 words fNam, blkNum, bytNum) */
-extern byte srcStemLen;
-extern byte srcStemName[];
+extern uint8_t srcStemLen;
+extern uint8_t srcStemName[];
 extern bool standAlone;
 extern offset_t startCmdLineP;
 extern char TITLE[];
-extern word TITLELEN;
-extern byte tWidth;
+extern uint16_t TITLELEN;
+extern uint8_t tWidth;
 extern vfile_t utf1;
 extern vfile_t utf2;
 extern bool afterEOF;
 extern char version[];
-extern byte *procIds;
+extern uint8_t *procIds;
 extern offset_t w3822;
-extern word cmdLineCaptured;
+extern uint16_t cmdLineCaptured;
 
 extern index_t symCnt;
 extern sym_t symtab[];
@@ -724,7 +715,7 @@ inline info_t *FromIdx(index_t n) {
 }
 
 /* creati.c */
-void CreateInfo(word scope, byte type, sym_t *sym);
+void CreateInfo(uint16_t scope, uint8_t type, sym_t *sym);
 
 /* endcom.c */
 void EndCompile(void);
@@ -736,10 +727,10 @@ void Fatal(char const *str);
 bool FindInfo(void);
 void AdvNxtInfo(void);
 void FindMemberInfo(void);
-bool FindScopedInfo(word scope);
+bool FindScopedInfo(uint16_t scope);
 
 /* lookup.c */
-byte Hash(pstr_t *pstr);
+uint8_t Hash(pstr_t *pstr);
 void Lookup(pstr_t *pstr);
 
 /* lstinf.c */
@@ -747,38 +738,38 @@ void LstModuleInfo(void);
 
 /* lstsup.c */
 void NewLineLst(void);
-void TabLst(byte tabTo);
-void DotLst(byte tabTo);
+void TabLst(uint8_t tabTo);
+void DotLst(uint8_t tabTo);
 void EjectNext(void);
-void SetMarkerInfo(byte markerCol, byte textCol);
-void SetStartAndTabW(byte startCol, byte width);
-void SetSkipLst(byte cnt);
+void SetMarkerInfo(uint8_t markerCol, uint8_t textCol);
+void SetStartAndTabW(uint8_t startCol, uint8_t width);
+void SetSkipLst(uint8_t cnt);
 void lstStr(char const *str);
 void lstStrCh(char const *str, int endch);
 void lprintf(char const *fmt, ...);
 void lstPstr(pstr_t *ps);
-char const *hexfmt(byte digits, word val);
+char const *hexfmt(uint8_t digits, uint16_t val);
 
 /* main.c */
 void Start(void);
 
 /* main0.c */
 void unwindInclude(void);
-word Start0(void);
+uint16_t Start0(void);
 
 /* main1.c */
-word Start1(void);
+uint16_t Start1(void);
 
 /* main2.c */
-word Start2(void);
+uint16_t Start2(void);
 
 /* main3.c */
-word putWord(pointer buf, word val);
-word getWord(pointer buf);
-word Start3(void);
+uint16_t putWord(pointer buf, uint16_t val);
+uint16_t getWord(pointer buf);
+uint16_t Start3(void);
 
 /* main4.c */
-word Start4(void);
+uint16_t Start4(void);
 
 /* main5.c */
 void LoadDictionary(void);
@@ -787,10 +778,10 @@ void SortDictionary(void);
 void PrintRefs(void);
 void CreateIxrefFile(void);
 void ProcessXref(void);
-word Start5(void);
+uint16_t Start5(void);
 
 /* main6.c */
-word Start6(void);
+uint16_t Start6(void);
 
 /* page.c */
 void NewPgl(void);
@@ -798,18 +789,18 @@ void NlLead(void);
 
 /* plm0a.c */
 void Wr1LineInfo(void);
-void Wr1Buf(void const *buf, word len);
+void Wr1Buf(void const *buf, uint16_t len);
 void Wr1Byte(uint8_t v);
 void Wr1Word(uint16_t v);
 void Wr1Info(info_t *inf);
 void Rd1Buf(void *buf, uint16_t len);
 uint8_t Rd1Byte(void);
 uint16_t Rd1Word(void);
-void Wr1SyntaxError(word err);
-void Wr1TokenErrorAt(word err);
-void Wr1TokenError(word err, sym_t *sym);
-_Noreturn void Lexfatal(word err);
-void PushBlock(word idAndLevel);
+void Wr1SyntaxError(uint16_t err);
+void Wr1TokenErrorAt(uint16_t err);
+void Wr1TokenError(uint16_t err, sym_t *sym);
+_Noreturn void Lexfatal(uint16_t err);
+void PushBlock(uint16_t idAndLevel);
 void PopBlock(void);
 void Wr1LexToken(void);
 void Wr1XrefUse(void);
@@ -822,9 +813,9 @@ void GNxtCh(void);
 /* plm0e.c */
 void Yylex(void);
 void SetYyAgain(void);
-bool YylexMatch(byte token);
-bool YylexNotMatch(byte token);
-void ParseExpresion(byte endTok);
+bool YylexMatch(uint8_t token);
+bool YylexNotMatch(uint8_t token);
+void ParseExpresion(uint8_t endTok);
 void ParseDeclareNames(void);
 void ParseDeclareElementList(void);
 void ParseProcStmt(void);
@@ -833,66 +824,66 @@ void ParseProcStmt(void);
 void ParseProgram(void);
 
 /* plm0g.c */
-pstr_t const *CreateLit(word wTokenLen, char const *str);
+pstr_t const *CreateLit(uint16_t wTokenLen, char const *str);
 
 /* plm1a.c */
-void fatal_ov1(byte err);
+void fatal_ov1(uint8_t err);
 void OptWrXrf(void);
-void Wr2Buf(void *buf, word len);
+void Wr2Buf(void *buf, uint16_t len);
 void Wr2Byte(uint8_t v);
 void Wr2Word(uint16_t v);
 void Rd2Buf(void *buf, uint16_t len);
 uint8_t Rd2Byte(void);
 uint16_t Rd2Word(void);
-word Wr2Item(uint8_t type, void *buf, uint16_t len);
-word Wr2Simple(byte type);
-word Wr2Leaf(byte type, word arg2w);
-word Wr2Node(byte type, word lhsRel, word rhsRel);
-word Wr2ArgNode(byte type, word relBC, word relDE, word extRel);
-word CvtToRel(word arg1w);
+uint16_t Wr2Item(uint8_t type, void *buf, uint16_t len);
+uint16_t Wr2Simple(uint8_t type);
+uint16_t Wr2Leaf(uint8_t type, uint16_t arg2w);
+uint16_t Wr2Node(uint8_t type, uint16_t lhsRel, uint16_t rhsRel);
+uint16_t Wr2ArgNode(uint8_t type, uint16_t relBC, uint16_t relDE, uint16_t extRel);
+uint16_t CvtToRel(uint16_t arg1w);
 void MapLToT2(void);
-void Wr2Error(word errCode);
-void Wr2TokError(word errCode);
+void Wr2Error(uint16_t errCode);
+void Wr2TokError(uint16_t errCode);
 void UngetTx1Item(void);
 void RdTx1Item(void);
 
 /* plm1b.c */
 void GetTx1Item(void);
-bool MatchTx1Item(byte arg1b);
-bool NotMatchTx1Item(byte arg1b);
-bool MatchTx2AuxFlag(byte arg1b);
+bool MatchTx1Item(uint8_t arg1b);
+bool NotMatchTx1Item(uint8_t arg1b);
+bool MatchTx2AuxFlag(uint8_t arg1b);
 void RecoverRPOrEndExpr(void);
 void ResyncRParen(void);
-void ExpectRParen(byte arg1b);
+void ExpectRParen(uint8_t arg1b);
 void ChkIdentifier(void);
 void ChkStructureMember(void);
 void GetVariable(void);
-void WrAtBuf(void const *buf, word cnt);
-void WrAtByte(byte arg1b);
-void WrAtWord(word arg1w);
+void WrAtBuf(void const *buf, uint16_t cnt);
+void WrAtByte(uint8_t arg1b);
+void WrAtWord(uint16_t arg1w);
 
 /* plm1c.c */
 void RestrictedExpression(void);
-word InitialValueList(offset_t infoOffset);
+uint16_t InitialValueList(offset_t infoOffset);
 void ResetStacks(void);
-void PushParse(word arg1w);
-word PopParse(void);
+void PushParse(uint16_t arg1w);
+uint16_t PopParse(void);
 void PopOperand(void);
-void PushSimpleOperand(byte icode, word val);
+void PushSimpleOperand(uint8_t icode, uint16_t val);
 void MoveOperandToTree(void);
-void PushOperator(byte arg1b);
-word PopOperator(void);
-void PushComplexOperand(byte icode, byte argCnt);
+void PushOperator(uint8_t arg1b);
+uint16_t PopOperator(void);
+void PushComplexOperand(uint8_t icode, uint8_t argCnt);
 void ApplyOperator(void);
 void FixupBased(info_t *varInfo);
 void PushVariable(void);
 void ChkTypedProcedure(void);
-byte GetCallArgCnt(void);
-void ParseSizing(byte arg1b);
+uint8_t GetCallArgCnt(void);
+void ParseSizing(uint8_t arg1b);
 void MkIndexNode(void);
-void ParsePortNum(byte arg1b);
+void ParsePortNum(uint8_t arg1b);
 void ChkIllegalCall(void);
-byte IsLValue(word sp);
+uint8_t IsLValue(uint16_t sp);
 void ConstantList(void);
 
 /* plm1d.c */
@@ -901,14 +892,14 @@ void ExpressionStateMachine(void);
 
 /* plm1e.c */
 bool parseAssignment(void);
-byte ParseCall(void);
+uint8_t ParseCall(void);
 void Expression(void);
-word SerialiseParse(word arg1w);
+uint16_t SerialiseParse(uint16_t arg1w);
 void Initialization(void);
 void ParseLexItems(void);
 
 /* plm1f.c */
-word GetElementSize(info_t *pInfo);
+uint16_t GetElementSize(info_t *pInfo);
 int32_t RdAtByte(void);
 int32_t RdAtWord(void);
 void RdAtHdr(void);
@@ -917,112 +908,112 @@ void AllocateVars(void);
 
 /* plm2a.c */
 void WrFragData(void);
-void PutTx1Byte(byte arg1b);
-void PutTx1Word(word arg1w);
-void EncodeFragData(byte arg1b);
+void PutTx1Byte(uint8_t arg1b);
+void PutTx1Word(uint16_t arg1w);
+void EncodeFragData(uint8_t arg1b);
 void EmitTopItem(void);
-void Tx2SyntaxError(byte arg1b);
-byte Sub_5679(byte arg1b);
-void MoveTx2(byte src, byte dst);
-byte IndirectAddr(byte arg1b);
-void Sub_5795(word arg1w);
+void Tx2SyntaxError(uint8_t arg1b);
+uint8_t GetFragmentOperandType(uint8_t arg1b);
+void MoveTx2(uint8_t src, uint8_t dst);
+uint8_t IndirectAddr(uint8_t arg1b);
+void AdjustStackOnReturn(uint16_t arg1w);
 bool EnterBlk(void);
 bool ExitBlk(void);
-void Sub_58F5(word err);
-void Sub_597E(void);
-void Sub_5B96(byte src, byte dst);
-void Sub_5C1D(byte arg1b);
-void Sub_5C97(byte arg1b);
-void Sub_5D27(byte arg1b);
-void Sub_5D6B(byte arg1b);
-void Sub_5E66(byte arg1b);
-void Sub_5EE8(void);
-void Sub_5F4B(word val, info_t *pInfo, byte exprAttr, byte exprLoc);
-void GetVal(byte arg1b, wpointer arg2wP, wpointer arg3wP);
-void Sub_611A(void);
-void Sub_61A9(byte arg1b);
-void Sub_61E0(byte arg1b);
-void Sub_636A(byte arg1b);
-void Sub_63AC(byte arg1b);
-void Sub_6416(byte arg1b);
+void HandleFatalError(uint16_t err);
+void AnalyzeRegisterUsage(void);
+void CopyRegisterState(uint8_t src, uint8_t dst);
+void SaveRegisterToStack(uint8_t arg1b);
+void RestoreRegisterFromStack(uint8_t arg1b);
+void PushRegisterToStack(uint8_t arg1b);
+void SaveOrRedirectRegister(uint8_t arg1b);
+void InvalidateRegistersByMask(uint8_t arg1b);
+void GenerateReturnSequence(void);
+void CreateConstantOrIdNode(uint16_t val, info_t *pInfo, uint8_t exprAttr, uint8_t exprLoc);
+void GetOperandValue(uint8_t arg1b, wpointer arg2wP, wpointer arg3wP);
+void DecrementExprRefs(void);
+void UpdateExpressionLookup(uint8_t arg1b);
+void EncodeOperandInfo(uint8_t arg1b);
+void EncodeExpressionOperand(uint8_t arg1b);
+void AdjustRegisterOffset(uint8_t arg1b);
+void PopRegisterFromStack(uint8_t arg1b);
 void GetTx2Item(void);
-void chkMerge(void);
-void FillTx2Q(void);
-void setEndFirstStmt(void);
+void MergeRedundantNodes(void);
+void FillTx2Queue(void);
+void SetFirstStatementEnd(void);
 
 /* plm2b.c */
 void DeRelStmt(void);
 
 /* plm2c.c */
-void Sub_7055(void);
-void Sub_6BD6(void);
+void ProcessAssignmentNode(void);
+void OptimiseStmtNodes(void);
 
 /* plm2d.c */
-void Sub_717B(void);
-void Sub_7550(void);
+void FoldConstantExpr(void);
+void OptimiseExpression(void);
 
 /* plm2e.c */
-void Sub_7A85(void);
-void Sub_7DA9(void);
-void Sub_84ED(void);
+void AllocateRegister(void);
+void GenerateOperandCode(void);
+void GenerateFragmentCode(void);
 
 /* plm2f.c */
-void Sub_87CB(void);
+void GenerateExpressionCode(void);
 void c_procedure(void);
 
 /* plm2g.c */
-void FindParamInfo(byte arg1b);
-void paramsToMem(void);
-void GetEAtoHL(word arg1w);
-void ReserveStkLocals(word arg1w);
-void Inxh(void);
-void OpB(byte arg1b);
-void OpD(byte arg1b);
-void Sub_9706(void);
-void MovDem(void);
-void Sub_978E(void);
-void Sub_981C(void);
-void Sub_994D(void);
+void FindParamInfo(uint8_t arg1b);
+void CopyParametersToMemory(void);
+void LoadEffectiveAddressToHL(uint16_t arg1w);
+void AllocateLocalVariables(uint16_t arg1w);
+void IncrementHL(void);
+void EmitRegisterB(uint8_t arg1b);
+void EmitRegisterD(uint8_t arg1b);
+void CopyParameterFromHL(void);
+void LoadDEFromMemory(void);
+void PushParametersToStack(void);
+void GenerateProcedureEntry(void);
+void ProcessSpecialNodes(void);
 
 /* plm2h.c */
-void Sub_9BB0(void);
-void c_call(void);
-void c_callVar(void);
-void c_begMove(void);
-void c_case(void);
-void c_endcase(void);
-void c_endproc(void);
-void c_length(byte arg1b);
-void c_size(void);
-void c_begCall(void);
-void Sub_A153(void);
+void GenerateOperatorCode(void);
+void GenerateCallCode(void);
+void GenerateIndirectCallCode(void);
+void BeginMoveOperation(void);
+void EnterCaseBlock(void);
+void ExitCaseBlock(void);
+void ExitProcedure(void);
+void GenerateLengthBuiltin(uint8_t arg1b);
+void GenerateSIzeBuiltin(void);
+void BeginProcedureCall(void);
+void GenerateStatementCode(void);
 
 /* plm3a.c */
 void FlushRecGrp(void);
-void RecAddName(pointer recP, byte offset, pstr_t const *pstr);
-void ExtendChk(pointer arg1wP, word arg2w, byte arg3b);
-word CalcMaxStack(void);
+void RecAddName(pointer recP, uint8_t offset, pstr_t const *pstr);
+void ExtendChk(pointer arg1wP, uint16_t arg2w, uint8_t arg3b);
+uint16_t CalcMaxStack(void);
 
-void p3Error(word errNum, info_t *tokInfo, word stmt);
+void p3Error(uint16_t errNum, info_t *tokInfo, uint16_t stmt);
 void Sub_49F9(void);
 
 /* plm3b.c */
-void WriteRec(pointer rec, byte fixed);
-void RecAddByte(pointer rec, byte offset, byte val);
-void RecAddWord(pointer rec, byte offset, word val);
+void WriteRec(pointer rec, uint8_t fixed);
+void RecAddByte(pointer rec, uint8_t offset, uint8_t val);
+void RecAddWord(pointer rec, uint8_t offset, uint16_t val);
 
 /* plm4a.c */
 void Sub_54BA(void);
 
 /* plm4b.c */
 void FlushRecs(void);
-void AddWrdDisp(pstr_t *pstr, word arg2w);
+void AddWrdDisp(pstr_t *pstr, uint16_t arg2w);
 void EmitLinePrefix(void);
 void EmitStatementNo(void);
 void EmitLabel(char const *label);
 char const *FindErrStr(void);
 void EmitError(void);
-void fatal_ov46(byte arg1b);
+void fatal_ov46(uint8_t arg1b);
 void ListInstruction(void);
 void GetSourceLine(void);
 
@@ -1031,7 +1022,7 @@ pstr_t *pstrcpy(pstr_t *dst, pstr_t const *src);
 pstr_t *pcstrcpy(pstr_t *dst, char const *src);
 pstr_t *pstrcat(pstr_t *dst, pstr_t const *src);
 pstr_t *pcstrcat(pstr_t *dst, char const *src);
-void EmitCodeSeq(word codeIdx, byte len);
+void EmitCodeSeq(uint16_t codeIdx, uint8_t len);
 void Sub_668B(void);
 
 /* plm6a.c */
@@ -1043,26 +1034,26 @@ void SignOnAndGetSourceName(void);
 
 /* plmb.c */
 void InitKeywordsAndBuiltins(void);
-void SetPageNo(word v);
+void SetPageNo(uint16_t v);
 
 /* plmfile.c */
 void CloseF(file_t *fileP);
 void OpenF(file_t *fileP, char const *sNam, char const *fNam, char *access);
 
 /* prints.c */
-void PrintStr(char const *str, byte len);
+void PrintStr(char const *str, uint8_t len);
 
 /* putlst.c */
-void lstc(byte ch);
+void lstc(uint8_t ch);
 
 /* symtab.c */
 pstr_t const *pstrdup(pstr_t const *ps);
 bool pstrequ(pstr_t const *ps, pstr_t const *pt);
 sym_t *newSymbol(pstr_t const *ps);
-void newInfo(byte type);
+void newInfo(uint8_t type);
 void newDict(info_t *info);
 index_t newCase(index_t val);
-xref_t *newXref(xref_t *xrefNext, word line);
+xref_t *newXref(xref_t *xrefNext, uint16_t line);
 int newInclude(char const *fname);
 
 /* vfile.c */

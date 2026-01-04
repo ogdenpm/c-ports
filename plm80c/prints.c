@@ -8,12 +8,12 @@
  ****************************************************************************/
 #include "plm.h"
 
-void PrintStr(char const *str, byte len) {
+void PrintStr(char const *str, uint8_t len) {
     printf("%.*s", len, str);
 } /* PrintStr() */
 
 
-void lstc(byte ch) {
+void lstc(uint8_t ch) {
     if (col == 0) {
         if (linLft == 0 || linLft <= skipCnt)
             NewPgl();
@@ -30,7 +30,7 @@ void lstc(byte ch) {
     if (ch == '\t') {
         if (col < margin)
             return;
-        byte i = tWidth - (col - margin) % tWidth;
+        uint8_t i = tWidth - (col - margin) % tWidth;
         if (col + i >= PWIDTH) {
             NlLead();
             return;

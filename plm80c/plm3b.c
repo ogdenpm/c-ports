@@ -9,16 +9,16 @@
 #include "os.h"
 #include "plm.h"
 
-void WriteRec(pointer rec, byte fixed) {
-    byte crc;
+void WriteRec(pointer rec, uint8_t fixed) {
+    uint8_t crc;
     size_t cnt;
 
-    word len = getWord(&rec[REC_LEN]);
+    uint16_t len = getWord(&rec[REC_LEN]);
     if (len > 0 && OBJECT) {
         crc = 0;
         len += fixed + 1;
         putWord(&rec[REC_LEN], len);       // final record length
-        cnt = len + 2;                     // allow for type, len but not crc byte
+        cnt = len + 2;                     // allow for type, len but not crc uint8_t
         for (unsigned p = 0; p < cnt; p++) // calculate the crc
             crc -= rec[p];
 
@@ -29,13 +29,13 @@ void WriteRec(pointer rec, byte fixed) {
     putWord(&rec[REC_LEN], 0);
 }
 
-void RecAddByte(pointer rec, byte offset, byte val) {
-    word len                     = getWord(&rec[REC_LEN]);
+void RecAddByte(pointer rec, uint8_t offset, uint8_t val) {
+    uint16_t len                     = getWord(&rec[REC_LEN]);
     rec[REC_DATA + len + offset] = val;
     putWord(&rec[REC_LEN], len + 1);
 }
 
-void RecAddWord(pointer rec, byte offset, word val) {
+void RecAddWord(pointer rec, uint8_t offset, uint16_t val) {
     RecAddByte(rec, offset, Low(val));
     RecAddByte(rec, offset, High(val));
 }

@@ -11,10 +11,10 @@
 #include <stdlib.h>
 #include "utility.h"
 
-byte maxSymLen;
-byte groupingChar = 0;
+uint8_t maxSymLen;
+uint8_t groupingChar = 0;
 
-// static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+// static uint8_t copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 void LoadDictionary() {
     maxSymLen = 0;
@@ -40,7 +40,7 @@ void SortDictionary() {
 }
 
 // file scope due to nested procedure lift;
-static byte defnCol, addrCol, sizeCol, nameCol, attribCol, refContCol;
+static uint8_t defnCol, addrCol, sizeCol, nameCol, attribCol, refContCol;
 
 static void PrintXrefs() {
 
@@ -54,7 +54,7 @@ static void PrintXrefs() {
         return;
     }
     lstStr(": ");
-    word line = 0;
+    uint16_t line = 0;
     for (xref_t *xref = info->xref; xref; xref = xref->next) {
         if (line != xref->line && !(xref->line & 0x8000)) { // ignore def & duplicates
             if (PWIDTH < col + 5) {
@@ -78,7 +78,7 @@ static void DescribeName() {
     lstc(' ');
 }
 
-static void DescribeAddressAndSize(word addr, word size) {
+static void DescribeAddressAndSize(uint16_t addr, uint16_t size) {
     TabLst(-addrCol);
     lstStr(hexfmt(4, addr));
     if (size != 0) {
@@ -164,10 +164,10 @@ static void DescribeProc() {
 }
 
 static void DescribeVar(char const *str) {
-    word size;
+    uint16_t size;
 
     DescribeDefinition();
-    byte type = info->type;
+    uint8_t type = info->type;
     if (type == BYTE_T)
         size = 1;
     else if (type == ADDRESS_T)
@@ -291,15 +291,15 @@ void PrintRefs() {
 } /* PrintRefs() */
 
 // lifted
-static void WrIxiBuf(void const *buf, word cnt) {
+static void WrIxiBuf(void const *buf, uint16_t cnt) {
     fwrite(buf, 1, cnt, ixiFile.fp);
 }
 
-static void WrIxiByte(byte v) {
+static void WrIxiByte(uint8_t v) {
     fputc(v, ixiFile.fp);
 }
 
-static void WrIxiWord(word v) {
+static void WrIxiWord(uint16_t v) {
     fputc(v % 256, ixiFile.fp);
     fputc(v / 256, ixiFile.fp);
 }
@@ -355,7 +355,7 @@ void CreateIxrefFile() {
 
     for (info_t **p = dicttab; p < topDict; p++) {
         info      = *p;
-        byte type = info->type;
+        uint8_t type = info->type;
         if (LABEL_T <= type && type <= PROC_T &&
             ((info->flag & (F_PUBLIC | F_EXTERNAL)) && !(info->flag & F_AT))) {
             WrIxiByte((info->flag & F_PUBLIC) ? IX_PUBLIC : IX_EXTERNAL);
@@ -395,7 +395,7 @@ void ProcessXref() {
         CreateIxrefFile();
 }
 
-word Start5() {
+uint16_t Start5() {
     ProcessXref();
     if (PRINT)
         LstModuleInfo();

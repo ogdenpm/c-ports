@@ -9,17 +9,17 @@
 #include "plm.h"
 #include "int.h"
 
-static byte curParamCnt;
-static byte bC2D3;
-static word wC2D4;
+static uint8_t curParamCnt;
+static uint8_t remainingParamCount;
+static uint16_t firstParamStackOffset;
 
-void FindParamInfo(byte arg1b) {
+void FindParamInfo(uint8_t arg1b) {
     info = blk[activeGrpCnt].info;
     while (arg1b-- != 0)
         AdvNxtInfo();
 }
 
-static void saveParam(byte paramNo, byte irReg) {
+static void SaveParameterToMemory(uint8_t paramNo, uint8_t irReg) {
     if (info->type == ADDRESS_T) {
         iCodeArgs[0] = irReg;
         EncodeFragData(CF_MOVMRPR);
@@ -35,14 +35,14 @@ static void saveParam(byte paramNo, byte irReg) {
     }
 }
 
-void paramsToMem() {
-    byte paramOrder;
-    byte reg = (paramOrder = curParamCnt) == 1 ? IR_B : IR_D;
+void CopyParametersToMemory() {
+    uint8_t paramOrder;
+    uint8_t currentReg = (paramOrder = curParamCnt) == 1 ? IR_B : IR_D;
 
-    for (byte paramNo = 1; paramNo <= curParamCnt; paramNo++) {
+    for (uint8_t paramNo = 1; paramNo <= curParamCnt; paramNo++) {
         FindParamInfo(paramOrder); // popping stack in reverse parameter order
         if (paramNo == 2)
-            reg = IR_B;
+            currentReg = IR_B;
         else if (paramNo == 3) {
             iCodeArgs[0] = IR_D; /*  pop d */
             iCodeArgs[1] = LOC_REG;
@@ -57,7 +57,7 @@ void paramsToMem() {
             EncodeFragData(CF_POP);
             codeSize++;
         }
-        saveParam(paramNo, reg);
+        SaveParameterToMemory(paramNo, currentReg);
         paramOrder--;
     }
     if (curParamCnt > 2) {
@@ -68,14 +68,14 @@ void paramsToMem() {
     }
 }
 
-void GetEAtoHL(word arg1w) {
+void LoadEffectiveAddressToHL(uint16_t stackOffset) {
     iCodeArgs[0] = IR_SR;    // get effective address into HL
-    iCodeArgs[1] = arg1w;    // -ve offset from stack
+    iCodeArgs[1] = stackOffset;    // -ve offset from stack
     EncodeFragData(CF_SA2HL);
     codeSize += 4;
 }
 
-void ReserveStkLocals(word localSize) {
+void AllocateLocalVariables(uint16_t localSize) {
     if (localSize <= 10) {
         if (localSize & 1) {
             EncodeFragData(CF_DCXSP);
@@ -89,55 +89,55 @@ void ReserveStkLocals(word localSize) {
             localSize -= 2;
         }
     } else {
-        GetEAtoHL(-localSize);
+        LoadEffectiveAddressToHL(-localSize);
         EncodeFragData(CF_SPHL);
         codeSize++;
     }
 }
 
-void Inxh() {
+void IncrementHL() {
     iCodeArgs[0] = IR_H;
     EncodeFragData(CF_INX);
     codeSize++;
 }
 
-void OpB(byte icode) {
+void EmitRegisterB(uint8_t fragmentCode) {
     iCodeArgs[0] = IR_B;
-    EncodeFragData(icode);
+    EncodeFragData(fragmentCode);
     codeSize++;
 }
 
-void OpD(byte icode) {
+void EmitRegisterD(uint8_t fragmentCode) {
     iCodeArgs[0] = IR_D;
-    EncodeFragData(icode);
+    EncodeFragData(fragmentCode);
     codeSize++;
 }
 
-void Sub_9706() {
-    Inxh();
+void CopyParameterFromHL() {
+    IncrementHL();
     if (info->type == ADDRESS_T) {
-        OpB(CF_MOVLRM);
-        if (bC2D3 == 1)
-            OpD(CF_MOVMLR);
+        EmitRegisterB(CF_MOVLRM);
+        if (remainingParamCount == 1)
+            EmitRegisterD(CF_MOVMLR);
 
-        Inxh();
-        OpB(CF_MOVHRM);
+        IncrementHL();
+        EmitRegisterB(CF_MOVHRM);
     } else {
-        OpB(CF_MOVHRM);
-        if (bC2D3 == 1)
-            OpD(CF_MOVMLR);
-        Inxh();
+        EmitRegisterB(CF_MOVHRM);
+        if (remainingParamCount == 1)
+            EmitRegisterD(CF_MOVMLR);
+        IncrementHL();
     }
-    if (bC2D3 == 1)
-        OpD(CF_MOVMHR);
+    if (remainingParamCount == 1)
+        EmitRegisterD(CF_MOVMHR);
 }
 
-void MovDem() {
-    OpD(CF_MOVRPM);
+void LoadDEFromMemory() {
+    EmitRegisterD(CF_MOVRPM);
     codeSize += 2;
 }
 
-static void Sub_975F(byte irReg) {
+static void PushParameterValue(uint8_t irReg) {
     iCodeArgs[0] = irReg;
     iCodeArgs[1] = LOC_REG;
     EncodeFragData(CF_PUSH);
@@ -148,30 +148,30 @@ static void Sub_975F(byte irReg) {
     }
 }
 
-void Sub_978E() {
-    if ((bC2D3 = curParamCnt) > 2)
-        GetEAtoHL(wC2D4);
-    byte irReg = curParamCnt == 1 ? IR_B : IR_D;
+void PushParametersToStack() {
+    if ((remainingParamCount = curParamCnt) > 2)
+        LoadEffectiveAddressToHL(firstParamStackOffset);
+    uint8_t irReg = curParamCnt == 1 ? IR_B : IR_D;
 
-    for (byte paramNo = 1; paramNo <= curParamCnt; paramNo++) {
-        FindParamInfo(bC2D3);
+    for (uint8_t paramNo = 1; paramNo <= curParamCnt; paramNo++) {
+        FindParamInfo(remainingParamCount);
         if (paramNo > 3)
-            Sub_9706();
+            CopyParameterFromHL();
         else if (paramNo == 3) {
-            MovDem();
-            Sub_9706();
+            LoadDEFromMemory();
+            CopyParameterFromHL();
         } else if (info->type == BYTE_T) {
             iCodeArgs[0] = irReg;
             EncodeFragData(CF_MOVHRLR);
             codeSize++;
         }
-        Sub_975F(irReg);
+        PushParameterValue(irReg);
         irReg = IR_B;
-        bC2D3--;
+        remainingParamCount--;
     }
 }
 
-void Sub_981C() {
+void GenerateProcedureEntry() {
     curParamCnt = info->paramCnt;
     if ((info->flag & F_INTERRUPT)) {
         for (int8_t irReg = IR_H; irReg >= IR_PSW; irReg--) {
@@ -182,20 +182,20 @@ void Sub_981C() {
         }
     }
     if ((info->flag & F_REENTRANT)) {
-        wC1C7 = info->totalSize;
+        localVariableSize = info->totalSize;
         ;
         if (curParamCnt > 0) {
             FindParamInfo(curParamCnt);
-            wC2D4 = wC1C7 - info->linkVal - 1;
+            firstParamStackOffset = localVariableSize - info->linkVal - 1;
             if (info->type == ADDRESS_T)
-                wC2D4--;
-            ReserveStkLocals(wC2D4);
-            Sub_978E();
+                firstParamStackOffset--;
+            AllocateLocalVariables(firstParamStackOffset);
+            PushParametersToStack();
         } else
-            ReserveStkLocals(wC1C7);
+            AllocateLocalVariables(localVariableSize);
 
         if (curParamCnt > 2)
-            wC1C7 += (curParamCnt - 2) * 2;
+            localVariableSize += (curParamCnt - 2) * 2;
 
         stackUsage = 0;
     } else {
@@ -206,10 +206,10 @@ void Sub_981C() {
             iCodeArgs[2] = info->type == ADDRESS_T ? 1 : 0; // offset
             iCodeArgs[3] = ToIdx(info); /*  info for first param */
             EncodeFragData(CF_LXI);
-            paramsToMem();
+            CopyParametersToMemory();
             codeSize += 3;
         }
-        wC1C7 = 0;
+        localVariableSize = 0;
         if (curParamCnt > 2)
             stackUsage = (curParamCnt - 2) * 2;
         else
@@ -217,15 +217,15 @@ void Sub_981C() {
     }
 }
 
-void Sub_994D() {
-    byte nodeType;
+void ProcessSpecialNodes() {
+    uint8_t nodeType;
 
     if (curNodeType == T2_LABELDEF) {
-        boC1CC = false;
+        returnGenerated = false;
         info = FromIdx(tx2[tx2qp].left);
         info->linkVal = codeSize;
     } else if (curNodeType == T2_LOCALLABEL) {
-        boC1CC                     = false;
+        returnGenerated                     = false;
         localLabels[tx2[tx2qp].left] = codeSize;
         procIds[tx2[tx2qp].left]     = curExtProcId;
     } else if (curNodeType == T2_CASELABEL) {
@@ -236,18 +236,18 @@ void Sub_994D() {
         nodeType = tx2[tx2qp - 1].nodeType;
         if (nodeType == T2_RETURN || nodeType == T2_RETURNBYTE || nodeType == T2_RETURNWORD || nodeType == T2_GOTO)
             return;
-        Sub_5795(0);
+        AdjustStackOnReturn(0);
     } else if (curNodeType == T2_INPUT || (T2_SIGN <= curNodeType && curNodeType <= T2_CARRY)) {
         curExprLoc[0] = 0;
         curExprLoc[1] = 0;
         exprLoc[0] = 8;
         exprLoc[1] = 8;
-        Sub_597E();
-        Sub_5D6B(0);
-        bC045[0]        = 0;
-        bC04E[0]        = tx2qp;
-        boC057[0]       = 0;
-        bC0A8[0]        = 0;
+        AnalyzeRegisterUsage();
+        SaveOrRedirectRegister(0);
+        registerDataType[0]        = 0;
+        registerContents[0]        = tx2qp;
+        registerIsDirect[0]       = 0;
+        registerOffset[0]        = 0;
         tx2[tx2qp].exprAttr = BYTE_A;
         tx2[tx2qp].exprLoc = LOC_SPECIAL;
     } else if (curNodeType == T2_STMTCNT) {
@@ -264,5 +264,5 @@ void Sub_994D() {
         }
     }
     EmitTopItem();
-    codeSize += (codeAttrLen[curNodeType] & 0x1f);
+    codeSize += (fragmentCodeLength[curNodeType] & 0x1f);
 }

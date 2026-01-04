@@ -8,7 +8,7 @@
  ****************************************************************************/
 #include "plm.h"
 
-word curState;
+uint16_t curState;
 bool endSeen;
 
 static void SkipToSemiColon() {
@@ -29,7 +29,7 @@ static void ErrorSkip() {
     SetYyAgain();
 }
 
-static word PopStateWord() {
+static uint16_t PopStateWord() {
     if (stateSP == 0)
         Lexfatal(ERR97); /* COMPILER Error: PARSE STACK UNDERFLOW */
     return stateStack[stateSP--];
@@ -63,7 +63,7 @@ static void ParseStmtLabels() {
     }
 }
 
-static byte startLexCodeMap[] = { T1_STATEMENT, T1_SEMICOLON, T1_CALL,      T1_LINEINFO, T1_DISABLE,
+static uint8_t startLexCodeMap[] = { T1_STATEMENT, T1_SEMICOLON, T1_CALL,      T1_LINEINFO, T1_DISABLE,
                                   T1_DO,        T1_ENABLE,    T1_END,       T1_GO,       T1_GOTO,
                                   T1_HALT,      T1_IF,        T1_PROCEDURE, T1_RETURN };
 
@@ -129,7 +129,7 @@ static void WrLabelDefs() {
 
     sym_t *tmp = curSym; // save to restore at end
     if (stmtLabelCnt != 0) {
-        for (word i = 1; i <= stmtLabelCnt; i++) { // check each label
+        for (uint16_t i = 1; i <= stmtLabelCnt; i++) { // check each label
             curSym = stmtLabels[i];
             if (FindScopedInfo(curScope)) { /* already seen at this scope */
                 if ((info->flag & F_LABEL))
@@ -193,7 +193,7 @@ static void ProcEnding() {
     ExpectSemiColon(); // finish off statement
 }
 
-static void PushStateWord(word state) {
+static void PushStateWord(uint16_t state) {
     if (stateSP != 99)
         stateStack[++stateSP] = state;
     else
@@ -501,7 +501,7 @@ static void State14() { /* process CASE statements */
         PushStateWord(15); // write jmp to end of case & re-enter state14
         PushStateWord(11); // parse <unit>
     } else {
-        word endCase = PopStateWord(); /* get the label index for end of case target */
+        uint16_t endCase = PopStateWord(); /* get the label index for end of case target */
         WrLabelDefs();                 // write any labels associated with the end
         if (stmtLabelCnt != 0) {       // write jmp to end target if there are labels
             Wr1Byte(T1_JMP);
@@ -522,7 +522,7 @@ static void State14() { /* process CASE statements */
 
 // write jmp to end of case and re-enter state14
 static void State15() {
-    word caseEnd = PopStateWord(); // get index of end of case label
+    uint16_t caseEnd = PopStateWord(); // get index of end of case label
     Wr1Byte(T1_JMP);                // write jmp & target
     Wr1Word(caseEnd);
     PushStateWord(caseEnd); // resave
@@ -552,7 +552,7 @@ static void State16() {
 // parse optional ELSE <false element>
 static void State17() { /* process optional else */
 
-    word endTrueLabel = PopStateWord(); /* labelref for end of <true unit> */
+    uint16_t endTrueLabel = PopStateWord(); /* labelref for end of <true unit> */
     Yylex();
     bool savToWrite = lineInfoToWrite; /* supress line info for labeldefs etc */
     lineInfoToWrite = false;
@@ -578,7 +578,7 @@ static void State18() { /* end of else */
     bool savToWrite = lineInfoToWrite; /* supress line info for labeldefs */
 
     lineInfoToWrite = false;
-    word falseLabel = PopStateWord(); /* labelref for end <false element> */
+    uint16_t falseLabel = PopStateWord(); /* labelref for end <false element> */
     Wr1Byte(T1_LOCALLABEL);            /* emit label */
     Wr1Word(falseLabel);
     lineInfoToWrite = savToWrite; // restore status of lineInfoTo

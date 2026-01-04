@@ -10,7 +10,7 @@
 
 bool FindInfo() {
     if (curSym->infoChain) {
-        word depth = scopeSP;
+        uint16_t depth = scopeSP;
         while (depth) {
             if (FindScopedInfo(scopeChains[depth--]))
                 return true;
@@ -38,7 +38,7 @@ void FindMemberInfo() {
             return;
 }
 
-bool FindScopedInfo(word scope) {
+bool FindScopedInfo(uint16_t scope) {
     info_t *prev = 0;
     for (info = curSym->infoChain; info; prev = info, info = info->ilink) {
         if (scope == info->scope) {
@@ -55,7 +55,7 @@ bool FindScopedInfo(word scope) {
     return false;
 }
 
-void CreateInfo(word scope, byte type, sym_t *sym) {
+void CreateInfo(uint16_t scope, uint8_t type, sym_t *sym) {
     newInfo(type);
     if (sym) {
         info->ilink         = sym->infoChain;

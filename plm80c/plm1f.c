@@ -9,10 +9,10 @@
 #include "os.h"
 #include "plm.h"
 
-static word externalsCnt = 0;
-static word atStmtNum    = 0;
+static uint16_t externalsCnt = 0;
+static uint16_t atStmtNum    = 0;
 
-static void ParseError(word errNum) {
+static void ParseError(uint16_t errNum) {
     hasErrors = true;
     Wr2Byte(T2_ERROR);
     Wr2Word(errNum);
@@ -28,10 +28,10 @@ int32_t RdAtWord() {
     return vfRword(&atf);
 }
 
-word GetElementSize(info_t *pInfo) {
+uint16_t GetElementSize(info_t *pInfo) {
     switch (pInfo->type) {
     case BYTE_T:
-        return 1; /* byte */
+        return 1; /* uint8_t */
     case ADDRESS_T:
         return 2; /* address */
     case STRUCT_T:
@@ -40,7 +40,7 @@ word GetElementSize(info_t *pInfo) {
     return 0;
 }
 
-static word GetVarSize() {
+static uint16_t GetVarSize() {
     return info->flag & F_ARRAY ? info->dim * GetElementSize(info) : GetElementSize(info);
 }
 
@@ -52,7 +52,7 @@ static void AdvNextDataInfo() {
 
 /* determine structure sizes and member offsets */
 static void SetStructSizes() {
-    word oldSize, varSize, newSize;
+    uint16_t oldSize, varSize, newSize;
     info_t *parent;
     info = infotab;
     AdvNextDataInfo();
@@ -72,7 +72,7 @@ static void SetStructSizes() {
     }
 }
 
-static word AllocVar(word addr) {
+static uint16_t AllocVar(uint16_t addr) {
     info->addr = addr;    /* allocate this var's address */
     addr += GetVarSize(); /* reserve it's space */
     if (addr < GetVarSize())
@@ -126,16 +126,16 @@ static void DataAllocation() {
 }
 
 union {
-    byte str[256];
+    uint8_t str[256];
     struct {
-        byte type;
+        uint8_t type;
         index_t infoP;
-        word stmt;
+        uint16_t stmt;
         var_t var;
     };
 } atFData;
 
-word atOffset;
+uint16_t atOffset;
 
 void RdAtHdr() {
     atFData.infoP = RdAtWord();
@@ -145,7 +145,7 @@ void RdAtData() {
     vfRbuf(&atf, (uint8_t *)&atFData.var, sizeof(var_t));
 }
 static void FixDataLoc() {
-    byte locType;
+    uint8_t locType;
     if (atFData.var.infoIdx == 0)
         locType = 0;
     else if (info->type < BYTE_T || info->type > STRUCT_T) { // not BYTE, ADDRESS, STRUCTURE
@@ -256,9 +256,9 @@ static void ProcAtFile() {
 
 static void InitLabelAndProc() {
     localLabels = safeMalloc((localLabelCnt + 1) * sizeof(offset_t));
-    procIds     = safeMalloc((localLabelCnt + 1) * sizeof(byte));
+    procIds     = safeMalloc((localLabelCnt + 1) * sizeof(uint8_t));
     memset(localLabels, 0, (localLabelCnt + 1) * sizeof(offset_t));
-    memset(procIds, 0, (localLabelCnt + 1) * sizeof(byte));
+    memset(procIds, 0, (localLabelCnt + 1) * sizeof(uint8_t));
 }
 
 static void InitAllocation() {

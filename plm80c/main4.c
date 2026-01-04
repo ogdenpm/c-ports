@@ -11,9 +11,9 @@
 #include "plm.h"
 
 // static char copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
-static byte objEOF[] = { 0xe, 1, 0, 0xf1 };
+static uint8_t objEOF[] = { 0xe, 1, 0, 0xf1 };
 
-static byte b4304[]  = { 0x24, 0x24, 0x24, 0x24, 0x13, 0x13, 0x18, 0x18, 0x18, 0x18, 0x16, 0x2C,
+static uint8_t b4304[]  = { 0x24, 0x24, 0x24, 0x24, 0x13, 0x13, 0x18, 0x18, 0x18, 0x18, 0x16, 0x2C,
                          0x15, 0x1F, 0x1F, 0x20, 0x20, 0x19, 0x19, 0x19, 0x19, 8,    8,    9,
                          9,    6,    7,    0x25, 0x25, 0x25, 0x25, 0x25, 0xA,  0xA,  0xB,  0xB,
                          0x14, 0x14, 0x14, 0x14, 0x14, 0x39, 0x1A, 0x1A, 0x1A, 0x1A };
@@ -33,7 +33,7 @@ static void Sub_3FC8() {
 
         if (cmdLineCaptured == 1) {
             lstStr("COMPILER INVOKED BY: ");
-            linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH, 23);
+            linLft -= (uint8_t)printCmdLine(lstFile.fp, PWIDTH, 23);
             col = 0;
         }
     }
@@ -60,14 +60,14 @@ static void Sub_408B() {
 static void Sub_4162() {
     if (!standAlone)
         return;
-    for (byte helperMod = 0; helperMod < 46; helperMod++) {
+    for (uint8_t helperMod = 0; helperMod < 46; helperMod++) {
         helperId    = modHelperId[helperMod];          // helper module first helper id
-        byte endHelperId = helperId + modHelperIdCnt[helperMod]; // helper module last helpers id (+1)
+        uint8_t endHelperId = helperId + modHelperIdCnt[helperMod]; // helper module last helpers id (+1)
         while (helperId < endHelperId) {
             if (helperAddr[helperId]) {
                 baseAddr = helperAddr[helperId];
                 b969C    = b4304[helperMod];
-                b969D    = b4273[b969C];
+                b969D    = noteTypeToHelperGroup[b969C];
                 EmitCodeSeq(helperStart[helperId], helperLen[helperId]);
                 break;
             }
@@ -98,7 +98,7 @@ static void Sub_423C() {
     }
 } /* Sub_423C() */
 
-word Start4() {
+uint16_t Start4() {
     // rec24_2 is has different seg c.f. plm3a.c
     recCodeFixup[REC_DATA] = 2; // data seg
     recDataFixup[REC_DATA] = 3; // stack seg

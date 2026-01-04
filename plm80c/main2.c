@@ -10,7 +10,7 @@
 #include <setjmp.h>
 
 // clang-format off
-word wAF54[] = {
+uint16_t nodeTypeToAttribute[] = {
     0x11B, 0x14B, 0x12B, 0x12B, 0x11B, 0x14B, 0x60,  0x60,  0x62,  0x62,  0x5B,  0x62,  0xB,   0x1E4, 0x1E7, 0x1E8,
     0x1EE, 0x1F1, 0x8D,  0xCF,  0x10B, 0xE,   0x12,  0x14,  0xEB,  0xEB,  0xEB,  0xA9,  0x9A,  0x96,  0xA1,  0x69,
     0x68,  0x70,  0x76,  0x90,  0xEB,  0x10B, 0x15B, 0x18B, 0x1BB, 0x19B, 0x17B, 0x16B, 0x58,  0x19,  0x20,  0x27,
@@ -25,75 +25,75 @@ word wAF54[] = {
 // clang-format on
 blk_t blk[20];
 
-word wB528[10];
-word wB53C[10];
+uint16_t callStackDepth[10];
+uint16_t callStackBase[10];
 //typedef struct {
-//    byte nodeType;
+//    uint8_t nodeType;
 //    index_t left;
 //    index_t right;
 //    index_t extra;
-//    byte exprAttr;
-//    byte exprLoc;
-//    word cnt;
+//    uint8_t exprAttr;
+//    uint8_t exprLoc;
+//    uint16_t cnt;
 //} tx2_t;
 tx2_t tx2[255] = { { T2_SEMICOLON, 0, 0, 0, LIT_A, 0, 0 },
                    { T2_LOCALLABEL, 0, 0, 0, LABEL_A, 0, 1 },
                    { T2_SEMICOLON, 0, 0, 0, 0, 0, 0 },
                    { T2_SEMICOLON, 0, 0, 0, 0, 0, 0 }};
 
-byte bC045[9];
-byte bC04E[9];
-bool boC057[9];
-bool boC060[9]; // 4
-bool boC069[9];
-bool boC072[9];
-bool boC07B[9]; // 4
-word wC084[9];
-word wC096[9];
-byte bC0A8[9];
-byte bC0B1;
-byte bC0B2;
-byte exprAttr[2];
-byte exprLoc[2];
-byte curExprLoc[2];
-byte bC0B9[2];
-byte bC0BB[2];
-byte bC0BD[2];
-byte bC0BF[2];
-byte bC0C1[2];
-byte bC0C3[125];
-byte bC140[125];
-byte bC1BD = 0;
-byte tx2qp;
-byte tx2qNxt       = 4;
-byte tx2qEnd       = 4;
-word codeSize            = 0;
-word wC1C3         = 0;
-word stackUsage         = 0;
-word wC1C7         = 0;
-byte activeGrpCnt         = 0;
-byte blkOverCnt    = 0;
-byte procCallDepth = 0;
-bool boC1CC        = false;
-bool boC1CD;
-bool eofSeen = false;
-byte curNodeType;
-byte nodeControlFlags;
-byte padC1D3;
-byte curExtProcId = 1;
-byte blkId  = 0;
-word wC1D6;
+uint8_t registerContents[9]; // What TX2 node is in each register
+uint8_t registerDataType[9];   // Data type attribute
+uint16_t registerStackOffset[9]; // Stack/memory offset
+uint8_t registerOffset[9];// Offset adjustment
+uint16_t registerStorageClass[9]; // Storage flags
+bool registerIsDirect[9];   // Direct value flag
+
+bool registerInExpression[9]; // Used by active expression
+bool registerNeedsSave[9]; // Must be preserved
+bool registerWasSaved[9]; // Was marked for save
+bool registerHasValue[9]; // Contains valid data
+uint8_t savedRegisterCount; // Registers to save
+uint8_t exprRegisterCount; // Active expr reg count
+uint8_t exprAttr[2];
+uint8_t exprLoc[2];
+uint8_t curExprLoc[2];
+uint8_t operandComplexity[2];
+uint8_t operandRegisterCost[2];
+uint8_t operandCategory[2];
+uint8_t operandFragmentType[2];
+uint8_t iCodeArgsIndex[2];
+uint8_t stackRegisterAttrs[125]; // Packed attribute+offset
+uint8_t stackNodeContents[125];  // TX2 node at each stack level
+//uint8_t bC1BD = 0;
+uint8_t tx2qp;     // current write position (4-255)
+uint8_t tx2qNxt       = 4; // next unprocessed note (set by setEndFirstStmt)
+uint8_t tx2qEnd       = 4; // endof valid data (=tx2qp on exit)
+uint16_t codeSize            = 0;
+uint16_t currentStackDepth         = 0;
+uint16_t stackUsage         = 0;
+uint16_t localVariableSize         = 0;
+uint8_t activeGrpCnt         = 0;
+uint8_t blkOverCnt    = 0;
+uint8_t procCallDepth = 0;
+bool returnGenerated        = false;
+bool nextReturnState;
+bool eofSeen = false;   // Stop filling when T2_EOF encountered
+uint8_t curNodeType;
+uint8_t nodeControlFlags;
+uint8_t curExtProcId = 1;
+uint8_t blkId  = 0;
+uint16_t currentFragmentCode;
 bool boC1D8 = false;
-byte bC1D9;
-byte cfrag1;
-byte bC1DB;
-word iCodeArgs[5];
-byte fragLen;
-byte fragment[34];
-byte bC209[]     = { 4, 5, 3, 2, 0, 1 };
+uint8_t selectedOperatorIdx;
+uint8_t cfrag1;
+uint8_t registersToSaveCount;
+uint16_t iCodeArgs[5];
+uint8_t fragLen;
+uint8_t fragment[34];
+uint8_t bC209[]     = { 4, 5, 3, 2, 0, 1 };
 bool boC20F      = false;
 
-byte copyRight[] = "(C) 1976, 1977, 1982 INTEL CORP";
+uint8_t copyRight[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
 static void InitPass() {
     vfReset(&utf1);
@@ -108,18 +108,18 @@ static void CodeAndStackSize() {
     info->stackUsage = stackUsage;
 } /* Sub_3F7D() */
 
-word Start2() {
+uint16_t Start2() {
  //   dump(&utf2, "utf2_main2");  // diagnostic dump
     if (setjmp(exception) == 0) {
         InitPass();
         while (1) {
-            FillTx2Q();
-            setEndFirstStmt();
+            FillTx2Queue();
+            SetFirstStatementEnd();
             if (tx2[4].nodeType == T2_EOF)
                 break;
             DeRelStmt();
-            Sub_6BD6();
-            Sub_A153();
+            OptimiseStmtNodes();
+            GenerateStatementCode();
         }
     }
     /* longjmp comes here */

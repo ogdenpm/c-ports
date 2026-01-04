@@ -239,7 +239,7 @@ void FlushRecs() {
     putWord(&recExec[CONTENT_OFF], baseAddr);
 }
 
-void AddWrdDisp(pstr_t *pstr, word disp) {
+void AddWrdDisp(pstr_t *pstr, uint16_t disp) {
     if (disp != 0) {
         if (disp > 0x8000) {
             pstr->str[pstr->len] = '-';
@@ -323,7 +323,7 @@ void EmitError() {
     }
 }
 
-void fatal_ov46(byte arg1b) {
+void fatal_ov46(uint8_t arg1b) {
     errData.num = fatalCode = arg1b;
     errData.info                 = 0;
     errData.stmt                 = stmtNo;
@@ -347,7 +347,7 @@ void ListInstruction(void) {
     }
 }
 
-static byte GetSourceCh() {
+static uint8_t GetSourceCh() {
     int c;
     for (;;) {
         if ((c = fgetc(srcFil.fp)) == '\r')

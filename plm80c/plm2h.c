@@ -8,119 +8,129 @@
  ****************************************************************************/
 #include "plm.h"
 
-static bool Sub_9C33() {
-    byte i, j, k;
 
-    i = (byte)tx2[tx2qp].left;
-    if ((nodeControlMap[tx2[i].nodeType] & 0xc0) == 0) {
-        if (tx2[i].cnt > 1)
+// Can inline if:
+// 1. Left operand is binary/unary operator (nodeControlMap & 0xC0 == 0)
+// 2. Reference count <= 1 (not shared)
+// 3. No stack reference (extra == 0) OR update stack tracking
+
+// Actions:
+// - Move expression from exprNodeIdx to tx2qp
+// - Decrement original node's reference count
+// - Update all register contents pointing to exprNodeIdx
+static bool TryInlineExpression() {
+    uint8_t exprNodeIdx, regIdx, savedRefCount;
+
+    exprNodeIdx = (uint8_t)tx2[tx2qp].left;
+    if ((nodeControlMap[tx2[exprNodeIdx].nodeType] & 0xc0) == 0) {
+        if (tx2[exprNodeIdx].cnt > 1)
             return false;
-        if (tx2[i].extra != 0)
-            bC140[tx2[i].extra] = tx2qp;
+        if (tx2[exprNodeIdx].extra != 0)
+            stackNodeContents[tx2[exprNodeIdx].extra] = tx2qp;
     }
-    k = (byte)tx2[tx2qp].cnt;
-    MoveTx2(i, tx2qp);
-    tx2[tx2qp].cnt = k;
-    tx2[i].cnt--;
-    for (j = 0; j <= 3; j++) {
-        if (bC04E[j] == i)
-            bC04E[j] = tx2qp;
+    savedRefCount = (uint8_t)tx2[tx2qp].cnt;
+    MoveTx2(exprNodeIdx, tx2qp);
+    tx2[tx2qp].cnt = savedRefCount;
+    tx2[exprNodeIdx].cnt--;
+    for (regIdx = 0; regIdx <= 3; regIdx++) {
+        if (registerContents[regIdx] == exprNodeIdx)
+            registerContents[regIdx] = tx2qp;
     }
     return true;
 }
 
-void Sub_9BB0() {
-    curExprLoc[Left]  = (byte)tx2[tx2qp].left;
-    curExprLoc[Right] = (byte)tx2[tx2qp].right;
-    if (T2_DOUBLE <= curNodeType && curNodeType <= T2_ADDRESSOF)
-        Sub_717B();
+void GenerateOperatorCode() {
+    curExprLoc[Left]  = (uint8_t)tx2[tx2qp].left;
+    curExprLoc[Right] = (uint8_t)tx2[tx2qp].right;
+    if (T2_DOUBLE <= curNodeType && curNodeType <= T2_ADDRESSOF) // type conversion
+        FoldConstantExpr();
     if (curNodeType <= T2_MEMBER) {
-        Sub_7550();
+        OptimiseExpression();
         if (curNodeType == T2_65)
-            if (Sub_9C33())
+            if (TryInlineExpression()) // attempt inline optimisation
                 return;
     }
-    if ((nodeControlFlags & 0xc0) == 0) {
-        Sub_87CB();
+    if ((nodeControlFlags & 0xc0) == 0) { // binary/unary operator
+        GenerateExpressionCode();
         if (curNodeType == T2_MOVE)
             procCallDepth = 0;
-    } else if ((nodeControlFlags & 0xc0) == 0x80)
-        Sub_994D();
+    } else if ((nodeControlFlags & 0xc0) == 0x80)   // statement level node
+        ProcessSpecialNodes(); // handle statement-level codegeneration
 }
 
-static byte b9BA8[2] = { 12, 13 };
-static byte b9BAA[2] = { 1, 2 };
+static uint8_t addressTypeEncoding[2] = { 12, 13 };
+static uint8_t byteTypeEncoding[2] = { 1, 2 };
 
-void c_call() {
-    byte j, k;
-    pointer pbyt;
-    byte m;
+void GenerateCallCode() {
+    uint8_t remainingParams, paramIdx;
+    pointer encodingPtr;
+    uint8_t totalParams;
 
     if (procCallDepth <= 10) {
         info           = FromIdx(tx2[tx2qp].extra);
-        wAF54[T2_CALL] = info->returnType == ADDRESS_T ? ADDRESS_A : BYTE_A;
-        j = m = info->paramCnt;
-        pbyt  = &b44F7[wAF54[T2_CALL]];
-        k     = 0;
+        nodeTypeToAttribute[T2_CALL] = info->returnType == ADDRESS_T ? ADDRESS_A : BYTE_A;
+        remainingParams = totalParams = info->paramCnt;
+        encodingPtr  = &fragmentOpcodeTable[nodeTypeToAttribute[T2_CALL]];
+        paramIdx     = 0;
 
-        while (j > 0) {
+        while (remainingParams > 0) {
             AdvNxtInfo();
-            if (--j < 2) {
-                *pbyt = ((*pbyt << 4) | (info->type == ADDRESS_T ? b9BA8[k] : b9BAA[k]));
-                k     = 1;
+            if (--remainingParams < 2) {
+                *encodingPtr = ((*encodingPtr << 4) | (info->type == ADDRESS_T ? addressTypeEncoding[paramIdx] : byteTypeEncoding[paramIdx]));
+                paramIdx     = 1;
             }
         }
 
-        if (m == 1)
-            *pbyt <<= 4;
-        Sub_9BB0();
-        wC1C3 = wB528[procCallDepth];
+        if (totalParams == 1)
+            *encodingPtr <<= 4;
+        GenerateOperatorCode();
+        currentStackDepth = callStackDepth[procCallDepth];
     }
     procCallDepth--;
 }
 
-static byte Sub_9EAA(byte exprIdx, byte lrIdx) {
-    return exprIdx == 0 ? 0 : tx2[exprIdx].exprAttr == BYTE_A ? b9BAA[lrIdx] : b9BA8[lrIdx];
+static uint8_t GetParameterTypeEncoding(uint8_t exprIdx, uint8_t lrIdx) {
+    return exprIdx == 0 ? 0 : tx2[exprIdx].exprAttr == BYTE_A ? byteTypeEncoding[lrIdx] : addressTypeEncoding[lrIdx];
 }
 
-void c_callVar() {
-    byte i;
+void GenerateIndirectCallCode() {
+    uint8_t callVarNodeIDx;
 
     if (procCallDepth <= 10) {
-        byte cvVal;
-        i = (byte)tx2[tx2qp].extra;
-        if (tx2[i].nodeType == T2_IDENTIFIER) {
-            info  = FromIdx(tx2[i].left);
-            cvVal = info->flag & F_AUTOMATIC ? 3 : 4;
-        } else if (tx2[i].extra == wB53C[procCallDepth]) {
-            cvVal = 5;
-            wB528[procCallDepth]--;
+        uint8_t callVariableType;
+        callVarNodeIDx = (uint8_t)tx2[tx2qp].extra;
+        if (tx2[callVarNodeIDx].nodeType == T2_IDENTIFIER) {
+            info  = FromIdx(tx2[callVarNodeIDx].left);
+            callVariableType = info->flag & F_AUTOMATIC ? 3 : 4;    // automatic or static/memory variable
+        } else if (tx2[callVarNodeIDx].extra == callStackBase[procCallDepth]) {
+            callVariableType = 5;   // stack/memory variable
+            callStackDepth[procCallDepth]--;
         } else
-            cvVal = 2;
+            callVariableType = 2;   // generic call variable
 
-        wAF54[T2_CALLVAR] = cvVal;
-        b44F7[cvVal] =
-            (Sub_9EAA((byte)tx2[tx2qp].left, Left) << 4) | Sub_9EAA((byte)tx2[tx2qp].right, Right);
-        Sub_9BB0();
-        wC1C3 = wB528[procCallDepth];
+        nodeTypeToAttribute[T2_CALLVAR] = callVariableType;
+        fragmentOpcodeTable[callVariableType] =
+            (GetParameterTypeEncoding((uint8_t)tx2[tx2qp].left, Left) << 4) | GetParameterTypeEncoding((uint8_t)tx2[tx2qp].right, Right);
+        GenerateOperatorCode();
+        currentStackDepth = callStackDepth[procCallDepth];
     }
     procCallDepth--;
 }
 
-void c_begMove() {
+void BeginMoveOperation() {
     procCallDepth = 1;
-    Sub_9BB0();
-    wB53C[procCallDepth] = wC1C3;
+    GenerateOperatorCode();
+    callStackBase[procCallDepth] = currentStackDepth;
 }
 
-void c_case() {
+void EnterCaseBlock() {
     if (EnterBlk())
         blk[activeGrpCnt].activeGrpCnt = topCase;
 }
 
-void c_endcase() {
-    index_t curCase, q;
-    curCase = q = blk[activeGrpCnt].activeGrpCnt;
+void ExitCaseBlock() {
+    index_t curCase, savedTopCase;
+    curCase = savedTopCase = blk[activeGrpCnt].activeGrpCnt;
     if (ExitBlk()) {
         while (curCase < topCase) {
             iCodeArgs[0] = IR_CASELAB;
@@ -129,20 +139,20 @@ void c_endcase() {
             codeSize += 2;
             curCase++;
         }
-        if (topCase == q) {
+        if (topCase == savedTopCase) {
             Tx2SyntaxError(ERR201); /*  Invalid() do CASE block, */
                                     /*  at least on case required */
             EmitTopItem();
         }
-        topCase = q;
+        topCase = savedTopCase;
     }
 }
 
-void c_endproc() {
+void ExitProcedure() {
     if (ExitBlk()) {
         info = blk[blkId].info;
-        if (!boC1CC) {
-            Sub_5EE8();
+        if (!returnGenerated) {
+            GenerateReturnSequence();
             EncodeFragData(CF_RET);
             codeSize++;
         }
@@ -150,39 +160,39 @@ void c_endproc() {
             stackUsage += 8;
 
         info->dim     = codeSize;
-        info->baseVal = stackUsage + wC1C7;
+        info->baseVal = stackUsage + localVariableSize;
         codeSize      = blk[blkId = blk[blkId].next].codeSize;
         fragLen       = 0;
         PutTx1Byte(0xa4);
         PutTx1Word(ToIdx(blk[blkId].info));
         PutTx1Word(codeSize);
         WrFragData();
-        wC1C3        = blk[blkId].wB4B0;
+        currentStackDepth        = blk[blkId].wB4B0;
         stackUsage   = blk[blkId].stackSize;
-        wC1C7        = 0;
+        localVariableSize        = 0;
         curExtProcId = blk[blkId].extProcId;
     }
 }
 
-void c_length(byte adjust) {
-    word p;
+void GenerateLengthBuiltin(uint8_t adjust) {
+    uint16_t resultValue;
     info = FromIdx(tx2[tx2qp].left);
-    p    = info->dim - adjust;
-    Sub_5F4B(p, NULL, p < 0x100 ? BYTE_A : ADDRESS_A, LOC_REG);
+    resultValue    = info->dim - adjust;
+    CreateConstantOrIdNode(resultValue, NULL, resultValue < 0x100 ? BYTE_A : ADDRESS_A, LOC_REG);
 }
 
-void c_size() {
-    word p;
-    p = GetElementSize(FromIdx(tx2[tx2qp].left));
-    Sub_5F4B(p, NULL, p < 0x100 ? BYTE_A : ADDRESS_A, LOC_REG);
+void GenerateSIzeBuiltin() {
+    uint16_t resultValue;
+    resultValue = GetElementSize(FromIdx(tx2[tx2qp].left));
+    CreateConstantOrIdNode(resultValue, NULL, resultValue < 0x100 ? BYTE_A : ADDRESS_A, LOC_REG);
 }
 
-void c_begCall() {
+void BeginProcedureCall() {
     procCallDepth++;
     if (procCallDepth <= 10) {
-        Sub_5E66(0xf);
-        wB528[procCallDepth] = wC1C3;
-        wB53C[procCallDepth] = wC1C3;
+        InvalidateRegistersByMask(0xf);
+        callStackDepth[procCallDepth] = currentStackDepth;
+        callStackBase[procCallDepth] = currentStackDepth;
     } else if (procCallDepth == 11) {
         Tx2SyntaxError(ERR203); /*  LIMIT EXCEEDED: NESTING OF TYPED */
                                 /*  procedure CALLS */
@@ -190,61 +200,61 @@ void c_begCall() {
     }
 }
 
-static void Sub_A266() {
-    byte i;
+static void ResetCodeGenState() {
+    uint8_t regIdx;
 
-    boC1CD = false;
-    for (i = 0; i <= 3; i++) {
-        bC045[i]  = 0xc;
-        bC04E[i]  = 0;
-        boC057[i] = false;
+    nextReturnState = false;
+    for (regIdx = 0; regIdx <= 3; regIdx++) {
+        registerDataType[regIdx]  = 0xc;    // likely expression attribute/types
+        registerContents[regIdx]  = 0;      // likely expression locations
+        registerIsDirect[regIdx] = false;  // likely expression flags/conditions
     }
 }
 
-void Sub_A153() {
-    Sub_A266();
+void GenerateStatementCode() {
+    ResetCodeGenState();
     for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
         curNodeType      = tx2[tx2qp].nodeType;
         nodeControlFlags = nodeControlMap[curNodeType];
-        switch (nodeControlFlags >> 6) {
-        case 0:
+        switch (nodeControlFlags >> 6) {    // node category
+        case 0: // Binary/Unary operators & special operations
             if (curNodeType == T2_CALL)
-                c_call();
+                GenerateCallCode();
             else if (curNodeType == T2_CALLVAR)
-                c_callVar();
+                GenerateIndirectCallCode();
             else if (curNodeType == T2_BEGMOVE)
-                c_begMove();
+                BeginMoveOperation();
             else
-                Sub_9BB0();
+                GenerateOperatorCode();
             break;
-        case 1:
+        case 1: // builtin functions  (LENGTH, LAST, SIZE)
             if (curNodeType == T2_LENGTH)
-                c_length(0);
+                GenerateLengthBuiltin(0);
             else if (curNodeType == T2_LAST)
-                c_length(1);
+                GenerateLengthBuiltin(1);
             else if (curNodeType == T2_SIZE)
-                c_size();
+                GenerateSIzeBuiltin();
             break;
-        case 2:
+        case 2: // procedure/statement nodes
             if (curNodeType == T2_PROCEDURE)
                 c_procedure();
             else
-                Sub_994D();
+                ProcessSpecialNodes();
             break;
-        case 3:
+        case 3: // control flow (CASE, ENDCASE, ENDPROC, BEGCALL)
             if (curNodeType == T2_CASE)
-                c_case();
+                EnterCaseBlock();
             else if (curNodeType == T2_ENDCASE)
-                c_endcase();
+                ExitCaseBlock();
             else if (curNodeType == T2_ENDPROC)
-                c_endproc();
+                ExitProcedure();
             else if (curNodeType == T2_BEGCALL)
-                c_begCall();
+                BeginProcedureCall();
             break;
         }
 
         tx2[tx2qp].extra = 0;
     }
-    Sub_5795(0);
-    boC1CC = boC1CD;
+    AdjustStackOnReturn(0);    // final code generation cleanup
+    returnGenerated = nextReturnState;    // update code generation state flag
 }

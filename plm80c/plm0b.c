@@ -15,19 +15,19 @@
 #define BADINFO (infotab + MAXINFO + 100)   // after table and keywords
 
 // forward references
-static byte InGetC();
+static uint8_t InGetC();
 static void GetLin();
 
 // optTable is encoded with entries as follows
 // name as pstr, control bytes as per structure below
 static struct {
-    byte optLen;
+    uint8_t optLen;
     char *optName;
-    byte tokenId;    // if none zero then token id to put in lexical stream
+    uint8_t tokenId;    // if none zero then token id to put in lexical stream
     bool primary;    // true if primary control
-    byte controlId;  // index into controls if not 0xff
-    byte controlVal; // index used in switch in PraseExtControl
-    byte primaryId;  // index into primaryCtrlSeen
+    uint8_t controlId;  // index into controls if not 0xff
+    uint8_t controlVal; // index used in switch in PraseExtControl
+    uint8_t primaryId;  // index into primaryCtrlSeen
 } *tknFlagsP, optTable[] = { { 5, "PRINT", 0, 0, 0xFF, 7, 0 },
                              { 7, "NOPRINT", 0, 0, 0xFF, 8, 0 },
                              { 4, "LIST", T1_LIST, 1, 0, 0, 0 },
@@ -70,32 +70,32 @@ static struct {
                              { 6, "NOCOND", 0, 1, 0xFF, 23, 0 },
                              { 10, "MAKEDEPEND", 0, 0, 0xFF, 24, 15 } };
 
-byte primaryCtrlSeen[15]; // C defaults to all false
+uint8_t primaryCtrlSeen[15]; // C defaults to all false
 static struct {
-    byte code;
-    byte list;
-    byte cond;
-    word leftMargin;
+    uint8_t code;
+    uint8_t list;
+    uint8_t cond;
+    uint16_t leftMargin;
 } saveStack[5];
 
-static byte saveDepth;
+static uint8_t saveDepth;
 static bool CODE = false;
 static bool LIST = true;
 static bool COND = true;
 static char *curChP;
-static byte chrClass;
+static uint8_t chrClass;
 static union {
     struct {
-        word len; // allow long filenames on command line.
+        uint16_t len; // allow long filenames on command line.
         char *str;
     };
     pstr_t *pstr;
 } optVal;
 
-static word optNumValue;
+static uint16_t optNumValue;
 static bool lstGiven;
 static bool inIFpart;
-static word skippingIfDepth;
+static uint16_t skippingIfDepth;
 
 // NxtCh()
 // on input curChP points to current char and chrClass is set to the correspondingly
@@ -115,7 +115,7 @@ static void NxtCh() {
         *curChP = ' ';
 } /* NxtCh() */
 
-static void BadCmdTail(byte err) {
+static void BadCmdTail(uint8_t err) {
     if (moreCmdLine) // processing command line
         Fatal("ILLEGAL COMMAND TAIL SYNTAX OR VALUE");
     else
@@ -164,7 +164,7 @@ static void AcceptFileName() {
         char *s = curChP;
         while (s > optVal.str && s[-1] == ' ') // trim trailing space
             s--;
-        optVal.len = (word)(s - optVal.str);
+        optVal.len = (uint16_t)(s - optVal.str);
         char *cstr = safeMalloc(optVal.len + 1);
         memcpy(cstr, optVal.str, optVal.len);
         cstr[optVal.len] = '\0';
@@ -174,13 +174,13 @@ static void AcceptFileName() {
     }
 }
 
-static word Asc2Num(char *firstChP, char *lastChP, byte radix) {
+static uint16_t Asc2Num(char *firstChP, char *lastChP, uint8_t radix) {
 
     if (lastChP < firstChP || radix == 0)
         return 0xffff;
 
     uint32_t num = 0; // 32 bit to simplify overflow test
-    byte digit;
+    uint8_t digit;
     for (; firstChP <= lastChP; firstChP++) {
         if (cClass[*(pointer)firstChP] == CC_DIGIT)
             digit = *firstChP - '0';
@@ -191,13 +191,13 @@ static word Asc2Num(char *firstChP, char *lastChP, byte radix) {
         if (digit >= radix || (num = num * radix + digit) > 0xffff)
             return 0xffff;
     }
-    return (word)num;
+    return (uint16_t)num;
 }
 
-static byte ChkRadix(char **pLastCh) {
-    byte *p;
+static uint8_t ChkRadix(char **pLastCh) {
+    uint8_t *p;
 
-    p = (byte *)*pLastCh;
+    p = (uint8_t *)*pLastCh;
     if (cClass[*p] == CC_DIGIT)
         return 10;
     --*pLastCh;
@@ -213,9 +213,9 @@ static byte ChkRadix(char **pLastCh) {
         return 0;
 }
 
-static word ParseNum() {
+static uint16_t ParseNum() {
     char *firstCh, *lastCh;
-    byte radix;
+    uint8_t radix;
 
     NxtCh();
     SkipWhite();
@@ -244,10 +244,10 @@ static void GetOptStr() {
     while (*curChP != ' ' && *curChP != '(' && chrClass != CC_NEWLINE &&
            *curChP != '\r') // \r is cmdline continuation
         NxtCh();
-    optVal.len = (byte)(curChP - optVal.str);
+    optVal.len = (uint8_t)(curChP - optVal.str);
 }
 
-static void ParseId(byte maxLen) {
+static void ParseId(uint8_t maxLen) {
     optVal.pstr      = (pstr_t *)tokenStr;
     optVal.pstr->len = 0;
     SkipWhite();
@@ -287,7 +287,7 @@ static void GetVar() {
 
 // return logical operator
 // none (0), OR (1), AND (2), XOR (3), bad (4)
-static byte GetLogical() {
+static uint8_t GetLogical() {
     ParseId(4);
     if (optVal.pstr->len == 0 && chrClass == CC_NEWLINE)
         return 0;
@@ -307,8 +307,8 @@ static byte GetLogical() {
 
 // returns test operation
 // = (1), < (2), <= (3), > (4), >= (5), <> (6)
-static byte GetTest() {
-    byte test;
+static uint8_t GetTest() {
+    uint8_t test;
 
     test = 0;
     SkipWhite();
@@ -330,9 +330,9 @@ static byte GetTest() {
     return test;
 }
 
-static byte ChkNot() // checks for potentially multiple NOT prefixes
+static uint8_t ChkNot() // checks for potentially multiple NOT prefixes
 {
-    byte notStatus = 0;
+    uint8_t notStatus = 0;
 
     while ((1)) {
         char *tmp = curChP - 1;
@@ -345,8 +345,8 @@ static byte ChkNot() // checks for potentially multiple NOT prefixes
     }
 }
 
-static word GetIfVal() {
-    word val;
+static uint16_t GetIfVal() {
+    uint16_t val;
 
     chrClass = 0;
     NxtCh();
@@ -369,9 +369,9 @@ static word GetIfVal() {
 }
 
 static bool ParseIfCond() {
-    byte andFactor, orFactor, xorFactor;
-    word val1, val2;
-    byte relOp, not1, not2;
+    uint8_t andFactor, orFactor, xorFactor;
+    uint16_t val1, val2;
+    uint8_t relOp, not1, not2;
 
     andFactor = 0xff;
     orFactor  = 0;
@@ -422,7 +422,7 @@ static bool ParseIfCond() {
             xorFactor = 0;
             break;
         case 2: // AND
-            andFactor = (byte)val1;
+            andFactor = (uint8_t)val1;
             break;
         case 3: // XOR
             xorFactor = (val1 | orFactor) ^ xorFactor;
@@ -447,7 +447,7 @@ static void OptPageWidth() {
     if (optNumValue < 60 || optNumValue > 132)
         BadCmdTail(ERR92); /* ILLEGAL PAGEWIDTH CONTROL VALUE */
     else
-        PWIDTH = (byte)optNumValue;
+        PWIDTH = (uint8_t)optNumValue;
 }
 
 /*
@@ -466,7 +466,7 @@ static void OptDate() {
         DATELEN        = sprintf(DATE, "%04d-%02d-%02d %02d:%02d:%02d", now->tm_year + 1900,
                                  now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min, now->tm_sec);
     } else {
-        byte nesting = 0;
+        uint8_t nesting = 0;
         NxtCh();
         optVal.str = curChP;
         for (;;) {
@@ -481,7 +481,7 @@ static void OptDate() {
             }
             NxtCh();
         }
-        optVal.len = curChP - optVal.str > 10 ? 10 : (word)(curChP - optVal.str);
+        optVal.len = curChP - optVal.str > 10 ? 10 : (uint16_t)(curChP - optVal.str);
         AcceptRP();
         memcpy(DATE, optVal.str, optVal.len);
         DATELEN          = optVal.len;
@@ -616,14 +616,14 @@ static void OptPrint() {
 }
 
 static void OptIntVector() {
-    byte vecNum;
-    word vecLoc;
+    uint8_t vecNum;
+    uint16_t vecLoc;
 
     SkipWhite();
     if (*curChP != '(')
         BadCmdTail(ERR11); /* MISSING CONTROL PARAMETER */
     else {
-        vecNum = (byte)ParseNum();
+        vecNum = (uint8_t)ParseNum();
         if (vecNum != 4 && vecNum != 8) {
             BadCmdTail(ERR176); /* INVALID INTVECTOR INTERVAL VALUE */
             SkipToRPARorEOL();
@@ -645,7 +645,7 @@ static void OptIntVector() {
     }
 }
 
-static bool AcceptDrive(byte follow) {
+static bool AcceptDrive(uint8_t follow) {
     SkipWhite();
     if (curChP[0] == ':' && toupper(curChP[1]) == 'F' && isdigit(curChP[2]) && curChP[3] == ':') {
         curChP += 4;
@@ -704,7 +704,7 @@ static void OptRestore() {
 }
 
 static void OptSetReset(bool isSet) {
-    word val;
+    uint16_t val;
 
     SkipWhite();
     if (*curChP != '(')
@@ -728,7 +728,7 @@ static void OptSetReset(bool isSet) {
                     SkipToRPARorEOL();
                     return;
                 }
-                info->condFlag = (byte)val;
+                info->condFlag = (uint8_t)val;
             } else
                 info->condFlag = isSet;
             if (*curChP != ',') {
@@ -930,7 +930,7 @@ void ParseControlLine(char *pch) {
     }
 }
 
-static void ChkEndSkipping(byte *pch) {
+static void ChkEndSkipping(uint8_t *pch) {
     curChP = (char *)pch;
     if (*curChP == '$') {
         chrClass = 0;
@@ -970,7 +970,7 @@ void GNxtCh() {
 // get next char into *inChrP
 // char is 0x81 on EOF, cr is discarded
 
-static byte InGetC() {
+static uint8_t InGetC() {
     int c;
     while ((c = fgetc(srcFil.fp)) == '\r')
         ;
@@ -1010,7 +1010,7 @@ static void GetSrcLine() {
 }
 
 static void GetCodeLine() {
-    byte *startOfLine;
+    uint8_t *startOfLine;
 
     while (1) {
         GetSrcLine();

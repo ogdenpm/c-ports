@@ -49,7 +49,7 @@ void GetTx1Item() {
         curSym = symtab + tx1Item.dataw[0];
 }
 
-bool MatchTx1Item(byte type) // check for requested Lex item. If present return true else return
+bool MatchTx1Item(uint8_t type) // check for requested Lex item. If present return true else return
                              // false and don't consume item
 {
     GetTx1Item();
@@ -61,13 +61,13 @@ bool MatchTx1Item(byte type) // check for requested Lex item. If present return 
     }
 }
 
-bool NotMatchTx1Item(byte type) /// check for requested Lex item. If present consume item and
+bool NotMatchTx1Item(uint8_t type) /// check for requested Lex item. If present consume item and
                                  /// return false else return true and don't consume item
 {
     return !MatchTx1Item(type);
 }
 
-bool MatchTx2AuxFlag(byte flag) {
+bool MatchTx2AuxFlag(uint8_t flag) {
     GetTx1Item();
     if ((tx1Attr & flag))
         return true;
@@ -89,7 +89,7 @@ void ResyncRParen() {
     MatchTx1Item(T1_RPAREN); // consume the RP if seen
 }
 
-void ExpectRParen(byte arg1b) {
+void ExpectRParen(uint8_t arg1b) {
     if (NotMatchTx1Item(T1_RPAREN)) {
         Wr2TokError(arg1b);
         ResyncRParen();
@@ -136,14 +136,14 @@ void GetVariable() {
     }
 }
 
-void WrAtBuf(void const *buf, word cnt) {
+void WrAtBuf(void const *buf, uint16_t cnt) {
     vfWbuf(&atf, buf, cnt);
 }
 
-void WrAtByte(byte arg1b) {
+void WrAtByte(uint8_t arg1b) {
     vfWbyte(&atf, arg1b);
 }
 
-void WrAtWord(word arg1w) {
+void WrAtWord(uint16_t arg1w) {
     vfWword(&atf, arg1w);
 }

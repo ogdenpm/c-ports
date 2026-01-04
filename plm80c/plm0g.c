@@ -9,7 +9,7 @@
 #include "os.h"
 #include "plm.h"
 
-pstr_t const *CreateLit(word wTokenLen, char const *str) {
+pstr_t const *CreateLit(uint16_t wTokenLen, char const *str) {
     pstr_t *lit;
 
     lit = safeMalloc(wTokenLen + 3);

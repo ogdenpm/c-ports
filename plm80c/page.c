@@ -9,7 +9,7 @@
 #include "plm.h"
 
 void NewPgl() {
-    byte pad = 0;
+    uint8_t pad = 0;
     if (!PAGING)
         return;
     linLft         = PAGELEN;

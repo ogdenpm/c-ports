@@ -8,10 +8,10 @@
  ****************************************************************************/
 #include "plm.h"
 
-static byte nodeSize; // lifted to file scope
+static uint8_t nodeSize; // lifted to file scope
 
-static void cvtFromRel(byte rel, word *ploc) {
-    word p;
+static void cvtFromRel(uint8_t rel, uint16_t *ploc) {
+    uint16_t p;
 
     if (*ploc) {
         if (rel > nodeSize)
@@ -41,7 +41,7 @@ static void DeRelNode() {
     cvtFromRel(2, &tx2[tx2qp].right);
     if (nodeSize == 3) {
         if (curNodeType == T2_BYTEINDEX || curNodeType == T2_WORDINDEX) {
-            word leftLoc = (byte)tx2[tx2qp].left;
+            uint16_t leftLoc = (uint8_t)tx2[tx2qp].left;
             tx2[leftLoc].right += tx2[tx2qp].extra * GetElementSize(FromIdx(tx2[leftLoc].left));
         } else if (curNodeType != T2_CALL)    // T2_CALL convert to info pointer done elsewhere
             cvtFromRel(3, &tx2[tx2qp].extra); // otherwise convert from rel
@@ -50,7 +50,7 @@ static void DeRelNode() {
     tx2[tx2qp].exprLoc   = LOC_SPECIAL;
 }
 
-static byte typeExprMap[] = {
+static uint8_t typeExprMap[] = {
     LIT_A, LABEL_A, BYTE_A, ADDRESS_A, STRUCT_A, BYTE_A, BYTE_A
 }; // index by info->type (excludes Macro, unk and condvar
 

@@ -8,7 +8,7 @@
  ****************************************************************************/
 #include "plm.h"
 
-byte cClass[] = {
+uint8_t cClass[] = {
     CC_NONPRINT, CC_NONPRINT, CC_NONPRINT, CC_NONPRINT,  CC_NONPRINT, CC_NONPRINT, CC_NONPRINT,
     CC_NONPRINT, CC_NONPRINT, CC_WSPACE,   CC_NEWLINE,   CC_NONPRINT, CC_NONPRINT, CC_WSPACE,
     CC_NONPRINT, CC_NONPRINT, CC_NONPRINT, CC_NONPRINT,  CC_NONPRINT, CC_NONPRINT, CC_NONPRINT,
@@ -30,7 +30,7 @@ byte cClass[] = {
     CC_INVALID,  CC_NONPRINT
 };
 
-byte tToLMap[] = { T1_IDENTIFIER, T1_NUMBER, T1_STRING, T1_PLUSSIGN, T1_MINUSSIGN, T1_STAR, T1_SLASH,
+uint8_t tToLMap[] = { T1_IDENTIFIER, T1_NUMBER, T1_STRING, T1_PLUSSIGN, T1_MINUSSIGN, T1_STAR, T1_SLASH,
                    T1_MOD, T1_PLUS, T1_MINUS, T1_AND, T1_OR, T1_XOR, T1_NOT, 0, T1_LT, T1_LE, T1_EQ, T1_NE, // T1_14
                    T1_GE, T1_GT, T1_COLONEQUALS, T1_INVALID, T1_INVALID,           // COLON, SEMICOLON
                    T1_PERIOD, T1_LPAREN, T1_RPAREN, T1_COMMA, T1_CALL, T1_INVALID,  // DECLATE
@@ -46,34 +46,34 @@ byte tToLMap[] = { T1_IDENTIFIER, T1_NUMBER, T1_STRING, T1_PLUSSIGN, T1_MINUSSIG
 /* public variables */
 macro_t macroPtrs[6];
 
-word macroDepth = 0;
-word tokenVal;
-byte *inChrP;
-word stateStack[100];
-word stateSP;
+uint16_t macroDepth = 0;
+uint16_t tokenVal;
+uint8_t *inChrP;
+uint16_t stateStack[100];
+uint16_t stateSP;
 sym_t *stmtLabels[10];
-word stmtLabelCnt;
+uint16_t stmtLabelCnt;
 
-word curStmtCnt = 0;
-word curBlkCnt  = 0;
+uint16_t curStmtCnt = 0;
+uint16_t curBlkCnt  = 0;
 info_t *macroInfo;
 sym_t *markedSym;
-byte lineBuf[MAXLINE + 1];
-byte tokenType;
-word wTokenLen; // used for strings and lit, len > 255
-byte tokenStr[MAXSTRING + 2];   // pstr len, str, '\0'
-byte nextCh;
-byte stmtStartCode;
-byte stmtStartToken;
-byte startLexCode;
-word doBlkCnt = 0;
+uint8_t lineBuf[MAXLINE + 1];
+uint8_t tokenType;
+uint16_t wTokenLen; // used for strings and lit, len > 255
+uint8_t tokenStr[MAXSTRING + 2];   // pstr len, str, '\0'
+uint8_t nextCh;
+uint8_t stmtStartCode;
+uint8_t stmtStartToken;
+uint8_t startLexCode;
+uint16_t doBlkCnt = 0;
 sym_t *stmtStartSymbol;
 bool lineInfoToWrite = false;
 bool isNonCtrlLine   = false;
 bool yyAgain         = false;
-word curScope;
+uint16_t curScope;
 bool skippingCOND = false;
-word ifDepth      = 0;
+uint16_t ifDepth      = 0;
 
 void Wr1LineInfo() {
     if (lineInfoToWrite) {
@@ -83,7 +83,7 @@ void Wr1LineInfo() {
     }
 } /* WriteLineInfo() */
 
-void Wr1Buf(void const *buf, word len) {
+void Wr1Buf(void const *buf, uint16_t len) {
     Wr1LineInfo();
     vfWbuf(&utf1, buf, len);
 }
@@ -115,30 +115,30 @@ uint16_t Rd1Word() {
     return vfRword(&utf1);
 }
 
-void Wr1SyntaxError(word err) {
+void Wr1SyntaxError(uint16_t err) {
     hasErrors = true;
     Wr1Byte(T1_SYNTAXERROR);
     Wr1Word(err);
 } /* SyntaxError() */
 
-void Wr1TokenError(word err, sym_t *sym) {
+void Wr1TokenError(uint16_t err, sym_t *sym) {
     hasErrors = true;
     Wr1Byte(T1_TOKENERROR);
     Wr1Word(err);
     Wr1Word((uint16_t)(sym ? sym - symtab : 0));
 } /* TokenError() */
 
-void Wr1TokenErrorAt(word err) {
+void Wr1TokenErrorAt(uint16_t err) {
     Wr1TokenError(err, markedSym);
 } /* TokenErrorAt() */
 
-_Noreturn void Lexfatal(word err) {
+_Noreturn void Lexfatal(uint16_t err) {
     Wr1TokenErrorAt(err);
     fatalCode = err;
     longjmp(exception, -1);
 }
 
-void PushBlock(word idAndLevel) {
+void PushBlock(uint16_t idAndLevel) {
     if (scopeSP == 34)
         Lexfatal(ERR84); /* LIMIT EXCEEDED: BLOCK NESTING */
     else {

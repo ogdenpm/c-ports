@@ -38,7 +38,7 @@ sym_t *newSymbol(pstr_t const *ps) {
 info_t infotab[MAXINFO];
 info_t *topInfo = &infotab[1];  // 0 reserved
 
-void newInfo(byte type) {
+void newInfo(uint8_t type) {
     if (topInfo >= &infotab[MAXINFO])
             fatal("Out of info space");
     topInfo->type = type;
@@ -72,7 +72,7 @@ index_t newCase(index_t val) {
 xref_t xreftab[MAXXREF];
 xref_t *topXref = xreftab;
 
-xref_t *newXref(xref_t *xrefNext, word line) {
+xref_t *newXref(xref_t *xrefNext, uint16_t line) {
     if (topXref >= xreftab + MAXXREF)
             fatal("Out of cross reference space");
     topXref->next = xrefNext;

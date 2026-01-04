@@ -8,8 +8,8 @@
  ****************************************************************************/
 #include "plm.h"
 
-byte Hash(pstr_t *pstr) {
-    byte hash = pstr->len;
+uint8_t Hash(pstr_t *pstr) {
+    uint8_t hash = pstr->len;
 
     for (int i = 0; i < pstr->len; i++)
         hash = (hash << 1) + (hash >> 7) + pstr->str[i];
@@ -18,7 +18,7 @@ byte Hash(pstr_t *pstr) {
 } /* Hash() */
 
 void Lookup(pstr_t *pstr) {
-    byte hval = Hash(pstr);
+    uint8_t hval = Hash(pstr);
 
     curSym    = hashTab[hval]; // find start of list in hash table
     for (sym_t *prevSym = NULL; curSym; prevSym = curSym, curSym = curSym->link) {

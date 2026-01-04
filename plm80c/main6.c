@@ -10,15 +10,15 @@
 #include "cmdline.h"
 #include "plm.h"
 
-// static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+// static uint8_t copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 bool moreLines = true;
-word lineCnt;
+uint16_t lineCnt;
 
 // lifted to file scope
-static word itemArgs[4];
+static uint16_t itemArgs[4];
 
 static void UpdateLineInfo() {
-    word i;
+    uint16_t i;
     if (itemArgs[1] > 0 || itemArgs[2] == 0)
         itemArgs[3] = itemArgs[0];
     else {
@@ -117,7 +117,7 @@ static void NoObjSignOn() {
         lprintf("\nNO OBJECT MODULE %s\nCOMPILER INVOKED BY: ",
                 OBJECT ? "GENERATED" : "REQUESTED");
         // replace with PrintCmdLine code
-        linLft -= (byte)printCmdLine(lstFile.fp, PWIDTH, 23);
+        linLft -= (uint8_t)printCmdLine(lstFile.fp, PWIDTH, 23);
         col = 0;
         SetSkipLst(3);
     }
@@ -144,7 +144,7 @@ static void initPhase6() {
     programErrCnt = linesRead = csegSize = 0;
 }
 
-word Start6() {
+uint16_t Start6() {
     if (setjmp(exception) == 0) {
         initPhase6();
         NoObjSignOn();

@@ -8,7 +8,7 @@
  ****************************************************************************/
 #include "os.h"
 #include "plm.h"
-// static byte copyRight[] = "[C] 1976, 1977, 1982 INTEL CORP";
+// static uint8_t copyRight[] = "[C] 1976, 1977, 1982 INTEL CORP";
 char const help[] =
     "Usage: %s inputFile [pl/m-80 option]*)\n"
     "Where the case insensitive pl/m-80 options are: (note * indicates default)\n"

@@ -177,7 +177,6 @@ extern FILE *polFp;
 extern FILE *inFp;
 extern FILE *lstFp;
 extern FILE *symFp;
-extern char *src;
 
 typedef struct {
     uint8_t extra;

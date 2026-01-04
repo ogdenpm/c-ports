@@ -9,8 +9,8 @@
 #include "plm.h"
 #include <ctype.h>
 
-static byte ENDorSEMICOLON[2] = { L_END, L_SEMICOLON };
-static byte tokenTypeTable[]  = {
+static uint8_t ENDorSEMICOLON[2] = { L_END, L_SEMICOLON };
+static uint8_t tokenTypeTable[]  = {
     L_NUMBER, L_NUMBER, L_NUMBER, L_IDENTIFIER, L_IDENTIFIER, L_PLUSSIGN, L_MINUSSIGN,
     L_STAR,   L_SLASH,  L_LPAREN, L_RPAREN,     L_COMMA,      L_COLON,    L_SEMICOLON,
     L_STRING, L_PERIOD, L_EQ,     L_LT,         L_GT,         0,          0,
@@ -18,10 +18,10 @@ static byte tokenTypeTable[]  = {
 };
 
 static void Token2Num() {
-    byte ch;
-    byte radix    = 10;
+    uint8_t ch;
+    uint8_t radix    = 10;
 
-    byte tokenLen = tokenStr[0];
+    uint8_t tokenLen = tokenStr[0];
     if (!isdigit(ch = tokenStr[tokenLen])) {
         tokenLen--;
         if (ch == 'H')
@@ -54,7 +54,7 @@ static void Token2Num() {
             break;
         }
     }
-    tokenVal = (word)trial;
+    tokenVal = (uint16_t)trial;
 } /* Token2Num() */
 
 static void NestMacro() {
@@ -65,7 +65,7 @@ static void NestMacro() {
         info->type = MACRO_T; // mark the type as  MACRO_T to spot recursive expansion
         macroPtrs[++macroDepth].text    = inChrP;    // push the current location
         macroPtrs[macroDepth].macroInfo = macroInfo; // and infoP
-        inChrP    = (byte *)(info->lit->str) - 1;    // adjust for initial increment in GNxtCh()
+        inChrP    = (uint8_t *)(info->lit->str) - 1;    // adjust for initial increment in GNxtCh()
         macroInfo = info;                            // set up the new infoP
     }
 } /* NestMacro() */
@@ -73,7 +73,7 @@ static void NestMacro() {
 static bool expandLit() {
     Lookup((pstr_t *)tokenStr);
     markedSym = curSym;
-    if (curSym->infoChain >= infotab + MAXINFO) /* simple key word */
+    if (curSym->infoChain >= infotab + MAXINFO) /* simple key uint16_t */
         tokenType = ToIdx(curSym->infoChain) - MAXINFO;
     else {
         info_t *savInfo = info; // if lit expand then restore info
@@ -94,8 +94,8 @@ static bool expandLit() {
 
 // updated version of GetName
 // now allows _ in names, in numbers _ is ignored like $ is
-static void GetName(word maxlen) {
-    word curOff = 0;
+static void GetName(uint16_t maxlen) {
+    uint16_t curOff = 0;
 
     bool isNum  = isdigit(nextCh);
     while (isalnum(nextCh) || nextCh == '$' || nextCh == '_') {
@@ -107,12 +107,12 @@ static void GetName(word maxlen) {
         Wr1TokenErrorAt(ERR3); /* IDENTIFIER, STRING, or NUMBER TOO LONG, TRUNCATED */
         curOff = maxlen;
     }
-    tokenStr[0] = (byte)curOff;
+    tokenStr[0] = (uint8_t)curOff;
 }
 
 static void ParseString() {
     bool tooLong = false;
-    word curOff  = 1;
+    uint16_t curOff  = 1;
 
     // code simplified in port to C
     while (1) {
@@ -134,8 +134,8 @@ static void ParseString() {
             }
         }
     }
-    wTokenLen   = (word)(curOff - 1); // record length long string
-    tokenStr[0] = wTokenLen < 256 ? (byte)wTokenLen : 255;
+    wTokenLen   = (uint16_t)(curOff - 1); // record length long string
+    tokenStr[0] = wTokenLen < 256 ? (uint8_t)wTokenLen : 255;
     if (wTokenLen == 0)
         Wr1TokenErrorAt(ERR189); /* NULL STRING NOT ALLOWED */
     if (tooLong)
@@ -144,7 +144,7 @@ static void ParseString() {
 
 static void LocYylex() {
     while (1) {
-        byte chrClass = cClass[nextCh]; // the lookahead char
+        uint8_t chrClass = cClass[nextCh]; // the lookahead char
         tokenType     = tokenTypeTable[chrClass];
         switch (chrClass) {
         default: /* white space */
@@ -250,7 +250,7 @@ void SetYyAgain(void) {
 /*
     look for matching token
 */
-bool YylexMatch(byte token) {
+bool YylexMatch(uint8_t token) {
     Yylex(); /* get the token to check */
     if (tokenType == token)
         return true;
@@ -260,7 +260,7 @@ bool YylexMatch(byte token) {
     }
 }
 
-bool YylexNotMatch(byte token) {
+bool YylexNotMatch(uint8_t token) {
     return !YylexMatch(token);
 }
 
@@ -268,7 +268,7 @@ bool YylexNotMatch(byte token) {
 // note cannot contain CALL, DECLARE, DISABLE, DO, ENABLE, END, GO(TO), HALT, IF
 // PROCEDURE or RETURN
 static void WrNestedExpression() {
-    word nesting = 1;
+    uint16_t nesting = 1;
     Wr1LexToken();
     Yylex();
 
@@ -294,7 +294,7 @@ static void WrNestedExpression() {
 
 // convert and write Expression into lex tokens
 // stop when endTok, semicolon or new start symbol for <declaration> or <unit> seen
-void ParseExpresion(byte endTok) {
+void ParseExpresion(uint8_t endTok) {
     Yylex();
     while (tokenType != endTok && tokenType != L_SEMICOLON) {
         if (L_CALL <= tokenType && tokenType <= L_RETURN)
@@ -311,7 +311,7 @@ void ParseExpresion(byte endTok) {
         ) unless inside nested ()
 */
 static void RecoverToSemiOrRP() {
-    word nesting;
+    uint16_t nesting;
 
     nesting = 0;
     while (1) {
@@ -332,7 +332,7 @@ static void RecoverToSemiOrRP() {
         ) or , unless inside nested ()
 */
 static void RecoverMissingParam() {
-    word nesting = 0;
+    uint16_t nesting = 0;
     while (tokenType != L_RPAREN || nesting--) {
         if (tokenType == L_SEMICOLON || (tokenType == L_COMMA && !nesting))
             break;
@@ -345,24 +345,24 @@ static void RecoverMissingParam() {
 
 static sym_t *declNames[MAXFACTORED];
 static info_t *declBasedNames[MAXFACTORED];
-static word declNameCnt;
+static uint16_t declNameCnt;
 
 static info_t *basedInfo;
 static uint32_t dclAttr;
-static byte dclType;
+static uint8_t dclType;
 static pstr_t const *lastLit;
-static word arrayDim;
+static uint16_t arrayDim;
 static struct {
     sym_t *sym;
-    word dim;
-    byte type;
+    uint16_t dim;
+    uint8_t type;
 } member[MAXMEMBER];
 
-static word memberCnt;
+static uint16_t memberCnt;
 static bool isNewVar;
 
-static void DeclarationError(word errcode) {
-    Wr1TokenError((byte)errcode, curSym);
+static void DeclarationError(uint16_t errcode) {
+    Wr1TokenError((uint8_t)errcode, curSym);
 }
 
 static void ChkModuleLevel() {
@@ -405,7 +405,7 @@ static void CreateStructMemberInfo() {
 }
 
 static void SetFactoredAttributes() {
-    byte packed = 0;
+    uint8_t packed = 0;
 
     for (int i = 0; i < declNameCnt; i++) {
         info_t *declaringBase = declBasedNames[i];
@@ -418,7 +418,7 @@ static void SetFactoredAttributes() {
                 if (dclAttr)                 // parameters cannot have attributes
                     DeclarationError(ERR76); /* CONFLICTING ATTRIBUTE WITH PARAMETER */
                 if (dclType != BYTE_T && dclType != ADDRESS_T)
-                    DeclarationError(ERR79); /* ILLEGAL PARAMETER TYPE, not byte or address */
+                    DeclarationError(ERR79); /* ILLEGAL PARAMETER TYPE, not uint8_t or address */
                 else
                     info->type = dclType;
                 if (declaringBase) {         // parameters cannot be based
@@ -470,7 +470,7 @@ static void SetFactoredAttributes() {
 /*
     parse at, data or initial argument
 */
-static void AttributeExpression(byte lexItem, uint32_t locflag) {
+static void AttributeExpression(uint8_t lexItem, uint32_t locflag) {
     if (dclAttr & F_EXTERNAL)
         Wr1TokenErrorAt(ERR41); /* CONFLICTING ATTRIBUTE */
     if (YylexMatch(L_LPAREN)) {
@@ -515,7 +515,7 @@ static void ParseDclScope() {
 }
 
 static void ParseMemberType() {
-    word type;
+    uint16_t type;
 
     if (YylexMatch(L_BYTE))
         type = BYTE_T;
@@ -534,11 +534,11 @@ static void ParseMemberType() {
         else
             Wr1TokenErrorAt(ERR72); /* MISSING TYPE FOR STRUCTURE MEMBER */
     }
-    member[memberCnt].type = (byte)type;
+    member[memberCnt].type = (uint8_t)type;
 }
 
 static void ParseMemberDim() {
-    word dim;
+    uint16_t dim;
 
     if (YylexMatch(L_LPAREN)) {
         if (YylexMatch(L_NUMBER))
@@ -618,7 +618,7 @@ static void ParseDclDataType() {
         ChkNotArray();
     } else {
         Wr1TokenErrorAt(ERR61); /* MISSING TYPE */
-        dclType = BYTE_T;       // assume byte
+        dclType = BYTE_T;       // assume uint8_t
     }
 }
 
@@ -841,7 +841,7 @@ static void SetInterruptNo() {
         Wr1TokenErrorAt(ERR41); /* CONFLICTING ATTRIBUTE */
     else {
         info->flag |= F_INTERRUPT;
-        info->intno = (byte)tokenVal;
+        info->intno = (uint8_t)tokenVal;
     }
 }
 
@@ -873,13 +873,13 @@ static void ParseRetType() {
 static void AddParam() {
     if (FindScopedInfo(curScope))
         Wr1TokenErrorAt(ERR38);           /* DUPLICATE PARAMETER NAME */
-    CreateInfo(curScope, BYTE_T, curSym); // for now assume byte
+    CreateInfo(curScope, BYTE_T, curSym); // for now assume uint8_t
     Wr1XrefDef();
     info->flag |= F_PARAMETER;
 }
 
 static void ParseParams() {
-    byte paramCnt = 0;
+    uint8_t paramCnt = 0;
     if (YylexMatch(L_LPAREN)) {
 
         while (1) {

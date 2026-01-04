@@ -86,7 +86,7 @@ static void ExprParse5() {
     } else if (MatchTx1Item(T1_NUMBER))
         PushSimpleOperand(I_NUMBER, tx1Item.dataw[0]); // push I_NUMBER & value
     else if (MatchTx1Item(T1_STRING)) {
-        word val;
+        uint16_t val;
         if (tx1Item.dataw[0] == 1)
             val = Low(tx1Item.dataw[1]);                             // single char
         else if (tx1Item.dataw[0] == 2)                              // double char
@@ -185,11 +185,11 @@ static void ExprParse10() {
 // parse <variable reference> -> <builtin> | <proc> | <variable>
 static void ExprParse11() {
     if (info->type == BUILTIN_T) {
-        word icode = builtinsMap[info->builtinId];
+        uint16_t icode = builtinsMap[info->builtinId];
         if (icode == I_INPUT || icode == I_OUTPUT)
-            ParsePortNum((byte)icode);
+            ParsePortNum((uint8_t)icode);
         else if (icode == I_LENGTH || icode == I_LAST || icode == I_SIZE)
-            ParseSizing((byte)icode);
+            ParseSizing((uint8_t)icode);
         else {
             PushParse(icode);          // builtIn icode
             PushParse(info->paramCnt); // expected number of args
@@ -290,8 +290,8 @@ static void ExprParse16() {
 //          parseStack[top - 1] = builtin icode
 //          operatorStack[top] -> actual number of args
 static void ExprParse17() {
-    byte argCnt = GetCallArgCnt(); // separate out to avoid sequence point issues. Uses top args
-    PushComplexOperand((byte)PopParse(), argCnt);
+    uint8_t argCnt = GetCallArgCnt(); // separate out to avoid sequence point issues. Uses top args
+    PushComplexOperand((uint8_t)PopParse(), argCnt);
 }
 
 // reduce <reduce call var>

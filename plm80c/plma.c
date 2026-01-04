@@ -14,13 +14,13 @@
 
 char *cmdTextP;
 
-byte verNo[] = VERSION;
+uint8_t verNo[] = VERSION;
 
 static struct {
     pstr_t *name;
-    byte id;
-    byte paramCnt;
-    byte returnType;
+    uint8_t id;
+    uint8_t paramCnt;
+    uint8_t returnType;
 } builtins[] = {
     // clang-format off
     {(pstr_t *)("\x5""CARRY"),  0,  0, BYTE_T},
@@ -48,11 +48,11 @@ static struct {
 };
 
 // the plm reserved keywords - format
-// name (pstr), keywordId (byte) see intermediate tokens in plm.h
+// name (pstr), keywordId (uint8_t) see intermediate tokens in plm.h
 // in the symbols area the infoP value is set to 0xff00 + the keywordId
 static struct {
     pstr_t *name;
-    byte id;
+    uint8_t id;
 } keywords[] = {
     {(pstr_t *)("\x7""ADDRESS"),  L_ADDRESS},
     {(pstr_t *)("\x3""AND"),      L_AND},
@@ -188,6 +188,6 @@ void InitKeywordsAndBuiltins() {
     InstallBuiltins();
 } /* InitKeywordsAndBuiltins() */
 
-void SetPageNo(word v) {
+void SetPageNo(uint16_t v) {
     pageNo = v - 1;
 }

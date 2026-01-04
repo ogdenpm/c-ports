@@ -14,7 +14,7 @@
 #define _MAX_PATH 4096
 #endif
 
-// static byte copyright[] = "[C] 1976, 1977, 1982 INTEL CORP";
+// static uint8_t copyright[] = "[C] 1976, 1977, 1982 INTEL CORP";
 
 jmp_buf exception;
 
@@ -91,7 +91,7 @@ static void LexPass() {
     ParseProgram();
 } /* LexPass() */
 
-word Start0() {
+uint16_t Start0() {
     if (setjmp(exception) == 0)
         LexPass();
     FinishLexPass(); /* exception goes to here */

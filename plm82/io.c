@@ -7,7 +7,10 @@ FILE *outFp;
 FILE *polFp;
 FILE *lstFp;
 FILE *symFp;
-char *src;
+char *polFile;
+char *symFile;
+char *lstFile;
+char *hexFile;
 
 #ifdef linux
 #include <unistd.h>
@@ -16,40 +19,39 @@ void closefiles(void) {
     if (polFp) {
         fclose(polFp);
         if (errorCnt == 0)
-            unlink(makeFilename(src, ".pol", true));
+            unlink(polFile);
     }
     if (symFp) {
         fclose(symFp);
         if (errorCnt == 0)
-            unlink(makeFilename(src, ".sym", true));
+            unlink(symFile);
     }
     if (lstFp)
         fclose(lstFp);
+
     if (hexFp) {
         fclose(hexFp);
         if (errorCnt)
-            unlink(makeFilename(src, ".hex", true));
+            unlink(hexFile);
     }
 }
 
 void openfiles(char *srcFile) {
-    src = srcFile;
-    char *path;
     atexit(closefiles);
-    if (!(polFp = fopen(path = makeFilename(srcFile, ".pol", true), "rb"))) {
-        fprintf(stderr, "can't open pol file %s\n", path);
+    if (!(polFp = fopen(polFile = makeFilename(srcFile, ".pol", true), "rb"))) {
+        fprintf(stderr, "can't open pol file %s\n", polFile);
         exit(1);
     }
-    if (!(symFp = fopen(path = makeFilename(srcFile, ".sym", true), "rb"))) {
-        fprintf(stderr, "can't open symbol file %s\n", path);
+    if (!(symFp = fopen(symFile = makeFilename(srcFile, ".sym", true), "rb"))) {
+        fprintf(stderr, "can't open symbol file %s\n", symFile);
         exit(1);
     }
-    if (!(lstFp = fopen(path = makeFilename(srcFile, ".lst", true), "at"))) {
-        fprintf(stderr, "can't open listing file %s\n", path);
+    if (!(lstFp = fopen(lstFile = makeFilename(srcFile, ".lst", true), "at"))) {
+        fprintf(stderr, "can't open listing file %s\n", lstFile);
         exit(1);
     }
-    if (C_HEXFILE && !(hexFp = fopen(path = makeFilename(srcFile, ".hex", true), "at"))) {
-        fprintf(stderr, "can't create hex file %s\n", path);
+    if (C_HEXFILE && !(hexFp = fopen(hexFile = makeFilename(srcFile, ".hex", true), "at"))) {
+        fprintf(stderr, "can't create hex file %s\n", hexFile);
         exit(1);
     }
 }

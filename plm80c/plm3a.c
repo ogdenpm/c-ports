@@ -8,25 +8,25 @@
  ****************************************************************************/
 #include "plm.h"
 
-byte helperCodeLen[] = { 3, 7, 3, 7,   2, 3,   8, 1, 3,   1, 8,    2, 3, 8,   1, 3,    1, 8, 3,   7,
+uint8_t helperCodeLen[] = { 3, 7, 3, 7,   2, 3,   8, 1, 3,   1, 8,    2, 3, 8,   1, 3,    1, 8, 3,   7,
                          3, 7, 2, 3,   8, 1,   3, 1, 8,   2, 0x1D, 3, 1, 7,   2, 0x12, 2, 1, 0xA, 2,
                          1, 8, 2, 1,   8, 2,   1, 7, 3,   7, 3,    7, 2, 3,   8, 1,    3, 1, 8,   1,
                          6, 3, 1, 0xB, 1, 6,   3, 1, 0xB, 1, 6,    1, 6, 3,   7, 3,    7, 2, 3,   8,
                          3, 8, 3, 9,   1, 6,   3, 1, 6,   1, 7,    3, 1, 0xC, 3, 7,    3, 7, 2,   3,
                          8, 3, 8, 3,   9, 0xC, 3, 7, 3,   7, 2,    3, 8, 1,   3, 1,    8 };
 
-word curOffset;
-byte printOrObj;
-byte recModHdr[54]        = { 2, 0, 0 };
-byte recExternals[303]    = { 0x18, 0, 0 };
-byte recPublicAbs[304]    = { 0x16, 0, 0, 0 };
-byte recPublicCode[304]   = { 0x16, 0, 0, 1 };
-byte recPublicData[304]   = { 0x16, 0, 0, 2 };
-byte recPublicMemory[304] = { 0x16, 0, 0, 4 };
-byte recLocals[1024]      = { 0x12, 0, 0, 1 };
-byte recInitContent[306]  = { 6, 0, 0, 0 };
-byte recDataFixup[154]    = { 0x24, 0, 0, 2, 3 };
-byte recMemoryFixup[154]  = { 0x24, 0, 0, 4, 3 };
+uint16_t curOffset;
+uint8_t printOrObj;
+uint8_t recModHdr[54]        = { 2, 0, 0 };
+uint8_t recExternals[303]    = { 0x18, 0, 0 };
+uint8_t recPublicAbs[304]    = { 0x16, 0, 0, 0 };
+uint8_t recPublicCode[304]   = { 0x16, 0, 0, 1 };
+uint8_t recPublicData[304]   = { 0x16, 0, 0, 2 };
+uint8_t recPublicMemory[304] = { 0x16, 0, 0, 4 };
+uint8_t recLocals[1024]      = { 0x12, 0, 0, 1 };
+uint8_t recInitContent[306]  = { 6, 0, 0, 0 };
+uint8_t recDataFixup[154]    = { 0x24, 0, 0, 2, 3 };
+uint8_t recMemoryFixup[154]  = { 0x24, 0, 0, 4, 3 };
 
 void FlushRecGrp() {
     WriteRec(recInitContent, 3);
@@ -37,22 +37,22 @@ void FlushRecGrp() {
     WriteRec(recExtFixup, 1);
 }
 
-void RecAddName(pointer recP, byte offset, pstr_t const *pstr) {
-    word rlen    = getWord(&recP[REC_LEN]);
+void RecAddName(pointer recP, uint8_t offset, pstr_t const *pstr) {
+    uint16_t rlen    = getWord(&recP[REC_LEN]);
     pointer outP = recP + REC_DATA + rlen + offset;
     memcpy(outP, pstr, pstr->len + 1);
     putWord(&recP[REC_LEN], rlen + pstr->len + 1);
 }
 
-void ExtendChk(pointer recP, word limit, byte toAdd) {
+void ExtendChk(pointer recP, uint16_t limit, uint8_t toAdd) {
     if (getWord(&recP[REC_LEN]) + toAdd >= limit) {
         FlushRecGrp();
         putWord(&recInitContent[CONTENT_OFF], curOffset);
     }
 }
 
-word CalcMaxStack() {
-    word maxStack = 0;
+uint16_t CalcMaxStack() {
+    uint16_t maxStack = 0;
     for (int i = 1; i <= procCnt; i++) {
         if (maxStack < procInfo[i]->stackUsage)
             maxStack = procInfo[i]->stackUsage;
@@ -60,7 +60,7 @@ word CalcMaxStack() {
     return maxStack;
 }
 
-void p3Error(word errNum, info_t *tokInfo, word stmt) {
+void p3Error(uint16_t errNum, info_t *tokInfo, uint16_t stmt) {
     if (printOrObj) {
         Wr1Byte(T2_ERROR);
         Wr1Word(errNum);
@@ -71,18 +71,18 @@ void p3Error(word errNum, info_t *tokInfo, word stmt) {
 }
 
 extern union {
-    byte str[256];
+    uint8_t str[256];
     struct {
-        byte type;
+        uint8_t type;
         offset_t infoP;
-        word stmt;
+        uint16_t stmt;
         var_t var;
     };
 } atFData;
 
-static byte dat[255];
+static uint8_t dat[255];
 
-static word stringLen, stringIdx, structDim, itemDim;
+static uint16_t stringLen, stringIdx, structDim, itemDim;
 static bool moreToInit;
 static info_t *atInfo;
 
@@ -133,7 +133,7 @@ static void Sub_4BF4() {
 static void EmitInitItem() {
     if (info->type == BYTE_T) {
         ExtendChk(recInitContent, 300, 1);
-        RecAddByte(recInitContent, 3, (byte)atFData.var.val);
+        RecAddByte(recInitContent, 3, (uint8_t)atFData.var.val);
         curOffset++;
     } else {
         ExtendChk(recInitContent, 300, 2);

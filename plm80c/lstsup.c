@@ -18,7 +18,7 @@ void NewLineLst(void) {
     col = 0;
 }
 
-void TabLst(byte tabTo) {
+void TabLst(uint8_t tabTo) {
     if (tabTo > 127) {
         tabTo = -tabTo;
         if (col >= tabTo)
@@ -29,7 +29,7 @@ void TabLst(byte tabTo) {
         lstc(' ');
 }
 
-void DotLst(byte tabTo) {
+void DotLst(uint8_t tabTo) {
     while (col < tabTo)
         lstc(col & 1 ? '.' : ' ');
 }
@@ -38,17 +38,17 @@ void EjectNext() {
     linLft = 0;
 }
 
-void SetMarkerInfo(byte markerCol, byte textCol) {
+void SetMarkerInfo(uint8_t markerCol, uint8_t textCol) {
     wrapMarkerCol = markerCol;
     wrapTextCol   = textCol;
 }
 
-void SetStartAndTabW(byte startCol, byte width) {
+void SetStartAndTabW(uint8_t startCol, uint8_t width) {
     margin = startCol - 1;
     tWidth = width;
 }
 
-void SetSkipLst(byte cnt) {
+void SetSkipLst(uint8_t cnt) {
     skipCnt = cnt;
 }
 
@@ -75,7 +75,7 @@ void lstPstr(pstr_t *ps) {
     lprintf("%.*s", ps->len, ps->str);
 }
 
-char const *hexfmt(byte digits, word val) {
+char const *hexfmt(uint8_t digits, uint16_t val) {
     static char str[7] = "0";
     if (digits > 4)
         digits = 4;

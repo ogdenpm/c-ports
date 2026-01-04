@@ -10,12 +10,12 @@
 #include "plm.h"
 #include <stdio.h>
 
-static byte ccBits[]  = { 0x10, 0x18, 8, 0, 0x18, 0x10 };
+static uint8_t ccBits[]  = { 0x10, 0x18, 8, 0, 0x18, 0x10 };
 static char *ccCodes[] = { "NC", "C", "Z", "NZ", "C", "NC" };
 
 // lifted to file scope for nested procedures
-static word codePtr;
-static byte codeByte;
+static uint16_t codePtr;
+static uint8_t codeByte;
 
 pstr_t *pstrcpy(pstr_t *dst, pstr_t const *src) {
     memcpy(dst, src, src->len + 1);
@@ -23,7 +23,7 @@ pstr_t *pstrcpy(pstr_t *dst, pstr_t const *src) {
 }
 
 pstr_t *pcstrcpy(pstr_t *dst, char const *src) {
-    dst->len = (byte)strlen(src);
+    dst->len = (uint8_t)strlen(src);
     memcpy(dst->str, src, dst->len);
     return dst;
 }
@@ -38,7 +38,7 @@ pstr_t *pstrcat(pstr_t *dst, pstr_t const *src) {
 
 pstr_t *pcstrcat(pstr_t *dst, char const *src) {
     if (src && *src) {
-        byte len = (byte)strlen(src);
+        uint8_t len = (uint8_t)strlen(src);
         memcpy(&dst->str[dst->len], src, len);
         dst->len += len;
     }
@@ -46,14 +46,14 @@ pstr_t *pcstrcat(pstr_t *dst, char const *src) {
 }
 
 static void ModifyOpCode() {
-    byte codeVal;
+    uint8_t codeVal;
 
     pstr_t *codeStr;
 
-    byte codeMode  = (codeByte >> 4) & 3;
-    byte codeParam = codeByte & 0xf;
+    uint8_t codeMode  = (codeByte >> 4) & 3;
+    uint8_t codeParam = codeByte & 0xf;
     if (codeParam < 4) {
-        codeVal = (byte)wValAry[codeParam];
+        codeVal = (uint8_t)wValAry[codeParam];
         codeStr = sValAry[codeParam];
     } else if (codeMode == 0) {
         codeVal = regPairNo[codeParam - 4];
@@ -71,7 +71,7 @@ static void ModifyOpCode() {
     pstrcat((pstr_t *)&line, codeStr);
 }
 
-static void AddWord(byte codeParam) {
+static void AddWord(uint8_t codeParam) {
 
     fixupSelector = fixupType;
     putWord(&opBytes[opByteCnt], wValAry[codeParam]);
@@ -79,16 +79,16 @@ static void AddWord(byte codeParam) {
     pstrcat((pstr_t *)&line, sValAry[codeParam]);
 }
 
-static void AddHelper(byte codeParam) {
-    word helperId;
+static void AddHelper(uint8_t codeParam) {
+    uint16_t helperId;
 
     if (codeParam == 1)
         helperId = 105; // delay
     else {
-        byte grp = helperGroup[b969D];
+        uint8_t grp = helperGroup[b969D];
         helperId = helperMap[grp][b9692];
     }
-    line.len += (byte)sprintf(&line.str[line.len], "@P%04d", helperId);
+    line.len += (uint8_t)sprintf(&line.str[line.len], "@P%04d", helperId);
     if (standAlone) {
         putWord(&opBytes[opByteCnt], helperAddr[helperId]);
         opByteCnt += 2;
@@ -97,17 +97,17 @@ static void AddHelper(byte codeParam) {
         putWord(&opBytes[opByteCnt], 0);
         opByteCnt += 2;
         fixupSelector = 5;
-        curExtId      = (byte)helperAddr[helperId];
+        curExtId      = (uint8_t)helperAddr[helperId];
     }
 }
 
-static void AddSmallNum(byte codeParam) {
-    byte num             = codeTable[++codePtr];
+static void AddSmallNum(uint8_t codeParam) {
+    uint8_t num             = codeTable[++codePtr];
     opBytes[opByteCnt++] = num;
-    /* extend to word on opBytes if not 0x84 */
+    /* extend to uint16_t on opBytes if not 0x84 */
     if (codeParam)
         opBytes[opByteCnt++] = 0;
-    line.len += (byte)sprintf(&line.str[line.len], "%d", num);
+    line.len += (uint8_t)sprintf(&line.str[line.len], "%d", num);
 }
 
 static void AddStackOrigin() {
@@ -117,16 +117,16 @@ static void AddStackOrigin() {
     pstrcat((pstr_t *)&line, (pstr_t *)stackOrigin);
 }
 
-static void AddByte(byte codeParam) {
-    opBytes[opByteCnt++] = (byte)wValAry[codeParam];
-    if (wValAry[codeParam] > 255) /* reformat number to byte */
+static void AddByte(uint8_t codeParam) {
+    opBytes[opByteCnt++] = (uint8_t)wValAry[codeParam];
+    if (wValAry[codeParam] > 255) /* reformat number to uint8_t */
         pcstrcpy(sValAry[codeParam], hexfmt(0, Low(wValAry[codeParam])));
     pstrcat((pstr_t *)&line, sValAry[codeParam]);
 }
 
 static void AddPCRel() {
     fixupSelector = 1;
-    word offset   = codeTable[++codePtr];
+    uint16_t offset   = codeTable[++codePtr];
     if (offset > 127) /* Sign() extend */
         offset = offset | 0xff00;
     putWord(&opBytes[opByteCnt], baseAddr + offset);
@@ -141,11 +141,11 @@ static void AddCcCode() {
 }
 
 static void EmitHelperLabel() {
-    line.len += (byte)sprintf(&line.str[line.len], "@P%04d:", helperId++);
+    line.len += (uint8_t)sprintf(&line.str[line.len], "@P%04d:", helperId++);
 }
 
-static void Sub_64CF(byte codeParam) {
-    byte i;
+static void Sub_64CF(uint8_t codeParam) {
+    uint8_t i;
     switch (codeParam) {
     case 0:
         i = helperGroup[b969D];
@@ -165,7 +165,7 @@ static void Sub_64CF(byte codeParam) {
     pcstrcat((pstr_t *)&line, opcodes[i]);
 }
 
-static void BuildInstruction(word codeIdx) {
+static void BuildInstruction(uint16_t codeIdx) {
     codePtr = codeSeq[codeIdx];
     if (codeTable[codePtr] == 0)
         opByteCnt = 0;
@@ -184,7 +184,7 @@ static void BuildInstruction(word codeIdx) {
         } else if (codeByte >= 0xc0)
             ModifyOpCode();
         else {
-            byte codeParam = (codeByte >> 4) & 3;
+            uint8_t codeParam = (codeByte >> 4) & 3;
             switch (codeByte & 0xf) {
             case 0:
                 return;
@@ -227,8 +227,8 @@ static void BuildInstruction(word codeIdx) {
 }
 
 static void WrInstructionObj() {
-    word p;
-    byte i;
+    uint16_t p;
+    uint8_t i;
 
     if (opByteCnt == 0 || !OBJECT)
         return;
@@ -270,7 +270,7 @@ static void WrInstructionObj() {
     }
 } /* Sub_654F() */
 
-void EmitCodeSeq(word codeIdx, byte len) {
+void EmitCodeSeq(uint16_t codeIdx, uint8_t len) {
     while (len-- > 0) {
         BuildInstruction(codeIdx++);
         WrInstructionObj();
@@ -284,28 +284,28 @@ void EmitCodeSeq(word codeIdx, byte len) {
     }
 }
 
-static byte operandClass;
+static uint8_t operandClass;
 
 static void Sub_66F1(void) {
     if (cfCode >= CF_174) {
-        byte i = cfCode - CF_174;
+        uint8_t i = cfCode - CF_174;
         cfCode = b4602[i];
-        i      = b413B[i];
-        b9692  = b4128[i];
+        i      = fragmentHelperIndex[i];
+        b9692  = helperIndexMap[i];
     }
 }
 
-static void RdBVal(byte slot) {
+static void RdBVal(uint8_t slot) {
     wValAry[slot] = Rd1Byte();
     sValAry[slot] = pcstrcpy((pstr_t *)valPStr, hexfmt(0, wValAry[slot]));
 }
 
-static void RdWVal(byte slot) {
+static void RdWVal(uint8_t slot) {
     wValAry[slot] = Rd1Word();
     sValAry[slot] = pcstrcpy((pstr_t *)valPStr, hexfmt(0, wValAry[slot]));
 }
 
-static void RdLocLab(byte slot) {
+static void RdLocLab(uint8_t slot) {
     locLabelNum   = Rd1Word();
     wValAry[slot] = localLabels[locLabelNum];
     locPStr[0]    = sprintf(locPStr + 1, "@%d", locLabelNum);
@@ -313,16 +313,16 @@ static void RdLocLab(byte slot) {
     fixupType     = 1;
 }
 
-static void Sub_6982(byte slot) {
-    byte i         = Rd1Byte();
-    word p         = Rd1Word();
+static void Sub_6982(uint8_t slot) {
+    uint8_t i         = Rd1Byte();
+    uint16_t p         = Rd1Word();
     commentPStr[0] = sprintf(commentPStr + 1, "; %d", i);
     wValAry[slot]  = p;
     valPStr[0]     = sprintf(valPStr + 1, "%d", p);
     sValAry[slot]  = (pstr_t *)valPStr;
 }
 
-static void RdSymbol(word disp, byte slot) {
+static void RdSymbol(uint16_t disp, uint8_t slot) {
     info          = FromIdx(Rd1Word());
     wValAry[slot] = info->addr + disp;
     curSym        = info->sym;
@@ -350,8 +350,8 @@ static void RdSymbol(word disp, byte slot) {
         fixupType = 2;
 }
 
-static void Sub_6B0E(byte slot) {
-    word disp      = Rd1Word();
+static void Sub_6B0E(uint8_t slot) {
+    uint16_t disp      = Rd1Word();
 
     info           = FromIdx(Rd1Word());
     wValAry[slot]  = Rd1Word();
@@ -361,7 +361,7 @@ static void Sub_6B0E(byte slot) {
     AddWrdDisp((pstr_t *)commentPStr, disp);
 }
 
-static void Sub_6B9B(byte reg, byte slot) {
+static void Sub_6B9B(uint8_t reg, uint8_t slot) {
     switch (reg - 8) {
     case 0:
         RdBVal(slot);
@@ -381,17 +381,17 @@ static void Sub_6B9B(byte reg, byte slot) {
     }
 }
 
-static void Sub_67AD(byte reg, byte slot) {
+static void Sub_67AD(uint8_t reg, uint8_t slot) {
     switch (operandClass) {
     case 0:
         return;
-    case 1: // byte reg pair
+    case 1: // uint8_t reg pair
         wValAry[slot]     = regNo[reg];
         sValAry[slot]     = (pstr_t *)regStr[reg];
         wValAry[slot + 2] = regNo[reg + 4];
         sValAry[slot + 2] = (pstr_t *)regStr[reg + 4];
         break;
-    case 2: // word reg pair
+    case 2: // uint16_t reg pair
         wValAry[slot] = regPairNo[reg];
         sValAry[slot] = (pstr_t *)regPairStr[reg];
         break;
@@ -415,16 +415,16 @@ static void Sub_67AD(byte reg, byte slot) {
 
 static void Sub_6720(void) {
     fixupType = 0;
-    if (fragControl[cfCode] & 0x80) {
+    if (fragControlBits[cfCode] & 0x80) {
         b969C = Rd1Byte();
-        b969D = b4273[b969C];
+        b969D = noteTypeToHelperGroup[b969C];
     }
     commentPStr[0] = 0; // clear any existing comment string
-    operandClass   = (fragControl[cfCode] >> 4) & 7;
+    operandClass   = (fragControlBits[cfCode] >> 4) & 7;
     if (operandClass) {
-        byte regs = operandClass <= 3 ? Rd1Byte() : 0;
+        uint8_t regs = operandClass <= 3 ? Rd1Byte() : 0;
         Sub_67AD((regs >> 4) & 0xf, 0);
-        operandClass = (fragControl[cfCode] >> 1) & 7;
+        operandClass = (fragControlBits[cfCode] >> 1) & 7;
         Sub_67AD(regs & 0xf, 1);
     }
 } /* Sub_6720() */

@@ -10,7 +10,7 @@
 
 bool parseAssignment() {
     ResetStacks();
-    byte assignCnt = 0;
+    uint8_t assignCnt = 0;
     while (1) {
         if (NotMatchTx1Item(T1_IDENTIFIER)) {
             Wr2TokError(ERR128); /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
@@ -44,7 +44,7 @@ bool parseAssignment() {
     }
 }
 
-byte ParseCall() {
+uint8_t ParseCall() {
     ResetStacks();
     if (NotMatchTx1Item(T1_IDENTIFIER)) {
         Wr2TokError(ERR117); /* MISSING procedure NAME IN call STATEMENT */
@@ -103,14 +103,14 @@ void Expression() {
     markedStSP = stSP;
 }
 
-static void MoveHead(word node, word t2Cnt) {
+static void MoveHead(uint16_t node, uint16_t t2Cnt) {
     //   sStack[node].icode = 255;
     tree[node].val = t2Cnt;
 }
 
-static void SerialiseSimpleNode(word node) {
-    byte iCode = tree[node].icode;
-    word t2Cnt;
+static void SerialiseSimpleNode(uint16_t node) {
+    uint8_t iCode = tree[node].icode;
+    uint16_t t2Cnt;
     if (iCode == I_IDENTIFIER)
         t2Cnt = Wr2Leaf(T2_IDENTIFIER, tree[node].infoIdx); // info
     else if (iCode == I_NUMBER) {
@@ -126,9 +126,9 @@ static void SerialiseSimpleNode(word node) {
 }
 
 static void SerialiseParse0() { // top level serialise
-    byte icode;
+    uint8_t icode;
 
-    word node = PopParse();
+    uint16_t node = PopParse();
 
     if ((icode = tree[node].icode) == I_OUTPUT)
         return;
@@ -163,7 +163,7 @@ static void SerialiseParse0() { // top level serialise
 }
 
 static void SerialiseParse1() { /* serialise 1 node */
-    word node = parseStack[parseSP];
+    uint16_t node = parseStack[parseSP];
     PushParse(2);    /* flag to check for more nodes */
     PushParse(node); /* serialise this node */
     PushParse(0);
@@ -180,7 +180,7 @@ static void SerialiseParse2() { /* check for any more leaves */
 }
 
 static void SerialiseParse3() {                              /* parse args */
-    word argList = parseStack[parseSP];                      // the call node
+    uint16_t argList = parseStack[parseSP];                      // the call node
     PushParse(5);                                            /* final call wrap up */
     if (tree[argList].right > 1) {                             /* any args */
         PushParse(tree[argList].right - 1);                    /* num args  */
@@ -198,10 +198,10 @@ static void SerialiseParse3() {                              /* parse args */
 // serialise the stack arguments
 static void SerialiseParse4() {
     info         = FromIdx(parseStack[parseSP]);
-    word argList = parseStack[parseSP - 1];
-    byte argCnt  = (byte)parseStack[parseSP - 2];
+    uint16_t argList = parseStack[parseSP - 1];
+    uint8_t argCnt  = (uint8_t)parseStack[parseSP - 2];
     if (argCnt > 2) { /* all bar first 2 args to stack */
-        word t2Cnt;
+        uint16_t t2Cnt;
         if (!info) // call var variant
             t2Cnt = Wr2Leaf(T2_STKARG, CvtToRel(tree[argList].nodeIdx));
         else {
@@ -229,11 +229,11 @@ static void SerialiseParse4() {
 // finalise call
 
 static void SerialiseParse5() {
-    word node    = PopParse();
-    word argList = tree[node].nodeIdx;
-    byte argCnt  = tree[node].right - 1;
-    word relBC   = 0;
-    word relDE   = 0;
+    uint16_t node    = PopParse();
+    uint16_t argList = tree[node].nodeIdx;
+    uint8_t argCnt  = tree[node].right - 1;
+    uint16_t relBC   = 0;
+    uint16_t relDE   = 0;
     if (argCnt > 1) {
         relBC = CvtToRel(tree[argList + argCnt - 1].nodeIdx);
         relDE = CvtToRel(tree[argList + argCnt].nodeIdx);
@@ -246,12 +246,12 @@ static void SerialiseParse5() {
 
 static void SerialiseParse6() {
     Wr2Simple(T2_BEGCALL);
-    word node = parseStack[parseSP];
+    uint16_t node = parseStack[parseSP];
     PushParse(7); // finalise call var
-    byte argCnt = tree[node].right - 1;
+    uint8_t argCnt = tree[node].right - 1;
     if (argCnt) {
         PushParse(argCnt); // count of args
-        word argList = tree[node].nodeIdx + 1;
+        uint16_t argList = tree[node].nodeIdx + 1;
         PushParse(argList);
         PushParse(0); /* simple T2_STKARG */
         PushParse(4); /* serialise stack args */
@@ -264,40 +264,40 @@ static void SerialiseParse6() {
 
 static void SerialiseParse7() {
 
-    word node    = PopParse();
-    byte argCnt  = tree[node].right - 1; // number of args (-1 to zero base)
-    word argList = tree[node].nodeIdx; // location of args
-    word relBC = 0, relDE = 0;
+    uint16_t node    = PopParse();
+    uint8_t argCnt  = tree[node].right - 1; // number of args (-1 to zero base)
+    uint16_t argList = tree[node].nodeIdx; // location of args
+    uint16_t relBC = 0, relDE = 0;
     if (argCnt > 1) { // 2 or more args
         relBC = CvtToRel(tree[argList + argCnt - 1].nodeIdx);
         relDE = CvtToRel(tree[argList + argCnt].nodeIdx);
     } else if (argCnt > 0) // 1 arg
         relBC = CvtToRel(tree[argList + argCnt].nodeIdx);
-    word t2Cnt = Wr2ArgNode(T2_CALLVAR, relBC, relDE, CvtToRel(tree[argList].nodeIdx));
+    uint16_t t2Cnt = Wr2ArgNode(T2_CALLVAR, relBC, relDE, CvtToRel(tree[argList].nodeIdx));
     MoveHead(node, t2Cnt);
 }
 
 static void SerialiseParse8() {
-    word node    = PopParse();
-    byte icode   = tree[node].icode;
-    word leafIdx = tree[node].nodeIdx;
-    word t2Cnt   = Wr2ArgNode(iToTx2Map[icode], CvtToRel(tree[leafIdx].nodeIdx),
+    uint16_t node    = PopParse();
+    uint8_t icode   = tree[node].icode;
+    uint16_t leafIdx = tree[node].nodeIdx;
+    uint16_t t2Cnt   = Wr2ArgNode(iToTx2Map[icode], CvtToRel(tree[leafIdx].nodeIdx),
                               CvtToRel(tree[leafIdx + 1].nodeIdx), tree[leafIdx + 2].nodeIdx);
     MoveHead(node, t2Cnt);
 }
 
 static void SerialiseParse9() { // parse :=
-    word node = parseStack[parseSP];
+    uint16_t node = parseStack[parseSP];
     PushParse(10);                                      /* post serialise RHS */
     PushParse(tree[node].nodeIdx + tree[node].right - 1); // RHS node, i.e. past assignments
     PushParse(0);
 }
 
 static void SerialiseParse10() {
-    word node = parseStack[parseSP];
+    uint16_t node = parseStack[parseSP];
     PushParse(12);                        /* mark LHS as used at end */
-    byte assignCnt  = tree[node].right - 1; /* num LHS */
-    word assignBase = tree[node].nodeIdx; /* base LHS */
+    uint8_t assignCnt  = tree[node].right - 1; /* num LHS */
+    uint16_t assignBase = tree[node].nodeIdx; /* base LHS */
     PushParse(assignCnt);
     PushParse(assignBase);
     PushParse(assignBase + assignCnt); /* RHS */
@@ -308,10 +308,10 @@ static void SerialiseParse10() {
 
 static void SerialiseParse11() { /* do one assignment */
 
-    word assignIdx = parseStack[parseSP - 1]; // lvalue
-    word rhsIdx    = parseStack[parseSP];     // rvalue
+    uint16_t assignIdx = parseStack[parseSP - 1]; // lvalue
+    uint16_t rhsIdx    = parseStack[parseSP];     // rvalue
     if (tree[assignIdx].icode == I_OUTPUT) {
-        word numberT2 = Wr2Leaf(T2_NUMBER, tree[assignIdx].val); // serialise the port number
+        uint16_t numberT2 = Wr2Leaf(T2_NUMBER, tree[assignIdx].val); // serialise the port number
         Wr2Node(T2_OUTPUT, CvtToRel(numberT2), CvtToRel(tree[rhsIdx].nodeIdx)); // and the output
     } else
         Wr2Node(T2_COLONEQUALS, CvtToRel(tree[assignIdx].nodeIdx), CvtToRel(tree[rhsIdx].nodeIdx));
@@ -329,17 +329,17 @@ static void SerialiseParse11() { /* do one assignment */
 }
 
 static void SerialiseParse12() { /* mark LHS as used */
-    word node  = PopParse();
-    word t2Cnt = tree[tree[node].nodeIdx + tree[node].right - 1].nodeIdx;
+    uint16_t node  = PopParse();
+    uint16_t t2Cnt = tree[tree[node].nodeIdx + tree[node].right - 1].nodeIdx;
     MoveHead(node, t2Cnt);  // move lhs to point to the rvalue tree node
 }
 
 static void SerialiseParse13() { /* binary or unary op */
 
-    word node  = PopParse();
-    word sIdx  = tree[node].nodeIdx;
-    byte iCode = iToTx2Map[tree[node].icode];
-    word t2Cnt;
+    uint16_t node  = PopParse();
+    uint16_t sIdx  = tree[node].nodeIdx;
+    uint8_t iCode = iToTx2Map[tree[node].icode];
+    uint16_t t2Cnt;
     if (tree[node].right == 1)
         t2Cnt = Wr2Leaf(iCode, CvtToRel(tree[sIdx].nodeIdx));
     else
@@ -348,9 +348,9 @@ static void SerialiseParse13() { /* binary or unary op */
 }
 
 static void SerialiseParse14() {
-    word p = tree[parseStack[parseSP]].nodeIdx;
+    uint16_t p = tree[parseStack[parseSP]].nodeIdx;
     /* emit the count leaf */
-    word t2Cnt = Wr2Leaf(T2_BEGMOVE, CvtToRel(tree[p].nodeIdx));
+    uint16_t t2Cnt = Wr2Leaf(T2_BEGMOVE, CvtToRel(tree[p].nodeIdx));
     MoveHead(p, t2Cnt);
     PushParse(15); /* Move() post serialise */
     PushParse(2);  /* serialise the address leaves */
@@ -360,14 +360,14 @@ static void SerialiseParse14() {
 
 static void SerialiseParse15() { /* rest of Move() */
 
-    word node  = PopParse();
-    word sIdx  = tree[node].nodeIdx;
-    word t2Cnt = Wr2ArgNode(T2_MOVE, CvtToRel(tree[sIdx + 1].t2Cnt), CvtToRel(tree[sIdx + 2].t2Cnt),
+    uint16_t node  = PopParse();
+    uint16_t sIdx  = tree[node].nodeIdx;
+    uint16_t t2Cnt = Wr2ArgNode(T2_MOVE, CvtToRel(tree[sIdx + 1].t2Cnt), CvtToRel(tree[sIdx + 2].t2Cnt),
                             CvtToRel(tree[sIdx].t2Cnt));
     MoveHead(node, t2Cnt);
 }
 
-word SerialiseParse(word stmtSp) {
+uint16_t SerialiseParse(uint16_t stmtSp) {
     info_t *savInfo = info;
     parseSP         = 0;
     PushParse(stmtSp);
@@ -428,16 +428,16 @@ word SerialiseParse(word stmtSp) {
     return tree[stmtSp].nodeIdx;
 }
 
-static byte controlStk[20];
+static uint8_t controlStk[20];
 static bool returnsVal[20];
 static info_t *infoStack[20];
-static word hLabels[20];
-static word eLabels[20];
-static word sLabels[20];
-static word byLabels[20];
-static word controlSP;
+static uint16_t hLabels[20];
+static uint16_t eLabels[20];
+static uint16_t sLabels[20];
+static uint16_t byLabels[20];
+static uint16_t controlSP;
 
-static void PushScope(word arg1w) {
+static void PushScope(uint16_t arg1w) {
     if (scopeSP == 34)
         fatal_ov1(ERR164); /* COMPILER Error: SCOPE STACK OVERFLOW */
     else
@@ -451,7 +451,7 @@ static void PopScope() {
         scopeSP--;
 }
 
-static void PushControl(byte controlType) {
+static void PushControl(uint8_t controlType) {
     if (controlSP == 19)
         fatal_ov1(ERR84); /*  LIMIT EXCEEDED: BLOCK NESTING */
     else {
@@ -471,14 +471,14 @@ static void PopControl() {
         returnsVal[controlSP] |= returnsVal[controlSP + 1];
 }
 
-static word NewLocalLabel() {
+static uint16_t NewLocalLabel() {
     return ++localLabelCnt;
 }
 
-static word WrTx2VarId(info_t *varInfo) {
-    word varT2 = Wr2Leaf(T2_IDENTIFIER, ToIdx(varInfo));
+static uint16_t WrTx2VarId(info_t *varInfo) {
+    uint16_t varT2 = Wr2Leaf(T2_IDENTIFIER, ToIdx(varInfo));
     if ((varInfo->flag & F_MEMBER)) {
-        word memberNode = Wr2Leaf(T2_IDENTIFIER, ToIdx(varInfo->parent));
+        uint16_t memberNode = Wr2Leaf(T2_IDENTIFIER, ToIdx(varInfo->parent));
         varT2           = Wr2Node(T2_MEMBER, CvtToRel(memberNode), CvtToRel(varT2));
         info            = varInfo->parent;
     } else
@@ -486,8 +486,8 @@ static word WrTx2VarId(info_t *varInfo) {
     return varT2;
 }
 
-static word WrTx2Var(info_t *varInfo) {
-    word varT2 = WrTx2VarId(varInfo);
+static uint16_t WrTx2Var(info_t *varInfo) {
+    uint16_t varT2 = WrTx2VarId(varInfo);
     if (!(info->flag & F_BASED))
         return varT2;
     return Wr2Node(T2_BASED, CvtToRel(WrTx2VarId(info->baseInfo)), CvtToRel(varT2));
@@ -506,12 +506,12 @@ static void ChkEndOfStmt() {
 /*
     Serialise end of DO x = y to z [by s]
     if no by clause
-        if x is byte
+        if x is uint8_t
             T2_LOCALLABEL newlabel
         a: serialise x
         b: serialise x
         c: T2_NUMBER 1
-        if x is byte
+        if x is uint8_t
             d: T2_PLUSSIGN rel(b) rel(c)
             e: T2_COLONEQUALS rel(a) rel(d)
             f: T2_JNZ headLoop
@@ -525,17 +525,17 @@ static void ChkEndOfStmt() {
 */
 
 static void EndIterDo() {
-    word stepLoop;
+    uint16_t stepLoop;
 
     info          = infoStack[controlSP];
-    word headLoop = hLabels[controlSP];
-    word endLoop  = eLabels[controlSP];
+    uint16_t headLoop = hLabels[controlSP];
+    uint16_t endLoop  = eLabels[controlSP];
     if ((stepLoop = sLabels[controlSP]) == 0) {
         if (info->type == BYTE_T)
             Wr2Leaf(T2_LOCALLABEL, NewLocalLabel());
-        word loopVarT2  = WrTx2Var(info);
-        word loopTmpT2  = WrTx2Var(info);
-        word loopStepT2 = Wr2Leaf(T2_NUMBER, 1);
+        uint16_t loopVarT2  = WrTx2Var(info);
+        uint16_t loopTmpT2  = WrTx2Var(info);
+        uint16_t loopStepT2 = Wr2Leaf(T2_NUMBER, 1);
         if (info->type == BYTE_T) {
             loopTmpT2 = Wr2Node(T2_PLUSSIGN, CvtToRel(loopTmpT2), CvtToRel(loopStepT2));
             Wr2Node(T2_COLONEQUALS, CvtToRel(loopVarT2), CvtToRel(loopTmpT2));
@@ -550,13 +550,13 @@ static void EndIterDo() {
     Wr2Leaf(T2_LOCALLABEL, endLoop);
 }
 
-static word SerialiseExpression() {
+static uint16_t SerialiseExpression() {
     Expression();
     return SerialiseParse(markedStSP);
 }
 
 static void SerialiseIF() {
-    word exprT2 = SerialiseExpression();
+    uint16_t exprT2 = SerialiseExpression();
     ChkEndOfStmt();
     if (MatchTx1Item(T1_JMPFALSE))
         Wr2Node(T2_JMPFALSE, tx1Item.dataw[0], CvtToRel(exprT2));
@@ -596,7 +596,7 @@ static void ParseProcedure() {
 static void ParseWhile() {
     PushControl(DO_WHILE);                                        // enter region
     Wr2Leaf(T2_LOCALLABEL, hLabels[controlSP] = NewLocalLabel()); // loop label
-    word endLabel = eLabels[controlSP] = NewLocalLabel();         // jmp to end when done
+    uint16_t endLabel = eLabels[controlSP] = NewLocalLabel();         // jmp to end when done
     Wr2Node(T2_JMPFALSE, endLabel, CvtToRel(SerialiseExpression()));
     ChkEndOfStmt();
 }
@@ -609,7 +609,7 @@ static void ParseWhile() {
 static void ParseCASE() {
     PushControl(DO_CASE);                // enter region
     MapLToT2();                          // pass through the input
-    word exprT2 = SerialiseExpression(); // case switch expression
+    uint16_t exprT2 = SerialiseExpression(); // case switch expression
     Wr2Node(T2_CASEBLOCK, hLabels[controlSP] = NewLocalLabel(), CvtToRel(exprT2));
     ChkEndOfStmt();
 }
@@ -660,10 +660,10 @@ static void IterativeDoStatement() {
         return;
     }
     controlStk[controlSP] = DO_ITERATIVE;          // update the region type
-    word lhsT2            = WrTx2Var(pInfo);       // encode looping var
-    word rhsT2            = SerialiseExpression(); // and initial expression
+    uint16_t lhsT2            = WrTx2Var(pInfo);       // encode looping var
+    uint16_t rhsT2            = SerialiseExpression(); // and initial expression
     Wr2Node(T2_COLONEQUALS, CvtToRel(lhsT2), CvtToRel(rhsT2));
-    word headLabel     = NewLocalLabel();
+    uint16_t headLabel     = NewLocalLabel();
     hLabels[controlSP] = headLabel; // encode the looping point
     Wr2Leaf(T2_LOCALLABEL, headLabel);
     lhsT2 = WrTx2Var(pInfo); // encode looping  var
@@ -676,21 +676,21 @@ static void IterativeDoStatement() {
     }
 
     lhsT2              = Wr2Node(T2_LE, CvtToRel(lhsT2), CvtToRel(rhsT2)); // compare
-    word endLabel      = NewLocalLabel();                                  // allocate the end label
+    uint16_t endLabel      = NewLocalLabel();                                  // allocate the end label
     eLabels[controlSP] = endLabel;
     Wr2Node(T2_JMPFALSE, endLabel, CvtToRel(lhsT2)); // jmp to end when done
 
     if (NotMatchTx1Item(T1_BY)) // check for optional by
         return;
-    word byLabel        = NewLocalLabel(); // label after step code
+    uint16_t byLabel        = NewLocalLabel(); // label after step code
     byLabels[controlSP] = byLabel;
     Wr2Leaf(T2_JMP, byLabel);             // skip step code
-    word stepLabel     = NewLocalLabel(); // allocate step code label
+    uint16_t stepLabel     = NewLocalLabel(); // allocate step code label
     sLabels[controlSP] = stepLabel;
     Wr2Leaf(T2_LOCALLABEL, stepLabel);                                 // encode code label
     lhsT2       = WrTx2Var(pInfo);                                     // looping var
     rhsT2       = WrTx2Var(pInfo);                                     // looping var
-    word stepT2 = SerialiseExpression();                               // step expression
+    uint16_t stepT2 = SerialiseExpression();                               // step expression
     rhsT2       = Wr2Node(T2_ADDW, CvtToRel(rhsT2), CvtToRel(stepT2)); // loop var + step
     Wr2Node(T2_COLONEQUALS, CvtToRel(lhsT2), CvtToRel(rhsT2));         // loop var = loop var + step
     Wr2Leaf(T2_JNC, headLabel);                                        // still more to do
@@ -745,7 +745,7 @@ static void ReturnStatement() // return already seen
         return;
     }
     info         = curProc;
-    byte retType = info->returnType;
+    uint8_t retType = info->returnType;
     if (MatchTx2AuxFlag(F_EXPRITEM)) { /* there is an Expression item */
         UngetTx1Item();
         if (retType == 0)     // untyped procedure
@@ -815,7 +815,7 @@ static void Locator() {
 void Initialization() {
     index_t varInfoIdx = tx1Item.dataw[0];   // info of variable being initialised
     GetTx1Item();                            // get next item
-    word cnt = InitialValueList(varInfoIdx); // parse the initialisation list
+    uint16_t cnt = InitialValueList(varInfoIdx); // parse the initialisation list
     info     = FromIdx(varInfoIdx);
     if (info && (info->flag & F_STARDIM)) // update * dim
         info->dim = cnt;

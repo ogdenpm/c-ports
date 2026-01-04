@@ -177,7 +177,7 @@ char *tx2NameTable[] = {
     "T2_BEGCALL",    "T2_254"
 };
 
-char *tx2Name(byte op) {
+char *tx2Name(uint8_t op) {
 
     return tx2NameTable[op];
 }

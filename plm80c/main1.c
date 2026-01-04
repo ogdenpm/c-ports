@@ -9,20 +9,20 @@
 #include "os.h"
 #include "plm.h"
 
-// static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+// static uint8_t copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
-word markedStSP;
-word stmtT2Cnt;
+uint16_t markedStSP;
+uint16_t stmtT2Cnt;
 info_t *curProc;
-word curStmtNum;
+uint16_t curStmtNum;
 var_t var;
 
 bool regetTx1Item    = false;
 bool tx2LinfoPending = false;
 linfo_t linfo;
 tx1item_t tx1Item;
-byte tx1Attr;
-byte tx1ICode;
+uint8_t tx1Attr;
+uint8_t tx1ICode;
 
 static void PrepFiles() {
     scopeSP        = 1;
@@ -47,7 +47,7 @@ static void FinaliseAt() {
     vfRewind(&atf); // rewind for var allocation
 }
 
-word Start1() {
+uint16_t Start1() {
 #ifdef TRACE
     DumpT1Stream();
 #endif

@@ -8,8 +8,8 @@
  ****************************************************************************/
 #include "plm.h"
 
-// byte helperModId; made into local var
-// byte endHelperId;
+// uint8_t helperModId; made into local var
+// uint8_t endHelperId;
 bool listing;
 bool listOff;
 bool codeOn;
@@ -18,35 +18,35 @@ line_t line;
 char locPStr[33]; /* used to hold symbol name + '\0' */
 err_t errData;
 bool morePass4 = true;
-word baseAddr;
-byte cfCode;
-word lineNo;
-word stmtCnt;
-word blkCnt;
-word stmtNo;
+uint16_t baseAddr;
+uint8_t cfCode;
+uint16_t lineNo;
+uint16_t stmtCnt;
+uint16_t blkCnt;
+uint16_t stmtNo;
 bool linePrefixChecked = true;
 bool linePrefixEmitted = true;
 uint16_t lstLineLen;
 char lstLine[MAXLINE + 1]; // allow for trailing '\0'
 
-byte recExec[1024]      = { 6, 0, 0, S_CODE };
-byte recSelfFixup[1022] = { 0x22, 0, 0, FIX_HILO };
-byte recCodeFixup[1022] = { 0x24, 0, 0, S_CODE, FIX_HILO };
-byte recExtFixup[1022]  = { 0x20, 0, 0, FIX_HILO };
-byte recLineNum[1024]   = { 8, 0, 0, S_CODE };
-byte recEnd[8]          = { 4, 4, 0, 0, S_CODE };
-byte b9692;
-byte helperId;
-byte b969C;
-byte b969D;
-word wValAry[4];
+uint8_t recExec[1024]      = { 6, 0, 0, S_CODE };
+uint8_t recSelfFixup[1022] = { 0x22, 0, 0, FIX_HILO };
+uint8_t recCodeFixup[1022] = { 0x24, 0, 0, S_CODE, FIX_HILO };
+uint8_t recExtFixup[1022]  = { 0x20, 0, 0, FIX_HILO };
+uint8_t recLineNum[1024]   = { 8, 0, 0, S_CODE };
+uint8_t recEnd[8]          = { 4, 4, 0, 0, S_CODE };
+uint8_t b9692;
+uint8_t helperId;
+uint8_t b969C;
+uint8_t b969D;
+uint16_t wValAry[4];
 pstr_t *sValAry[4];
 char valPStr[38];
-byte fixupType;
-word locLabelNum;
-word curExtId;
+uint8_t fixupType;
+uint16_t locLabelNum;
+uint16_t curExtId;
 char commentPStr[42] = "\0; ";
 
-byte opByteCnt;
-byte opBytes[3];
-byte fixupSelector;
+uint8_t opByteCnt;
+uint8_t opBytes[3];
+uint8_t fixupSelector;

@@ -24,7 +24,7 @@ void EndCompile() {
 
 
 void LstModuleInfo() {
-    word maxStack = 0;
+    uint16_t maxStack = 0;
 
     for (int i = 1; i <= procCnt; i++) {
         info = procInfo[i];

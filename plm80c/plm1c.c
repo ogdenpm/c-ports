@@ -11,8 +11,8 @@
 bool use8bit;
 
 // <restricted primary>
-static word RestrictedPrimary() {
-    word val;
+static uint16_t RestrictedPrimary() {
+    uint16_t val;
     if (MatchTx1Item(T1_NUMBER))
         val = tx1Item.dataw[0];
     else {
@@ -27,17 +27,17 @@ static word RestrictedPrimary() {
 }
 
 // <restricted secondary>
-static word RestrictedSecondary() {
+static uint16_t RestrictedSecondary() {
     if (MatchTx1Item(T1_MINUSSIGN)) {
-        word val = -RestrictedPrimary();
+        uint16_t val = -RestrictedPrimary();
         return use8bit ? Low(val) : val;
     } else
         return RestrictedPrimary();
 }
 
 //  <restricted sum>
-static word RestrictedSum() {
-    word sum = RestrictedSecondary(); // get number
+static uint16_t RestrictedSum() {
+    uint16_t sum = RestrictedSecondary(); // get number
     while (1) {
         if (MatchTx1Item(T1_PLUSSIGN)) { // + number
             sum += RestrictedSecondary();
@@ -53,11 +53,11 @@ static word RestrictedSum() {
     return sum;
 }
 
-static word GetRestrictedArrayIndex() {
+static uint16_t GetRestrictedArrayIndex() {
     use8bit = true;
     if (!((info->flag & F_ARRAY)))
         Wr2TokError(149); /* INVALID SUBSCRIPTING IN RESTRICTED REFERENCE */
-    word sum = RestrictedSum();
+    uint16_t sum = RestrictedSum();
     ExpectRParen(150); /* MISSING ') ' AT END OF RESTRICTED SUBSCRIPT */
     return sum;
 }
@@ -119,8 +119,8 @@ void RestrictedExpression() {
     }
 }
 
-word InitialValueList(offset_t infoOffset) {
-    word listLen = 0;
+uint16_t InitialValueList(offset_t infoOffset) {
+    uint16_t listLen = 0;
     WrAtByte(ATI_DHDR);
     WrAtWord(infoOffset);
     WrAtWord(curStmtNum);
@@ -156,13 +156,13 @@ void ResetStacks() {
     parseSP = operandSP = operatorSP = stSP = 0;
 }
 
-void PushParse(word arg1w) {
+void PushParse(uint16_t arg1w) {
     if (parseSP == 99)
         fatal_ov1(ERR119); /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
     parseStack[++parseSP] = arg1w;
 }
 
-word PopParse() {
+uint16_t PopParse() {
     if (parseSP == 0)
         fatal_ov1(159); /* COMPILER ERROR: PARSE STACK UNDERFLOW */
     return parseStack[parseSP--];
@@ -188,7 +188,7 @@ static void SwapOperands() {
     operandStack[operandSP - 1] = tmp;
 }
 
-void PushSimpleOperand(byte icode, word val) {
+void PushSimpleOperand(uint8_t icode, uint16_t val) {
     operand_t operand = { icode, 0, { val } };
     PushOperand(&operand);
 }
@@ -204,19 +204,19 @@ void MoveOperandToTree() {
     PopOperand();
 }
 
-void PushOperator(byte arg1b) {
+void PushOperator(uint8_t arg1b) {
     if (operatorSP == 49)
         fatal_ov1(120); /* LIMIT EXCEEDED: Expression TOO COMPLEX */
     operatorStack[++operatorSP] = arg1b;
 }
 
-word PopOperator() {
+uint16_t PopOperator() {
     if (operatorSP == 0)
         fatal_ov1(162); /* COMPILER ERROR: OPERATOR STACK UNDERFLOW */
     return operatorStack[operatorSP--];
 }
 
-void PushComplexOperand(byte icode, byte childCnt) {
+void PushComplexOperand(uint8_t icode, uint8_t childCnt) {
     // new operand has given instruction, number of children and where children are
     // are saved on the sStack
     operand_t operand = { icode, childCnt, { childCnt ? stSP + 1 : 0 } };
@@ -232,7 +232,7 @@ void PushComplexOperand(byte icode, byte childCnt) {
 }
 
 void ApplyOperator() {
-    byte op = (byte)operatorStack[operatorSP];
+    uint8_t op = (uint8_t)operatorStack[operatorSP];
     PushComplexOperand(op, op == I_NOT || op == I_UNARYMINUS ? 1 : 2);
     PopOperator();
 }
@@ -273,9 +273,9 @@ void ChkTypedProcedure() {
 //          operatorStack[top] -> actual number of args
 // makes sure number of  arguments is correct
 // removing / adding as needed
-byte GetCallArgCnt() {
-    word nArgExpected = PopParse();
-    word nArgActual   = PopOperator();
+uint8_t GetCallArgCnt() {
+    uint16_t nArgExpected = PopParse();
+    uint16_t nArgActual   = PopOperator();
 
     if (nArgExpected != nArgActual) {
         if (nArgExpected < nArgActual) {
@@ -288,10 +288,10 @@ byte GetCallArgCnt() {
                 PushSimpleOperand(I_NUMBER, 0);
         }
     }
-    return (byte)nArgExpected;
+    return (uint8_t)nArgExpected;
 }
 
-void ParseSizing(byte iCode) {
+void ParseSizing(uint8_t iCode) {
     if (NotMatchTx1Item(T1_LPAREN)) {
         Wr2TokError(ERR124); /* MISSING ARGUMENTS FOR BUILT-IN PROCEDURE */
         PushSimpleOperand(I_NUMBER, 0);
@@ -360,7 +360,7 @@ void ParseSizing(byte iCode) {
 void MkIndexNode() {
     info = FromIdx(operandStack[operandSP - 1].infoIdx); /* get var */
     if (operandStack[operandSP].icode == I_PLUSSIGN) {   /* see if (index is of form expr + ?? */
-        word p = operandStack[operandSP].nodeIdx + 1;
+        uint16_t p = operandStack[operandSP].nodeIdx + 1;
         if (tree[p].icode == I_NUMBER) { /* expr + number */
             operandStack[operandSP] = tree[p - 1];
             PushSimpleOperand(I_NUMBER, tree[p].val); /* and get the number as an offset */
@@ -369,10 +369,10 @@ void MkIndexNode() {
     } else
         PushSimpleOperand(I_NUMBER, 0); /* 0 offset */
 
-    byte icode = info->type == ADDRESS_T ? I_WORDINDEX : I_BYTEINDEX;
+    uint8_t icode = info->type == ADDRESS_T ? I_WORDINDEX : I_BYTEINDEX;
 
     if (info->type == STRUCT_T) {      /* scale structure index */
-        word r = operandSP - 1;        /* the index expr (ex offset) */
+        uint16_t r = operandSP - 1;        /* the index expr (ex offset) */
         PushOperand(&operandStack[r]); /* calc dimension */
         PushSimpleOperand(I_SIZE, ToIdx(info));
         PushComplexOperand(I_STAR, 2);
@@ -382,8 +382,8 @@ void MkIndexNode() {
     PushComplexOperand(icode, 3);
 }
 
-void ParsePortNum(byte inOutId) {
-    word portNum = 0;
+void ParsePortNum(uint8_t inOutId) {
+    uint16_t portNum = 0;
     if (MatchTx1Item(T1_LPAREN)) {
         if (MatchTx1Item(T1_NUMBER)) {
             if (tx1Item.dataw[0] <= 255)
@@ -409,8 +409,8 @@ void ChkIllegalCall() {
 }
 
 // check if top item is an lvalue
-byte IsLValue(word sp) {
-    byte c = operandStack[sp].icode;
+uint8_t IsLValue(uint16_t sp) {
+    uint8_t c = operandStack[sp].icode;
     index_t infoIdx;
 
     if (c == I_OUTPUT || c == I_STACKPTR || c == I_BASED)
@@ -437,6 +437,6 @@ void ConstantList() {
     CreateInfo(0x100, BYTE_T, 0);                 // create an info block to hold the list
     info->flag |= F_DATA;                         // mark as data
     PushSimpleOperand(I_IDENTIFIER, ToIdx(info)); // push the identifier
-    info->flag |= F_ARRAY | F_STARDIM;            // set as a byte array with * dim
+    info->flag |= F_ARRAY | F_STARDIM;            // set as a uint8_t array with * dim
     info->dim = InitialValueList(ToIdx(info));    // get the list and record number of bytes
 }

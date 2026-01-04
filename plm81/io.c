@@ -15,9 +15,13 @@ FILE *polFp;
 FILE *symFp;
 FILE *lstFp;
 
+char *plmFile;
+char *polFile;
+char *symFile;
+char *lstFile;
+
 int inSP = 0;
 FILE *instk[7 + 1];
-char *src;
 
 void closefiles(void) {
     while (inSP > 0) {
@@ -28,35 +32,33 @@ void closefiles(void) {
     if (polFp) {
         fclose(polFp);
         if (errorCnt)
-            unlink(makeFilename(src, ".pol", true));
+            unlink(polFile);
     }
     if (symFp) {
         fclose(symFp);
         if (errorCnt)
-            unlink(makeFilename(src, ".sym", true));
+            unlink(symFile);
     }
     if (lstFp)
         fclose(lstFp);
 }
 
 void openfiles(char *srcFile) {
-    src = srcFile;
-    char *path;
-    if (!(srcFp = fopen(path = makeFilename(srcFile, ".plm", false), "rt"))) {
+    if (!(srcFp = fopen(plmFile = makeFilename(srcFile, ".plm", false), "rt"))) {
         fprintf(stderr, "can't open source file %s\n", path);
         exit(1);
     }
     atexit(closefiles);
-    if (!(polFp = fopen(path = makeFilename(srcFile, ".pol", true), "wb"))) {
+    if (!(polFp = fopen(polFile = makeFilename(srcFile, ".pol", true), "wb"))) {
         fprintf(stderr, "can't create pol file %s\n", path);
         exit(1);
     }
-    if (!(symFp = fopen(path = makeFilename(srcFile, ".sym", true), "wb"))) {
-        fprintf(stderr, "can't create symbol file %s\n", path);
+    if (!(symFp = fopen(symFile = makeFilename(srcFile, ".sym", true), "wb"))) {
+        fprintf(stderr, "can't create symbol file %s\n", symFile);
         exit(1);
     }
-    if (!(lstFp = fopen(path = makeFilename(srcFile, ".lst", true), "wt"))) {
-        fprintf(stderr, "can't create listing file %s\n", path);
+    if (!(lstFp = fopen(lstFile = makeFilename(srcFile, ".lst", true), "wt"))) {
+        fprintf(stderr, "can't create listing file %s\n", lstFile);
         exit(1);
     }
 }
@@ -188,16 +190,18 @@ void parseOptions(char *s) {
 }
 
 void stackc(char *fname) {
+    char *path;
     if (inSP >= 7)
         fatal("35: too many include files");
     else {
-        FILE *incFp = fopen(makeFilename(fname, ".plm", false), "rt");
+        FILE *incFp = fopen(path = makeFilename(fname, ".plm", false), "rt");
         if (!incFp)
-            fprintf(stderr, "can't open include file %s. Skipping\n", fname);
+            fprintf(stderr, "can't open include file %s. Skipping\n", path);
         else {
             instk[++inSP] = srcFp;
             srcFp         = incFp;
         }
+        free(path);
     }
 }
 

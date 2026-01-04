@@ -9,14 +9,14 @@
 #include "os.h"
 #include "plm.h"
 
-// static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
-word putWord(pointer buf, word val) {
+// static uint8_t copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
+uint16_t putWord(pointer buf, uint16_t val) {
     buf[0] = val & 0xff;
     buf[1] = val >> 8;
     return val;
 }
 
-word getWord(pointer buf) {
+uint16_t getWord(pointer buf) {
     return buf[0] + buf[1] * 256;
 }
 
@@ -67,9 +67,9 @@ static void AppendHelpers() {
     Wr1Info(procInfo[1]);
 
     Wr1Word(curOffset - procInfo[1]->addr);
-    for (byte i = 0; i <= 45; i++) {        // emit any needed helper modules
-        byte helperId = modHelperId[i];
-        byte endHelperId = helperId + modHelperIdCnt[i];
+    for (uint8_t i = 0; i <= 45; i++) {        // emit any needed helper modules
+        uint8_t helperId = modHelperId[i];
+        uint8_t endHelperId = helperId + modHelperIdCnt[i];
         bool required = false;
         while (helperId < endHelperId) {
             if (helperAddr[helperId])   // check if used i.e. needed
@@ -93,7 +93,7 @@ static void emitModHdr() {
     RecAddByte(recModHdr, 0, (version[1] << 4) | (version[3] & 0xf)); // the encoded version
     RecAddByte(recModHdr, 0, S_CODE);
     RecAddWord(recModHdr, 0, csegSize);
-    RecAddByte(recModHdr, 0, 3); // all segments are byte relocatable
+    RecAddByte(recModHdr, 0, 3); // all segments are uint8_t relocatable
     RecAddByte(recModHdr, 0, S_DATA);
     RecAddWord(recModHdr, 0, dsegSize);
     RecAddByte(recModHdr, 0, 3);
@@ -108,8 +108,8 @@ static void emitModHdr() {
 
 static void Sub_436C() {
     pointer rec;
-    word curRecLen, s;
-    byte seg;
+    uint16_t curRecLen, s;
+    uint8_t seg;
 
     s       = 0;
     info = infotab;
@@ -173,7 +173,7 @@ static void Sub_436C() {
     } /* of while */
 
     if (!standAlone) {
-        for (byte helperId = 0; helperId < 117; helperId++) {
+        for (uint8_t helperId = 0; helperId < 117; helperId++) {
             if (helperAddr[helperId]) {
                 helperAddr[helperId] = s++;
                 if (getWord(&recExternals[REC_LEN]) + 8 >= 299)
@@ -216,7 +216,7 @@ static void Sub_4746() {
     }
 }
 
-word Start3() {
+uint16_t Start3() {
  //   dump(&atf, "atf_main3"); // diagnostic dump
     vfRewind(&atf);
 
