@@ -28,7 +28,7 @@ blk_t blk[20];
 uint16_t callStackDepth[10];
 uint16_t callStackBase[10];
 //typedef struct {
-//    uint8_t nodeType;
+//    uint8_t type;
 //    index_t left;
 //    index_t right;
 //    index_t extra;
@@ -41,12 +41,8 @@ tx2_t tx2[255] = { { T2_SEMICOLON, 0, 0, 0, LIT_A, 0, 0 },
                    { T2_SEMICOLON, 0, 0, 0, 0, 0, 0 },
                    { T2_SEMICOLON, 0, 0, 0, 0, 0, 0 }};
 
-uint8_t registerContents[9]; // What TX2 node is in each register
-uint8_t registerDataType[9];   // Data type attribute
-uint16_t registerStackOffset[9]; // Stack/memory offset
-uint8_t registerOffset[9];// Offset adjustment
-uint16_t registerStorageClass[9]; // Storage flags
-bool registerIsDirect[9];   // Direct value flag
+
+RegisterState registerState[9]; // Unified register tracking
 
 bool registerInExpression[9]; // Used by active expression
 bool registerNeedsSave[9]; // Must be preserved
@@ -57,10 +53,10 @@ uint8_t exprRegisterCount; // Active expr reg count
 uint8_t exprAttr[2];
 uint8_t exprLoc[2];
 uint8_t curExprLoc[2];
-uint8_t operandComplexity[2];
-uint8_t operandRegisterCost[2];
-uint8_t operandCategory[2];
-uint8_t operandFragmentType[2];
+uint8_t operandComplexity[2];   // bC0B9[] - Complexity cost
+uint8_t operandRegisterCost[2]; // bC0BB[] - Register cost
+uint8_t operandCategory[2];     // bC0BD[] - Operation category
+uint8_t operandFragmentType[2]; // bC0BF[] - Fragment type
 uint8_t iCodeArgsIndex[2];
 uint8_t stackRegisterAttrs[125]; // Packed attribute+offset
 uint8_t stackNodeContents[125];  // TX2 node at each stack level
@@ -69,7 +65,7 @@ uint8_t tx2qp;     // current write position (4-255)
 uint8_t tx2qNxt       = 4; // next unprocessed note (set by setEndFirstStmt)
 uint8_t tx2qEnd       = 4; // endof valid data (=tx2qp on exit)
 uint16_t codeSize            = 0;
-uint16_t currentStackDepth         = 0;
+uint16_t currentStackDepth         = 0;  // wC1C3 - Stack depth
 uint16_t stackUsage         = 0;
 uint16_t localVariableSize         = 0;
 uint8_t activeGrpCnt         = 0;
@@ -83,15 +79,15 @@ uint8_t nodeControlFlags;
 uint8_t curExtProcId = 1;
 uint8_t blkId  = 0;
 uint16_t currentFragmentCode;
-bool boC1D8 = false;
+bool conflictMode = false;   //b0C1D8
 uint8_t selectedOperatorIdx;
 uint8_t cfrag1;
-uint8_t registersToSaveCount;
+uint8_t iCodeArgsIdx;
 uint16_t iCodeArgs[5];
 uint8_t fragLen;
 uint8_t fragment[34];
 uint8_t bC209[]     = { 4, 5, 3, 2, 0, 1 };
-bool boC20F      = false;
+bool invertComparison      = false; // b0C20
 
 uint8_t copyRight[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
@@ -115,7 +111,7 @@ uint16_t Start2() {
         while (1) {
             FillTx2Queue();
             SetFirstStatementEnd();
-            if (tx2[4].nodeType == T2_EOF)
+            if (tx2[4].type == T2_EOF)
                 break;
             DeRelStmt();
             OptimiseStmtNodes();

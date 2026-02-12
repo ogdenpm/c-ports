@@ -388,5 +388,5 @@ enum { LOC_MEM = 4, LOC_REG = 8, LOC_SPECIAL = 9, LOC_STACK, LOC_VAR };
 
 // IR_SR stack relative address
 enum {
-    IR_PSW, IR_B, IR_D, IR_H, IR_SR = 9, IR_CASELAB = 14
+    IR_PSW, IR_B, IR_D, IR_H, IR_TMP, IR_SAVPSW, IR_SAVB, IR_SAVD, IR_SAVH, IR_SR = 9, IR_CASELAB = 14
 };

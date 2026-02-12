@@ -21,28 +21,27 @@
 
 #define VERSION "V4.0"
 
-
 typedef uint8_t *pointer;
 typedef uint16_t *wpointer;
 typedef uint16_t offset_t;
 typedef uint16_t index_t;
 
-#define High(n)   ((n) >> 8)
-#define Low(n)    ((n)&0xff)
+#define High(n)     ((n) >> 8)
+#define Low(n)      ((n) & 0xff)
 
-#define QUOTE         '\''
-#define ISISEOF       0x81
+#define QUOTE       '\''
+#define ISISEOF     0x81
 
-#define MAXSTRING     4096
-#define MAXSYM        2500 // same as pl/m-386
-#define MAXINFO       3000 // allow for symbol reuse
-#define MAXCASE       1000
-#define MAXMEMBER     33
-#define MAXFACTORED   33
-#define MAXXREF       4000
-#define MAXINCLUDES   40
+#define MAXSTRING   4096
+#define MAXSYM      2500 // same as pl/m-386
+#define MAXINFO     3000 // allow for symbol reuse
+#define MAXCASE     1000
+#define MAXMEMBER   33
+#define MAXFACTORED 33
+#define MAXXREF     4000
+#define MAXINCLUDES 40
 
-enum { Left, Right};    // left right indexes
+enum { Left, Right }; // left right indexes
 /* flags */
 enum {
     F_PUBLIC    = (1 << 0),
@@ -139,6 +138,9 @@ enum {
 
 enum { DO_PROC = 0, SIMPLE_DO, DO_WHILE, DO_CASE, DO_ITERATIVE };
 
+
+// operand info type
+enum { OP_IM8 = 8, OP_IM16, OP_STK, OP_VAR, OP_AUTO, OP_DIRECT = 16};
 /* standard structures */
 
 typedef struct {
@@ -148,7 +150,7 @@ typedef struct {
 
 #define _pstr_t(name, size)                                                                        \
     struct {                                                                                       \
-        uint8_t len;                                                                                  \
+        uint8_t len;                                                                               \
         char str[size];                                                                            \
     } name
 
@@ -261,7 +263,7 @@ typedef struct {
 } operand_t;
 
 typedef struct {
-    uint8_t nodeType;
+    uint8_t type;
     index_t left;
     index_t right;
     index_t extra;
@@ -418,9 +420,16 @@ extern uint16_t stSP;
 
 /* plm overlay 2 */
 /* main2.plm */
-extern uint8_t registerDataType[];
-extern uint8_t registerContents[];
-extern uint8_t registerOffset[];
+typedef struct {
+    uint8_t contents;      // What TX2 node is in each register
+    uint8_t dataType;      // Data type attribute
+    uint16_t stackOffset;  // Stack/memory offset
+    uint16_t storageClass; // Storage flags
+    uint8_t offset;        // Offset adjustment
+    bool isDirect;         // Direct value flag
+} RegisterState;
+
+extern RegisterState registerState[];
 extern uint8_t savedRegisterCount;
 extern uint8_t exprRegisterCount;
 extern uint8_t exprAttr[];
@@ -433,24 +442,23 @@ extern uint8_t operandFragmentType[];
 extern uint8_t iCodeArgsIndex[];
 extern uint8_t stackRegisterAttrs[];
 extern uint8_t stackNodeContents[];
-//extern uint8_t bC1BD;
+// extern uint8_t bC1BD;
 extern uint8_t tx2qNxt;
 extern uint8_t nodeControlFlags;
 extern uint8_t selectedOperatorIdx;
-extern uint8_t registersToSaveCount;
+extern uint8_t iCodeArgsIdx;
 extern uint8_t fragLen;
 extern uint8_t bC209[];
 extern uint8_t blkOverCnt;
 extern uint8_t activeGrpCnt;
-extern bool registerIsDirect[];
 extern bool registerHasValue[];
 extern bool registerInExpression[];
 extern bool registerNeedsSave[];
 extern bool registerWasSaved[];
 extern bool returnGenerated;
 extern bool nextReturnState;
-extern bool boC1D8;
-extern bool boC20F;
+extern bool conflictMode;
+extern bool invertComparison;
 extern uint8_t fragment[];
 extern uint8_t cfrag1;
 extern uint8_t curExtProcId;
@@ -466,8 +474,6 @@ extern uint8_t tx2qp;
 extern uint16_t nodeTypeToAttribute[];
 extern uint16_t callStackDepth[];
 extern uint16_t callStackBase[];
-extern uint16_t registerStackOffset[];
-extern uint16_t registerStorageClass[];
 extern uint16_t currentStackDepth;
 extern uint16_t stackUsage;
 extern uint16_t localVariableSize;
@@ -500,7 +506,7 @@ extern uint8_t optimisationStepTable[];
 extern uint8_t constFoldRules[];
 extern uint8_t nodeControlMap[];
 extern uint8_t optimisationStep2Map[];
-extern uint8_t optimsationStep1Map[];
+extern uint8_t optimisationStep1Map[];
 extern uint8_t step2ActionTable[];
 extern uint8_t lookupResultAttr[];
 extern uint8_t lookupResultLoc[];
@@ -921,7 +927,6 @@ bool EnterBlk(void);
 bool ExitBlk(void);
 void HandleFatalError(uint16_t err);
 void AnalyzeRegisterUsage(void);
-void CopyRegisterState(uint8_t src, uint8_t dst);
 void SaveRegisterToStack(uint8_t arg1b);
 void RestoreRegisterFromStack(uint8_t arg1b);
 void PushRegisterToStack(uint8_t arg1b);
@@ -931,7 +936,7 @@ void GenerateReturnSequence(void);
 void CreateConstantOrIdNode(uint16_t val, info_t *pInfo, uint8_t exprAttr, uint8_t exprLoc);
 void GetOperandValue(uint8_t arg1b, wpointer arg2wP, wpointer arg3wP);
 void DecrementExprRefs(void);
-void UpdateExpressionLookup(uint8_t arg1b);
+void UpdateExpressionLookup(uint8_t side);
 void EncodeOperandInfo(uint8_t arg1b);
 void EncodeExpressionOperand(uint8_t arg1b);
 void AdjustRegisterOffset(uint8_t arg1b);
@@ -963,7 +968,7 @@ void c_procedure(void);
 
 /* plm2g.c */
 void FindParamInfo(uint8_t arg1b);
-void CopyParametersToMemory(void);
+void MoveParametersToMemory(void);
 void LoadEffectiveAddressToHL(uint16_t arg1w);
 void AllocateLocalVariables(uint16_t arg1w);
 void IncrementHL(void);
@@ -984,7 +989,7 @@ void EnterCaseBlock(void);
 void ExitCaseBlock(void);
 void ExitProcedure(void);
 void GenerateLengthBuiltin(uint8_t arg1b);
-void GenerateSIzeBuiltin(void);
+void GenerateSizeBuiltin(void);
 void BeginProcedureCall(void);
 void GenerateStatementCode(void);
 

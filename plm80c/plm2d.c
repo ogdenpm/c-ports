@@ -15,7 +15,7 @@ static uint8_t arithOp;
 static uint8_t resAttrib, resOpFlag;
 
 
-static bool CanFoldOperand(uint8_t arg1b, uint16_t arg2w) {
+static bool CanFoldOperand(uint8_t validationRule, uint16_t operandFlag) {
     /**
      * CanFoldOperand - Validate if an operand can participate in constant folding
      * 
@@ -24,36 +24,36 @@ static bool CanFoldOperand(uint8_t arg1b, uint16_t arg2w) {
      * - Operand flags (compatibility between left and right operands)
      * - Special constraints (0x4000 flag check)
      * 
-     * Validation rules (arg1b parameter):
+     * Validation validationRule (validationRule parameter):
      * - 0: Requires LOC_MEM location
-     * - 2: Rejects if arg2w != 0
-     * - 3: Special handling - rejects if arg2w == 0x4000
-     * - 4: Requires arg2w == 0 (must be pure constant)
+     * - 2: Rejects if operandFlag != 0
+     * - 3: Special handling - rejects if operandFlag == 0x4000
+     * - 4: Requires operandFlag == 0 (must be pure constant)
      * - 5: Requires lhsAccFlag == rhsAccFlag (operands must have same storage class)
      * - Other: Requires LOC_REG location and performs additional flag checks
      * 
-     * @param arg1b - Validation rule index from constFoldRules table
-     * @param arg2w - Operand flag from GetOperandValue()
+     * @param validationRule - Validation rule index from constFoldRules table
+     * @param operandFlag - Operand flag from GetOperandValue()
      * @return true if operand can be folded, false otherwise
      */
-    if (arg1b == 0) {
+    if (validationRule == 0) {
         if (tx2[operand].exprLoc != LOC_MEM)
             return false;
-    } else if (arg1b != 3) {
+    } else if (validationRule != 3) {
         if (tx2[operand].exprLoc != LOC_REG)
             return false;
-        if (arg2w != 0) {
-            if (arg1b == 2)
+        if (operandFlag != 0) {
+            if (validationRule == 2)
                 return false;
-            if (arg1b == 4) {
+            if (validationRule == 4) {
                 if (lhsAccFlag != 0)
                     return false;
-            } else if (arg1b == 5) {
+            } else if (validationRule == 5) {
                 if (lhsAccFlag != rhsAccFlag)
                     return false;
             }
         }
-    } else if (arg2w == 0x4000)
+    } else if (operandFlag == 0x4000)
         return false;
     return true;
 }
@@ -108,7 +108,7 @@ static uint16_t evalConst() {
  * - resOpFlag: Result location (LOC_REG, LOC_MEM, or LOC_STACK)
  * - info: Associated symbol information (if applicable)
  * 
- * Uses constFoldRules lookup table to apply type inference rules based on operation.
+ * Uses constFoldRules lookup table to apply type inference validationRule based on operation.
  * Special handling for MEMBER access with stack-based structs.
  */
 static void DetermineResultType() {
@@ -174,7 +174,7 @@ static void DetermineResultType() {
  * 3. Extract right operand value and flags (for binary operations)
  * 4. Validate right operand is suitable for folding
  * 5. Evaluate the constant expression at compile-time using evalConst()
- * 6. Determine result type and storage class using Sub_73C5()
+ * 6. Determine result type and storage class using DetermineResultType()
  * 7. Replace the expression subtree with a single constant node
  * 
  * Conditions for successful folding:
@@ -185,7 +185,7 @@ static void DetermineResultType() {
  * Side effects:
  * - Replaces tx2[tx2qp] node with T2_NUMBER or T2_IDENTIFIER containing folded value
  * - Updates nodeControlFlags to reflect new node type
- * - Decrements reference counts via Sub_611A()
+ * - Decrements reference counts via DecrementExprRefs()
  * 
  * Called from: GenerateOperatorCode() for type conversion operators
  * 
@@ -214,7 +214,7 @@ void FoldConstantExpr() {
             if (resAttrib == BYTE_A && resOpFlag == LOC_REG)
                 constVal &= 0xFF;
             CreateConstantOrIdNode(constVal, info, resAttrib, resOpFlag);
-            nodeControlFlags = nodeControlMap[curNodeType = tx2[tx2qp].nodeType];
+            nodeControlFlags = nodeControlMap[curNodeType = tx2[tx2qp].type];
         }
     }
 }
@@ -251,7 +251,7 @@ static bool ExpectedAttr(uint8_t nodeLoc) {
  *    - Convert assignment to T2_SEMICOLON (no-op)
  *    - Clear reference counts
  *
- * Called from: Sub_7801() during peephole optimization
+ * Called from: ValidateOptimisationStep() during peephole optimization
  *
  * @param nodeIdx - Index of the node being assigned from (the temporary)
  */
@@ -259,14 +259,14 @@ static void TryEliminateCopyAssignment(uint8_t nodeIdx) {
     uint8_t i;
 
     // Skip past any back-reference nodes
-    for (i = tx2qp + 1; tx2[i].nodeType == T2_OPTBACKREF && i < tx2qNxt; i++)
+    for (i = tx2qp + 1; tx2[i].type == T2_OPTBACKREF && i < tx2qNxt; i++)
         ;
 
     // Check if we have the pattern: nodeIdx := tx2qp, where tx2qp has single reference
-    if (tx2[i].nodeType == T2_COLONEQUALS && nodeIdx == tx2[i].left && tx2[i].right == tx2qp &&
+    if (tx2[i].type == T2_COLONEQUALS && nodeIdx == tx2[i].left && tx2[i].right == tx2qp &&
         tx2[tx2qp].cnt == 1) {
         optResult       = 6;            // Signal optimization was performed
-        tx2[i].nodeType = T2_SEMICOLON; // Eliminate the copy assignment
+        tx2[i].type = T2_SEMICOLON; // Eliminate the copy assignment
         tx2[tx2qp].cnt  = 0;            // Clear reference count
         tx2[nodeIdx].cnt--;             // Decrement LHS reference
     }
@@ -306,7 +306,7 @@ static void TryEliminateCopyAssignment(uint8_t nodeIdx) {
  *    - Or: optResult = acc % w502A[...] (modulo operation)
  *
  * The optResult value computed here is used by ApplyTransformation() to
- * determine the new node type: nodeType = b5221[stepIdx] + optResult
+ * determine the new node type: type = b5221[stepIdx] + optResult
  *
  * @param stepIdx - Index into lookup tables (b5048, w502A)
  * @param left - Left operand node index in TX2 array
@@ -373,7 +373,7 @@ static bool ValidateOptimisationStep(uint8_t stepIdx, uint8_t left, uint8_t righ
  *
  * Two transformation types:
  *
- * 1. Constant Replacement (nodeType == T2_NUMBER):
+ * 1. Constant Replacement (type == T2_NUMBER):
  *    - Replaces entire expression with constant value
  *    - Sets acc = 0 if operation requires it (j == 0)
  *    - Decrements reference counts for original operands
@@ -381,14 +381,14 @@ static bool ValidateOptimisationStep(uint8_t stepIdx, uint8_t left, uint8_t righ
  *      • Operation type (not STAR/SLASH/MOD)
  *      • Value range (acc < 0x100)
  *      • Operand attributes (ExpectedAttr checks)
- *    - Creates new T2_NUMBER node via Sub_5F4B()
+ *    - Creates new T2_NUMBER node via CreateConstantOrIdNode()
  *
- * 2. Node Rewriting (nodeType != T2_NUMBER):
+ * 2. Node Rewriting (type != T2_NUMBER):
  *    - Modifies node type based on: b5221[stepIdx] + optResult
  *    - Rewires operands based on b5048[stepIdx] & 3:
  *      • j == 1: Use right operand, decrement left refcount
  *      • j != 1: Clear right operand, may swap with tx2[1].right
- *    - Handles comparison inversion (boC20F flag):
+ *    - Handles comparison inversion (invertComparison flag):
  *      • Computes inverted operation: 0x43 - nodeType
  *      • Used for relational operation optimization
  *    - Sets right operand to 0 (unary result)
@@ -401,7 +401,7 @@ static bool ValidateOptimisationStep(uint8_t stepIdx, uint8_t left, uint8_t righ
  * - Modifies tx2[tx2qp] node (type, operands)
  * - Decrements reference counts for replaced operands
  * - Updates global variables: curNodeType, nodeControlFlags
- * - May clear boC20F flag (comparison inversion)
+ * - May clear invertComparison flag (comparison inversion)
  * - May modify acc value
  *
  * Called from: ApplyStepOptimization() after validation succeeds
@@ -410,10 +410,10 @@ static void ApplyTransformation(uint8_t stepIdx, uint8_t left, uint8_t right) {
     uint8_t j;
 
     stepIdx--; // Adjust index for lookup tables
-    uint8_t nodeType = step2ActionTable[stepIdx] + optResult;
+    uint8_t type = step2ActionTable[stepIdx] + optResult;
     j             = peepholePatterns[stepIdx] & 3;
 
-    if (nodeType == T2_NUMBER) {
+    if (type == T2_NUMBER) {
         // Transformation Type 1: Replace expression with constant
         if (j == 0)
             acc = 0;
@@ -450,20 +450,20 @@ static void ApplyTransformation(uint8_t stepIdx, uint8_t left, uint8_t right) {
                 tx2[tx2qp].left = tx2[1].right;
 
                 // Handle comparison inversion for relational ops
-                if (boC20F) {
-                    nodeType = 0x43 - nodeType; // Invert comparison
-                    boC20F   = false;
+                if (invertComparison) {
+                    type = 0x43 - type; // Invert comparison
+                    invertComparison   = false;
                 }
             }
         }
 
         // Update node type and clear right operand (unary result)
-        tx2[tx2qp].nodeType = nodeType;
+        tx2[tx2qp].type = type;
         tx2[tx2qp].right    = 0;
     }
 
     // Update control flags for new node type
-    nodeControlFlags = nodeControlMap[curNodeType = nodeType];
+    nodeControlFlags = nodeControlMap[curNodeType = type];
 }
 
 /**
@@ -544,7 +544,7 @@ static bool ApplyStepOptimisation(uint8_t stepIdx, uint8_t left, uint8_t right) 
  *    When the relational result has single reference (cnt == 1):
  *    - Converts to direct conditional jump (T2_JNZ)
  *    - Eliminates intermediate boolean value
- *    - Inverts comparison if needed (boC20F flag)
+ *    - Inverts comparison if needed (invertComparison flag)
  *
  *    Example transformation:
  *      a < b        →  JNZ <label>, comparison=LT
@@ -561,21 +561,21 @@ static bool ApplyStepOptimisation(uint8_t stepIdx, uint8_t left, uint8_t right) 
  *
  * Side effects:
  * - May modify TX2 nodes (type, operands, reference counts)
- * - May set global flags (boC20F, optResult)
+ * - May set global flags (invertComparison, optResult)
  * - May convert relational operations to conditional jumps
  */
 void OptimiseExpression() {
     if (curNodeType <= T2_GT) { // Relational operation
         // Check for relational + JMPFALSE pattern that can be optimized
-        if (tx2[tx2qp + 1].nodeType == T2_JMPFALSE && tx2[tx2qp].cnt == 1) {
+        if (tx2[tx2qp + 1].type == T2_JMPFALSE && tx2[tx2qp].cnt == 1) {
             // Convert to direct conditional jump
-            tx2[tx2qp + 1].nodeType = T2_JNZ;
+            tx2[tx2qp + 1].type = T2_JNZ;
             tx2[tx2qp + 1].left     = tx2[1].right;
 
             // Handle comparison inversion if needed
-            if (boC20F) {
+            if (invertComparison) {
                 tx2[tx2qp + 1].right = bC209[curNodeType]; // Inverted comparison
-                boC20F               = false;
+                invertComparison               = false;
             } else {
                 tx2[tx2qp + 1].right = curNodeType; // Normal comparison
             }
@@ -583,12 +583,12 @@ void OptimiseExpression() {
             tx2[tx2qp].cnt = 0; // Mark relational node as dead
         } else {
             // Convert to conditional value (boolean result)
-            tx2[tx2qp].nodeType = curNodeType += T2_LT_VAL;
+            tx2[tx2qp].type = curNodeType += T2_LT_VAL;
         }
     } else {
         // Apply general peephole optimizations
         // Try step1 (right, left operand order) first
-        if (!ApplyStepOptimisation(optimsationStep1Map[curNodeType], (uint8_t)tx2[tx2qp].right, (uint8_t)tx2[tx2qp].left)) {
+        if (!ApplyStepOptimisation(optimisationStep1Map[curNodeType], (uint8_t)tx2[tx2qp].right, (uint8_t)tx2[tx2qp].left)) {
             // Fall back to step2 (left, right operand order)
             ApplyStepOptimisation(optimisationStep2Map[curNodeType], (uint8_t)tx2[tx2qp].left, (uint8_t)tx2[tx2qp].right);
         }

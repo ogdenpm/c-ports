@@ -11,7 +11,6 @@
 static uint8_t expensiveAccessStart; // bC259 - Start position for expensive access optimization
 static uint8_t cheapAccessStart;     // bC25A - Start position for cheap access optimization
 
-
 /*
 Optimization Strategy Documentation
 Access Cost Classification
@@ -35,7 +34,6 @@ This two-tier strategy balances optimization aggressiveness with code correctnes
 invalid CSE across side effects while maximizing common subexpression reuse for safe cases.
 
 */
-
 
 /**
  * IncrementNodeReference - Increment reference count for expression node
@@ -189,10 +187,11 @@ static void IncrementNodeReference(uint8_t nodeLoc) {
 static void OptimiseNodes(uint8_t nodeLoc) {
     if (OPTIMIZE)
         while (tx2qp > ++nodeLoc) {
-            if (tx2[nodeLoc].nodeType == curNodeType && tx2[nodeLoc].left == tx2[tx2qp].left &&
-                tx2[nodeLoc].right == tx2[tx2qp].right && tx2[nodeLoc].exprAttr == tx2[tx2qp].exprAttr) {
+            if (tx2[nodeLoc].type == curNodeType && tx2[nodeLoc].left == tx2[tx2qp].left &&
+                tx2[nodeLoc].right == tx2[tx2qp].right &&
+                tx2[nodeLoc].exprAttr == tx2[tx2qp].exprAttr) {
                 if (tx2[nodeLoc].extra != 0xff00) {
-                    tx2[tx2qp].nodeType = T2_OPTBACKREF;
+                    tx2[tx2qp].type = T2_OPTBACKREF;
                     tx2[tx2qp].left = nodeLoc;
                     return;
                 }
@@ -212,23 +211,23 @@ static void OptimiseNodes(uint8_t nodeLoc) {
 static bool isExpensive;
 
 static void FixBackRef(wpointer pNodeIdx) {
-    if (*pNodeIdx && tx2[*pNodeIdx].nodeType == T2_OPTBACKREF)
+    if (*pNodeIdx && tx2[*pNodeIdx].type == T2_OPTBACKREF)
         *pNodeIdx = tx2[*pNodeIdx].left;
 }
 
 static void chkComponentAccess(uint8_t nodeLoc) {
-    uint8_t nodeType;
-    if ((nodeType = tx2[nodeLoc].nodeType) == T2_BASED)
+    uint8_t type;
+    if ((type = tx2[nodeLoc].type) == T2_BASED)
         isExpensive = true;
-    else if (nodeType == T2_BYTEINDEX || nodeType == T2_WORDINDEX) {
-        if (tx2[tx2[nodeLoc].right].nodeType != T2_NUMBER)
+    else if (type == T2_BYTEINDEX || type == T2_WORDINDEX) {
+        if (tx2[tx2[nodeLoc].right].type != T2_NUMBER)
             isExpensive = true;
         else {
             info = FromIdx(tx2[tx2[nodeLoc].left].left);
             if (tx2[tx2[nodeLoc].right].right >= info->dim || (info->flag & F_AT))
                 isExpensive = true;
         }
-    } else if (nodeType == T2_IDENTIFIER) {
+    } else if (type == T2_IDENTIFIER) {
         info = FromIdx(tx2[nodeLoc].left);
         if ((info->flag & F_AT))
             isExpensive = true;
@@ -243,7 +242,7 @@ static void chkComponentAccess(uint8_t nodeLoc) {
 
 static void chkVarAccess(uint8_t nodeLoc) {
     isExpensive = false;
-    if (tx2[nodeLoc].nodeType == T2_MEMBER) {
+    if (tx2[nodeLoc].type == T2_MEMBER) {
         chkComponentAccess((uint8_t)tx2[nodeLoc].left);
         chkComponentAccess((uint8_t)tx2[nodeLoc].right);
     } else
@@ -263,7 +262,7 @@ static uint8_t searchBoundary; // bC263 - Dynamic CSE search boundary
  * @param nodeIdx - TX2 node index to check
  */
 static void UpdateSearchBoundary(uint8_t nodeIdx) {
-    if (tx2[nodeIdx].nodeType != T2_CALL)
+    if (tx2[nodeIdx].type != T2_CALL)
         nodeIdx = (uint8_t)tx2[nodeIdx].extra;
     if (nodeIdx && nodeIdx > searchBoundary)
         searchBoundary = nodeIdx;
@@ -302,7 +301,7 @@ static bool IsAutomaticVariableAccess(uint8_t nodeLoc) {
     if (isExpensive)
         return true;
 
-    if (tx2[tx2[nodeLoc].left].nodeType == T2_IDENTIFIER) {
+    if (tx2[tx2[nodeLoc].left].type == T2_IDENTIFIER) {
         info = FromIdx(tx2[tx2[nodeLoc].left].left);
         if ((info->flag & F_AUTOMATIC))
             return true;
@@ -362,11 +361,11 @@ static void ProcessOperatorNode() {
         tx2[tx2qp].extra = 0;
         chkVarAccess(tx2qp);
         OptimiseNodes(GetOptimizationStartPos());
-        if (curNodeType == T2_JMPFALSE && tx2[tx2qp - 1].nodeType == T2_NOT) {
-            boC20F        = true;
+        if (curNodeType == T2_JMPFALSE && tx2[tx2qp - 1].type == T2_NOT) {
+            invertComparison           = true;
             tx2[tx2qp].right = tx2[tx2qp - 1].left;
             MoveTx2(tx2qp, tx2qp - 1);
-            tx2[tx2qp].nodeType = T2_SEMICOLON;
+            tx2[tx2qp].type = T2_SEMICOLON;
         }
     }
 }
@@ -391,7 +390,7 @@ static void OptimiseLeafNode() {
 /*
 * Iterates through all TX2 nodes in the current statement (from position 4 to tx2qNxt - 1):
 1.	Initializes each node with a reference count of 0
-2.	Classifies nodes using nodeControlMap[nodeType] to determine processing strategy
+2.	Classifies nodes using nodeControlMap[type] to determine processing strategy
 3.	Routes processing based on node control flags
 
 optimisation features
@@ -402,11 +401,11 @@ optimisation features
 
 void OptimiseStmtNodes() {
     expensiveAccessStart = 4;
-    cheapAccessStart = 4;
+    cheapAccessStart     = 4;
     for (tx2qp = 4; tx2qp <= tx2qNxt - 1; tx2qp++) {
-        tx2[tx2qp].cnt = 0;
-        curNodeType          = tx2[tx2qp].nodeType;
-        nodeControlFlags          = nodeControlMap[curNodeType];
+        tx2[tx2qp].cnt   = 0;
+        curNodeType      = tx2[tx2qp].type;
+        nodeControlFlags = nodeControlMap[curNodeType];
         if ((nodeControlFlags & 0xc0) == 0) // binary/unary operators
             // LT LE NE EQ GE GT ROL ROR SCL SCR SHL SHR JMPFALSE DOUBLE PLUSSIGN MINUSSIGN STAR
             // SLASH MOD AND OR XOR BASED BYTEINDEX WORDINDEX MEMBER UNARYMINUS NOT LOW HIGH
