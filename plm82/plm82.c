@@ -509,7 +509,6 @@ int main(int argc, char **argv) {
             fprintf(stdout, "%d PROGRAM ERROR%s\n\n", errorCnt, errorCnt != 1 ? "S" : "");
         }
     }
-    closefiles();
     cmpuse();
     return errorCnt;
 }
