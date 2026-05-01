@@ -1404,6 +1404,8 @@ void writePrompt() {
 
 byte getLeadInCH(byte c) {
     ii = get8AbsNumber();
+    while (inputChar == ' ') // skip spaces after number
+        getUCChar();         // mimic getNumber() behaviour which sets inputChar to uppercase
     if (inputChar != '\n')
         return inputChar;
     return c;
