@@ -80,7 +80,7 @@ void WriteStats() {
         }
     }
     /* common block segments */
-    for (symbol_t *commSym = headCommSym; commSym; commSym = commSym->nxtSymbol->hashChain) {
+    for (symbol_t *commSym = headCommSym; commSym; commSym = commSym->nxtSymbol) {
         PrintBaseSizeAlign(0, commSym->len, commSym->flags); /* print Size() info */
         Printf("/%s/", commSym->name->str);
 
@@ -327,7 +327,7 @@ void P1ModEnd() {
     }
     if (commonSeen) /* check common alignments */
         for (int i = 0; i < 256; i++) {
-            if (comSegInfo[i].combine + 1 > 1) /* only AUNKNOWN & ANONE valid */
+            if (comSegInfo[i].combine != AUNKNOWN && comSegInfo[i].combine != ANONE) /* only AUNKNOWN & ANONE valid */
                 BadRecordSeq();
         }
 } /* P1ModEnd() */
@@ -378,18 +378,18 @@ void Pass1COMDEF() {
             }
         } else { /* new entry required */
             commSym->hashChain = safeMalloc(sizeof(symbol_t));
-            commSym            = commSym->hashChain; /* link in and mark new end of chain */
+            commSym            = commSym->hashChain;         /* link in and mark new end of chain */
             commSym->hashChain = 0;
             commSym->flags     = comSegInfo[curSeg].combine; /* save the combine value */
             /* check we haven't created too many segs in the linked file */
             if (segToUse < SNAMED)
                 RecError("Too many COMMON segments");
-            commSym->seg                  = segToUse--; /* record the linked seg for this segment */
-            commSym->name                 = pstrdup(name);                     /* copy the name */
-            commSym->len                  = comSegInfo[curSeg].lenOrLinkedSeg; /* and Size() */
-            commSym->nxtSymbol->hashChain = tailSegOrderLink->hashChain; /* chain into seg order */
-            tailSegOrderLink->hashChain   = commSym;
-            tailSegOrderLink              = commSym->nxtSymbol;
+            commSym->seg                = segToUse--; /* record the linked seg for this segment */
+            commSym->name               = pstrdup(name);                     /* copy the name */
+            commSym->len                = comSegInfo[curSeg].lenOrLinkedSeg; /* and Size() */
+            commSym->nxtSymbol          = tailSegOrderLink->hashChain; /* chain into seg order */
+            tailSegOrderLink->hashChain = commSym;
+            tailSegOrderLink            = (symbol_t *)&commSym->nxtSymbol;
         }
         comSegInfo[curSeg].combine = ANONE; /* flag as done */
         /* replace len with the linkedSeg */
@@ -447,9 +447,9 @@ void Pass1EXTNAMES() {
         pstr_t const *name = ReadName();
         externCnt++; /* bump the number of externs */
         symbol_t *symbol;
-        if (!Lookup(name, &symbol, F_SCOPEMASK)) {           /* ! currently extern || public */
+        if (!Lookup(name, &symbol, F_SCOPEMASK)) {              /* ! currently extern || public */
             symbol->hashChain   = safeMalloc(sizeof(symbol_t)); /* create an entry */
-            symbol              = symbol->hashChain;         /* link in */
+            symbol              = symbol->hashChain;            /* link in */
             symbol->hashChain   = 0;
             symbol->flags       = F_EXTERN; /* extern and record symcnt number */
             symbol->offsetOrSym = ++newExtId;
