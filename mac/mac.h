@@ -220,7 +220,7 @@ void l03d7(void);
 void l03db(void);
 uint8_t MAC_sub(void);
 bool IsMacro(uint8_t type);
-bool collectMaroBody(uint8_t a);
+bool collectMacroBody(uint8_t a);
 void PutIF(uint8_t a);
 uint8_t GetIF(void);
 void SET_EQU(uint8_t a);
