@@ -154,7 +154,7 @@
 /*   148     pass-2 compiler error.  attempt to unstack too*/
 /*           many values.  may be due to previous error.*/
 
-/*   149     pass-2 compiler error. attempt to convert invalid */
+       /*   149     pass-2 compiler error. attempt to convert invalid */
 /*           value to address type.  may be due to previous error.*/
 
 /*   150     (same as 147) */
@@ -172,6 +172,20 @@
 
 /*              i m p l e m e n t a t i o n    n o t e s */
 /*              - - - - - - - - - - - - - -    - - - - -*/
+
+
+/* 8080 PL/M Compiler Pass 2 - Code Generator
+ *
+ * This pass translates intermediate representation (polish notation) into
+ * 8080 machine code with extensive register allocation and peephole optimization.
+ *
+ * Key concepts:
+ * - parseStk[]: Expression evaluation stack with register assignments
+ * - state[]: Per-register tracking (value, stack position, lock status)
+ * - Lazy evaluation: register stores are deferred until necessary
+ * - H:L tracking: special optimization for procedure calls/returns
+ */
+
 
 #include "plm82.h"
 
@@ -330,18 +344,29 @@ regAlloc_t stkItem(uint16_t assignment, uint8_t prec, int16_t st, int32_t litv) 
     return r;
 }
 
+/**
+ * Parse a decimal or hexadecimal number from command-line argument.
+ * Hex numbers are terminated with 'H' or 'h'.
+ *
+ * @param s - String to parse
+ * @return Parsed integer value
+ * @throws Fatal error if invalid format or out of range
+ */
 int parseNum(char const *s) {
     char const *t;
 
+    /* Scan for end of digit sequence */
     for (t = s; isxdigit(*t); t++)
         ;
 
+    /* Detect radix: 'H' suffix indicates hex, else decimal */
     uint8_t radix = toupper(*t) == 'H' ? 16 : 10;
     if (t == s || t[radix == 16])
         usage("Invalid number %s\n", s);
 
     int32_t val = 0;
 
+    /* Convert digit by digit */
     for (t = s; isxdigit(*t); t++) {
         uint8_t digit = isdigit(*t) ? *t - '0' : toupper(*t) - 'A' + 10;
         if (digit >= radix)
@@ -353,18 +378,52 @@ int parseNum(char const *s) {
     return val;
 }
 
+/**
+ * @brief Entry point for the PL/M-8080 pass-2 compiler.
+ *
+ * This routine:
+ * 1) Parses command-line options and validates numeric ranges.
+ * 2) Opens pass-1 intermediate/output files for the input module.
+ * 3) Loads symbols and intermediate code, then performs code generation.
+ * 4) Verifies internal/compiler stack consistency and relocates output.
+ * 5) Emits listing output (code/data/symbol-related sections) when enabled.
+ * 6) Emits Intel HEX output when enabled.
+ * 7) Reports final error count and returns it as the process exit code.
+ *
+ * Supported options handled here:
+ * -a <n> : analysis level/address (C_ANALYSIS)
+ * -e <n> : entry address (0..0xFFFF)
+ * -w <n> : listing width (clamped to 72..132)
+ * -f     : toggle finish/listing dump mode
+ * -g <n> : generation mode/value
+ * -i <n> : stack handling address, or +<n> for extra stack (limited)
+ * -l <n> : code load address (0..0xFFFF)
+ * -m     : toggle map output
+ * -n     : toggle numeric listing format
+ * -O     : enable v4 compatibility option
+ * -s <n> : symbol output mode/value
+ * -t <n> : timing scaler (1..256, stored modulo 256)
+ * -V <n> : variables page (0..255)
+ * -x     : toggle HEX file generation
+ *
+ * @param argc Argument count.
+ * @param argv Argument vector; expects exactly one non-option input filename.
+ * @return Total compiler error count.
+ */
 int main(int argc, char **argv) {
-
+    /* Parse command-line options */
     while (getOpt(argc, argv, "a:e:fg:i:l:mn:Os:t:v:w:x") != EOF) {
         switch (optOpt) {
         case 'a':
             C_ANALYSIS = parseNum(optArg);
             break;
         case 'e':
+            /* Entry point for hex file trailer record */
             if ((entry = parseNum(optArg)) > 0xffff)
                 usage("Entry point %s out of range", optArg);
             break;
         case 'w':
+            /* Listing width constrains line/location output */
             if ((C_WIDTH = parseNum(optArg)) < 72)
                 C_WIDTH = 72;
             else if (C_WIDTH > 132)
@@ -374,9 +433,11 @@ int main(int argc, char **argv) {
             C_FINISH = !C_FINISH;
             break;
         case 'g':
+            /* Generate level: 0=none, 1=line#s, 2=interlist */
             C_GENERATE = parseNum(optArg);
             break;
         case 'i':
+            /* Stack initialization: '+' prefix reserves extra words */
             if (optArg[0] == '+') {
                 if ((extraStack = parseNum(optArg + 1)) >= 0x8000)
                     usage("Extra stack size %s too large", optArg + 1);
@@ -384,6 +445,7 @@ int main(int argc, char **argv) {
                 usage("Stack address %s out of range", optArg);
             break;
         case 'l':
+            /* Origin address for code generation */
             if ((C_LOAD = parseNum(optArg)) > 0xffff)
                 usage("Load address %s out of range", optArg);
             break;
@@ -391,21 +453,25 @@ int main(int argc, char **argv) {
             C_MAP = !C_MAP;
             break;
         case 'n':
+            /* Numeric trace of emit() calls */
             C_NUMERIC = !C_NUMERIC;
             break;
         case 'O':
+            /* Enable V4.0 optimizations (load immediate combining, etc.) */
             v4Opt = true;
             break;
         case 's':
             C_SYMBOLS = parseNum(optArg);
             break;
         case 't':
+            /* TIME() builtin calibration for CPU clock */
             timeScaler = parseNum(optArg);
             if (timeScaler < 1 || timeScaler > 256)
                 usage("Time scaler %s out of range", optArg);
-            timeScaler %= 256; // ensure it is in range 0-255
+            timeScaler %= 256;
             break;
         case 'V':
+            /* First page of RAM for variables */
             if ((C_VARIABLES = parseNum(optArg)) >= 0x100)
                 usage("Variables page address %s out of range", optArg);
             break;
@@ -423,43 +489,49 @@ int main(int argc, char **argv) {
     time(&now);
     fprintf(lstFp, "         pl/m-8080 pass2 Version " VERSION " - %s\n", ctime(&now));
 
+    /* Initialize code location from -l option or default to 0 */
     codloc = C_LOAD >= 0 ? C_LOAD : 0;
+
+    /* Load symbol table from pass 1 */
     loadsy();
+
+    /* Process intermediate code and generate 8080 instructions */
     readcd();
+
     if (!errflg) {
-        /* make sure compiler stack is empty */
+        /* Sanity checks on compiler state */
         if (sp != 0)
             error("144: stack not empty at end of compilation");
 
-        /* make sure execution stack is empty */
         if (curdep[0] != 0)
             error("150: stack not empty at end of compilation. Register stack order is invalid");
+
+        /* Relocate addresses and backstuff references */
         reloc();
 
-        /* may want a symbol table for the simulator */
+        /* Generate symbol dump if requested */
         sydump();
+
+        /* Generate assembly listing with disassembly */
         if (C_FINISH) {
-            /* dump the preamble */
+            /* Dump interrupt vector preamble */
             for (int ii = 0; ii < 64; ii += 8)
                 if (intpro[ii / 8])
                     dump(ii, ii + 2, true);
 
-            /* dump the symbol table by segments until codloc-1 */
+            /* Dump code and inline data segments */
             int loc = codeBase;
-
             do {
                 int dataAddr = 0x10000;
                 int dataLen  = 0;
 
-                /* locate next inline data at or above loc */
+                /* Locate next inline data declaration */
                 int symNum = 0;
-
                 for (int n = intbas; n <= sytop; n++) {
                     int attrib = symAttrib(n);
                     if (attrib >= 0 && INFO_TYPE(attrib) == VARB) {
                         int j = LOWWORD(abs(symAddr(n)));
-                        if (j <= dataAddr && j >= loc &&
-                            INFO_PREC(attrib)) { // check candidate at j
+                        if (j <= dataAddr && j >= loc && INFO_PREC(attrib)) {
                             dataAddr = j;
                             symNum   = n;
                             dataLen  = INFO_ECNT(attrib) * (INFO_PREC(attrib) == 2 ? 2 : 1);
@@ -467,11 +539,12 @@ int main(int argc, char **argv) {
                     }
                 }
 
-                /* dataAddr is base address of next data stmt, dataLen is length IN bytes */
-                if (loc < dataAddr) /* code is printed below */
+                /* Dump code up to next data segment */
+                if (loc < dataAddr)
                     dump(loc, min(dataAddr - 1, codloc - 1), true);
 
-                if (dataAddr < codloc) { /* then the data segments */
+                /* Dump data segment */
+                if (dataAddr < codloc) {
                     if (C_SYMBOLS)
                         fprintf(lstFp, "S%05d\n", symNum);
                     dump(dataAddr, dataAddr + dataLen - 1, false);
@@ -480,15 +553,15 @@ int main(int argc, char **argv) {
             } while (loc < codloc);
         }
 
+        /* Process INITIALLY declarations */
         int isave = codloc;
         int kval  = loadin();
 
         if (codloc != isave && C_FINISH)
-            dump(kval, codloc - 1, false); /* dump the initialized variables */
+            dump(kval, codloc - 1, false);
 
+        /* Generate Intel hex file */
         if (C_HEXFILE) {
-            /* punch deck */
-
             for (int ii = 0; ii < 64; ii += 8)
                 if (intpro[ii / 8])
                     puncod(ii, ii + 2);
@@ -500,7 +573,8 @@ int main(int argc, char **argv) {
                 puncod(codeBase, codloc - 1);
             puntrailer();
         }
-        /* write error count */
+
+        /* Report error count */
         if (errorCnt == 0) {
             fputs("\nNO PROGRAM ERRORS\n\n", lstFp);
             fputs("\nNO PROGRAM ERRORS\n\n", stdout);
@@ -513,6 +587,16 @@ int main(int argc, char **argv) {
     return errorCnt;
 }
 
+/* ========================================================================
+ * Memory Access Functions
+ * ======================================================================== */
+
+/**
+ * Read byte from virtual memory with bounds checking.
+ *
+ * @param ip - Memory address (0-65535)
+ * @return Byte value at address
+ */
 uint8_t get(uint32_t ip) {
     if (ip >= MAXMEM) {
         Fatal("101: pass-2 address outside address space");
@@ -521,10 +605,22 @@ uint8_t get(uint32_t ip) {
     return mem[ip];
 }
 
+/**
+ * Read 16-bit word from virtual memory (little-endian).
+ *
+ * @param ip - Memory address
+ * @return 16-bit word value
+ */
 uint16_t getword(int ip) {
     return get(ip) + get(ip + 1) * 256;
 }
 
+/**
+ * Write byte to virtual memory with bounds checking.
+ *
+ * @param ip - Memory address
+ * @param val - Byte value to write
+ */
 void put(uint32_t ip, uint8_t val) {
     if (ip >= MAXMEM)
         Fatal("102: pass-2 address outside address space");
@@ -532,29 +628,59 @@ void put(uint32_t ip, uint8_t val) {
         mem[ip] = val;
 }
 
+/**
+ * Write 16-bit word to virtual memory (little-endian).
+ *
+ * @param ip - Memory address
+ * @param val - 16-bit word value
+ */
 void putword(uint32_t ip, uint16_t val) {
     put(ip, val % 256);
     put(ip + 1, val / 256);
 }
 
+
+/**
+ * Compute remainder: reg % (2^j).
+ * Used for extracting low-order bits from addresses.
+ */
 int right(int reg, int j) {
     return reg % (1 << j);
 }
 
-void pop(int n) { /* pop the top n elements from the stack */
+/* ========================================================================
+ * Stack Management
+ * ======================================================================== */
 
+/**
+ * Pop n elements from the expression evaluation stack.
+ * Releases any register assignments and updates register state.
+ *
+ * @param n - Number of stack elements to pop
+ *
+ * Stack elements track:
+ * - assignment: which CPU registers (if any) hold the value
+ * - st: symbol reference (variable/label) or 0 if stacked
+ * - litv: literal value or -1 if not literal
+ * - prec: precision (1=byte, 2=address/word)
+ */
+void pop(int n) {
     while (n-- > 0) {
         if (sp <= 0) {
             error("106: register allocation table underflow");
             return;
         }
+
+        /* Release high register if assigned */
         uint8_t reg;
         if ((reg = REGHIGH(parseStk[sp].assignment))) {
             if (state[RA].regSt == reg)
-                state[RA].regSt = 0;
+                state[RA].regSt = 0; /* Clear pending accumulator store */
             state[reg].lock  = false;
             state[reg].regSt = 0;
         }
+
+        /* Release low register if assigned */
         if ((reg = REGLOW(parseStk[sp].assignment))) {
             if (state[RA].regSt == reg)
                 state[RA].regSt = 0;
@@ -566,67 +692,84 @@ void pop(int n) { /* pop the top n elements from the stack */
     }
 }
 
+/**
+ * Apply binary operator to top two stack elements.
+ * Generates 8080 arithmetic/logical instructions with extensive optimization.
+ *
+ * @param op - Primary operation (for low byte)
+ * @param op2 - Secondary operation (for high byte if double-byte)
+ * @param com - true if operator is commutative (allows operand swapping)
+ * @param cyflag - true if carry flag is involved in operation
+ *
+ * Optimizations:
+ * - Commutative operators: swap operands to favor accumulator use
+ * - Increment/decrement: detect VAR+1 or VAR-1 and use INR/DCR
+ * - Register pairing: track which registers hold operands
+ * - Lazy stores: defer MOV instructions until necessary
+ *
+ * Stack layout:
+ *   sp-1: left operand
+ *   sp:   right operand
+ * Result replaces both operands at sp.
+ */
 void apply(int op, int op2, bool com, bool cyflag) {
     int ia, ib, lp, jp, k;
 
-    /* apply op to top elements of stack */
-    /* use op2 for high order bytes if double byte operation */
-    /* com = true if commutative operator, false otherwise */
-    /* cyflag = true if the CARRY is involved in the operation */
-
-    /* may want to clear the CARRY for this operation */
-
-    /* check for one of the operands in the stack (only one can be there) */
+    /* Check for stacked operands and pop them into registers */
     for (uint8_t findCnt = 0, j = sp - 1; j <= sp; j++) {
-        if (parseStk[j].st == 0 && parseStk[j].assignment == 0 &&
-            parseStk[j].litv < 0) { /* operand is stacked */
+        if (parseStk[j].st == 0 && parseStk[j].assignment == 0 && parseStk[j].litv < 0) {
+            /* Operand is on runtime stack - allocate registers and POP */
             uint16_t regPair             = genReg(-2);
             state[REGLOW(regPair)].regSt = j;
-            if (findCnt++) //
+            if (findCnt++)
                 error("152: Invalid stack order in 'apply'");
-            if (parseStk[j].prec > 1) { /* double byte operand */
+            if (parseStk[j].prec > 1) {
                 state[REGHIGH(regPair)].regSt = j;
                 parseStk[j].assignment        = regPair;
-            } else /* single precision result */
+            } else
                 parseStk[j].assignment = REGLOW(regPair);
             emit(POP, REGHIGH(regPair), 0);
             ustack();
         }
     }
-    /* make a quick check for possible accumulator match */
-    /* with the second operand */
+
+    /* Convert condition codes to boolean if present */
     if (COND((ia = parseStk[sp].assignment)))
         cvcond(sp);
     if (COND((ib = parseStk[sp - 1].assignment)))
         cvcond(sp - 1);
+
+    /* Optimization: for commutative ops, swap if it helps accumulator usage */
     int regA = state[RA].regSt;
-    if (ia && ib && regA && com &&
-        regA == REGLOW(ia)) /* commutative operator, one may be in the accumulator */
-        exch();             /* second operand in gpr's, regA.o. byte in accumulator */
+    if (ia && ib && regA && com && regA == REGLOW(ia))
+        exch();
 
-    bool storeSetup = false; // replaces use of goto
+    bool storeSetup = false;
 
+    /* Main operator application loop - may swap operands if commutative */
     for (;; exch()) {
-        if (!parseStk[sp - 1].assignment) { /* is op1 in gpr's */
-            if (parseStk[sp].assignment) {  /* is op2 in gpr's */
-                                            /* yes - can we exchange and try again */
-                parseStk[sp].litv = -1;     /* after insuring that a literal has no regs assigned */
+        if (!parseStk[sp - 1].assignment) {
+            /* Left operand not in registers */
+            if (parseStk[sp].assignment) {
+                /* Right operand IS in registers - try swapping if commutative */
+                parseStk[sp].litv = -1;
                 if (com)
                     continue;
             }
         } else if ((ia = REGLOW(parseStk[sp - 1].assignment)) == 0) {
             Fatal("107: register allocation error. No registers available");
             return;
-        } else { /* reg assigned, lock regs containing var */
+        } else {
+            /* Lock registers holding left operand */
             state[ia].lock = true;
             if ((ib = REGHIGH(parseStk[sp - 1].assignment)))
                 state[ib].lock = true;
 
-            /* may have to generate one free reg */
+            /* Ensure we have enough registers for result */
             if (parseStk[sp - 1].prec < parseStk[sp].prec)
                 ib = ia - 1;
 
-            /* check for pending register store */
+            /* Load left operand into accumulator if not already there */
             if ((jp = state[RA].regSt) != ia) {
                 if (jp)
                     emit(LD, jp, RA);
@@ -635,20 +778,19 @@ void apply(int op, int op2, bool com, bool cyflag) {
             }
         }
 
-        /* op2 NOT IN gpr's OR op is NOT commutative */
-        /* check for literal value - is op2 literal */
+        /* Check for literal right operand */
         if ((k = parseStk[sp].litv) >= 0) {
-            if (parseStk[sp].prec <= 1 && parseStk[sp - 1].prec <= 1 &&
-                k == 1 /* make special check for possible increment OR decrement */
-                && (op == AD || op == SU)        /* must be ADD OR subtract without CARRY */
-                && parseStk[sp - 1].prec == 1) { /* first operand must be single byte variable */
-                if (ia <= 1) {                   /* op1 must be IN memory, so load into gpr */
+            /* Special optimization: VAR ± 1 with single-byte variable → INR/DCR */
+            if (parseStk[sp].prec <= 1 && parseStk[sp - 1].prec <= 1 && k == 1 &&
+                (op == AD || op == SU) && parseStk[sp - 1].prec == 1) {
+                if (ia <= 1) {
+                    /* Load variable into register first */
                     loadv(sp - 1, 0);
                     if ((ia = parseStk[sp - 1].assignment & 0xf) == 0) {
                         Fatal("107: register allocation error. No registers available");
                         return;
                     }
-                    lastIncReg = codloc; /* ...may change to inr memory if STD to op1 follows... */
+                    lastIncReg = codloc; /* Mark for potential INR M optimization */
                 }
                 emit(op == AD ? IN : DC, state[RA].regSt == ia ? RA : ia, 0);
                 storeSetup = true;
@@ -656,15 +798,14 @@ void apply(int op, int op2, bool com, bool cyflag) {
             break;
         }
 
-        /* op1 not a literal,  check for literal op2 */
+        /* Check if we can swap for commutative operator */
         if (parseStk[sp - 1].litv < 0 || !com)
             break;
     }
 
     if (!storeSetup) {
-        /* generate registers to hold results in loadv */
-        /* (loadv will load the low order byte into the ACC) */
-        loadv(sp - 1, 1);
+        /* Generate full operation sequence */
+        loadv(sp - 1, 1); /* Load left operand, low byte to accumulator */
         if ((ia = REGLOW(parseStk[sp - 1].assignment)) == 0) {
             Fatal("107: register allocation error. No registers available");
             return;
@@ -672,10 +813,9 @@ void apply(int op, int op2, bool com, bool cyflag) {
         state[ia].lock = true;
         ib             = parseStk[sp - 1].assignment / 16;
 
-        /* is this a single byte / double byte operation */
+        /* Allocate high byte register if needed */
         if (ib <= 0 && parseStk[sp].prec != 1) {
-            /* get a spare register */
-            if ((ib = ia - 1) == 0) { // ia was A reg so can't double byte
+            if ((ib = ia - 1) == 0) {
                 Fatal("107: register allocation error. No registers available");
                 return;
             }
@@ -683,59 +823,55 @@ void apply(int op, int op2, bool com, bool cyflag) {
         } else
             ib &= 7;
 
-        /* now ready to perform operation */
-        /* l.o. byte is in AC, h.o. byte is in ib. */
-        /* result goes to ia (l.o.) AND ib (h.o.) */
-
-        /* is op2 IN gpr's */
+        /* Perform low-byte operation */
         k = -1;
-        if ((lp = parseStk[sp].assignment) > 0) /* perform ACC-reg operation */
-            emit(op, REGLOW(lp), 0);
-        else if ((k = parseStk[sp].litv) < 0) { /* is op2 a literal */
-            loadv(sp, 2);                       /* perform operation with low order byte */
+        if ((lp = parseStk[sp].assignment) > 0)
+            emit(op, REGLOW(lp), 0); /* Register operand */
+        else if ((k = parseStk[sp].litv) < 0) {
+            loadv(sp, 2); /* Memory operand */
             emit(op, ME, 0);
-        } else if (op == XR && k % 256 == 255) /* use CMA if op is XR AND op2 is LIT 255 */
-            emit(CMA, 0, 0);
-        else /* perform ACC-immediate operation */
-            emit(op, -k % 256, 0);
+        } else if (op == XR && k % 256 == 255)
+            emit(CMA, 0, 0); /* Optimize XOR 255 to CMA */
+        else
+            emit(op, -k % 256, 0); /* Immediate operand */
 
-        /* set up a pending register store */
-        /* if this is NOT a compare */
+        /* Set up pending store (lazy evaluation) */
         if (op != CP)
             state[RA].regSt = ia;
+
+        /* Perform high-byte operation if double-byte */
         if (parseStk[sp].prec == 2) {
-            if (k < 0 && lp <= 0) { /* is h.o. byte of op2 IN memory */
-                emit(IN, RL, 0);    /* point to h.o. byte with h AND l */
+            if (k < 0 && lp <= 0) {
+                emit(IN, RL, 0); /* Advance to high byte in memory */
                 state[RL].regValue++;
             }
 
-            /* do we need to pad with h.o. zero for op1 */
+            /* Load or zero-extend left operand high byte */
             if ((jp = state[RA].regSt)) {
-                if (jp != ib) { // is store pending
+                if (jp != ib) {
                     emit(LD, jp, RA);
                     state[RA].regSt = 0;
                     if (parseStk[sp - 1].prec > 1)
                         emit(LD, RA, ib);
                     else
-                        emit(cyflag ? LD : XR, RA, 0);
+                        emit(cyflag ? LD : XR, RA, 0); /* Zero or load based on carry */
                 }
             } else if (parseStk[sp - 1].prec > 1)
                 emit(LD, RA, ib);
             else
                 emit(cyflag ? LD : XR, RA, 0);
 
-            if (lp) /* op2 in gpr's - perform ACC-register operation */
+            /* Perform high-byte operation */
+            if (lp)
                 emit(op2, REGHIGH(lp), 0);
-            else if (k < 0) /* perform ACC-memory operation */
+            else if (k < 0)
                 emit(op2, ME, 0);
-            else if (op2 != XR || k != 0xffff) /* yes - perform ACC-immediate operation */
+            else if (op2 != XR || k != 0xffff)
                 emit(op2, -HIGH(k), 0);
-            else /* use CMA if op1 is XR AND op2 is 0xffff */
+            else
                 emit(CMA, 0, 0);
-        } else if (parseStk[sp - 1].prec >= 2) { /* second operand is single byte */
-            /* may not need to perform operations for certain operators, but ... */
-            /* perform operation with h.o. byte of op1 */
-            /* op1 must be in the gpr's - perform dummy operation with ZERO */
+        } else if (parseStk[sp - 1].prec >= 2) {
+            /* Left operand is double-byte, right is single-byte */
             if ((jp = state[RA].regSt)) {
                 if (jp != ib) {
                     emit(LD, jp, RA);
@@ -744,15 +880,16 @@ void apply(int op, int op2, bool com, bool cyflag) {
                 }
             } else
                 emit(LD, RA, ib);
-            emit(op2, 0, 0);
+            emit(op2, 0, 0); /* Dummy operation with zero */
         } else
             storeSetup = true;
     }
-    /* set up pending register store */
+
+    /* Set up pending register store for result */
     if (!storeSetup)
         state[RA].regSt = ib;
 
-    /* save the pending accumulator - register store */
+    /* Clean up: pop operands, push result */
     jp = state[RA].regSt;
     pop(2);
     state[RA].regSt    = jp;
@@ -767,97 +904,141 @@ void apply(int op, int op2, bool com, bool cyflag) {
     }
 }
 
+/* ========================================================================
+ * Register Allocation
+ * ======================================================================== */
+
+/**
+ * Wrapper for genreg() that returns register pair encoding.
+ *
+ * @param np - Number of registers needed (-2 to 2)
+ * @return REGPAIR(high, low) or single register if np=1
+ */
 uint16_t genReg(int8_t np) {
     int ia, ib;
     genreg(np, &ia, &ib);
     return REGPAIR(ib, ia);
 }
 
+/**
+ * Allocate CPU registers for new values.
+ * Implements register spilling when all registers are in use.
+ *
+ * @param np - Number of registers requested:
+ *             Positive: allow spilling to stack
+ *             Negative: no spilling (fail if unavailable)
+ *             abs(np)==1: single register
+ *             abs(np)==2: register pair
+ * @param ia - [out] Low register (or single register)
+ * @param ib - [out] High register (or NULL if n/a)
+ *
+ * Register allocation strategy:
+ * 1. Try to allocate B/C or D/E pairs
+ * 2. If unavailable and spilling allowed, save a value to memory
+ * 3. Prefer spilling unlocked, non-condition-code values
+ * 4. Avoid spilling values already on runtime stack
+ */
 void genreg(int np, int *ia, int *ib) {
     uint8_t freeReg;
-
-    /* generate abs(np) free registers for subsequent operation */
-    // Note -2 <= np <= 2 np negative if no pushing allowed
 
     if (ib)
         *ib = 0;
     *ia = 0;
 
-    /* look for free RC or RE AND allocate in pairs (RC/RB,RE/RD) */
+    /* Look for free register pair (B/C or D/E) */
     while (state[freeReg = RC].regSt && state[freeReg = RE].regSt) {
         uint8_t candidate = 0;
         if (np >= 0 && sp > 0) {
-            /* generate temporaries in the stack and re-try */
-            /* search for lowest register pair assignment in stack */
+            /* Search for value to spill to memory */
             for (int reg = 1; reg <= sp; reg++) {
                 uint16_t assign = parseStk[reg].assignment;
-                if (assign == 0) { // not assigned
-                    // reset search if already stacked
+                if (assign == 0) {
+                    /* Not assigned - reset search if already stacked */
                     if (parseStk[reg].st == 0 && parseStk[reg].litv < 0)
                         candidate = 0;
                 } else if (!COND(assign) && candidate == 0) {
-                    // don't look at cond or if already have candidate
+                    /* Potential candidate - check if spillable */
                     int lowReg  = REGLOW(assign);
                     int highReg = REGHIGH(assign);
-                    // is single reg usage or pair and both not locked
                     if (!state[lowReg].lock &&
                         (highReg == 0 || (highReg == lowReg - 1 && !state[highReg].lock)))
-                        candidate = reg; // have candidate
+                        candidate = reg;
                 }
             }
         }
-        if (!candidate) { // didn't find a candidate
+        if (!candidate) {
+            /* No spillable value found - save all active registers */
             saver();
             return;
         }
-        /* found entry to push at ip */
+
+        /* Spill selected value to memory */
         int lowReg          = REGLOW(parseStk[candidate].assignment);
         int highReg         = REGHIGH(parseStk[candidate].assignment);
 
-        state[lowReg].regSt = 0; // mark as freed
-        if (highReg > 0)         // part of a pair
+        state[lowReg].regSt = 0;
+        if (highReg > 0)
             state[highReg].regSt = 0;
+
+        /* Handle pending accumulator store */
         int raRegs = state[RA].regSt;
-        /* check pending register store */
         if (raRegs && (raRegs == lowReg || raRegs == highReg)) {
             emit(LD, raRegs == lowReg ? lowReg : highReg, RA);
             state[RA].regSt = 0;
         }
 
-        /* free the register for allocation */
+        /* Push value onto runtime stack */
         stack(1);
         emit(PUSH, lowReg - 1, 0);
 
-        /* mark element as stacked (st=0, assignment=0) */
+        /* Mark as stacked */
         parseStk[candidate].st         = 0;
         parseStk[candidate].assignment = 0;
         parseStk[candidate].litv       = -1;
     }
+
+    /* Register pair now available */
     *ia = freeReg;
     if (abs(np) > 1 && ib)
         *ib = freeReg - 1;
     return;
 }
 
+/**
+ * Load value from stack element into registers.
+ * Handles literals, variables, and previously stacked values.
+ *
+ * @param s - Stack index of value to load
+ * @param typ - Load mode:
+ *   0: Load into general-purpose registers
+ *   1: Load low byte into accumulator (for apply())
+ *   2: Load address only (don't read memory)
+ *   3: Force double-byte load
+ *   4: Quick load into H:L
+ *   5: Force double-byte load into H:L
+ *
+ * Optimization strategies:
+ * - Literal values: use MVI or LXI instructions
+ * - Simple variables: use LHLD if possible
+ * - H:L tracking: avoid redundant LHLD if H:L already holds address
+ * - Previously stacked: POP instead of memory load
+ */
 void loadv(int s, int typ) {
     uint16_t regPair = 0;
+    uint8_t prec     = 0;
 
-    /* load value to register if not a literal */
-    /* typ = 0, load directly into registers */
-    /* typ = 1 if call from 'apply' in which case the l.o. byte is */
-    /* loaded into the accumulator instead of a gpr. */
-    /* if typ = 2, the address is loaded, but the variable is not. */
-    /* if typ = 3, a double byte (address) fetch is forced. */
-    /* if typ = 4 then do a quick load into h and l */
-    /* if typ = 5, a double byte quick load into h and l is forced */
-    uint8_t prec = 0;
     if (typ != 2) {
-        if (COND(parseStk[s].assignment)) // convert conditional register to normal
+        /* Convert condition code to boolean if needed */
+        if (COND(parseStk[s].assignment))
             cvcond(s);
+
+        /* Quick load into H:L (typ 4 or 5) */
         if (typ == 4 || typ == 5) {
             int litv = parseStk[s].litv;
             int st   = parseStk[s].st;
-            if (parseStk[s].assignment) { /* registers are assigned */
+
+            if (parseStk[s].assignment) {
+                /* Value already in registers - move to H:L */
                 int regsA       = state[RA].regSt;
                 uint8_t regLow  = REGLOW(parseStk[s].assignment);
                 uint8_t regHigh = REGHIGH(parseStk[s].assignment);
@@ -868,43 +1049,40 @@ void loadv(int s, int typ) {
                 if (regLow == RE && regHigh == RD)
                     emit(XCHG, 0, 0);
                 else {
-                    emit(LD, RL, regLow);  /* not in d AND e, so use two byte move */
-                    emit(LD, RH, regHigh); /* may be a lhi 0 */
+                    emit(LD, RL, regLow);
+                    emit(LD, RH, regHigh);
                 }
             } else {
                 if (st) {
-                    /* variable , literal  OR address reference */
                     if (st <= 0)
-                        litadd(sp); /* ADR ref - set h AND l with litadd */
+                        litadd(sp); /* Address reference */
                     else if (litv < 0) {
-                        /* simple variable or literal ref, may use LHLD */
-                        /* may want to check for possible INX OR DCX, but now... */
+                        /* Simple variable - try to optimize LHLD */
                         int regH = state[RH].regValue;
                         int regL = state[RL].regValue;
                         if (regH != -3 || -regL != st) {
                             if (regH == -4 && -regL == st)
-                                emit(DCX, RH, 0);
+                                emit(DCX, RH, 0); /* Adjust from previous LHLD+INX */
                             else
                                 emit(LHLD, chain(st, codloc + 1), 0);
                         }
                         state[RH].regValue = -1;
                         state[RL].regValue = -1;
                         if (parseStk[s].prec <= 1 && typ != 5)
-                            /* this is a single byte value */
-                            emit(LD, RH, 0);
+                            emit(LD, RH, 0); /* Zero-extend */
                         else {
-                            state[RH].regValue = -3;
-                            state[RL].regValue = -st;
+                            state[RH].regValue = -3;  /* Mark: LHLD done on... */
+                            state[RL].regValue = -st; /* ...this symbol */
                         }
                     } else {
-                        /* literal value to h l */
+                        /* Literal value */
                         emit(LXI, RH, litv);
                         state[RH].regValue = HIGH(litv);
                         state[RL].regValue = LOW(litv);
                         return;
                     }
                 } else if (litv < 0) {
-                    /* value stacked, so... */
+                    /* Previously stacked value */
                     ustack();
                     emit(POP, RH, 0);
                     if (parseStk[s].prec < 2)
@@ -912,7 +1090,7 @@ void loadv(int s, int typ) {
                     state[RH].regValue = -1;
                     state[RL].regValue = -1;
                 } else {
-                    /* literal value to h l */
+                    /* Literal value */
                     emit(LXI, RH, litv);
                     state[RH].regValue = litv / 256;
                     state[RL].regValue = litv % 256;
@@ -923,12 +1101,12 @@ void loadv(int s, int typ) {
                 parseStk[s].assignment = REGPAIR(RH, RL);
             return;
         } else if (parseStk[s].assignment > 0)
-            return;
-        else { /* check for previously stacked value */
+            return; /* Already in registers */
+        else {
+            /* Need to allocate registers */
             if (parseStk[s].st != 0 || parseStk[s].litv >= 0) {
-                /* no registers assigned.  allocate registers AND load value. */
                 prec = parseStk[s].prec;
-                if (typ == 3) { /* force a double byte load */
+                if (typ == 3) {
                     prec = 2;
                     typ  = 0;
                 }
@@ -938,16 +1116,14 @@ void loadv(int s, int typ) {
                     return;
                 }
             } else {
+                /* Value was previously stacked - POP it */
                 regPair = genReg(2);
-                /* check to ensure the stack is in good shape */
                 for (int reg = s + 1; reg <= sp; reg++) {
                     if (parseStk[reg].st == 0 && parseStk[reg].assignment == 0 &&
                         parseStk[reg].litv < 0)
-                        /* found another stacked value */
                         error("147: stack not empty at end of compilation. Register stack "
                               "order is invalid");
                 }
-                /* available cpu register is based at ia */
                 emit(POP, REGHIGH(regPair), 0);
                 state[REGLOW(regPair)].regSt = s;
                 if (parseStk[sp].prec >= 2) {
@@ -961,66 +1137,69 @@ void loadv(int s, int typ) {
                     emit(LD, RA, REGLOW(regPair));
                 }
 
-                ustack(); /* decrement the stack count for this level */
+                ustack();
                 return;
             }
         }
     }
 
-    /* check for literal value (in arith exp) */
-    // guard typ == 2 only ever has -ve lit, so doesn't need ia or ib
+    /* Handle literal values */
     int litv = parseStk[s].litv;
     if (typ != 2 && 0 <= litv && litv <= 0xffff) {
         parseStk[s].litv                = -1;
         state[REGLOW(regPair)].regSt    = s;
         state[REGLOW(regPair)].regValue = LOW(litv);
-        if (typ == 1) {            /* check for pending register store */
-            if (state[RA].regSt) { /* store ACC into register before continuing */
+
+        if (typ == 1) {
+            /* Load into accumulator for apply() */
+            if (state[RA].regSt) {
                 emit(LD, state[RA].regSt, RA);
                 state[RA].regSt = 0;
             }
             if (LOW(litv) == 0)
-                emit(XR, RA, 0);
+                emit(XR, RA, 0); /* XOR A to clear */
             else
                 emit(LD, RA, -LOW(litv));
             if (REGHIGH(regPair))
                 emit(LD, REGHIGH(regPair), -HIGH(litv));
-        } else {                  /* typ = 0, load directly into registers */
-            if (REGHIGH(regPair)) // reg pair so use LXI
+        } else {
+            /* Load into general registers */
+            if (REGHIGH(regPair))
                 emit(LXI, REGHIGH(regPair), litv);
             else
                 emit(LD, REGLOW(regPair), -LOW(litv));
         }
+
         if (REGHIGH(regPair)) {
             state[REGHIGH(regPair)].regSt    = s;
             state[REGHIGH(regPair)].regValue = -litv;
         }
         parseStk[s].assignment = regPair;
-    } else { /* otherwise fetch from memory */
+    } else {
+        /* Fetch from memory */
         sp++;
         setadr(parseStk[s].st);
-        litadd(sp);
+        litadd(sp); /* Load address into H:L */
 
-        /* address of varREGLOW(regPair)ble is in h and l */
-        if (typ == 0) /* call from gensto (typ = 0) */
+        /* Generate MOV r,M instruction */
+        if (typ == 0)
             emit(LD, REGLOW(regPair), ME);
-        else if (typ == 1) { /* call from apply to load value of varREGLOW(regPair)ble */
-            /* check for pending register store */
-            if (state[RA].regSt) { /* have to store ACC into register before reloading */
+        else if (typ == 1) {
+            /* Load into accumulator */
+            if (state[RA].regSt) {
                 emit(LD, state[RA].regSt, RA);
                 state[RA].regSt = 0;
             }
             emit(LD, RA, ME);
         }
 
-        /* check for double byte varREGLOW(regPair)ble */
-        if (typ != 2 && prec > 1) { /* load high order byte */
+        /* Load high byte if double-byte */
+        if (typ != 2 && prec > 1) {
             emit(IN, RL, 0);
             state[RL].regValue++;
             emit(LD, REGHIGH(regPair), ME);
         }
 
-        /* value is now loaded */
         pop(1);
         if (typ != 2) {
             parseStk[s].assignment          = REGPAIR(REGHIGH(regPair), REGLOW(regPair));
@@ -1034,7 +1213,13 @@ void loadv(int s, int typ) {
     }
 }
 
-void setadr(int val) { // set top of stack to address reference
+/* setadr -- Push an address reference for symbol val onto the top of
+ *   parseStk (at the current sp).  The entry is marked as an address
+ *   reference (negative st) with the symbol's precision and any known
+ *   literal address value.  Reports fatal error 113 on stack overflow.
+ *   val: symbol table index
+ */
+ void setadr(int val) {
     alter = true;
     if (sp > maxsp) {
         Fatal("113: register allocation stack overflow.");
@@ -1047,14 +1232,24 @@ void setadr(int val) { // set top of stack to address reference
     }
 }
 
+
+/* ustack -- Decrement the current execution-stack depth counter (curdep[prsp]).
+ *   Reports error 148 if the counter would go negative.
+ */
 void ustack() {
-    /* decrement curdep and check for underflow */
     if (--curdep[prsp] < 0) {
         curdep[prsp] = 0;
         error("148: pass-2 compiler error. Attempt to unstack too many values");
     }
 }
 
+/* chain -- Thread a new forward-reference location into the backstuff chain
+ *   for symbol sy.
+ *   sy:      symbol table index
+ *   loc:     code location of the address field to be backstuffed
+ *   Returns: the previous head of the chain (0 if none), or the resolved
+ *            absolute address if sy already has a final address assigned.
+ */
 int chain(uint16_t sy, int loc) {
     /* chain in double-byte refs to symbol sy, if necessary */
     if (symAddr(sy) < 0)
@@ -1065,22 +1260,37 @@ int chain(uint16_t sy, int loc) {
     return next;
 }
 
+/**
+ * Generate 8080 code to store a value into a memory address.
+ *
+ * @param keep - false for STD (destructive store, value discarded)
+ *               true for STO (non-destructive store, value retained on stack)
+ *
+ * Stack layout on entry:
+ *   sp-1: value to store
+ *   sp:   destination address
+ *
+ * The function handles multiple storage scenarios:
+ * - Direct memory store (MOV M,r or MVI M,imm)
+ * - Register-indirect store (STAX)
+ * - Stack pointer load (SPHL or LXI SP)
+ * - Optimized increment-store sequences (INR M)
+ */
 void genStore(bool keep) {
     uint16_t reg;
     int j;
-    uint16_t iq = 0; // init to avoid compiler warning
+    uint16_t iq = 0; // tracks location of last INC reg for potential INR M optimization
 
-    /* keep = false if STD, keep = true if STO (value retained) */
-    /* generate a store into the address at stack top */
-    /* load value if not literal */
+    /* Load the value if it's not already in registers or immediate */
     int l = parseStk[sp - 1].litv;
-    if (l < 0)
+    if (l < 0) // -1 means not a literal
         loadv(sp - 1, 0);
 
+    /* Extract register assignments from the value */
     uint8_t regLow  = REGLOW(parseStk[sp - 1].assignment);
     uint8_t regHigh = REGHIGH(parseStk[sp - 1].assignment);
 
-    /* check for pending register store */
+    /* Resolve any pending accumulator store */
     int16_t regA = state[RA].regSt;
     if (regA) {
         if (regA == regHigh)
@@ -1089,42 +1299,54 @@ void genStore(bool keep) {
             regLow = RA;
     }
 
+    /* Special case: storing to stack pointer (STACKPTR intrinsic) */
     if (-parseStk[sp].st != S_STACKPTR) {
-        bool chkInr = true;
-        if (parseStk[sp].litv < 0) {
-            bool releaseHL = true; // used to eliminate goto L220
+        bool chkInr = true; // flag to check for MOV r,M; INR r; MOV M,r → INR M optimization
+
+        /* Handle address resolution: dest address may be in registers, stacked, or symbolic */
+        if (parseStk[sp].litv < 0) { // Address is not a literal
+            bool releaseHL = true;
             reg            = parseStk[sp].assignment;
-            if (reg <= 0 && parseStk[sp].st == 0) { /* registers NOT allocated  */
-                emit(POP, RH, 0);                   // address is stacked so POP to h AND l
+
+            /* Case 1: Address was stacked (not in registers) */
+            if (reg <= 0 && parseStk[sp].st == 0) {
+                emit(POP, RH, 0); // Pop address into H:L
                 ustack();
-            } else if ((reg = parseStk[sp].st) >= intbas) {
-                /* may be able to simplify (OR eliminate) the LHLD */
+            }
+            /* Case 2: Address is a simple variable (can use LHLD) */
+            else if ((reg = parseStk[sp].st) >= intbas) {
+                /* Optimize: reuse H:L if they already contain this address */
                 int regH = state[RH].regValue;
                 int regL = state[RL].regValue;
-                if (regH != -3 || -regL != reg) {
-                    if (regH == -4 && -regL == reg) {
+                if (regH != -3 || -regL != reg) {     // -3 means LHLD was done on symbol -regL
+                    if (regH == -4 && -regL == reg) { // -4 means LHLD + INX H
                         emit(DCX, RH, 0);
                         state[RH].regValue = -3;
                     } else {
-                        j = chain(reg, codloc + 1);
+                        j = chain(reg, codloc + 1); // Link into symbol reference chain
                         emit(LHLD, j, 0);
                         state[RH].regValue = -3;
                         state[RL].regValue = -reg;
                     }
                 }
                 releaseHL = false;
-            } else { /* check for ref to simple based variable */
+            }
+            /* Case 3: Based variable (address computed at runtime) */
+            else {
+                /* Lock value registers during address load */
                 if (regLow)
                     state[regLow].lock = true;
                 if (regHigh)
                     state[regHigh].lock = true;
 
-                loadv(sp, 3); /* force a double byte fetch into gprs */
+                loadv(sp, 3); // Force double-byte fetch of base address
                 reg  = parseStk[sp].assignment;
 
                 regA = state[RA].regSt;
                 j    = REGLOW(reg);
-                reg /= 16; // PMO - might be able to use REGHIGH
+                reg /= 16; // Extract high register
+
+                /* Move address to H:L unless it's already in D:E */
                 if (regLow == 0 || reg != j - 1) {
                     if (j == regA)
                         j = RA;
@@ -1135,9 +1357,10 @@ void genStore(bool keep) {
                         emit(LD, RH, reg);
                     } else
                         emit(XCHG, 0, 0);
-                } else if (reg != RD || lastex != codloc - 1) { /* if prevous syllable is XCHG then
-                                                                   do another - peep will fix it */
-                    if (regLow != RA) {                         /* use STAX - set up accumulator */
+                }
+                /* Optimization: use STAX if value is in register pair */
+                else if (reg != RD || lastex != codloc - 1) {
+                    if (regLow != RA) { // Value not in accumulator, so load it
                         if (regA != 0)
                             emit(LD, regA, RA);
                         if (regHigh == RA)
@@ -1145,18 +1368,20 @@ void genStore(bool keep) {
                         emit(LD, RA, regLow);
                         state[RA].regSt = 0;
                     }
-                    emit(STAX, reg, 0);
-                    if (parseStk[sp].prec >= 2) { /* if byte dest we are done */
+                    emit(STAX, reg, 0); // Store via register-indirect
+
+                    /* Handle double-byte store to based variable */
+                    if (parseStk[sp].prec >= 2) {
                         emit(INCX, reg, 0);
-                        if (regHigh != 0) { /* store high order byte */
+                        if (regHigh != 0) {
                             if (regLow == 1 && keep) {
                                 emit(LD, REGLOW(parseStk[sp - 1].assignment), RA);
                                 state[RA].regSt = 0;
                             }
                             emit(LD, RA, regHigh);
                             emit(STAX, reg, 0);
-                        } else {                     /* store high order ZERO */
-                            if (regLow == 1 && keep) // V4 fix
+                        } else { // High byte is zero
+                            if (regLow == 1 && keep)
                                 emit(LD, REGLOW(parseStk[sp - 1].assignment), RA);
                             state[RA].regSt = 0;
                             emit(XR, RA, 0);
@@ -1175,9 +1400,12 @@ void genStore(bool keep) {
                     state[regLow].lock = false;
                 state[RH].regValue = state[RL].regValue = -1;
             }
-        } else if (regHigh != RD || regLow != RE || lastex != codloc - 1 ||
-                   parseStk[sp].prec != 2) /* otherwise this is a literal address */
-            litadd(sp);                    /* if possible, generate a SHLD */
+        }
+        /* Address is a literal constant - can potentially use SHLD */
+        else if (regHigh != RD || regLow != RE || lastex != codloc - 1 || parseStk[sp].prec != 2) {
+            litadd(sp); // Load literal address into H:L
+        }
+        /* Optimization: value already in D:E, use XCHG + SHLD */
         else {
             emit(XCHG, 0, 0);
             int16_t symId = abs(parseStk[sp].st);
@@ -1190,56 +1418,66 @@ void genStore(bool keep) {
             chkInr = false;
         }
 
+        /* Generate the actual store instruction(s) */
         if (chkInr) {
-
-            /* we may change mov r,m inr r mov m,r to inr m. */
-            /* if so, AND this is a non-destructive store, the register */
-            /* assignment must be released. */
+            /* Save location for potential MOV r,M; INR r; MOV M,r → INR M conversion */
             iq = lastIncReg;
 
-            /* generate low order byte store */
-            emit(LD, ME, regLow != 0 ? regLow : -abs(l) % 256); /* check for immediate store */
-            if (parseStk[sp].prec != 1) { /* now store high order byte (if any) */
-                emit(INCX, RH, 0);        /* store second byte */
-                /* regv(RH) = -3 then LHLD has occurred on symbol -regv(RL) */
-                /* regv(RH) = -4 then LHLD AND INCX h has occurred */
+            /* Store low-order byte */
+            emit(LD, ME, regLow != 0 ? regLow : -abs(l) % 256);
+
+            /* Store high-order byte if destination is double-byte */
+            if (parseStk[sp].prec != 1) {
+                emit(INCX, RH, 0); // Advance to next byte
+
+                /* Track H:L register state after increment */
                 if (state[RH].regValue >= 0)
                     state[RL].regValue++;
                 else if (state[RH].regValue == -3)
-                    state[RH].regValue = -4;
-                else /* RH AND RL have unknown values */
+                    state[RH].regValue = -4; // Mark as LHLD + INX
+                else
                     state[RH].regValue = state[RL].regValue = -1;
 
+                /* Store high byte (or zero if value is single-byte) */
                 if (parseStk[sp - 1].prec >= 2) {
-                    if (regHigh == 0) /* second byte is literal */
-                        emit(LD, ME, -abs(l / 256));
-                    else /* LD memory from register */
+                    if (regHigh == 0)
+                        emit(LD, ME, -abs(l / 256)); // Literal high byte
+                    else
                         emit(LD, ME, regHigh);
                 } else
-                    emit(LD, ME, 0);
+                    emit(LD, ME, 0); // Zero-extend
             }
         }
-    } else if (regLow == 0) /* load sp immediate */
+    }
+    /* Special handling: store to stack pointer */
+    else if (regLow == 0) // Value is immediate
         emit(LXI, RSP, l);
-    else {
+    else { // Value is in registers
         emit(LD, RL, regLow);
         emit(LD, RH, regHigh);
-        emit(SPHL, 0, 0);
+        emit(SPHL, 0, 0); // SP ← H:L
         state[RH].regValue = state[RL].regValue = -1;
     }
 
-    /* now release register containing address */
-    /* release register assignment for value */
-    /* if mov r,m inr r mov m,r was changed to inr m. */
+    /* Clean up stack and register state */
+    /* Check if MOV r,M; INR r; MOV M,r was optimized to INR M */
     if (iq != codloc)
-        pop(1);
+        pop(1); // Normal case: pop address
     else {
+        /* Optimization occurred: keep value on stack with updated address */
         int16_t symId = -parseStk[sp].st;
         pop(2);
         parseStk[++sp] = stkItem(0, 1, symId, -1);
     }
 }
 
+/* litadd -- Load the H:L register pair with the address of the variable at
+ *   parse-stack position s.  Uses increment/decrement or LXI optimisations
+ *   where the current H:L value is already close to the target.  Chains any
+ *   unresolved (relocatable) address into the symbol's LXI backstuff list.
+ *   Reports errors 114-116 for internal inconsistencies.
+ *   s: parse-stack index whose litv/st fields describe the variable address
+ */
 void litadd(int s) {
     int assignment, k, j;
     /* load h AND l with the address of the variable at s in */
@@ -1386,6 +1624,37 @@ uint8_t const cc[4]         = { 0x10, 0x00, 0x30, 0x20 }; // false conditional c
 /* emit(INX,(RB,RD,RH,RSP),0) */
 /* emit(DCX,(RB,RD,RH,RSP),0) */
 
+/**
+ * @brief Core 8080 code emitter that translates symbolic opcodes into machine code bytes.
+ *
+ * This function translates a symbolic opcode and operands into bytes that are written
+ * sequentially to the mem[] array at the current codloc position, then advances codloc.
+ *
+ * @details Peephole Optimizations Applied:
+ * - Eliminates back-to-back XCHG pairs
+ * - Converts MOV r,M / INR r / MOV M,r sequence to INR M
+ * - Eliminates redundant MOV r,M after MOV M,r
+ * - Merges consecutive MVI r,imm / MVI r',imm' into LXI (when v4Opt is enabled)
+ * - Replaces ADI/SUI/XRI/ORI 0 with ORA A, ANI 0 with XRA A (when v4Opt is enabled)
+ *
+ * @param opr Operator code:
+ *            - 0 for raw literal byte
+ *            - Otherwise symbolic opcode (LD, AD, JMP, etc.)
+ * @param opa First operand:
+ *            - Register index, or
+ *            - Immediate value, or
+ *            - Memory address
+ * @param opb Second operand:
+ *            - Register index, or
+ *            - Immediate value, or
+ *            - 0 if not used
+ *
+ * @note Modifies global variables: codloc, mem[]
+ * @note Uses peephole optimization context variables for optimization decisions
+ *
+ * @see codloc Global code location pointer
+ * @see mem[] Global memory buffer for generated code
+ */
 void emit(int opr, int opa, int opb) {
     uint8_t opcode;
     uint16_t operand;
@@ -1581,6 +1850,45 @@ void emit(int opr, int opa, int opb) {
     }
 }
 
+/**
+ * @brief Converts a condition-code flag from the parse stack to a boolean byte value in a register.
+ *
+ * This function materializes condition flags (such as Carry or Zero) into an 8-bit boolean
+ * representation: 0 for false, 0xFF for true. It optimizes for two special cases:
+ * 1) CARRY and ZERO flags when the target register is already the accumulator (RA), generating
+ *    compact sequences using SBB/CMA/ADI, and
+ * 2) All other conditions, using a conditional jump (JMC) over an XRA to produce 0xFF or 0x00.
+ *
+ * @param s Parse-stack index whose assignment field contains an encoded condition code.
+ *          The condition encoding consists of:
+ *          - Low nibble (bits 0-3): target register index (or 0 if none assigned)
+ *          - Upper bits: CARRY (1), ZERO (2), SIGN (3), PARITY (4), combined with TRU flag
+ *
+ * @details
+ * **Fast path (CARRY/ZERO + accumulator):**
+ * - If the target register is already RA and the condition is CARRY or ZERO:
+ *   - For CARRY: Uses `SBB A` to produce 0 or 0xFF, complementing with `CMA` if negated.
+ *   - For ZERO: Uses `SUI 1` or `ADI 255` followed by `SBB A` to encode the flag.
+ *
+ * **General path:**
+ * - Allocates a target register if none is assigned (calls `genReg(1)`).
+ * - Flushes any pending accumulator store.
+ * - Loads 0xFF into RA, then jumps over an `XRA A` if the condition is met (leaving 0xFF),
+ *   or falls through to clear RA to 0x00.
+ *
+ * @note Modifies global register state: `state[RA].regSt`, `parseStk[s].assignment`.
+ * @note Emits 8080 machine instructions via `emit()`.
+ * @note Reports fatal error 118 if register allocation fails.
+ *
+ * @see genReg() for register allocation
+ * @see emit() for instruction emission
+ * @see parseStk[] for the parse-stack structure
+ * @see state[] for register tracking
+ *
+ * @pre parseStk[s].assignment contains a valid condition-code encoding (COND() returns non-zero).
+ * @post parseStk[s].assignment is updated to reflect a GPR-based assignment with value 0 or 0xFF.
+ * @post state[RA].regSt is set to the target register index `ia`.
+ */
 void cvcond(int s) {
 
     /* convert the condition code at s in the stack to a boolean value */
@@ -1631,6 +1939,13 @@ void cvcond(int s) {
     parseStk[s].assignment = assign;
 }
 
+/* saver -- Spill all unlocked, register-assigned parse-stack entries to
+ *   temporary variables in virtual memory, then clear the GPR state tables.
+ *   Double-byte entries are aligned to even addresses.  New symbol-table
+ *   entries are created for each temporary.
+ *   Reports error 119/120 on memory overflow and fatal 121 on symbol-table
+ *   overflow.
+ */
 void saver() {
     /* save the active registers and reset tables */
     /* first determine the stack elements which must be saved */
@@ -1726,6 +2041,15 @@ void saver() {
     return;
 }
 
+/* reloc -- Perform address relocation after code generation is complete.
+ *   1. Computes the variable-storage page from codloc and lmem.
+ *   2. Adjusts every relocatable symbol address by the computed page offset.
+ *   3. Backstuffs all LHI (high-byte load) and LXI chain references.
+ *   4. Resolves the LXI SP stack-pointer initialisation chain.
+ *   5. Backstuffs all TRA/PRO/LABEL address chains.
+ *   6. Installs interrupt-vector JMP instructions in the preamble.
+ *   Reports errors 122 (storage overflow) and 131 (label resolution).
+ */
 void reloc() {
     if (C_SYMBOLS >= 2) {
         for (int reg = 1; reg <= sytop; reg++)
@@ -1828,6 +2152,12 @@ void reloc() {
     }
 }
 
+/* put2 -- Emit two bytes to virtual memory at codloc.
+ *   When prec==2 the bytes are written big-endian (ch2 first, then ch1);
+ *   otherwise little-endian (ch1 first, then ch2).
+ *   ch1, ch2: byte values to emit
+ *   prec:     precision selector controlling byte order
+ */
 void put2(int ch1, int ch2, int prec) {
     if (prec == 2) {
         put(codloc++, ch2);
@@ -1838,12 +2168,30 @@ void put2(int ch1, int ch2, int prec) {
     }
 }
 
+/* put1 -- Emit one byte to virtual memory at codloc.
+ *   When prec==2 an additional zero byte is appended (double-byte padding).
+ *   ch:   byte value to emit
+ *   prec: precision; 2 causes a trailing zero byte to be written
+ */
 void put1(int ch, int prec) {
     put(codloc++, ch);
     if (prec == 2)
         put(codloc++, 0);
 }
 
+/* unary -- Generate 8080 code for a single-step unary built-in operation.
+ *   Operates on the top of parseStk in place.  Called repeatedly for shift
+ *   counts greater than one.
+ *   val: operation selector –
+ *     B_ROL(0) rotate left through carry
+ *     B_ROR(1) rotate right through carry
+ *     B_SHL(2) shift left (clear carry + DAD H or RAL)
+ *     B_SHR(3) shift right (ORA A + RAR)
+ *     B_SCL(4) rotate left through carry
+ *     B_SCR(5) rotate right through carry
+ *     B_HIGH(6) extract high byte of a double-byte value
+ *     B_LOW(7)  extract low byte of a double-byte value
+ */
 void unary(int val) {
     uint8_t reg, regSt, ia, ib;
     bool singleReg;
@@ -1971,6 +2319,11 @@ void unary(int val) {
     return;
 }
 
+/* exch -- Swap the top two entries on the register allocation stack.
+ *   If both entries are CPU-stack-held (assignment==0, st==0, litv<0) they
+ *   are first popped into free GPR pairs before being exchanged.
+ *   Also swaps the regSt back-pointers in the state[] table.
+ */
 void exch() {
 
     /* exchange the top two elements of the stack - check if both pushed */
@@ -2010,6 +2363,11 @@ void exch() {
     return;
 }
 
+/* stack -- Increment the execution-stack depth counter for the current
+ *   procedure level (curdep[prsp]) by n, updating the maximum (maxdep[prsp])
+ *   if the new depth exceeds it.
+ *   n: number of double-byte stack words being pushed
+ */
 void stack(const int n) {
     /* ADD n to current depth, test for stacksize exceeding maxdepth */
     curdep[prsp] += n;
@@ -2018,6 +2376,19 @@ void stack(const int n) {
     return;
 }
 
+/* readcd -- Main pass-2 loop: reads the Polish intermediate language stream
+ *   produced by pass-1 and generates 8080 machine code.
+ *   Processes six record types:
+ *     OPR – operator, dispatched through operat()
+ *     ADR – address reference to a symbol
+ *     VLU – value reference (variable load)
+ *     DEF – label/procedure definition, triggers register save and reloc setup
+ *     LIT – literal constant, pushed onto parseStk
+ *     LIN – source line number update
+ *   Optionally traces each record to the listing file when C_GENERATE > 1,
+ *   and dumps the parse stack / register state when C_ANALYSIS is set.
+ *   Appends EI + HALT after the last record.
+ */
 void readcd() {
     int reg, j, k;
     int ip;
@@ -2452,6 +2823,56 @@ void readcd() {
     ;
 }
 
+/* doPRO -- Set up a procedure call: move the last one or two parameters
+ *   (by value) into the BC and/or DE register pairs as required by the
+ *   8080 calling convention, pushing any remaining stack entries that would
+ *   otherwise conflict.
+ *   symId: symbol-table index of the procedure being called
+ */
+
+/*
+doPRO() is the call-setup routine for pass-2 procedure calls.
+It prepares arguments according to this compiler’s 8080 calling convention: up to two trailing
+arguments go in register pairs (BC, DE), everything else is preserved/pushed.
+What it does, step by steo
+1.	Compute register-parameter count
+    •	regParamCnt = min(INFO_ECNT(symAttrib(symId)), 2)
+    •	Only the last 1–2 params are passed in registers.
+2.	No-parameter case
+    •	Locks H/L, calls saver() to spill live values safely, then unlocks.
+    •	This protects internal address-tracking state around the call.
+3.	Mark parameter operands as protected
+    •	Finds the parse-stack window for register params: firstSp = sp - 2 * regParamCnt.
+    •	Locks any registers currently holding those param values so spilling/reallocation won’t destroy them.
+    •	Normalizes precision (min(...)) between paired stack items.
+    •	If a param is effectively byte-sized but currently in a pair, it drops high-byte usage
+        (regHigh = 0) and handles accumulator pending-store edge cases.
+4.	Push non-parameter live register values
+    •	Scans stack entries below firstSp.
+    •	If an entry is register-assigned, emits Push, updates execution-stack depth via stack(1), and clears assignment metadata.
+    •	Includes checks for invalid stacked ordering (error 150 path).
+5.	Move parameter values into ABI registers
+    •	First param target pair is BC; second is DE.
+    •	If target regs are occupied, values are temporarily shuffled through H/L (it variable) to avoid clobbering.
+    •	Handles accumulator aliasing (state[RA].regSt) before moves.
+6.	Ensure params are actually loaded
+    •	If a param is still not register-assigned, loadv(..., 0) loads it.
+    •	Locks destination arg regs and zero-extends when needed (emit(LD, ip, 0) when source precision is byte but paired form expected).
+7.	Finalize pre-call state
+    •	Flushes pending accumulator store if needed.
+    •	Resets register-state table (regSt/lock/regValue) to conservative unknown state.
+8.	Clean parse-stack entries for consumed register params
+    •	Repeated exch() + pop(1) removes argument items.
+    •	If top is a CPU-stacked temporary, emits POP RH and ustack() to keep depth accounting correct.
+---
+Key gotchas in this code
+    •	Heavy coupling to global allocator state (parseStk, state[], sp, RA pending store).
+    •	Order-sensitive shuffling: the it = RH temp-register lane is subtle; incorrect edits can silently corrupt arg moves.
+    •	Precision coercion (min(...)) affects whether high bytes are propagated or dropped.
+    •	Error 150 checks guard invariants in stacked/non-stacked ordering—important for compiler correctness, not just runtime behavior.
+If useful, the next step can be a compact “before/after” example of parseStk + register map for a 2-argument call to make the
+dataflow explicit.
+*/
 void doPRO(int16_t symId) {
     /* pass the last two (at most) parameters in the registers */
     uint8_t regParamCnt = min(INFO_ECNT(symAttrib(symId)), 2);
@@ -2588,6 +3009,13 @@ void doPRO(int16_t symId) {
     }
 }
 
+/* doBuiltin -- Generate inline 8080 code for a pass-2 built-in function.
+ *   Handles shift/rotate (B_ROL..B_SCR), HIGH/LOW extraction, the TIME
+ *   delay loop, INPUT port read, OUTPUT port write, LENGTH/LAST attributes,
+ *   DOUBLE precision widening and DEC (decimal adjust).
+ *   val: built-in function selector (B_ROL..B_DEC, 0-based)
+ *   Returns true if code was successfully generated; false on error.
+ */
 bool doBuiltin(int val) {
     int reg, j, k, m;
     int port;
@@ -2815,6 +3243,52 @@ bool doBuiltin(int val) {
     return false;
 }
 
+/* operat -- Process one intermediate-language operator and emit 8080 code.
+ *   Dispatches all arithmetic, logical, comparison, control-flow (TRA/TRC/
+ *   PRO/RET), store (STO/STD), case (CSE/AX1/AX2), built-in (BIF) and
+ *   miscellaneous (ORG/HAL/DRT/ENA/DIS/CVA/LOD/INX/…) operators.
+ *   val:     operator code (ADD..AX3)
+ *   Returns: true if any code was altered (the caller ORs this into alter).
+ */
+/*
+operat() is the main IL-opcode dispatcher for pass-2 codegen.
+What it does
+At plm82/plm82.c:3065, operat(int val) reads one intermediate-language operator and:
+1.	Interprets operands from parseStk (sp is stack top).
+2.	Uses register-allocation state (state[], pending accumulator store, locks).
+3.	Emits 8080 instructions through emit(...).
+4.	Maintains symbol/link/fixup state for jumps/calls.
+5.	Returns true if codegen/state changed, false for no-op-ish ops.
+---
+Key structure
+•	Large switch handles arithmetic, logic, compare, load/store, control flow, built-ins, etc.
+•	Some cases set iop (TRA/TRC/PRO/AX2) and then fall into a shared transfer-resolution block after
+the switch (lines ~3628+), where label/procedure chaining and fixups are done.
+---
+Important behavior by group
+•	Arithmetic/logic (ADD, SUB, AND, XOR, …) mostly delegate to apply(...).
+•	16-bit compare routes to compare16(...); byte compares often encode result as condition flags in assignment.
+•	INC pushes literal 1 then may fall through to ADD (optimization pattern).
+•	TRC builds a conditional jump mask; if operand is not already a condition-code object, it forces a carry-based test.
+•	PRO: procedure call setup via doPRO(...), or built-in dispatch via doBuiltin(...).
+•	Ret/DRT: normal and interrupt-return handling, including stack-depth bookkeeping and H:L tracking updates.
+•	STO/STD: regular stores via genStore(...), plus special-case output-port handling (S_OUTPUT + OUT).
+•	LOD: complex load of based/simple vars with several register and LHLD/LDAX/XCHG optimizations.
+•	CSE/AX1/AX2: case/jump-table mechanics.
+•	TRA: unconditional transfer; may be absolute, label-based with chain/fixups, or computed jump (PCHL fallback).
+---
+Gotchas
+•	Heavy use of fallthrough (INC→ADD, GTR→LSS, LEQ→GEQ, AX1→TRA).
+•	assignment encodes multiple meanings: register pair, condition code, etc.
+•	Many side effects are non-local (xfrloc, defsym, lxis, symAddr/symRef chains).
+•	H:L value tracking (state[RH/RL].regValue) is critical for peephole/load optimizations; incorrect edits here can silently break codegen.
+---
+Practical mental model
+Think of operat() as a tiny backend pipeline in one function:
+•	Decode IL op → normalize operands on virtual stack → materialize into registers/memory → emit 8080 bytes → record fixups and optimizer metadata.
+If you want, I can give a focused walkthrough of one path (for example TRC, LOD, or TRA chain-straightening) with stack/register state before/after.
+
+*/
 bool operat(int val) {
     static int it;
     int reg, j, k, m, l, iop = 0, iop2 = 0, jp; // assign to appease GCC
@@ -3593,6 +4067,12 @@ bool operat(int val) {
     18      RH valid
     19+     tbd if 3 then merge values of h and l
 */
+/* updateHL -- Merge the current H:L register values into the HL-tracking
+ *   word stored with the procedure at procedure-stack level jp, then mark
+ *   H:L as 'unknown' (-255).  Called after a RET or DRT to propagate known
+ *   H:L state across call sites for the HL-load optimisation.
+ *   jp: procedure-stack index (1..prsp) of the completed procedure
+ */
 void updateHL(int jp) {
     xfrloc   = codloc - 1;
     xfrsym   = 0;
@@ -3625,7 +4105,13 @@ void updateHL(int jp) {
     state[RH].regValue = state[RL].regValue = -255;
 }
 
-// update condition code for 16 bit
+/* compare16 -- Generate a 16-bit comparison between the top two parse-stack
+ *   entries by subtracting them (SU/SB) and setting a condition-code flag.
+ *   When zeroTest is true, ORs the low-order result byte to set the Zero flag.
+ *   icom:     true if the subtraction operands are commutative (EQL/NEQ)
+ *   flag:     ZFLAG, NZFLAG, CFLAG or NCFLAG to encode the result type
+ *   zeroTest: true for equality tests, false for unsigned comparisons
+ */
 void compare16(bool icom, int flag, bool zeroTest) {
     apply(SU, SB, icom, true);
     int regLow  = REGLOW(parseStk[sp].assignment);
@@ -3645,8 +4131,12 @@ void compare16(bool icom, int flag, bool zeroTest) {
     return;
 }
 
-// genrate call to builtin function bf, result determines result reg pair to use
-// modified to use bf = 0->mutliply 1->divide/mod
+/* builtin -- Emit a call to a built-in multiply or divide/mod library routine.
+ *   Arranges the two operands into DE (top) and BC (second), calls emitbf(),
+ *   and records the result in the target register pair.
+ *   bf:        0 for multiply, 1 for divide/mod
+ *   targetReg: first register of the result pair (RB for quotient, RD for remainder)
+ */
 void builtin(int bf, int targetReg) {
     /* clear condition code */
     if (COND(parseStk[sp].assignment))
@@ -3708,6 +4198,14 @@ void builtin(int bf, int targetReg) {
     state[targetReg].regSt = state[targetReg + 1].regSt = sp;
 }
 
+/* indexOp -- Generate an indexed address computation (base + index).
+ *   parseStk[sp]   holds the index value; parseStk[sp-1] holds the base.
+ *   Uses INX/DCX for a literal index of ±1; otherwise loads the index into
+ *   a register pair and uses DAD.  For address-precision bases the index is
+ *   doubled at compile time when it is a known literal.
+ *   The result is left in DE (REGPAIR(RD,RE)) at the top of parseStk.
+ *   prec: precision of the base variable (1=byte, 2=address/word)
+ */
 void indexOp(int prec) {
 
     if (parseStk[sp].litv == 0) /* zero index just pop it and ignore the INX operator */

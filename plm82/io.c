@@ -12,7 +12,7 @@ char *symFile;
 char *lstFile;
 char *hexFile;
 
-#ifdef linux
+#if __has_include(<unistd.h>)
 #include <unistd.h>
 #endif
 void closefiles(void) {
