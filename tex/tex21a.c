@@ -8,6 +8,97 @@
  *                                                                          *
  ****************************************************************************/
 
+/*
+## Purpose
+
+`tex21a.c` is the main processing module for the TEX 2.1 C port.
+It drives input parsing, dot-command execution, line formatting, pagination, and output emission.
+
+## High-level flow
+
+1. Parse runtime options from command line (`getOptions`).
+2. Open primary input TEX source (`openSrc` with `texFCB`).
+3. Derive output names (`mkName`) and open print/index outputs.
+4. Main loop:
+   - `collectTextBlock()` for text content
+   - `outputLine()` to format/emit line
+   - or `procDotCmd()` for dot commands
+5. End processing through `nextSrcOrDone()` / `emitEndOfPage()` / exit.
+
+## Core abstractions
+
+### `FCB`
+File control block used for source/output/index streams:
+
+- `fp` active file handle
+- `name` resolved path/name
+- `context` rolling text context (error reporting)
+- `path` optional base path from runtime options
+- `cidx` context cursor
+
+Global instances:
+- `texFCB` main source
+- `defFCB` nested source / response file
+- `prnFCB` print destination
+- `ixFCB` index destination
+
+## Important subsystems
+
+### 1) Input routing
+- `selectSrc`, `selectSrcAndGetc`
+- `getTex`, `getDef`, `getCmdLine`, `getRsp`, `getcCon`
+- Supports command-line, TEX file, nested file, and user input modes.
+
+### 2) Escape and command parsing
+- `getcProcessEscape` handles escape sequences and whitespace specials.
+- `collectLine` / `collectTextBlock` gather raw text units.
+- `procDotCmd` dispatches dot commands (`.AD`, `.BP`, `.CE`, `.LL`, `.SO`, `.UL`, etc.).
+
+### 3) Formatting and justification
+- `setupThisLine` computes effective margins/width for current line.
+- `justify`, `allocateSlack`, `moveUpText` distribute slack spaces.
+- `spacingText`, `centre`, `outputLine` perform final emission.
+
+### 4) Pagination and headers/footers
+- `emitHeadingIfAtTop`, `emitHeadingOrFooter`, `emitPageNum`
+- `spacing`, `roomOnPage`, `emitEndOfPage`, `finishPage`
+- Tracks `pageNum`, margins, line count, and optional page ranges.
+
+### 5) Output device/printer control
+- Output target selected by `selectDst`.
+- `putPrn`, `putCon`, `nullSub` route output.
+- Printer escape helpers: `putDstEscCode`, `enablePS`, `disablePS`, `setMargins`, `absoluteHT`.
+
+### 6) Option handling
+- Runtime options parsed in `getOptions` (`$S`, `$F`, `$D`, `$O`, `$N`, `$R`, `$Q`, `$C`, `$T`,
+`$P`, `$E`, `$X`).
+- Path-aware output/source handling via `getPath`, `mkName`.
+
+## Error handling
+
+- `error` prints message plus contextual input snippet.
+- `fatalError` prints error and aborts via `wrapup`.
+- `wrapup` cleans up files and partial outputs.
+- `signalHandler(SIGINT)` ensures cleanup on Ctrl+C.
+
+## Main global state categories
+
+- Input mode/function pointers: `srcFileOpt`, `cgetc`, `altGetc`
+- Output routing: `cputc`, `dstPutc`, `prnToDev`
+- Layout: `leftMargin`, `lineLen`, `pageLen`, `indentThisLine`
+- Pagination: `curLine`, `pageNum`, `topMargin`, `bottomMargin`
+- Formatting mode: `formatOpt`, `isJustified`, `lineSpacing`
+- Printer/escape state: `escCodes`, `escColumn`, `proportionalSpace`, `DOpt`
+- Command syntax chars: `cmdLeadIn`, `litLeadIn`, `escapeCharacter`, `pageNumMarker`
+
+## Notable implementation notes
+
+- Uses many global variables and stateful function pointers to model original TEX behavior.
+- Supports both file output and console/device output.
+- Includes CP/M-compatible behavior (e.g., `CPMEOF` handling) while running on modern OSes.
+- Dot-command parser is intentionally permissive/legacy-oriented and relies on shared global parse
+state.
+*/
 
 #include <ctype.h>
 #include <memory.h>
@@ -519,7 +610,7 @@ void putTextCh(char c) {
         curCol++;
     } else if (c == '\t') {
         n = 0xff;
-        while (curCol >= tabstops[++n])
+        while (curCol >= tabstops[(byte)++n])
             ;
         tabCol = tabstops[n];
         if (DOpt) {
@@ -761,6 +852,31 @@ void spacing(byte n) {
 byte slack; // promoted to global
 bool notFirstPass;
 
+
+/**
+ * Copies a span of text within `lineOutBuf` while injecting additional spaces
+ * to consume global justification `slack`.
+ *
+ * The function walks from `srcIdx` toward `srcEndIdx` using `step` (`+1` or `-1`),
+ * mirrors each copied byte at `dstIdx`, and conditionally inserts one extra space
+ * after eligible word gaps.
+ *
+ * Space insertion rules:
+ * - Only insert when current char is `' '` and global `slack > 0`.
+ * - On the first pass (`notFirstPass == false`), do not add space after `'.'`.
+ * - Never add more than one extra space for a run of spaces.
+ * - Leading/trailing expansion is prevented by initializing `prevC` to `' '`.
+ *
+ * Side effects:
+ * - Mutates `lineOutBuf` between source/destination regions.
+ * - Decrements global `slack` for each inserted space.
+ *
+ * @param srcIdx     Current source index (start side for the walk).
+ * @param srcEndIdx  Terminal source index (loop stops when `srcIdx == srcEndIdx`).
+ * @param dstIdx     Current destination index (parallel walk with `srcIdx`).
+ * @param step       Direction and stride of traversal (`1` forward, `-1` backward).
+ * @return           Final destination index after copy/expansion.
+ */
 byte allocateSlack(byte srcIdx, byte srcEndIdx, byte dstIdx, byte step) {
     char c, prevC;
 
@@ -784,6 +900,37 @@ void moveUpText(byte oldEnd, byte oldStart, byte newEnd) {
     }
 }
 
+
+/**
+ * Fully justifies the current output segment in `lineOutBuf` by distributing
+ * additional spaces across existing word gaps until `widthThisLine` is reached.
+ *
+ * Algorithm summary:
+ * 1. Compute remaining slack:
+ *      slack = targetWidth - currentTextWidth
+ * 2. Normalize the active start index (`sline`) to account for any
+ *    left-hanging-indent handling (`leftHangingIndent`).
+ * 3. Repeatedly distribute slack using `allocateSlack()` until exhausted:
+ *    - If `slackFromRight` is true:
+ *        - Shift tail text (`wline..nline`) right to make room.
+ *        - Walk backward from `eline` toward `sline`, inserting spaces.
+ *    - Otherwise:
+ *        - Shift logical start left.
+ *        - Walk forward from start toward `eline`, inserting spaces.
+ *    - First pass avoids adding an extra space immediately after '.' so
+ *      sentence spacing behavior is preserved (`notFirstPass` gate).
+ * 4. If no progress is made in a pass, emit `error("Word too long")` and stop
+ *    to avoid an infinite loop.
+ * 5. If a left-hanging indent was applied, restore the original text span by
+ *    moving characters back to their expected start position.
+ * 6. Toggle `slackFromRight` so the next line alternates distribution direction,
+ *    reducing visual bias across paragraphs.
+ *
+ * Important side effects:
+ * - Mutates global indices: `sline`, `tline`, `eline`, `wline`, `nline`.
+ * - Mutates global controls: `slack`, `notFirstPass`, `slackFromRight`.
+ * - Rearranges bytes in global `lineOutBuf`.
+ */
 void justify() {
     byte slackAtStart;
 
@@ -984,6 +1131,39 @@ void skipToEOL() {
     ignoreRestOfLine = false;
 }
 
+/**
+ * Reads the next logical input character and normalizes TEX escape/control behavior.
+ *
+ * This routine is the low-level lexer step used by line collection. It consumes raw
+ * bytes via `cgetc()` and updates global parser/output state to represent:
+ *
+ * - physical line breaks (`atBreakLine`, newline folding)
+ * - escaped whitespace tokens (`ESCSPACE`, `ESCHYPHEN`)
+ * - inline printer/control escape capture (`markEscCode`, `putEscCode`)
+ * - explicit line continuation (`continueLine`)
+ *
+ * Behavior summary:
+ * - Reads input in a loop until it can return one logical character in `inputChar`.
+ * - Converts newline into a break marker:
+ *   - sets `atBreakLine = true`
+ *   - consumes remainder via `skipToEOL()`
+ *   - returns `' '` as the logical separator
+ * - Preserves tabs as whitespace-special content (`wsSpecialSeen = true`).
+ * - Records other control characters (< `' '`) as deferred output escapes.
+ * - When `escapeCharacter` is seen, dispatches escape commands:
+ *   - `\ `  => escaped space (`ESCSPACE`)
+ *   - `\-`  => escaped hyphen (`ESCHYPHEN`)
+ *   - `\"`  => synthetic newline (forces break processing path)
+ *   - `\C`  => mark next physical line as continuation (`continueLine = true`)
+ *   - `\B`x => emit backspace + following char as raw escape payload
+ *   - `\U`  => queue printer half-line up (`ESC 'D'`)
+ *   - `\D`  => queue printer half-line down (`ESC 'U'`)
+ *   - unknown escape => leave escaped character in `inputChar` and return it literally
+ *
+ * Side effects:
+ * - Mutates globals: `inputChar`, `atBreakLine`, `wsSpecialSeen`, `continueLine`.
+ * - Appends deferred escape bytes via `markEscCode()` / `putEscCode()`.
+ */
 void getcProcessEscape() {
     byte ucInputChar;
 
@@ -1037,7 +1217,6 @@ void getcProcessEscape() {
         }
     }
 }
-
 void setupThisLine() {
     byte oldVal;
 
@@ -1315,6 +1494,39 @@ void getFirstArgChar() { /* 1st arg can be proceeded by a space */
         cgetc();
 }
 
+/**
+ * Parses header/footer text from the active input stream into a fixed-width buffer.
+ *
+ * This routine is used by commands like `.HE`, `.FT`, `.IX`, and `.TC` to capture
+ * user-provided text and optional printer spacing escapes. It preserves legacy TEX
+ * behavior by pre-filling with spaces, supporting inline `\S<n>` spacing directives,
+ * and truncating safely to the destination width.
+ *
+ * Behavior summary:
+ * - Consumes the first non-leading-space argument character via `getFirstArgChar()`.
+ * - Reserves one byte for string terminator (`width--`).
+ * - Copies characters until newline or width limit.
+ * - Interprets `escapeCharacter + 'S'` as a spacing directive:
+ *   - Reads spacing value with `get8NewValue(12)`.
+ *   - If `DOpt` is active, emits printer control escape bytes into the buffer:
+ *     - Always emits shadow-on (`ESC 'W'`).
+ *     - In proportional mode (`proportionalSpace`), spacing > 12 emits
+ *       `ESC DC1 3` (3/120" offset).
+ *     - In non-proportional mode, spacing != 12 emits `ESC US (jj + 1)` and
+ *       appends `ESC 'S'` later to restore HMI control.
+ * - If content reaches/exceeds the allowed width, marks `invalidParam`.
+ * - Copies the prepared fixed-width text (including trailing spaces and `'\0'`)
+ *   into `userBuf`.
+ *
+ * @param userBuf Destination buffer provided by caller.
+ * @param width   Maximum destination capacity in bytes, including `'\0'`.
+ * @return Number of bytes written before terminator (logical text length).
+ *
+ * Side effects:
+ * - Advances global input state (`inputChar`) via `cgetc()`.
+ * - May update global `invalidParam`.
+ * - Uses globals: `escapeCharacter`, `DOpt`, `proportionalSpace`, `jj`.
+ */
 byte getHeaderOrFooter(char *userBuf, byte width) {
     char buf[140]; // allow for user buffer & possible overrun with ESC sequences
     int ii              = 0;
@@ -1416,6 +1628,40 @@ void condNewPage(byte n) {
         finishPage();
 }
 
+/**
+ * Parses and executes a single TEX dot-command at the current input position.
+ *
+ * This routine reads a two-letter command token (`cmdChr1`, `cmdChr2`) after the
+ * command lead-in and dispatches behavior via a large switch table. Commands mutate
+ * global formatter state (layout, pagination, justification, spacing, printer modes,
+ * input routing, and index output) and may emit immediate output side effects.
+ *
+ * Dispatch model:
+ * - Initializes per-command flags:
+ *   - `ignoreRestOfLine = true` (default trailing-argument consumption policy)
+ *   - `invalidParam = false` (set by validators when arguments are out of range)
+ * - Executes command handler for the current token.
+ * - Supports in-function reparse (`rescan = true`) for commands that consume blocks
+ *   and stop on the next command line (for example `.IG`, `.LI`).
+ * - After dispatch:
+ *   - calls `error(&cmdChr1)` if argument validation failed
+ *   - calls `skipToEOL()` when trailing text should be discarded
+ *
+ * Command families handled:
+ * - Formatting/justification: `.AD`, `.NA`, `.FI`, `.NF`, `.IN`, `.TI`, `.LL`
+ * - Spacing/centering: `.CE`, `.DS`, `.SS`, `.LS`, `.SP`, `.CP`, `.NE`
+ * - Pagination/margins: `.BP`, `.PA`, `.PL`, `.PN`, `.PO`, `.MT`, `.MB`, `.HM`, `.FM`, `.OP`
+ * - Headers/footers/index: `.HE`, `.FT`, `.IX`, `.TC`, `.PC`
+ * - Input/source control: `.SO`, `.NX`, `.RD`, `.RF`, `.IG`, `.LI`
+ * - Printer style/modes: `.BO`, `.UL`, `.SH`, `.QB`, `.QS`, `.QP`, `.QU`, `.PS`
+ * - Syntax customization / messaging: `.CC`, `.C2`, `.EC`, `.TA`, `.TM`, `.ST`
+ *
+ * Notes:
+ * - Unknown tokens route to `undefinedCommandError()`.
+ * - Many handlers call `txtBreak()` first to flush pending buffered text before
+ *   mutating layout or mode state.
+ * - Behavior is intentionally stateful and legacy-compatible with original TEX 2.1.
+ */
 void procDotCmd() {
     bool rescan;
     do {
