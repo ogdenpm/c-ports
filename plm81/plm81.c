@@ -180,6 +180,30 @@
 
 
 *************************************************************************/
+
+/**
+ * @file plm81.c
+ * @brief PL/M-80 (8080) pass-1 front-end: parse, symbol management, and POL emission.
+ *
+ * This file implements the first compiler pass for the `plm81` cross-compiler port.
+ * Core responsibilities:
+ * - command-line control setup and initialization (`main`)
+ * - token/parse stack driver (`cloop`, `stack`, `reduce`, `recov`)
+ * - symbol table and hash-chain management (`lookup`, `enter`, `install`, `exitb`)
+ * - semantic actions for grammar productions (`synth`)
+ * - intermediate emission hooks (`emit(...)`) for later passes
+ *
+ * Data model highlights:
+ * - `pstack[]`: parser stack entries (token + semantic payload)
+ * - `symbol[]`: symbol table with scope/hash metadata
+ * - `varc[]`: token text/value scratch store
+ * - block state: `curblk`, `block[]`, `dopar[]`, `macblk[]`
+ *
+ * Error handling model:
+ * - recoverable syntax/semantic errors use `error(...)` + `recov()`
+ * - fatal capacity/internal errors use `fatal(...)`
+ */
+
 #include "plm81.h"
 #include <stdarg.h>
 #include <time.h>
@@ -343,6 +367,15 @@ char const help[] = {
     "         if the srcfile does not have an extension, .plm is added\n"
 };
 
+
+/**
+ * @brief Program entry for pass-1.
+ *
+ * Initializes compiler controls, opens files, installs built-ins,
+ * runs scanner/parser, writes final marker, and reports error summary.
+ *
+ * @return Number of program errors.
+ */
 int main(int argc, char **argv) {
 
     for (int tokId = 0; tokId < 26; tokId++)
@@ -427,6 +460,12 @@ int main(int argc, char **argv) {
     return errorCnt;
 }
 
+/**
+ * @brief Debug dump of one symbol table entry.
+ *
+ * Prints symbol identity, type, scope state, optional hash linkage,
+ * and type-specific metadata.
+ */
 void dumpsym(int idx) {
     static char *types[]  = { "VARB", "INTR", "PROC", "LABEL", "LITER", "NUMBER" };
     static char *labels[] = { "OuterLabel", "LocalLabel", "CompilerLabel" };
@@ -468,6 +507,15 @@ void dumpsym(int idx) {
     putc('\n', stderr);
 }
 
+/**
+ * @brief Exit current block scope.
+ *
+ * Performs scope teardown:
+ * - drops macros leaving scope
+ * - marks symbols out-of-scope
+ * - removes hash-chain entries for dead symbols
+ * - reports unresolved symbols at block exit
+ */
 void exitb() {
 
     /*     goes through here upon block exit */
@@ -521,6 +569,10 @@ void exitb() {
     }
 }
 
+
+/**
+ * @brief Compute identifier hash code.
+ */
 int varHash(char *str, int len) {
     int hval = 0;
     for (int tokId = 0; tokId < len; tokId++)
@@ -528,6 +580,14 @@ int varHash(char *str, int len) {
     return hval;
 }
 
+/**
+ * @brief Look up current token payload in symbol table.
+ *
+ * Uses hash-chain lookup; matches by token category
+ * (`NUMBV`, `STRV`, `IDENTV`) and scope visibility.
+ *
+ * @return Symbol index or 0 if not found.
+ */
 int lookup(const int iv) {
 
     symlen = pstack[iv].len;
@@ -557,6 +617,14 @@ int lookup(const int iv) {
     return 0;
 }
 
+/**
+ * @brief Insert a new symbol table entry.
+ *
+ * Requires prior setup from `lookup()` (`symloc`, `symlen`, `hcode`).
+ * Optionally links symbol into hash chain.
+ *
+ * @return New symbol index.
+ */
 int enter(uint16_t len, uint8_t prec, uint8_t type, bool hasHash) {
 
     /*      enter assumes a previous call to lookup (either that, or set up */
@@ -583,6 +651,9 @@ int enter(uint16_t len, uint8_t prec, uint8_t type, bool hasHash) {
     return symIdx;
 }
 
+/**
+ * @brief Install built-in symbols and initialize outer block baseline.
+ */
 void install() {
     symloc = 0;
     for (uint32_t tokId = 0; tokId < ASIZE(builtins); tokId++) {
@@ -593,6 +664,29 @@ void install() {
     block[1] = blksym = symNext;
 }
 
+/**
+ * @brief Recover parser state after a syntax error.
+ *
+ * Attempts panic-mode recovery by advancing input and optionally trimming
+ * the parse stack until a safe synchronization point is found.
+ *
+ * Recovery strategy:
+ * - Wait for a synchronizing token in the input stream
+ *   (`DECLARE`, `PROCEDURE`, `END`, `DO`, `;`, or `EOF`).
+ * - Then inspect the current stack top and:
+ *   - return immediately when fail-soft mode allows a valid continuation
+ *     (`failsf` and `getc1(top, token) != 0`),
+ *   - terminate compilation if both input and stack are at `EOF`,
+ *   - stop unwinding when a stable non-terminal boundary is reached
+ *     (`GROUPV`, `SLISTV`, `STMTV`, `DOV`, `PROCV`),
+ *   - otherwise pop stack entries (without crossing the base frame at `sp <= 4`)
+ *     and restore `vartop` to the new top entry's text location.
+ * - If not yet synchronized, fetch the next token and continue.
+ *
+ * Side effects:
+ * - May modify `sp`, `vartop`, `failsf`, and `compil`.
+ * - Consumes input tokens via `scan()`.
+ */
 void recov() {
     for (;;) {
         /*     find something solid in the text */
@@ -626,6 +720,30 @@ int intcmp(const void *a, const void *b) {
     return *(const int *)a - *(const int *)b;
 }
 
+/**
+ * @brief Parse action selector helper for tri-state table lookup.
+ *
+ * Determines the parsing action (shift/stack or reduce) by examining the current
+ * token and the top of the parse stack. Uses a lookup table to resolve conflicts
+ * and handle ambiguous grammar situations.
+ *
+ * The function repeatedly checks the compatibility between the token at the top
+ * of the parse stack and the current input token using getc1(). Based on the
+ * result, it decides whether to:
+ * - Shift/stack: Push the current token onto the parse stack (return true)
+ * - Reduce: Apply a grammar reduction rule (return false)
+ * - Error: Report invalid token combination and attempt recovery
+ * - Tri-state: Perform additional lookahead check using a 3-token context
+ *
+ * @return true to shift/stack the current token onto the parse stack,
+ *         false to reduce using a grammar rule (unless error recovery aborts compilation)
+ *
+ * @note This function may not return if error recovery sets compil to false
+ * @note The function loops indefinitely until a valid parse action is determined
+ * @see getc1() for the token pair compatibility lookup
+ * @see recov() for error recovery mechanism
+ * @see TRI() for tri-state table key generation
+ */
 bool stack(/*const int q */) {
     int i;
 
@@ -653,6 +771,9 @@ bool stack(/*const int q */) {
     }
 }
 
+/**
+ * @brief Context-check for candidate production before reduce.
+ */
 bool prok(const int prd) {
     /*      context check of equal or imbedded right parts */
     if (contc[prd] == 0)
@@ -669,6 +790,24 @@ bool prok(const int prd) {
     return false;
 }
 
+/**
+ * @brief Reduces the parser stack by applying one matching grammar production.
+ *
+ * Builds a packed 3-token pattern from the top of `pstack`, then scans the
+ * candidate production range for the current top non-terminal (`prind[top-1]`
+ * to `prind[top]-1`). For each candidate:
+ * - verifies right-hand-side token pattern match (`prtb`)
+ * - verifies context constraints (`prok`)
+ *
+ * On success, it:
+ * - sets `mp` to the first stack slot of the matched RHS
+ * - runs semantic action `synth(prdtb[prd], hdtb[prd])`
+ * - replaces RHS with LHS symbol (`hdtb[prd]`)
+ * - updates `sp` and `vartop`
+ *
+ * If no production matches, reports error 4, clears fail-soft mode, dumps
+ * parser stack state, and enters recovery via `recov()`.
+ */
 void reduce() {
     /*     pack stack top */
     int i   = TRI(pstack[sp - 3].tokId, pstack[sp - 2].tokId, pstack[sp - 1].tokId);
@@ -693,6 +832,13 @@ void reduce() {
     recov();
     return;
 }
+
+/**
+ * @brief Main parse loop (shift/reduce driver).
+ *
+ * Reads tokens from scanner, pushes semantic payload to `pstack`,
+ * and repeatedly performs shift/reduce until compilation ends.
+ */
 
 void cloop() {
     /*      global tables */
@@ -723,18 +869,22 @@ void cloop() {
     }
 }
 
-/*
-    getc1(stackitem, token)
-    returns action code
-    0 - illegal combination
-    1 - stack
-    2 - reduce
-    3 - look at top three items is match in c1tri then stack else reduce
-*/
+/**
+ * @brief Decode packed parser action from `c1` table.
+ *
+ * Returns:
+ * - 0 illegal pair
+ * - 1 shift
+ * - 2 reduce
+ * - 3 conditional shift/reduce via 3-token pattern table
+ */
 int getc1(int stackItem, int token) {
     return (c1[stackItem - 1][token / 4] >> ((token % 4) << 1)) & 3;
 }
 
+/**
+ * @brief Initialize procedure symbol metadata and emit procedure prologue ops.
+ */
 void procHead(int plist, int rtype) {
     proctp[curblk] = rtype ? 2 : 1; // 1 untyped, 2 typed
     int symIdx     = pstack[mp].fixv;
@@ -747,6 +897,62 @@ void procHead(int plist, int rtype) {
     return;
 }
 
+/**
+ * @brief Semantic action dispatcher for grammar productions.
+ *
+ * This function implements the semantic actions for each grammar production in the PL/M-80 parser.
+ * It is called during the reduce phase of the shift-reduce parser to perform code generation,
+ * symbol table management, and semantic checking for the recognized syntactic constructs.
+ *
+ * The function uses the parser stack (pstack) where `mp` points to the leftmost symbol of the
+ * production being reduced and `sp` points to the rightmost symbol. Stack entries contain token
+ * identifiers, source locations, lengths, and semantic values (fixv, fixc).
+ *
+ * @param prod Production number (1-128) identifying which grammar rule was matched
+ * @param newId Token identifier for the non-terminal being produced (left-hand side of production)
+ *
+ * @note Global state dependencies:
+ *       - pstack[]: Parser stack with mp (left) and sp (right) positions
+ *       - symbol[]: Symbol table for identifier/constant management
+ *       - varc[]: Character buffer for token text
+ *       - curblk: Current block nesting level
+ *       - acnt: Assignment chain counter for multi-assignment statements
+ *       - assign[]: Symbol indices for chained assignments
+ *       - idList[]: Temporary storage for identifier lists in declarations
+ *       - initialData[]: Storage for INITIAL clause values
+ *       - dopar[]: DO-loop parameter tracking (type, clause, label)
+ *       - proctp[]: Procedure type tracking (0=none, 1=untyped, 2=typed)
+ *       - blksym: Symbol table index for current block boundary
+ *
+ * @note The function handles:
+ *       - Program structure (modules, blocks, procedures)
+ *       - Control flow (IF-THEN-ELSE, DO loops, CASE, GOTO, CALL)
+ *       - Declarations (DECLARE, LABEL, PROCEDURE, typed/dimensioned variables)
+ *       - Expressions (arithmetic, logical, relational operators)
+ *       - Assignments (single and chained)
+ *       - Data initialization (INITIAL, DATA, inline constants)
+ *       - Special constructs (BASED variables, LITERALLY macros, INTERRUPT procedures)
+ *
+ * @note Intermediate code emission:
+ *       Calls emit() to generate Polish notation operators and operands for pass-2:
+ *       - emit(VLU, symIdx): Push value/address of symbol
+ *       - emit(ADR, symIdx): Push address of variable
+ *       - emit(LIT, value): Push literal constant
+ *       - emit(OPR, opcode): Execute operation (ADD, SUB, TRA, RET, etc.)
+ *       - emit(DEF, symIdx): Define label location
+ *
+ * @note Error handling:
+ *       Calls error() for semantic violations (e.g., undeclared variables, type mismatches,
+ *       scope violations, duplicate definitions). Some errors are recoverable, allowing
+ *       parsing to continue for additional error detection.
+ *
+ * @see reduce() - Calls this function after matching a production
+ * @see emit() - Intermediate code emission
+ * @see lookup() - Symbol table lookup
+ * @see enter() - Symbol table insertion
+ * @see enterb() - Block entry scope management
+ * @see exitb() - Block exit scope teardown
+ */
 void synth(const int prod, const int newId) {
     int tokId, i, k, len, dim, type;
     int symIdx;
