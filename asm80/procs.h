@@ -88,7 +88,7 @@ void StackError(void);
 void Start();
 bool StrUcEqu(char const *s, char const *t);
 void ResultType(void);
-void Sub546F(void);
+void ValidateAndNormalizeLineTokens(void);
 void InsertMacroSym(word val, byte type);
 void PrintSymbols(void);
 void DoIrpX(byte mtype);

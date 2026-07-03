@@ -294,7 +294,7 @@ void PrintLine(void) {
             }
 
             if (spIdx > 0 && (inDB || inDW)) {
-                Sub546F();
+                ValidateAndNormalizeLineTokens();
                 continue;
             }
         }

@@ -51,6 +51,135 @@ void UpdateHiLo(byte hilo) {
         acc1RelocFlags = (acc1RelocFlags & ~UF_RBOTH) | hilo;
 }
 
+
+/*
+HandleOp() is the parser/executor’s reduce-action dispatcher for one operator/directive at a time.
+What it does
+•	Switches on topOp (numeric opcode/token kind).
+•	Applies semantics to the current operands (accum1, accum2) and parser state.
+•	Updates assembler state (segment location, symbol table, macro/conditional nesting, emitted code flags).
+Main groups in the switch
+1.	Expression operators (* + - / MOD SHL SHR EQ/LT/...NOT/AND/OR/XOR HIGH/LOW)
+    •  Computes into accum1.
+    •  Handles errors like divide/mod by zero.
+    •  High/Low also adjust relocation metadata via UpdateHiLo().
+2.	Data directives (DB, DW, DS)
+    •  DB: validates byte-sized values/relocation rules, supports strings, sets inDB.
+    •  DW: marks word data mode (inDW).
+    •  DS: reserves space by advancing segLocation[activeSeg].
+3.	Symbol/value directives (EQU, Set, ORG, End)
+    •  EQU/SET: update symbol entry, reject extern-based values.
+    •  ORG: validates relocation compatibility and sets new location counter.
+    •  End: validates end-state (nesting, syntax), optional start address.
+4.	Conditional assembly (IF, ELSE, ENDIF)
+    •  Maintains conditional nesting and skip state (skipIf, inElse, Nest/UnNest).
+5.	Instruction encoding dispatch
+    •  Cases like Lxi, MOV, arithmetic, single-byte ops, etc. call MkCode(...).
+    •  Some prechecks are done first (for example invalid register forms).
+6.	Segment and linkage directives
+    •  ASEG/CSEG/DSEG: switch active segment, check alignment where needed.
+    •  PUBLIC/EXTRN: update symbol/link metadata and object output bookkeeping.
+    •  name, STKLN, macro directives (macro, ENDM, IRP, etc.) update corresponding state.
+7.	Misc (NUL)
+    •  Produces boolean-like result (0xFFFF or 0) and clears relocation.
+Final invariant
+At the end, for any op except EOL, it sets noOpsYet = false, meaning the module is no longer at its
+initial “no operations seen” state.
+
+*/
+/**
+ * HandleOp - Operator and directive handler for the 8080 assembler parser
+ *
+ * This function serves as the main dispatch/reduction handler in the assembler's
+ * shift-reduce parser. It processes one operator or assembler directive at a time
+ * by evaluating the current top operator on the operator stack (topOp) and applying
+ * appropriate semantics to operands stored in accum1 and accum2.
+ *
+ * The function handles several categories of operations:
+ *
+ * 1. Expression Operators (cases 4-25):
+ *    - Arithmetic: *, +, -, /, MOD (cases 4, 5, 7, 9, 21)
+ *    - Unary: unary +, unary -, NOT (cases 8, 10, 17)
+ *    - Relational: EQ, LT, LE, GT, GE, NE (cases 11-16)
+ *    - Logical: AND, OR, XOR (cases 18-20)
+ *    - Bitwise: SHL, SHR (cases 22-23)
+ *    - Byte operations: HIGH, LOW (cases 24-25) - also update relocation metadata
+ *
+ * 2. Data Declaration Directives (cases 26-28):
+ *    - DB (Define Byte): validates byte-sized values, handles strings, enforces relocation rules
+ *    - DW (Define Word): marks word data mode
+ *    - DS (Define Storage): reserves space by advancing segment location counter
+ *
+ * 3. Symbol/Value Directives (cases 29-32):
+ *    - EQU/SET: update symbol table entries (reject extern-based values)
+ *    - ORG: validates relocation compatibility and sets location counter
+ *    - END: validates assembly termination state, optional start address specification
+ *
+ * 4. Conditional Assembly (cases 33-35):
+ *    - IF: begins conditional block, evaluates condition expression
+ *    - ELSE: toggles skip state for current conditional level
+ *    - ENDIF: closes conditional block, restores previous skip state
+ *
+ * 5. 8080 Instruction Encoding (cases 36-46):
+ *    - LXI, POP, DAD, PUSH, INX, DCX (16-bit register operations)
+ *    - LDAX, STAX (indirect addressing)
+ *    - MOV (register-to-register move)
+ *    - Arithmetic/logical ops: ADC, ADD, SUB, ORA, SBB, XRA, ANA, CMP
+ *    - Immediate operations: ADI, SBI, ORI, CPI, SUI, XRI, ANI, ACI, MVI
+ *    - INR, DCR (increment/decrement)
+ *    - Single-byte instructions: RET, JMP, NOP, HLT, etc.
+ *    - RST (restart instruction)
+ *    All call MkCode() to generate appropriate machine code
+ *
+ * 6. Segment and Linkage Directives (cases 47-51):
+ *    - ASEG/CSEG/DSEG: switch active segment with alignment checks
+ *    - PUBLIC: mark symbols as publicly visible for linking
+ *    - EXTRN: declare external symbols, update object file metadata
+ *
+ * 7. Module and Macro Directives (cases 52-64):
+ *    - NAME: set module name (must appear before other directives)
+ *    - STKLN: set stack segment size
+ *    - MACRO, ENDM, EXITM: macro definition and control
+ *    - MACRONAME: macro invocation
+ *    - IRP, IRPC, REPT: iteration constructs
+ *    - LOCAL: local label declaration in macros
+ *
+ * 8. Special Operations:
+ *    - case 0: no operation
+ *    - case 1: End of line processing
+ *    - case 2-3: Parenthesis handling with nesting validation
+ *    - case 6: Comma (generates syntax error in this context)
+ *    - case 65: NUL operator (evaluates to 0xFFFF or 0)
+ *
+ * Side Effects:
+ * - Updates global accumulators (accum1, accum2) with computed values
+ * - Modifies segment location counters (segLocation[])
+ * - Updates symbol table entries
+ * - Sets parser state flags (inDB, inDW, showAddr, expectOp, etc.)
+ * - Manages conditional assembly nesting and skip states
+ * - Generates machine code bytes via MkCode()
+ * - Updates relocation and linkage metadata
+ * - Sets noOpsYet to false after processing any non-EOL operation
+ *
+ * Global Variables Used:
+ * - topOp: Current operator being reduced from operator stack
+ * - curOp: Current input operator
+ * - accum1, accum2: Primary operand accumulators
+ * - acc1RelocFlags, acc2RelocFlags: Relocation metadata for operands
+ * - activeSeg: Currently active memory segment
+ * - segLocation[]: Location counters for each segment
+ * - token: Current token being processed
+ * - Various parser state flags and control variables
+ *
+ * Error Handling:
+ * - Calls appropriate error functions (SyntaxError, ValueError, OperandError,
+ *   ExpressionError, BalanceError, NestingError, SourceError) for invalid conditions
+ * - Division/modulo by zero: reports ValueError and synthesizes 8080-compatible result
+ * - Invalid operands: validates register usage, relocation constraints, etc.
+ *
+ * Note: This is part of a C port of Intel's ISIS-II asm80 assembler. The function
+ * maintains compatibility with the original assembler's behavior and error handling.
+ */
 void HandleOp(void) {
     switch (topOp) {
     case 0:

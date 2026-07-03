@@ -20,7 +20,30 @@ bool IsSkipping(void) {
     return (mSpoolMode & 1) || skipIf[0];
 }
 
-void Sub546F(void) {
+/**
+ * Validates and normalizes token sizing for the current source line before finalization.
+ *
+ * Behavior:
+ * - Advances `spIdx` to the next token index (`NxtTokI()`).
+ * - Raises a syntax error if an operand is still expected at end-of-line.
+ * - When tokens remain, requires either:
+ *   - the current token to be `O_DATA`, or
+ *   - `lineNumberEmitted` to already be set;
+ *   otherwise reports syntax error.
+ * - Applies size normalization rules:
+ *   - For `DB`/`DW` contexts (`inDB || inDW`):
+ *     - if exactly one token was parsed, no blank assembler error code exists,
+ *       and `token.size != 1`, force `token.size = 2`.
+ *   - For non-`DB`/`DW` contexts:
+ *     - if no blank assembler error code exists and tokens remain,
+ *       clamp `tokenStk[spIdx].size` to a maximum of 3.
+ *
+ * Notes:
+ * - Uses global parser/assembler state (`spIdx`, `tokenIdx`, `token`, `tokenStk`,
+ *   `expectOperand`, `lineNumberEmitted`, `inDB`, `inDW`).
+ * - This routine mutates token size metadata used later by line-finalization/output logic.
+ */
+void ValidateAndNormalizeLineTokens(void) {
     spIdx = NxtTokI();
     if (expectOperand)
         SyntaxError();
@@ -36,7 +59,7 @@ void Sub546F(void) {
 }
 
 void FinishLine(void) {
-    Sub546F();
+    ValidateAndNormalizeLineTokens();
     if (IsPhase2Print()) { /* update the line number */
         lineNo++;
 
