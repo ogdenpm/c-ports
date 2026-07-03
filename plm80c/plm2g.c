@@ -32,7 +32,7 @@
  * Parameter passing:
  *  if there is a single parameter this is passed in BC/C
  *  if there are two parameters, the first is passed in BC/C and the second in DE/E
- *  for three parameters, all but the last two are passed on the stack in order
+ *  for three or more parameters, all but the last two are passed on the stack in order
  *  stack saves always occupy 2 bytes, although the top byte is unused for byte parameters
  *  the last two are passed in BC/C and DE/E
  *

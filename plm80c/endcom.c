@@ -9,7 +9,7 @@
 #include "plm.h"
 #include <stdio.h>
 #include <stdlib.h>
-#ifndef _MSC_VER
+#if __has_include(<unistd.h>)
 #include <unistd.h>
 #endif
 

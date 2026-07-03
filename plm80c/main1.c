@@ -22,7 +22,7 @@ bool tx2LinfoPending = false;
 linfo_t linfo;
 tx1item_t tx1Item;
 uint8_t tx1Attr;
-uint8_t tx1ICode;
+uint8_t tx1XCode;
 
 static void PrepFiles() {
     scopeSP        = 1;

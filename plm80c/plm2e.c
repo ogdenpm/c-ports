@@ -18,8 +18,8 @@ static void ExchangeDEHL() {
     EncodeFragData(CF_XCHG);
     codeSize++;
     registerState[IR_TMP] = registerState[IR_H];
-    registerState[IR_H] = registerState[IR_D];
-    registerState[IR_D] = registerState[IR_TMP];
+    registerState[IR_H]   = registerState[IR_D];
+    registerState[IR_D]   = registerState[IR_TMP];
 }
 
 static void ExchangeHLStack() {
@@ -37,7 +37,6 @@ static void AdjustRegisterPriority(uint8_t slot) {
         priorityScore[slot] += penalty;
 }
 
-
 static uint8_t targetRegister;     // bC294 - Target register for operand load
 static uint8_t currentOperandSide; // curSide - Current operand being processed (Left=0/Right=1)
 static uint8_t otherOperandSide;   // otherSide - Other operand (opposite of current)
@@ -48,7 +47,6 @@ static bool IsRegisterUsedByOther(uint8_t slot) {
     return slot <= 3 && slot == exprLoc[otherOperandSide];
 }
 
-
 /**
  * AllocateRegister - Allocate optimal register pair for expression evaluation
  *
@@ -58,7 +56,7 @@ static bool IsRegisterUsedByOther(uint8_t slot) {
  * and restoration as needed.
  *
  * The 8080 has three 16-bit register pairs available for expression evaluation:
- * - BC (registers B,C) - Index 0 (IR_B)
+ * - BC (registers B,C) - Index 1 (IR_B)
  * - DE (registers D,E) - Index 2 (IR_D)
  * - HL (registers H,L) - Index 3 (IR_H)
  * - Stack (pseudo-register) - Index 4
@@ -76,7 +74,7 @@ static bool IsRegisterUsedByOther(uint8_t slot) {
  *
  * 2. Special Restrictions:
  *    - If stack top is not empty AND ACC register is active:
- *      • Mark BC (regIdx 0) as unavailable (200)
+ *      • Mark BC (idx 0) as unavailable (200)
  *      • Prevents conflicts with accumulator operations
  *
  * 3. Adjust Priorities Based on Operand Requirements:
@@ -95,14 +93,14 @@ static bool IsRegisterUsedByOther(uint8_t slot) {
  *      • Need to spill a register to stack
  *      • If HL is in use: Exchange DE↔HL, update expression locations
  *      • Exchange HL with stack top (XTHL-like operation)
- *      • Use HL (regIdx 3) as the allocated register
+ *      • Use HL (idx 3) as the allocated register
  *    - Otherwise:
  *      • Pop selected register from stack (restores previous value)
  *
  * 5. Post-Allocation Cleanup:
  *    - If register attribute is 0xB (special marker):
  *      • Clear to 0
- *      • If not ACC (regIdx 0) and contains value:
+ *      • If not ACC (idx 0) and contains value:
  *        » Generate MOV L,R or MOV H,R to consolidate register contents
  *
  * 6. Update Expression Tracking:
@@ -140,29 +138,31 @@ void AllocateRegister() {
     AnalyzeRegisterUsage();
 
     // Step 2: Initialize priority scores for all register pairs
-    for (uint8_t regIdx = IR_PSW; regIdx <= IR_H; regIdx++) {
+    for (uint8_t idx = 0; idx <= 3; idx++) {
         // If register needs to be saved OR is already in current expression
-        if (registerNeedsSave[regIdx] || registerInExpression[regIdx])
-            priorityScore[regIdx] = 200; // Mark as unavailable (score = 200
+        if (registerNeedsSave[idx] || registerInExpression[idx])
+            priorityScore[idx] = 200; // Mark as unavailable (score = 200
         else
             // Base score + penalty if register contains a value
-            // basePriorityScore: [0x3C=BC, 0x46=DE, 0x50=HL, 0x5A=stack]
+            // basePriorityScore: [60=BC, 70=DE, 80=HL, 90=stack]
             // Lower score = higher priority
-            priorityScore[regIdx] = basePriorityScore[regIdx] + (registerHasValue[regIdx] ? 0xf : 0);
+            priorityScore[idx] =
+                basePriorityScore[idx] + (registerHasValue[idx] ? 0xf : 0);
     }
 
     // Step 3: Special restriction - prevent BC conflicts with accumulator
     // If stack top is not empty AND ACC register is active
-    if ((stackRegisterAttrs[currentStackDepth] >> 4) != 0xb && stackNodeContents[currentStackDepth] != 0)
-        priorityScore[IR_PSW] = 200; // Mark PSW as unavailable
+    if ((stackRegisterAttrs[currentStackDepth] >> 4) != 0xb &&
+        stackNodeContents[currentStackDepth] != 0)
+        priorityScore[0] = 200; // Mark BC as unavailable
 
     // Step 4: Adjust priorities based on operand requirements
     for (uint8_t side = Left; side <= Right; side++) {
         if (curExprLoc[side] != 0) {
             // Check if operand is on stack AND matches stack top value
             if (exprLoc[side] == 9 && stackNodeContents[currentStackDepth] == curExprLoc[side]) {
-                currentSide      = side;  // Remember which side this is
-                penalty  = 206;  // High penalty - strongly prefer stack value
+                currentSide  = side;  // Remember which side this is
+                penalty      = 206;   // High penalty - strongly prefer stack value
                 conflictMode = false; // operands match - no conflict
             } else
                 penalty = 50; // Normal penalty for other cases
@@ -192,11 +192,11 @@ void AllocateRegister() {
 
             // Update expression tracking: whichever side was using HL now uses DE
             if (exprLoc[Left] == IR_H) {
-                exprLoc[Left] = IR_D; // Left side now in DE
-                UpdateExpressionLookup(Left);    // Update lookup codes
+                exprLoc[Left] = IR_D;         // Left side now in DE
+                UpdateExpressionLookup(Left); // Update lookup codes
             } else {
-                exprLoc[Right] = IR_D; // Right side now in DE
-                UpdateExpressionLookup(Right);    // Update lookup codes
+                exprLoc[Right] = IR_D;         // Right side now in DE
+                UpdateExpressionLookup(Right); // Update lookup codes
             }
         }
 
@@ -214,7 +214,7 @@ void AllocateRegister() {
         // Special marker 0xB indicates register needs consolidation
         registerState[bestRegister].dataType = 0; // Clear the marker
 
-        // If not ACC (regIdx 0) and register contains a value
+        // If not ACC (idx 0) and register contains a value
         if (bestRegister != 0 && registerState[bestRegister].contents != 0) {
             iCodeArgs[0] = bestRegister;
             EncodeFragData(CF_MOVLRHR); // Generate MOV L,R or MOV H,R
@@ -228,9 +228,10 @@ void AllocateRegister() {
         if (exprLoc[1 - currentSide] == 9) {
             if (curExprLoc[1 - currentSide] == curExprLoc[currentSide]) {
                 // Both sides reference same stack value
-                exprLoc[1 - currentSide]  = bestRegister;        // Update other side location
-                exprAttr[1 - currentSide] = registerState[bestRegister].dataType; // Update other side attribute
-                UpdateExpressionLookup(1 - currentSide);            // Update lookup codes
+                exprLoc[1 - currentSide] = bestRegister; // Update other side location
+                exprAttr[1 - currentSide] =
+                    registerState[bestRegister].dataType; // Update other side attribute
+                UpdateExpressionLookup(1 - currentSide);  // Update lookup codes
             } else {
                 // Different stack values - mark conflict
                 conflictMode = true;
@@ -238,12 +239,11 @@ void AllocateRegister() {
         }
 
         // Update current side's expression tracking
-        exprLoc[currentSide]  = bestRegister;        // Set location to allocated register
+        exprLoc[currentSide]  = bestRegister; // Set location to allocated register
         exprAttr[currentSide] = registerState[bestRegister].dataType; // Set attribute from register
-        UpdateExpressionLookup(currentSide);            // Update lookup codes
+        UpdateExpressionLookup(currentSide);                          // Update lookup codes
     }
 }
-
 
 /**
  * DetermineOperandOrder - Determine which operand to process first and set operation code
@@ -281,10 +281,9 @@ void AllocateRegister() {
  *
  * Phase 2: Operand Selection
  *
- * - Compare final priorities: currentOperandSide = operandRegisterCost[0] > operandRegisterCost[1] ? Left : Right
- *   • Higher priority value = process FIRST
- *   • Base priorities come from expression complexity/cost
- *   • Conflict penalties (+10) ensure correct ordering
+ * - Compare final priorities: currentOperandSide = operandRegisterCost[0] > operandRegisterCost[1]
+ * ? Left : Right • Higher priority value = process FIRST • Base priorities come from expression
+ * complexity/cost • Conflict penalties (+10) ensure correct ordering
  *
  * - Calculate otherOperandSide: otherOperandSide = Right - currentOperandSide
  *   • Simple arithmetic: if currentOperandSide=0 (Left), otherOperandSide=1 (Right)
@@ -359,11 +358,14 @@ static void DetermineOperandOrder() {
                 // Two potential conflict points checked:
                 // 1. Primary target register: b4C2D[operandCategory[currentOperandSide]] >> 5
                 // 2. Secondary register: b52B5[operandFragmentType[currentOperandSide]]
-                if (IsRegisterUsedByOther(loadOpTargetReg[operandCategory[currentOperandSide]] >> 5) ||
-                    IsRegisterUsedByOther(lookupResultLoc[operandFragmentType[currentOperandSide]])) {
+                if (IsRegisterUsedByOther(loadOpTargetReg[operandCategory[currentOperandSide]] >>
+                                          5) ||
+                    IsRegisterUsedByOther(
+                        lookupResultLoc[operandFragmentType[currentOperandSide]])) {
                     // Register conflict detected!
                     // Increase other operand's priority by 10 to process it first
-                    operandRegisterCost[otherOperandSide] = 10 + operandRegisterCost[otherOperandSide];
+                    operandRegisterCost[otherOperandSide] =
+                        10 + operandRegisterCost[otherOperandSide];
                 }
             }
         }
@@ -371,9 +373,9 @@ static void DetermineOperandOrder() {
 
     // Phase 2: Select which operand to process first
     // Higher priority value = process first
-    currentOperandSide   = operandRegisterCost[0] > operandRegisterCost[1] ? Left : Right;
-    otherOperandSide = 1 - currentOperandSide; // Calculate opposite side
-    operationCode     = operandCategory[currentOperandSide];  // Get operation code for selected side
+    currentOperandSide = operandRegisterCost[0] > operandRegisterCost[1] ? Left : Right;
+    otherOperandSide   = 1 - currentOperandSide;         // Calculate opposite side
+    operationCode = operandCategory[currentOperandSide]; // Get operation code for selected side
 }
 
 /**
@@ -387,7 +389,7 @@ static void DetermineOperandOrder() {
  * Operation-specific adjustments:
  *
  * 1. Operation 0x13 → 0x15 (HL register conflict)
- *    Condition: HL register (regIdx 3) needs to be saved OR is in current expression
+ *    Condition: HL register (idx 3) needs to be saved OR is in current expression
  *    - If registerNeedsSave[3] (HL needs save) OR registerInExpression[3] (HL in use):
  *      • Changes operation from 0x13 to 0x15
  *      • Selects alternative instruction sequence that doesn't require HL
@@ -505,7 +507,7 @@ static void AdjustOperation() {
  *      • Handles complex stack frame operations safely
  *
  * 3. Operation 0x15: Special HL preservation
- *    - If HL register (regIdx 3) is in current expression:
+ *    - If HL register (idx 3) is in current expression:
  *      • Marks other side as stack-based (exprLoc[otherOperandSide] = 9)
  *      • Allows HL to be used without losing other operand
  *      • Used for operations requiring HL specifically
@@ -610,7 +612,7 @@ static void SaveConflictingRegisters() {
  *    - Indicates stack-based operand
  *
  * Other: Operand encoding
- *    - Calls Sub_636A(currentOperandSide) to encode current operand
+ *    - Calls EncodeExpressionOperand(currentOperandSide) to encode current operand
  *    - Uses standard operand encoding
  *
  * Encoding format (arg2b):
@@ -631,9 +633,9 @@ static void SaveConflictingRegisters() {
  * @param encodingFormat - Encoding format (0 for none, 1-2 for direct register, other for standard)
  *
  * Side effects:
- * - Writes to iCodeArgs array at index iCodeArgsIndex 
+ * - Writes to iCodeArgs array at index iCodeArgsIndex
  * - Advances iCodeArgsIndex  by 1-3 depending on encoding
- * - May call Sub_636A() for operand encoding
+ * - May call EncodeExpressionOperand() for operand encoding
  *
  * Called from: GenerateOperandCode() to build operand argument list
  */
@@ -651,7 +653,7 @@ static void EncodeOperandArg(uint8_t argSource, uint8_t encodingFormat) {
         iCodeArgsIdx += 2;
     } else if (argSource == 3) {
         // Stack location marker
-        iCodeArgs[iCodeArgsIdx] = LOC_STACK;
+        iCodeArgs[iCodeArgsIdx]     = LOC_STACK;
         iCodeArgs[iCodeArgsIdx + 1] = currentStackDepth;
         iCodeArgsIdx += 3;
     } else {
@@ -764,10 +766,10 @@ static void UpdateRegisterState() {
 
     case 2:
         // Track stack-based operand
-        registerState[targetRegister].isDirect = true;
-        registerState[targetRegister].offset  = 0;
-        registerState[targetRegister].contents  = curExprLoc[currentOperandSide];
-        registerState[targetRegister].storageClass  = 0x100; // Stack marker
+        registerState[targetRegister].isDirect     = true;
+        registerState[targetRegister].offset       = 0;
+        registerState[targetRegister].contents     = curExprLoc[currentOperandSide];
+        registerState[targetRegister].storageClass = 0x100; // Stack marker
 
         if (iCodeArgs[0] == OP_STK) {
             // Stack-relative addressing
@@ -788,19 +790,22 @@ static void UpdateRegisterState() {
     case 3:
         // Track value-based operand
         registerState[targetRegister].isDirect = true;
-        registerState[targetRegister].offset  = 0;
-        registerState[targetRegister].contents  = curExprLoc[currentOperandSide];
-        GetOperandValue(registerState[targetRegister].contents, &registerState[targetRegister].stackOffset, &registerState[targetRegister].storageClass);
+        registerState[targetRegister].offset   = 0;
+        registerState[targetRegister].contents = curExprLoc[currentOperandSide];
+        GetOperandValue(registerState[targetRegister].contents,
+                        &registerState[targetRegister].stackOffset,
+                        &registerState[targetRegister].storageClass);
         break;
 
     case 4:
         // Track register-based operand
         registerState[targetRegister].isDirect = false;
-        registerState[targetRegister].contents  = curExprLoc[currentOperandSide];
+        registerState[targetRegister].contents = curExprLoc[currentOperandSide];
 
         if (exprAttr[currentOperandSide] == 4 || exprAttr[currentOperandSide] == 5) {
             // ADDRESS or ADDRESSIND: extract offset
-            registerState[targetRegister].offset = stackRegisterAttrs[tx2[curExprLoc[currentOperandSide]].extra] & 0xf;
+            registerState[targetRegister].offset =
+                stackRegisterAttrs[tx2[curExprLoc[currentOperandSide]].extra] & 0xf;
 
             // Sign-extend if negative
             if (registerState[targetRegister].offset > 7)
@@ -819,8 +824,8 @@ static void UpdateRegisterState() {
     case 6:
         // Rotate register state swap DE & HL
         registerState[IR_TMP] = registerState[IR_H];
-        registerState[IR_H] = registerState[IR_D];
-        registerState[IR_D] = registerState[IR_TMP];
+        registerState[IR_H]   = registerState[IR_D];
+        registerState[IR_D]   = registerState[IR_TMP];
         break;
 
     case 7:
@@ -831,9 +836,9 @@ static void UpdateRegisterState() {
 /**
  * SetRegisterAttributes - Set data type attributes for target register after load
  *
- * Sets the registerState[targetRegister].dataType attribute to reflect the data type and addressing mode
- * of the value loaded into the target register. Called after register state is
- * updated to complete the register allocation tracking.
+ * Sets the registerState[targetRegister].dataType attribute to reflect the data type and addressing
+ * mode of the value loaded into the target register. Called after register state is updated to
+ * complete the register allocation tracking.
  *
  * Attribute assignment based on loadOpAttributes[operationCode] & 0xf:
  *
@@ -870,7 +875,7 @@ static void UpdateRegisterState() {
  * - Addressing mode (direct vs. indirect)
  * - Pointer semantics
  *
- * @global operationCode - Operation code (index into b4C15 table)
+ * @global operationCode - Operation code (index into loadOpAttributes table)
  * @global targetRegister - Target register being configured
  * @global currentOperandSide - Current operand side (Left/Right)
  * @global exprAttr - Expression attributes for both sides
@@ -884,41 +889,27 @@ static void UpdateRegisterState() {
  */
 static void SetRegisterAttributes() {
     switch (loadOpAttributes[operationCode] & 0xf) {
-    case 0:
-        // No attribute change
+    case 0: // No attribute change
         break;
-
-    case 1:
-        // Fixed attribute
+    case 1: // Fixed attribute
         registerState[targetRegister].dataType = 1;
         break;
-
-    case 2:
-        // Byte attribute
+    case 2: // Byte attribute
         registerState[targetRegister].dataType = 0;
         break;
-
-    case 3:
-        // Pointer/Address attribute
+    case 3: // Pointer/Address attribute
         registerState[targetRegister].dataType = 6;
         break;
-
-    case 4:
-        // Computed indirect attribute
-        if (exprLoc[currentOperandSide] != 8) {
-            // Convert to indirect addressing mode
+    case 4:                                     // Computed indirect attribute
+        if (exprLoc[currentOperandSide] != 8) { // Convert to indirect addressing mode
             registerState[targetRegister].dataType = IndirectAddr(exprAttr[currentOperandSide]);
-        } else if (exprAttr[currentOperandSide] == 0) {
-            // Default to pointer attribute
+        } else if (exprAttr[currentOperandSide] == 0) { // Default to pointer attribute
             registerState[targetRegister].dataType = 6;
-        } else {
-            // Use existing attribute
+        } else { // Use existing attribute
             registerState[targetRegister].dataType = exprAttr[currentOperandSide];
         }
         break;
-
-    case 5:
-        // Derived with adjustment
+    case 5: // Derived with adjustment
         registerState[targetRegister].dataType = exprAttr[currentOperandSide] - 2;
         registerState[3].offset++; // Adjust register offset
         break;
@@ -1010,19 +1001,15 @@ void GenerateOperandCode() {
     // Analyze operand sides and determine processing order
     DetermineOperandOrder();
 
-    if (operationCode == 0x17) {
-        // Fatal error case
+    if (operationCode == 0x17) { // Fatal error case
         HandleFatalError(ERR214);
-    } else if (operationCode == 0x16) {
-        // Special case: update attributes only
-        iCodeArgsIndex[currentOperandSide]    = operandFragmentType[currentOperandSide];
-        exprAttr[currentOperandSide] = lookupResultAttr[iCodeArgsIndex[currentOperandSide]];
-        exprLoc[currentOperandSide]  = lookupResultLoc[iCodeArgsIndex[currentOperandSide]];
-    } else if (operationCode == 0x12) {
-        // Special flag case
+    } else if (operationCode == 0x16) { // Special case: update attributes only
+        iCodeArgsIndex[currentOperandSide] = operandFragmentType[currentOperandSide];
+        exprAttr[currentOperandSide]       = lookupResultAttr[iCodeArgsIndex[currentOperandSide]];
+        exprLoc[currentOperandSide]        = lookupResultLoc[iCodeArgsIndex[currentOperandSide]];
+    } else if (operationCode == 0x12) { // Special flag case
         conflictMode = true;
-    } else {
-        // Normal operand loading
+    } else { // Normal operand loading
 
         // Determine target register
         targetRegister = loadOpTargetReg[operationCode] >> 5;
@@ -1042,8 +1029,10 @@ void GenerateOperandCode() {
 
         // Build fragment arguments
         iCodeArgsIdx = 0;
-        EncodeOperandArg((loadOpTargetReg[operationCode] >> 3) & 3, (fragControlBits[frag] >> 4) & 7);
-        EncodeOperandArg((loadOpTargetReg[operationCode] >> 1) & 3, (fragControlBits[frag] >> 1) & 7);
+        EncodeOperandArg((loadOpTargetReg[operationCode] >> 3) & 3,
+                         (fragControlBits[frag] >> 4) & 7);
+        EncodeOperandArg((loadOpTargetReg[operationCode] >> 1) & 3,
+                         (fragControlBits[frag] >> 1) & 7);
 
         // Update register state
         UpdateRegisterState();
@@ -1114,11 +1103,11 @@ static uint8_t GetOtherSide(uint8_t reg) {
  *
  * 4: Register check (register 3)
  *    - Determines side: exprLoc[Left] == IR_H ? Right : Left
- *    - Then encodes based on arg2b format
+ *    - Then encodes based on encodingFormat format
  *
  * 5: Register check (register 0)
  *    - Determines side: exprLoc[Left] == IR_PSW ? Right : Left
- *    - Then encodes based on arg2b format
+ *    - Then encodes based on encodingFormat format
  *
  * 6: Extra field
  *    - Special handling for tx2[tx2qp].extra:
@@ -1128,22 +1117,22 @@ static uint8_t GetOtherSide(uint8_t reg) {
  * Encoding format (encodingFormat):
  *
  * 0-3: Direct operand encoding
- *    - Calls Sub_636A(i) to encode operand at side i
+ *    - Calls EncodeExpressionOperand(i) to encode operand at side i
  *
  * 4-7: Extended encoding
- *    - Sets iCodeArgs[iCodeArgsIndex ] = arg2b + 9
- *    - If arg2b == 6: Uses tx2[1].right
+ *    - Sets iCodeArgs[iCodeArgsIndex ] = encodingFormat + 9
+ *    - If encodingFormat == 6: Uses tx2[1].right
  *    - Otherwise: Calls GetOperandValue() for value
  *    - Advances iCodeArgsIndex  by 2
  *
- * @param arg1b - Argument type/source (0-6)
- * @param arg2b - Encoding format (0-7)
+ * @param argType - Argument type/source (0-6)
+ * @param encodingFormat - Encoding format (0-7)
  *
  * Side effects:
- * - Writes to iCodeArgs array at index iCodeArgsIndex 
+ * - Writes to iCodeArgs array at index iCodeArgsIndex
  * - Advances iCodeArgsIndex  by 1-3 depending on encoding
- * - May call Sub_636A(), EncodeOperandInfo(), or GetOperandValue()
- * - Exits program on invalid arg1b (>6)
+ * - May call EncodeExpressionOperand(), EncodeOperandInfo(), or GetOperandValue()
+ * - Exits program on invalid argType (>6)
  *
  * Called from: GenerateFragmentCode() to build fragment argument list
  */
@@ -1152,72 +1141,50 @@ static void EncodeFragmentArg(uint8_t argType, uint8_t encodingFormat) {
     uint16_t value;
 
     switch (argType) {
-    case 0:
-        // No argument needed
+    case 0: // No argument needed
         return;
-
-    case 1:
-        // Left operand
+    case 1: // Left operand
         side = Left;
         break;
-
-    case 2:
-        // Right operand
+    case 2: // Right operand
         side = Right;
         break;
-
-    case 3:
-        // Stack reference
-        iCodeArgs[iCodeArgsIdx] = OP_STK;   // Stack marker
+    case 3:                                              // Stack reference
+        iCodeArgs[iCodeArgsIdx]     = OP_STK;            // Stack marker
         iCodeArgs[iCodeArgsIdx + 1] = currentStackDepth; // Stack depth
         iCodeArgsIdx += 3;
         return;
-
-    case 4:
-        // Determine side based on register HL usage
+    case 4: // Determine side based on register HL usage
         side = GetOtherSide(IR_H);
         break;
-
-    case 5:
-        // Determine side based on register PSW usage
+    case 5: // Determine side based on register PSW usage
         side = GetOtherSide(IR_PSW);
         break;
-
-    case 6:
-        // Extra field encoding
-        if (encodingFormat == 7) {
-            // Direct encoding
-            iCodeArgs[iCodeArgsIdx] = OP_DIRECT;
+    case 6:                        // Extra field encoding
+        if (encodingFormat == 7) { // Direct encoding
+            iCodeArgs[iCodeArgsIdx]     = OP_DIRECT;
             iCodeArgs[iCodeArgsIdx + 1] = tx2[tx2qp].extra;
             iCodeArgsIdx += 2;
-        } else {
-            // Via EncodeOperandInfo
+        } else { // Via EncodeOperandInfo
             EncodeOperandInfo((uint8_t)tx2[tx2qp].extra);
         }
         return;
-
-    default:
-        // Invalid argument type
+    default: // Invalid argument type
         fprintf(stderr, "Invalid argument type in EncodeFragmentArg: %d\n", argType);
         Exit(1);
     }
 
     // Encode operand based on format
-    if (encodingFormat <= 3) {
-        // Direct operand encoding
+    if (encodingFormat <= 3) { // Direct operand encoding
         EncodeExpressionOperand(side);
-    } else {
-        // Extended encoding format
+    } else { // Extended encoding format
         iCodeArgs[iCodeArgsIdx] = encodingFormat + 9;
 
-        if (encodingFormat == 6) {
-            // Use common subexpression reference
+        if (encodingFormat == 6) { // Use common subexpression reference
             iCodeArgs[iCodeArgsIdx + 1] = tx2[1].right;
-        } else {
-            // Get operand value
+        } else { // Get operand value
             GetOperandValue(curExprLoc[side], &iCodeArgs[iCodeArgsIdx + 1], &value);
         }
-
         iCodeArgsIdx += 2;
     }
 }
@@ -1230,10 +1197,10 @@ static void EncodeFragmentArg(uint8_t argType, uint8_t encodingFormat) {
  *
  * Process:
  * 1. Check fragment complexity (only processes cfrag1 > CF_3)
- * 2. Encode fragment arguments via Sub_8698():
- *    - First argument: b42F9[cfrag1] >> 4
- *    - Second argument: b42F9[cfrag1] & 0xf
- *    - Uses fragControl table for encoding parameters
+ * 2. Encode fragment arguments via EncodeFragmentArg():
+ *    - First argument: fragmentArgTypes[cfrag1] >> 4
+ *    - Second argument: fragmentArgTypes[cfrag1] & 0xf
+ *    - Uses fragControlBits table for encoding parameters
  * 3. Handle special fragment adjustments:
  *    - CF_67, CF_68: Add 2 to last iCodeArgs entry
  * 4. Emit code fragment via EncodeFragData()
@@ -1241,7 +1208,7 @@ static void EncodeFragmentArg(uint8_t argType, uint8_t encodingFormat) {
  * 6. Track helper function usage and stack requirements:
  *    - CF_DELAY: Mark helper 105 as used, update stack
  *    - CF_171+: Runtime helpers (indexed via b4128, b413B, helperMap)
- *      • Division/modulo (T2_SLASH, T2_MOD, T2_44): +2 words stack
+ *      • Division/modulo (T2_SLASH, T2_MOD, T2_X10): +2 words stack
  *      • Other helpers: +1 uint16_t stack
  *
  * Fragment categories:
@@ -1294,34 +1261,29 @@ void GenerateFragmentCode() {
         codeSize += (fragmentCodeLength[cfrag1] & 0x1f);
 
         // Track helper function usage and stack requirements
-        if (cfrag1 == CF_DELAY) {
-            // DELAY helper function
-            helperAddr[105] = 1; // Mark helper 105 as used
-
-            // Ensure stack has room for DELAY call
-            if (stackUsage < (currentStackDepth + 1) * 2)
-                stackUsage = (currentStackDepth + 1) * 2;
+        uint8_t usage = 1;        // default is one word stack usage
+        if (cfrag1 == CF_DELAY) { // DELAY helper function
+            helperAddr[105] = 1;  // Mark helper 105 as used
 
         } else if (cfrag1 > CF_171) {
+            if (cfrag1 < CF_174) // check that 172 & 173 are not used
+                fatal("Unhandled fragment code in GenerateFragmentCode: %d\n", cfrag1);
             // Runtime library helper (arithmetic operations, etc.)
-
             // Look up helper ID using multiple indirection tables
             uint8_t i   = helperIndexMap[fragmentHelperIndex[cfrag1 - CF_174]];
-            uint8_t grp = helperGroup[noteTypeToHelperGroup[curNodeType]];
+            uint8_t grp = helperGroup[0][nodeTypeToHelperGroup[curNodeType]];
 
             // Mark helper as used for linking
             helperAddr[helperMap[grp][i]] = 1;
 
             // Update stack usage based on helper requirements
-            if (curNodeType == T2_SLASH || curNodeType == T2_MOD || curNodeType == T2_44) {
-                // Division/modulo helpers need 2 words on stack
-                if (stackUsage < (currentStackDepth + 2) * 2)
-                    stackUsage = (currentStackDepth + 2) * 2;
-            } else {
-                // Other helpers need 1 uint16_t on stack
-                if (stackUsage < (currentStackDepth + 1) * 2)
-                    stackUsage = (currentStackDepth + 1) * 2;
-            }
-        }
+            if (curNodeType == T2_SLASH || curNodeType == T2_MOD || curNodeType == T2_X10)
+                usage = 2; // Division/modulo and times 10 helpers need 2 words on stack
+        } else
+            return; // not a helper so no stack usage update needed
+
+        // check if need more stack reserved
+        if (stackUsage < (currentStackDepth + usage) * 2)
+            stackUsage = (currentStackDepth + usage) * 2;
     }
 }

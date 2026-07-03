@@ -105,7 +105,7 @@ static void CodeAndStackSize() {
 } /* Sub_3F7D() */
 
 uint16_t Start2() {
- //   dump(&utf2, "utf2_main2");  // diagnostic dump
+    dump(&utf2, "utf2_main2");  // diagnostic dump
     if (setjmp(exception) == 0) {
         InitPass();
         while (1) {

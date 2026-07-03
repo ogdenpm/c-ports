@@ -16,14 +16,8 @@
     <Filter Include="Source Files\Phase 0 - Lexer">
       <UniqueIdentifier>{9666c3b1-c99d-4ca4-9d0b-87d0d62b8074}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Pase 1 - Parser">
-      <UniqueIdentifier>{bade5252-91e4-4495-8724-6a6b6a8c17e9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Phase 2 - Code Generator">
       <UniqueIdentifier>{7e43ba6c-ee0c-4f8c-912b-d71adc175fb9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Phase 3 - Write OMF File">
-      <UniqueIdentifier>{f29ddd16-1d8f-4ab2-8f19-2c179e08bddc}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Phase 5- XREF">
       <UniqueIdentifier>{30258ac0-23ad-4484-9032-ca20c4ab0c30}</UniqueIdentifier>
@@ -31,7 +25,13 @@
     <Filter Include="Source Files\Phase 6 - Error Listing">
       <UniqueIdentifier>{8458a44b-28b5-4291-a229-c009fbde8820}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Phase 4 - Normal Listing">
+    <Filter Include="Source Files\Phase 1 - Parser">
+      <UniqueIdentifier>{bade5252-91e4-4495-8724-6a6b6a8c17e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Phase 3 - Write OMF data">
+      <UniqueIdentifier>{f29ddd16-1d8f-4ab2-8f19-2c179e08bddc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Phase 4 -Write OMF code and Listing">
       <UniqueIdentifier>{3e8db99a-1b40-4cb6-a8cc-e7686a500bf9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -117,16 +117,16 @@
       <Filter>Source Files\Phase 0 - Lexer</Filter>
     </ClCompile>
     <ClCompile Include="main1.c">
-      <Filter>Source Files\Pase 1 - Parser</Filter>
+      <Filter>Source Files\Phase 1 - Parser</Filter>
     </ClCompile>
     <ClCompile Include="main2.c">
       <Filter>Source Files\Phase 2 - Code Generator</Filter>
     </ClCompile>
     <ClCompile Include="main3.c">
-      <Filter>Source Files\Phase 3 - Write OMF File</Filter>
+      <Filter>Source Files\Phase 3 - Write OMF data</Filter>
     </ClCompile>
     <ClCompile Include="main4.c">
-      <Filter>Source Files\Phase 4 - Normal Listing</Filter>
+      <Filter>Source Files\Phase 4 -Write OMF code and Listing</Filter>
     </ClCompile>
     <ClCompile Include="main5.c">
       <Filter>Source Files\Phase 5- XREF</Filter>
@@ -150,22 +150,22 @@
       <Filter>Source Files\Phase 0 - Lexer</Filter>
     </ClCompile>
     <ClCompile Include="plm1a.c">
-      <Filter>Source Files\Pase 1 - Parser</Filter>
+      <Filter>Source Files\Phase 1 - Parser</Filter>
     </ClCompile>
     <ClCompile Include="plm1b.c">
-      <Filter>Source Files\Pase 1 - Parser</Filter>
+      <Filter>Source Files\Phase 1 - Parser</Filter>
     </ClCompile>
     <ClCompile Include="plm1c.c">
-      <Filter>Source Files\Pase 1 - Parser</Filter>
+      <Filter>Source Files\Phase 1 - Parser</Filter>
     </ClCompile>
     <ClCompile Include="plm1d.c">
-      <Filter>Source Files\Pase 1 - Parser</Filter>
+      <Filter>Source Files\Phase 1 - Parser</Filter>
     </ClCompile>
     <ClCompile Include="plm1e.c">
-      <Filter>Source Files\Pase 1 - Parser</Filter>
+      <Filter>Source Files\Phase 1 - Parser</Filter>
     </ClCompile>
     <ClCompile Include="plm1f.c">
-      <Filter>Source Files\Pase 1 - Parser</Filter>
+      <Filter>Source Files\Phase 1 - Parser</Filter>
     </ClCompile>
     <ClCompile Include="plm2a.c">
       <Filter>Source Files\Phase 2 - Code Generator</Filter>
@@ -192,19 +192,19 @@
       <Filter>Source Files\Phase 2 - Code Generator</Filter>
     </ClCompile>
     <ClCompile Include="plm3a.c">
-      <Filter>Source Files\Phase 3 - Write OMF File</Filter>
+      <Filter>Source Files\Phase 3 - Write OMF data</Filter>
     </ClCompile>
     <ClCompile Include="plm3b.c">
-      <Filter>Source Files\Phase 3 - Write OMF File</Filter>
+      <Filter>Source Files\Phase 3 - Write OMF data</Filter>
     </ClCompile>
     <ClCompile Include="plm4a.c">
-      <Filter>Source Files\Phase 4 - Normal Listing</Filter>
+      <Filter>Source Files\Phase 4 -Write OMF code and Listing</Filter>
     </ClCompile>
     <ClCompile Include="plm4b.c">
-      <Filter>Source Files\Phase 4 - Normal Listing</Filter>
+      <Filter>Source Files\Phase 4 -Write OMF code and Listing</Filter>
     </ClCompile>
     <ClCompile Include="plm4c.c">
-      <Filter>Source Files\Phase 4 - Normal Listing</Filter>
+      <Filter>Source Files\Phase 4 -Write OMF code and Listing</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

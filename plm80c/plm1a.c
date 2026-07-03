@@ -8,17 +8,17 @@
  ****************************************************************************/
 #include "plm.h"
 
-/* lex item to icode */
+/* lex item to xcode tx1 codes that can be part of expression */
 // clang-format off
-static uint8_t tx1ToIMap[] = {
+static uint8_t tx1ToXMap[] = {
     0,           0,      0,       0,      0,            0,        0,             0,          //LINEINFO, SYNTAXERROR, TOKENERROR, LIST, NOLIST, CODE, NOCODE, EJECT
     0,           0,      0,       0,      0,            0,        0,             0,          //INCLUDE, STMTCNT, LABELDEF, LOCALLABEL, JMP, JMPFALSE, PROCEDURE, SCOPE
     0,           0,      0,       0,      0,            0,        0,             0,          //END, DO, DOLOOP, WHILE, CASE, CASELABEL, IF, STATEMENT
     0,           0,      0,       0,      0,            0,        0,             0,          //CALL, RETURN, GO, GOTO, SEMICOLON, ENABLE, DISABLE, HALT
-    0,           0,      0,       0,      I_IDENTIFIER, I_NUMBER, 0,             I_PLUSSIGN, //EOF, AT, INITIAL, DATA, IDENTIFIER, NUMBER, STRING, PLUSSIGN
-    I_MINUSSIGN, I_PLUS, I_MINUS, I_STAR, I_SLASH,      I_MOD,    I_COLONEQUALS, I_AND,
-    I_OR,        I_XOR,  I_NOT,   I_LT,   I_LE,         I_EQ,     I_NE,          I_GE,
-    I_GT,        0,      0,       0,      0,            0,        0,             0,          //GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
+    0,           0,      0,       0,      X_IDENTIFIER, X_NUMBER, 0,             X_PLUSSIGN, //EOF, AT, INITIAL, DATA, IDENTIFIER, NUMBER, STRING, PLUSSIGN
+    X_MINUSSIGN, X_PLUS, X_MINUS, X_MUL, X_DIV,      X_MOD,    X_COLONEQUALS, X_AND,
+    X_OR,        X_XOR,  X_NOT,   X_LT,   X_LE,         X_EQ,     X_NE,          X_GE,
+    X_GT,        0,      0,       0,      0,            0,        0,             0,          //GT, COMMA, LPAREN, RPAREN, PERIOD, TO, BY, INVALID
     0,           0,      0,       0                                                          //MODULE, XREFUSE, XREFDEF, EXTERNAL
 };
 
@@ -60,14 +60,17 @@ uint8_t tx1AttrMap[] = {
     0x20, 0, 0, 0x10                                //MODULE, XREFUSE, XREFDEF, EXTERNAL
 };
 
+// The length of each tx1 token payload item in bytes. Wn is for variable length payload (e.g. string literals).
+#define TX1ARGSIZE  sizeof(tx1Item.dataw[0])
 
-uint8_t tx1Lengths[] = {
+
+uint8_t tx1ArgCnt[] = {
     /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-       6,   2,   4,   0,   0,   0,   0,   0,   2,   2,   2,   2,   2,   2,   2,   2,
-       0,   0,   0,   0,   0,   2,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-       0,   2,   2,   2,   2,   2,   255, 0,   0,   0,   0,   0,   0,   0,   0,   0,
+       3,   1,   2,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,
+       0,   0,   0,   0,   0,   1,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+       0,   1,   1,   1,   1,   1,   255, 0,   0,   0,   0,   0,   0,   0,   0,   0,
        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-       0,   2,   2,   2
+       0,   1,   1,   1
 };
 
 uint8_t iToTx2Map[] = {
@@ -83,25 +86,25 @@ uint8_t iToTx2Map[] = {
 };
 
 uint8_t precedence[] = {
-    /*I_BOTTOM, I_IDENTIFIER, I_NUMBER,  I_PLUSSIGN,  I_MINUSSIGN, I_PLUS,        I_MINUS,    I_STAR*/
+    /*I_BOTTOM, X_IDENTIFIER, X_NUMBER,  X_PLUSSIGN,  X_MINUSSIGN, X_PLUS,        X_MINUS,    X_MUL*/
     10,         0,            0,         60,          60,          60,            60,         70,
-    /*I_SLASH,  I_MOD,        I_AND,     I_OR,        I_XOR,       I_NOT,         I_LT,       I_LE*/
+    /*I_DIV,    X_MOD,        X_AND,     X_OR,        X_XOR,       X_NOT,         X_LT,       X_LE*/
     70,         70,           30,        20,          20,          40,            50,         50,
-    /*I_EQ,     I_NE,         I_GE,      I_GT,        _ADDRESSOF,  I_UNARYMINUS,  I_STACKPTR, I_INPUT*/
+    /*I_EQ,     X_NE,         X_GE,      X_GT,        _ADDRESSOF,  X_UNARYMINUS,  X_STACKPTR, X_INPUT*/
     50,         50,           50,        50,          0,           80,            0,          0,
-    /*I_OUTPUT, I_CALL,       I_CALLVAR, I_BYTEINDEX, I_WORDINDEX, I_COLONEQUALS, I_MEMBER,   I_BASED*/
+    /*I_OUTPUT, X_CALL,       X_CALLVAR, X_BYTEINDEX, X_WORDINDEX, X_COLONEQUALS, X_MEMBER,   X_BASED*/
     0,          0,            0,         0,           0,           0,             0,          0,
-    /*I_CARRY,  I_DEC,        I_DOUBLE,  I_HIGH,      I_LAST,      I_LENGTH,      I_LOW,      I_MOVE*/
+    /*I_CARRY,  X_DEC,        X_DOUBLE,  X_HIGH,      X_LAST,      X_LENGTH,      X_LOW,      X_MOVE*/
     0,          0,            0,         0,           0,           0,             0,          0,
-    /*I_PARITY, I_ROL,        I_ROR,     I_SCL,       I_SCR,       I_SHL,         I_SHR,      I_SIGN*/
+    /*I_PARITY, X_ROL,        X_ROR,     X_SCL,       X_SCR,       X_SHL,         X_SHR,      X_SIGN*/
     0,          0,            0,         0,           0,           0,             0,          0,
-    /*I_SIZE,   I_TIME,       I_ZERO*/
+    /*I_SIZE,   X_TIME,       X_ZERO*/
     0,          0,
 };
 // clang-format on
-uint8_t builtinsMap[] = { I_CARRY, I_DEC,    I_DOUBLE, I_HIGH,     I_INPUT, I_LAST, I_LENGTH, I_LOW,
-                       I_MOVE,  I_OUTPUT, I_PARITY, I_ROL,      I_ROR,   I_SCL,  I_SCR,    I_SHL,
-                       I_SHR,   I_SIGN,   I_SIZE,   I_STACKPTR, I_TIME,  I_ZERO };
+uint8_t builtinsMap[] = { X_CARRY, X_DEC,    X_DOUBLE, X_HIGH,     X_INPUT, X_LAST, X_LENGTH, X_LOW,
+                          X_MOVE,  X_OUTPUT, X_PARITY, X_ROL,      X_ROR,   X_SCL,  X_SCR,    X_SHL,
+                          X_SHR,   X_SIGN,   X_SIZE,   X_STACKPTR, X_TIME,  X_ZERO };
 
 uint16_t parseSP;
 uint16_t parseStack[100];
@@ -113,7 +116,7 @@ uint16_t stSP;
 operand_t tree[300];
 
 void fatal_ov1(uint8_t err) {
-    hasErrors      = true;
+    hasErrors = true;
     fatalCode = err;
     longjmp(exception, -1);
 }
@@ -205,9 +208,9 @@ uint16_t CvtToRel(uint16_t nodeIdx) {
    in the initialisation stream or converted to numbers for 1 or 2 char
 */
 void MapLToT2(void) {
-    uint8_t arglen  = tx1Lengths[tx1Item.type];    // length of T1 args
-    tx1Item.type = tx1ToTx2Map[tx1Item.type];   // update to T2 code
-    Wr2SyncedItem(tx1Item.type, tx1Item.dataw, arglen);
+    uint8_t argCnt = tx1ArgCnt[tx1Item.type];   // length of T1 args
+    tx1Item.type   = tx1ToTx2Map[tx1Item.type]; // update to T2 code
+    Wr2SyncedItem(tx1Item.type, tx1Item.dataw, TX1ARGSIZE * argCnt);
 }
 
 void Wr2Error(uint16_t errCode) {
@@ -218,7 +221,7 @@ void Wr2Error(uint16_t errCode) {
 void Wr2TokError(uint16_t errCode) {
     if (info) {
         uint16_t args[2] = { errCode, ToIdx(info) };
-        hasErrors    = true;
+        hasErrors        = true;
         Wr2SyncedItem(T2_TOKENERROR, args, sizeof(args));
     } else
         Wr2Error(errCode);
@@ -229,17 +232,13 @@ void UngetTx1Item(void) {
 }
 
 void RdTx1Item(void) {
-    uint16_t tx1ItemLen;
-    tx1Item.type = Rd1Byte();
-    tx1ItemLen   = tx1Lengths[tx1Item.type]; // get the size supplementary information
-    if (tx1ItemLen) {
-        if (tx1ItemLen != 255)                        /* i.e. not a string */
-            vfRbuf(&utf1, tx1Item.dataw, tx1ItemLen); // read the words of data
-        else {
-            tx1Item.len = Rd1Word();                 // read the length of string
-            vfRbuf(&utf1, tx1Item.str, tx1Item.len); // read the string itself
-        }
-    }
-    tx1ICode = tx1ToIMap[tx1Item.type];
+    tx1Item.type    = Rd1Byte();
+    uint16_t argCnt = tx1ArgCnt[tx1Item.type];             // get the supplementary information count
+    if (argCnt == 255) {                                   // string
+        tx1Item.len = Rd1Word();                           // read the length of string
+        vfRbuf(&utf1, tx1Item.str, tx1Item.len);           // read the string itself
+    } else if (argCnt != 0)        
+        vfRbuf(&utf1, tx1Item.dataw, TX1ARGSIZE * argCnt); // read the args
+    tx1XCode = tx1ToXMap[tx1Item.type];
     tx1Attr  = tx1AttrMap[tx1Item.type];
 }

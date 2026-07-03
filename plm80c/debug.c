@@ -144,7 +144,7 @@ char *tx2NameTable[] = {
     "T2_OR",         "T2_XOR",         "T2_BASED",      "T2_BYTEINDEX",  "T2_WORDINDEX",
     "T2_MEMBER",     "T2_UNARYMINUS",  "T2_NOT",        "T2_LOW",        "T2_HIGH",
     "T2_ADDRESSOF",  "T2_PLUS",        "T2_MINUS",      "T2_LT_VAL",     "T2_LE_VAL",
-    "T2_NE_VAL",     "T2_EQ_VAL",      "T2_GE_VAL",     "T2_GT_VAL",     "T2_44",
+    "T2_NE_VAL",     "T2_EQ_VAL",      "T2_GE_VAL",     "T2_GT_VAL",     "T2_X10",
     "T2_45",         "T2_46",          "T2_47",         "T2_48",         "T2_49",
     "T2_50",         "T2_51",          "T2_52",         "T2_53",         "T2_54",
     "T2_55",         "T2_56",          "T2_TIME",       "T2_STKBARG",    "T2_STKWARG",

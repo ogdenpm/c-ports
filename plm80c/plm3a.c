@@ -86,7 +86,13 @@ static uint16_t stringLen, stringIdx, structDim, itemDim;
 static bool moreToInit;
 static info_t *atInfo;
 
-static void Sub_4B6C() {
+/*
+    Advances the info pointer to the next variable in the initialisation sequence. Handles
+    structure-array repetition (structDim), end-of-packed detection (moreToInit = false), descent into
+    STRUCT_T members, and sets itemDim for array variables. It positions the "current target" for the
+    next value to be written.
+*/
+static void AdvanceInitTarget() {   // Sub_4B6C
     if (!info || !(info->flag & F_MEMBER)) {
         if (structDim > 1) {
             structDim--;
@@ -109,7 +115,12 @@ static void Sub_4B6C() {
         itemDim = info->dim;
 }
 
-static void Sub_4BF4() {
+/*
+    Reads the next initialiser record from the attribute file (atf) into atFData. Handles ATI_2 (numeric
+    constant), ATI_STRING (byte buffer), ATI_DATA (variable reference / var_t), and ATI_END. Only
+    fetches when the current string buffer is exhausted or moreToInit is false.
+*/
+static void FetchNextInitValue() {  // Sub_4BF4
     if (!moreToInit || stringIdx >= stringLen) {
         atFData.type = RdAtByte();
         switch (atFData.type) {
@@ -147,24 +158,39 @@ static void BadInit() {
     EmitInitItem();
 }
 
-static void Sub_4D13() {
+/*
+    Consumes one or two bytes from the string buffer (dat[stringIdx++]) packing them into val, then calls EmitInitItem().
+    For BYTE_T targets one byte is used; for ADDRESS_T two bytes are merged into a word.
+*/
+static void EmitStringInitItem() {  // Sub_4D13
     atFData.var.val = dat[stringIdx++];
     if (info->type != BYTE_T && stringIdx < stringLen)
         atFData.var.val = (atFData.var.val << 8) + dat[stringIdx++];
     EmitInitItem();
 }
 
-static void Sub_4D85() {
+/*
+    Validates that a numeric constant fits the target type (ERR210 if a value > 255 is written to a BYTE_T)
+    then calls EmitInitItem(). Handles the plain ATI_2 numeric-constant case.
+*/
+static void EmitConstInitItem() {  // Sub_4D85
     /* Chk for ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255 */
     if (atFData.var.val > 255 && info->type == BYTE_T)
         p3Error(ERR210, info, atFData.stmt);
     EmitInitItem();
 }
 
-static void Sub_4DA8() {
+
+/*
+    The most complex emit path. If the initialiser has no variable reference, delegates to
+    EmitConstInitItem. If it references a variable, computes the byte address (with member and subscript
+    offsets) and emits the value plus the appropriate fixup record (recExtFixup, recCodeFixup,
+    recDataFixup, recMemoryFixup, or recSelfFixup). Handles the ATI_DATA address-reference case.
+*/
+static void EmitRelocInitItem() { //Sub_4DA8
 
     if (atFData.var.infoIdx == 0)
-        Sub_4D85();
+        EmitConstInitItem();
     else if (info->type == BYTE_T)
         BadInit();
     else {
@@ -200,19 +226,24 @@ static void Sub_4DA8() {
             RecAddWord(fixupRec, fixupRec == recSelfFixup ? 1 : 2, curOffset - 2); // add fixup
         }
     }
-} /* Sub_4DA8() */
+} /* EmitRelocInitItem() */
 
-static void Sub_4C7A() {
+/*
+    Dispatcher: if moreToInit is set, calls EmitStringInitItem, EmitConstInitItem, or EmitRelocInitItem
+    depending on the current type. Acts as the single call-site that routes to the three concrete
+    emitters.
+*/
+static void EmitCurrentInitItem() {  // Sub_4C7A
     if (moreToInit) {
         switch (atFData.type) {
         case ATI_2:
-            Sub_4D85();
+            EmitConstInitItem();
             break;
         case ATI_STRING:
-            Sub_4D13();
+            EmitStringInitItem();
             break;
         case ATI_DATA:
-            Sub_4DA8();
+            EmitRelocInitItem();
             break;
         }
     }
@@ -239,19 +270,19 @@ static void EmitInitData() {
         p3Error(ERR217, atInfo, atFData.stmt); /* ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE */
         moreToInit = false;
     } else {
-        Sub_4B6C();
+        AdvanceInitTarget();
         moreToInit = true;
     }
 
-    Sub_4BF4();
+    FetchNextInitValue();
     if (atFData.type == ATI_END) {
         FlushRecGrp();
         return;
     }
 
     while (1) {
-        Sub_4C7A();
-        Sub_4BF4();
+        EmitCurrentInitItem();
+        FetchNextInitValue();
         if (atFData.type == ATI_END) {
             FlushRecGrp();
             return;
@@ -262,7 +293,7 @@ static void EmitInitData() {
                 do {
                     AdvNxtInfo();
                 } while (info && !(BYTE_T <= info->type && info->type <= STRUCT_T));
-                Sub_4B6C();
+                AdvanceInitTarget();
                 if (!moreToInit)
                     p3Error(ERR209, atInfo,
                             atFData.stmt); /* ILLEGAL INITIALIZATION OF MORE SPACE THAN DECLARED */
@@ -271,7 +302,12 @@ static void EmitInitData() {
     }
 }
 
-void Sub_49F9() {
+/*
+    Top-level loop over the attribute file. Skips ATI_AHDR records (AT-clause headers, already processed
+    in phase 2) and dispatches ATI_DHDR records to EmitInitData() to emit data/INITIAL content and fixup
+    records into the object file. Returns when any other record type (including ATI_EOF) is seen.
+*/
+void ProcessInitRecords() { // Sub_49F9
     while (1) {
         atFData.type = RdAtByte();
         if (atFData.type == ATI_AHDR) {

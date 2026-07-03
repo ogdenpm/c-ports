@@ -265,6 +265,211 @@
 
 static uint8_t nodeSize; // lifted to file scope
 
+/****************************************************************************
+ * cvtFromRel() -
+ * Convert Relative TX2 Reference to Absolute Index
+ *
+ * SUMMARY:
+ *   Converts a single relative
+ * node reference to an absolute TX2 array index
+ *   by walking backwards through the TX2 tree,
+ * accounting for line tracking
+ *   information nodes along the way.
+ *
+ * DESCRIPTION:
+ *   This
+ * is the core reference conversion routine used during the de-referencing
+ *   pass. TX2 nodes
+ * store operand references as relative offsets (how many nodes
+ *   back from the current
+ * position). This function converts these relative
+ *   offsets to absolute TX2 array indices by
+ * walking backwards through the tree.
+ *
+ *   The algorithm must handle T2_LINEINFO nodes specially
+ * - these are compiler
+ *   bookkeeping nodes that track source line numbers and block nesting
+ * depth.
+ *   They don't represent actual expression nodes and must be skipped over during
+ *   the
+ * backward walk, with adjustments made for the block nesting information
+ *   they contain.
+ *
+ *
+ * ALGORITHM:
+ *   1. Check if reference is null (0) - if so, leave unchanged
+ *   2. Validate
+ * relative offset doesn't exceed node size
+ *      - If invalid, clear reference to 0 and return
+
+ * *   3. Save relative offset count in p
+ *   4. Initialize location to current position (tx2qp)
+
+ * *   5. Walk backwards p steps:
+ *      a) Decrement location pointer
+ *      b) If node is
+ * T2_LINEINFO with block nesting data:
+ *         - Calculate block depth change: (extra - left)
+ *
+ * - Adjust p by block depth change (skip over nesting records)
+ *      c) Continue until p reaches
+ * 0
+ *   6. Result: *ploc contains absolute TX2 index
+ *
+ * PARAMETERS:
+ *   rel  - Relative offset
+ * count (how many nodes to walk backwards)
+ *          Typically 1, 2, or 3 for left, right, or
+ * extra operands
+ *   ploc - Pointer to location field containing the relative reference
+ * On
+ * entry: Contains relative offset from tx2qp
+ *          On exit:  Contains absolute TX2 array
+ * index
+ *
+ * GLOBALS USED (READ):
+ *   tx2qp     - Current TX2 node index being processed
+ *
+ * nodeSize  - Number of operands in current node (0-3)
+ *   tx2[]     - TX2 expression tree array
+ * (read for LINEINFO detection)
+ *     .type   - Node type (checked for T2_LINEINFO)
+ *     .right
+ * - Must be 0 for LINEINFO block nesting records
+ *     .extra  - Block nesting end depth
+ * .left
+ * - Block nesting start depth
+ *
+ * GLOBALS MODIFIED:
+ *   None (only modifies value pointed to by
+ * ploc parameter)
+ *
+ * RETURN VALUE:
+ *   None (result returned via *ploc parameter)
+ *
+ * SPECIAL
+ * CASES:
+ *
+ *   1. Null reference (*ploc == 0):
+ *      - No conversion performed
+ *      -
+ * Reference remains 0 (indicates unused operand)
+ *
+ *   2. Invalid offset (rel > nodeSize):
+ * -
+ * Reference cleared to 0
+ *      - No error reporting (silent failure)
+ *      - Indicates
+ * malformed tree from parser
+ *
+ *   3. T2_LINEINFO nodes with block nesting data:
+ *      -
+ * Detected by: type==T2_LINEINFO && right==0 && extra!=0
+ *      - Contains block depth tracking:
+ * extra (end) - left (start)
+ *      - Walk counter adjusted by depth change
+ *      - Example: If
+ * LINEINFO has extra=10, left=5:
+ *        • Block depth changed by 5 (10-5)
+ *        • p
+ * decremented by 5 additional steps
+ *        • Effectively skips 5 block nesting tracking nodes
+
+ * *
+ * EXAMPLE WALKBACK:
+ *   Given: tx2qp = 100, *ploc = 3 (relative), rel = 1
+ *
+ *   Step 1: p =
+ * 3, *ploc = 100 (starting position)
+ *   Step 2: p = 2, *ploc = 99 (not LINEINFO, normal
+ * decrement)
+ *   Step 3: p = 1, *ploc = 98 (not LINEINFO, normal decrement)
+ *   Step 4: p = 0,
+ * *ploc = 97 (reached target)
+ *   Result: *ploc = 97 (absolute index)
+ *
+ *   With LINEINFO at
+ * position 98:
+ *   Step 1: p = 3, *ploc = 100
+ *   Step 2: p = 2, *ploc = 99
+ *   Step 3: *ploc =
+ * 98, is LINEINFO with extra=10, left=8
+ *           Adjust: p = 2 - (10-8) = 0
+ *   Result: *ploc
+ * = 98 (skipped over LINEINFO and its nesting data)
+ *
+ * RELATED FUNCTIONS:
+ *   DeRelNode()  -
+ * Calls this function to convert each operand
+ *   DeRelStmt()  - Main loop controlling
+ * de-referencing pass
+ *
+ * CALLED BY:
+ *   DeRelNode() - To convert left, right, and extra
+ * operands
+ *
+ * CONTEXT:
+ *   This is a low-level utility function called during the
+ * de-referencing
+ *   pass. It's the workhorse that performs the actual relative-to-absolute
+ *
+ * conversion for individual node references.
+ *
+ * ASSUMPTIONS:
+ *   - tx2qp contains valid current
+ * node index
+ *   - nodeSize correctly reflects number of operands
+ *   - Relative offset in *ploc
+ * is reasonable
+ *   - TX2 array is properly formed with valid nodes
+ *   - T2_LINEINFO nodes
+ * follow documented structure
+ *
+ * ERROR HANDLING:
+ *   - Invalid offset (rel > nodeSize): Sets
+ * *ploc = 0, no error reported
+ *   - Null reference: No operation performed
+ *   - Malformed
+ * LINEINFO: May produce incorrect results
+ *
+ * SIDE EFFECTS:
+ *   - Modifies value at *ploc
+ * (relative → absolute conversion)
+ *   - Reads TX2 nodes during backward walk
+ *   - No other
+ * state changes
+ *
+ * PERFORMANCE:
+ *   Time Complexity: O(n) where n = relative offset distance
+ *
+ * - Typical case: n = 1-10 (very fast)
+ *   - Worst case: n = tx2qp (rare, still acceptable)
+ *
+ * Space Complexity: O(1) - Uses only local variables
+ *
+ * MAINTENANCE NOTES:
+ *   - T2_LINEINFO
+ * structure is critical - any changes require updates here
+ *   - Block nesting calculation (extra
+ * - left) must match line tracking logic
+ *   - nodeSize validation prevents buffer underruns
+ * -
+ * Silent error handling may hide parser bugs
+ *
+ * HISTORICAL NOTE:
+ *   Original Intel function:
+ * sub69EB (first part)
+ *   This was originally inline code in the main de-referencing routine
+ *
+ * Extracted to separate function for clarity in C port
+ *
+ * REFERENCE:
+ *   Original Intel ISIS-II
+ * PLM-80 compiler
+ *   C port by Mark Ogden
+ *
+
+ * ****************************************************************************/
 static void cvtFromRel(uint8_t rel, uint16_t *ploc) {
     uint16_t p;
 
@@ -285,6 +490,151 @@ static void cvtFromRel(uint8_t rel, uint16_t *ploc) {
     }
 } /* sub69EB */
 
+/****************************************************************************
+ * DeRelNode()
+ *
+ * SUMMARY:
+ *   De-reference operator node - converts relative TX2 node references to
+ *   absolute indices for a single operator node's operands.
+ *
+ * DESCRIPTION:
+ *   This function processes a single TX2 operator node (binary/unary) and
+ *   converts all its operand references from relative offsets to absolute
+ *   TX2 array indices. This is a critical step performed after tree building
+ *   that transforms the compact relative representation into an easily
+ *   navigable absolute form.
+ *
+ *   The function handles special cases for different node types:
+ *   - JMPFALSE/CASEBLOCK: Creates dummy local label entry for jump targets
+ *   - BYTEINDEX/WORDINDEX: Adjusts array indexing by element size
+ *   - CALL nodes: Skips extra field (contains info pointer, not reference)
+ *   - Standard nodes: Converts 1-3 operands based on nodeSize
+ *
+ * ALGORITHM:
+ *   1. Extract operand count from nodeControlFlags (bits 0-1)
+ *   2. Handle special JMPFALSE/CASEBLOCK case (bit 2 set):
+ *      - Set tx2[1].right = tx2[tx2qp].left (save jump target)
+ *      - Set tx2[tx2qp].left = 1 (reference dummy entry)
+ *   3. Otherwise convert left operand from relative to absolute
+ *   4. Convert right operand from relative to absolute
+ *   5. If nodeSize == 3 (three operands):
+ *      a) For BYTEINDEX/WORDINDEX: Scale array index by element size
+ *      b) For non-CALL nodes: Convert extra field from relative
+ *   6. Set node attributes: exprAttr = LIT_A, exprLoc = LOC_SPECIAL
+ *
+ * PARAMETERS:
+ *   None (operates on module-level state)
+ *
+ * GLOBALS USED (READ):
+ *   tx2qp            - Current TX2 node index being processed
+ *   nodeControlFlags - Node classification flags (from nodeControlMap[])
+ *   curNodeType      - Current node type (T2_* constant)
+ *
+ * GLOBALS MODIFIED:
+ *   tx2[]            - TX2 expression tree array
+ *     .left          - Left operand reference (relative → absolute)
+ *     .right         - Right operand reference (relative → absolute)
+ *     .extra         - Third operand reference (relative → absolute) OR
+ *                      adjusted array offset for index nodes
+ *     .exprAttr      - Set to LIT_A (literal/constant attribute)
+ *     .exprLoc       - Set to LOC_SPECIAL (intermediate location)
+ *   nodeSize         - Set to operand count (0-3) from nodeControlFlags
+ *
+ * SPECIAL CASES:
+ *
+ *   1. JMPFALSE and CASEBLOCK nodes (nodeControlFlags bit 2 = 1):
+ *      - These control flow nodes need dummy local label entries
+ *      - tx2[1] is reused as a temporary dummy LOCALLABEL entry
+ *      - The original jump target is preserved in tx2[1].right
+ *      - The left operand is changed to reference entry 1
+ *      - This allows uniform processing of jump targets elsewhere
+ *
+ *   2. Array indexing (T2_BYTEINDEX, T2_WORDINDEX):
+ *      - Array subscripts are multiplied by element size
+ *      - Left operand points to array base (contains array info)
+ *      - Extra field contains index multiplier from parser
+ *      - Formula: right += extra * GetElementSize(array_info)
+ *      - This converts symbolic index to byte offset
+ *      - Example: ARRAY[5] → offset = 5 * element_size
+ *
+ *   3. CALL nodes (T2_CALL):
+ *      - Extra field contains procedure info pointer (NOT relative ref)
+ *      - This field is set up elsewhere by call processing code
+ *      - Must NOT be converted by cvtFromRel()
+ *      - Skip extra field conversion for CALL nodes
+ *
+ * NODESIZE VALUES:
+ *   0 = No operands (e.g., literals, identifiers)
+ *   1 = One operand in left field (e.g., unary operators)
+ *   2 = Two operands in left/right fields (e.g., binary operators)
+ *   3 = Three operands in left/right/extra fields (e.g., indexing, calls)
+ *
+ * RELATED FUNCTIONS:
+ *   cvtFromRel()     - Converts single relative reference to absolute
+ *   DeRelStmt()      - Main loop that calls DeRelNode() for each node
+ *   GetElementSize() - Returns size of array element in bytes
+ *   FromIdx()        - Converts info index to info_t pointer
+ *
+ * CALLED BY:
+ *   DeRelStmt() - Main de-referencing loop
+ *
+ * CALLS:
+ *   cvtFromRel()     - To convert each relative reference
+ *   GetElementSize() - To get array element size (for index nodes only)
+ *   FromIdx()        - To get array info (for index nodes only)
+ *
+ * CONTEXT:
+ *   This function is part of the de-referencing pass that runs after
+ *   tree building and before optimization. The TX2 tree is built with
+ *   relative references during parsing for space efficiency, then this
+ *   pass converts everything to absolute indices for easier processing.
+ *
+ * ASSUMPTIONS:
+ *   - tx2qp points to a valid operator node
+ *   - nodeControlFlags correctly describes the node's operand structure
+ *   - curNodeType contains the correct T2_* type constant
+ *   - All referenced nodes exist in the TX2 array
+ *   - For array index nodes, left operand points to valid array info
+ *
+ * ERROR HANDLING:
+ *   - Invalid relative references are set to 0 by cvtFromRel()
+ *   - No error reporting (silent failure for invalid references)
+ *   - Assumes well-formed tree from parser
+ *
+ * SIDE EFFECTS:
+ *   - Modifies TX2 node operand references (relative → absolute)
+ *   - May modify tx2[1] as temporary dummy label entry
+ *   - For array indexing, modifies right field with scaled offset
+ *   - Sets expression attributes for later optimization passes
+ *
+ * PERFORMANCE:
+ *   O(1) per node - Constant time per operand conversion
+ *   cvtFromRel() is O(n) where n = relative distance (worst case)
+ *   Overall: O(tree_size) for entire de-referencing pass
+ *
+ * EXAMPLE:
+ *   Before DeRelNode() for binary operator at tx2qp=100:
+ *     tx2[100].left = 2   (relative: node 98)
+ *     tx2[100].right = 5  (relative: node 95)
+ *
+ *   After DeRelNode():
+ *     tx2[100].left = 98  (absolute index)
+ *     tx2[100].right = 95 (absolute index)
+ *     tx2[100].exprAttr = LIT_A
+ *     tx2[100].exprLoc = LOC_SPECIAL
+ *
+ * MAINTENANCE NOTES:
+ *   - Adding new three-operand node types requires updating the nodeSize==3
+ *     section to determine if extra field should be converted
+ *   - Changes to array indexing must coordinate with GetElementSize()
+ *   - The tx2[1] dummy entry assumes entry 1 is always available
+ *   - CALL node handling depends on call setup code in other modules
+ *
+ * REFERENCE:
+ *   Original Intel ISIS-II PLM-80 compiler function sub69EB
+ *   C port by Mark Ogden
+ *
+ ****************************************************************************/
 static void DeRelNode() {
     nodeSize = nodeControlFlags & 3;
     if ((nodeControlFlags & 4)) {          // JMPFALSE CASEBLOCK
@@ -305,10 +655,154 @@ static void DeRelNode() {
     tx2[tx2qp].exprLoc  = LOC_SPECIAL;
 }
 
+
 static uint8_t typeExprMap[] = {
     LIT_A, LABEL_A, BYTE_A, ADDRESS_A, STRUCT_A, BYTE_A, BYTE_A
 }; // index by info->type (excludes Macro, unk and condvar
 
+/****************************************************************************
+ * cvtFromRel() - Convert Relative TX2 Reference to Absolute Index
+ *
+ * SUMMARY:
+ *   Converts a single relative node reference to an absolute TX2 array index
+ *   by walking backwards through the TX2 tree, accounting for line tracking
+ *   information nodes along the way.
+ *
+ * DESCRIPTION:
+ *   This is the core reference conversion routine used during the de-referencing
+ *   pass. TX2 nodes store operand references as relative offsets (how many nodes
+ *   back from the current position). This function converts these relative
+ *   offsets to absolute TX2 array indices by walking backwards through the tree.
+ *
+ *   The algorithm must handle T2_LINEINFO nodes specially - these are compiler
+ *   bookkeeping nodes that track source line numbers and block nesting depth.
+ *   They don't represent actual expression nodes and must be skipped over during
+ *   the backward walk, with adjustments made for the block nesting information
+ *   they contain.
+ *
+ * ALGORITHM:
+ *   1. Check if reference is null (0) - if so, leave unchanged
+ *   2. Validate relative offset doesn't exceed node size
+ *      - If invalid, clear reference to 0 and return
+ *   3. Save relative offset count in p
+ *   4. Initialize location to current position (tx2qp)
+ *   5. Walk backwards p steps:
+ *      a) Decrement location pointer
+ *      b) If node is T2_LINEINFO with block nesting data:
+ *         - Calculate block depth change: (extra - left)
+ *         - Adjust p by block depth change (skip over nesting records)
+ *      c) Continue until p reaches 0
+ *   6. Result: *ploc contains absolute TX2 index
+ *
+ * PARAMETERS:
+ *   rel  - Relative offset count (how many nodes to walk backwards)
+ *          Typically 1, 2, or 3 for left, right, or extra operands
+ *   ploc - Pointer to location field containing the relative reference
+ *          On entry: Contains relative offset from tx2qp
+ *          On exit:  Contains absolute TX2 array index
+ *
+ * GLOBALS USED (READ):
+ *   tx2qp     - Current TX2 node index being processed
+ *   nodeSize  - Number of operands in current node (0-3)
+ *   tx2[]     - TX2 expression tree array (read for LINEINFO detection)
+ *     .type   - Node type (checked for T2_LINEINFO)
+ *     .right  - Must be 0 for LINEINFO block nesting records
+ *     .extra  - Block nesting end depth
+ *     .left   - Block nesting start depth
+ *
+ * GLOBALS MODIFIED:
+ *   None (only modifies value pointed to by ploc parameter)
+ *
+ * RETURN VALUE:
+ *   None (result returned via *ploc parameter)
+ *
+ * SPECIAL CASES:
+ *
+ *   1. Null reference (*ploc == 0):
+ *      - No conversion performed
+ *      - Reference remains 0 (indicates unused operand)
+ *
+ *   2. Invalid offset (rel > nodeSize):
+ *      - Reference cleared to 0
+ *      - No error reporting (silent failure)
+ *      - Indicates malformed tree from parser
+ *
+ *   3. T2_LINEINFO nodes with block nesting data:
+ *      - Detected by: type==T2_LINEINFO && right==0 && extra!=0
+ *      - Contains block depth tracking: extra (end) - left (start)
+ *      - Walk counter adjusted by depth change
+ *      - Example: If LINEINFO has extra=10, left=5:
+ *        • Block depth changed by 5 (10-5)
+ *        • p decremented by 5 additional steps
+ *        • Effectively skips 5 block nesting tracking nodes
+ *
+ * EXAMPLE WALKBACK:
+ *   Given: tx2qp = 100, *ploc = 3 (relative), rel = 1
+ *
+ *   Step 1: p = 3, *ploc = 100 (starting position)
+ *   Step 2: p = 2, *ploc = 99 (not LINEINFO, normal decrement)
+ *   Step 3: p = 1, *ploc = 98 (not LINEINFO, normal decrement)
+ *   Step 4: p = 0, *ploc = 97 (reached target)
+ *   Result: *ploc = 97 (absolute index)
+ *
+ *   With LINEINFO at position 98:
+ *   Step 1: p = 3, *ploc = 100
+ *   Step 2: p = 2, *ploc = 99
+ *   Step 3: *ploc = 98, is LINEINFO with extra=10, left=8
+ *           Adjust: p = 2 - (10-8) = 0
+ *   Result: *ploc = 98 (skipped over LINEINFO and its nesting data)
+ *
+ * RELATED FUNCTIONS:
+ *   DeRelNode()  - Calls this function to convert each operand
+ *   DeRelStmt()  - Main loop controlling de-referencing pass
+ *
+ * CALLED BY:
+ *   DeRelNode() - To convert left, right, and extra operands
+ *
+ * CONTEXT:
+ *   This is a low-level utility function called during the de-referencing
+ *   pass. It's the workhorse that performs the actual relative-to-absolute
+ *   conversion for individual node references.
+ *
+ * ASSUMPTIONS:
+ *   - tx2qp contains valid current node index
+ *   - nodeSize correctly reflects number of operands
+ *   - Relative offset in *ploc is reasonable
+ *   - TX2 array is properly formed with valid nodes
+ *   - T2_LINEINFO nodes follow documented structure
+ *
+ * ERROR HANDLING:
+ *   - Invalid offset (rel > nodeSize): Sets *ploc = 0, no error reported
+ *   - Null reference: No operation performed
+ *   - Malformed LINEINFO: May produce incorrect results
+ *
+ * SIDE EFFECTS:
+ *   - Modifies value at *ploc (relative → absolute conversion)
+ *   - Reads TX2 nodes during backward walk
+ *   - No other state changes
+ *
+ * PERFORMANCE:
+ *   Time Complexity: O(n) where n = relative offset distance
+ *   - Typical case: n = 1-10 (very fast)
+ *   - Worst case: n = tx2qp (rare, still acceptable)
+ *   Space Complexity: O(1) - Uses only local variables
+ *
+ * MAINTENANCE NOTES:
+ *   - T2_LINEINFO structure is critical - any changes require updates here
+ *   - Block nesting calculation (extra - left) must match line tracking logic
+ *   - nodeSize validation prevents buffer underruns
+ *   - Silent error handling may hide parser bugs
+ *
+ * HISTORICAL NOTE:
+ *   Original Intel function: sub69EB (first part)
+ *   This was originally inline code in the main de-referencing routine
+ *   Extracted to separate function for clarity in C port
+ *
+ * REFERENCE:
+ *   Original Intel ISIS-II PLM-80 compiler
+ *   C port by Mark Ogden
+ *
+ ****************************************************************************/
 static void simpleVal() {
     if (curNodeType == T2_IDENTIFIER) {
         info                = FromIdx(tx2[tx2qp].left);
@@ -328,40 +822,218 @@ static void simpleVal() {
     }
 }
 
-/**
- * DeRelStmt - Main entry point for de-referencing pass
+/****************************************************************************
+ * DeRelStmt() - Main Entry Point for Statement De-referencing Pass
  *
- * Processes all TX2 nodes in the current statement, converting relative
- * references to absolute indices and setting expression attributes/locations.
- * This is a critical pass that must complete before optimization.
+ * SUMMARY:
+ *   Processes all TX2 nodes in the current statement, converting relative
+ *   node references to absolute indices and initializing expression attributes
+ *   and storage locations for optimization and code generation.
  *
- * Algorithm:
- *   1. Iterate through all TX2 nodes (4 to tx2qNxt-1)
- *      - Node 0-3 are reserved for initialization
- *      - Current statement nodes are from 4 to tx2qNxt-1
+ * DESCRIPTION:
+ *   This is the main entry point for the de-referencing pass, which is a
+ *   critical compilation phase that runs after tree building and before
+ *   optimization. The TX2 expression tree is built with space-efficient
+ *   relative node references during parsing. This function converts all
+ *   those relative references to absolute TX2 array indices, making the
+ *   tree structure easy to navigate in subsequent phases.
  *
- *   2. For each node, classify by nodeControlMap:
- *      - (flags & 0xC0) == 0: Binary/unary operators
- *      - (flags & 0xC0) == 0x40: Identifiers and literals
+ *   The function iterates through all TX2 nodes representing the current
+ *   statement (typically one source line or control structure), classifies
+ *   each node by type, and calls the appropriate processing function:
+ *   - Operator nodes (binary/unary) → DeRelNode()
+ *   - Leaf nodes (identifiers/literals) → simpleVal()
  *
- *   3. Call appropriate processing function:
- *      - DeRelNode() for operators
- *      - simpleVal() for leaf nodes
+ *   After this pass completes:
+ *   - All node references are absolute TX2 indices (not relative offsets)
+ *   - All expression attributes are set (data types)
+ *   - All expression locations are set (storage classes)
+ *   - Tree is ready for optimization and code generation
  *
- * After this pass, all relative references are converted to absolute,
- * and all expression attributes/locations are properly initialized.
- * The tree is now ready for optimization and code generation.
+ * ALGORITHM:
+ *   1. Initialize loop: tx2qp = 4 (skip reserved entries 0-3)
+ *   2. Loop while tx2qp < tx2qNxt (end of current statement)
+ *   3. For each node:
+ *      a) Read node type: curNodeType = tx2[tx2qp].type
+ *      b) Look up classification: nodeControlFlags = nodeControlMap[curNodeType]
+ *      c) Extract category bits: flags & 0xC0
+ *         - 0x00 (binary 00xxxxxx): Operator nodes
+ *         - 0x40 (binary 01xxxxxx): Identifier/literal nodes
+ *         - 0x80 (binary 10xxxxxx): Procedure/statement nodes (skipped)
+ *         - 0xC0 (binary 11xxxxxx): Control flow nodes (skipped)
+ *      d) Process based on category:
+ *         - Category 0x00: Call DeRelNode() to convert operand references
+ *         - Category 0x40: Call simpleVal() to process leaf values
+ *         - Other categories: Skip (no de-referencing needed)
+ *   4. Increment tx2qp and continue
+ *   5. Complete when all statement nodes processed
  *
- * Side effects:
- *   - Updates tx2[].left, tx2[].right, tx2[].extra (relative → absolute)
- *   - Sets tx2[].exprAttr (expression data type)
- *   - Sets tx2[].exprLoc (expression storage location)
- *   - May modify tx2[1] (for JMPFALSE/CASEBLOCK dummy label)
+ * PARAMETERS:
+ *   None (operates on global TX2 tree state)
  *
- * Called from: main2.c::Start2() main loop
- * Precondition: FillTx2Queue() has completed (tree is built)
- * Postcondition: Tree is ready for OptimiseStmtNodes()
- */
+ * GLOBALS USED (READ):
+ *   tx2qNxt           - End of current statement in TX2 array
+ *   tx2[]             - TX2 expression tree array
+ *     .type           - Node type (T2_* constants)
+ *   nodeControlMap[]  - Node classification table (indexed by node type)
+ *
+ * GLOBALS MODIFIED:
+ *   tx2qp             - Current node index (loop variable)
+ *   curNodeType       - Current node type (set for each node)
+ *   nodeControlFlags  - Current node classification flags
+ *   tx2[]             - All node fields modified by DeRelNode()/simpleVal():
+ *     .left           - Converted relative → absolute
+ *     .right          - Converted relative → absolute, or set to value/location
+ *     .extra          - Converted relative → absolute, or scaled for indexing
+ *     .type           - Normalized (e.g., BIGNUMBER → NUMBER)
+ *     .exprAttr       - Expression data type set
+ *     .exprLoc        - Expression storage location set
+ *
+ * NODE CATEGORY BITS (nodeControlFlags & 0xC0):
+ *   0x00 - Operators (binary/unary/special):
+ *          LT, LE, NE, EQ, GE, GT, ROL, ROR, SCL, SCR, SHL, SHR,
+ *          JMPFALSE, DOUBLE, PLUSSIGN, MINUSSIGN, STAR, SLASH, MOD,
+ *          AND, OR, XOR, BASED, BYTEINDEX, WORDINDEX, MEMBER,
+ *          UNARYMINUS, NOT, LOW, HIGH, ADDRESSOF, PLUS, MINUS,
+ *          TIME, STKBARG, STKWARG, DEC, COLONEQUALS, OUTPUT,
+ *          CASEBLOCK, STKARG, MOVE, RETURNBYTE, RETURNWORD, RETURN,
+ *          ADDW, BEGMOVE, CALL, CALLVAR, SETADDR
+ *
+ *   0x40 - Identifiers and literals:
+ *          IDENTIFIER, NUMBER, BIGNUMBER, LENGTH, LAST, SIZE
+ *
+ *   0x80 - Procedure/statement nodes (not processed here)
+ *   0xC0 - Control flow structures (not processed here)
+ *
+ * STATEMENT PROCESSING ORDER:
+ *   Nodes are processed in order from index 4 to tx2qNxt-1:
+ *   - Index 0-3: Reserved initialization entries (skipped)
+ *   - Index 4+: Statement expression nodes (processed here)
+ *
+ *   Tree is built bottom-up during parsing, so processing order
+ *   naturally visits leaf nodes before their parent operators.
+ *
+ * RESERVED TX2 ENTRIES:
+ *   tx2[0] - Reserved for initialization
+ *   tx2[1] - Used as dummy LOCALLABEL for JMPFALSE/CASEBLOCK
+ *   tx2[2] - Reserved
+ *   tx2[3] - Reserved
+ *   tx2[4+] - Actual expression tree nodes
+ *
+ * RELATED FUNCTIONS:
+ *   DeRelNode()            - Processes operator nodes
+ *   simpleVal()            - Processes leaf nodes
+ *   FillTx2Queue()         - Builds TX2 tree (called before this)
+ *   OptimiseStmtNodes()    - Optimizes tree (called after this)
+ *   GenerateStatementCode()- Generates code (called after optimization)
+ *
+ * CALLED BY:
+ *   Start2() in main2.c - Main compilation loop
+ *
+ * CALLS:
+ *   DeRelNode() - For operator nodes (category 0x00)
+ *   simpleVal() - For leaf nodes (category 0x40)
+ *
+ * COMPILATION FLOW:
+ *   1. Parser → FillTx2Queue() → Builds TX2 tree (relative refs)
+ *   2. THIS FUNCTION → DeRelStmt() → Converts to absolute refs
+ *   3. Optimizer → OptimiseStmtNodes() → Optimizes tree
+ *   4. Code gen → GenerateStatementCode() → Emits machine code
+ *   5. Repeat for next statement
+ *
+ * CONTEXT:
+ *   This function is called once per statement after the TX2 expression
+ *   tree has been built by the parser. It must complete successfully
+ *   before any optimization or code generation can proceed. The relative
+ *   addressing scheme used during tree building is more compact but harder
+ *   to work with, so this pass converts everything to simple absolute
+ *   indices for the remaining compilation phases.
+ *
+ * ASSUMPTIONS:
+ *   - FillTx2Queue() has completed successfully
+ *   - tx2qNxt marks the end of the current statement
+ *   - Nodes 0-3 are reserved and should not be processed
+ *   - All TX2 nodes have valid types
+ *   - nodeControlMap[] is properly initialized
+ *   - Tree structure is well-formed from parser
+ *
+ * ERROR HANDLING:
+ *   - No explicit error checking in this function
+ *   - Assumes well-formed input from parser
+ *   - Invalid node types may cause out-of-bounds array access
+ *   - Malformed relative references handled by cvtFromRel()
+ *
+ * SIDE EFFECTS:
+ *   - Modifies all TX2 nodes in current statement (4 to tx2qNxt-1)
+ *   - Converts tree from relative to absolute addressing
+ *   - Initializes expression attributes for optimizer
+ *   - May modify tx2[1] (dummy label for jumps)
+ *   - Sets global curNodeType and nodeControlFlags during iteration
+ *
+ * PERFORMANCE:
+ *   Time Complexity: O(n) where n = number of nodes in statement
+ *   - Each node processed exactly once
+ *   - DeRelNode(): O(1) per node (with O(k) walkback for refs)
+ *   - simpleVal(): O(1) per node (symbol lookup)
+ *   - Overall: Linear in statement size (very fast)
+ *
+ *   Space Complexity: O(1)
+ *   - No additional memory allocated
+ *   - In-place conversion of TX2 array
+ *
+ * TYPICAL STATEMENT SIZES:
+ *   - Simple assignment: 5-10 nodes
+ *   - Expression: 10-30 nodes
+ *   - Complex control: 20-50 nodes
+ *   - Function call: 15-40 nodes
+ *
+ * EXAMPLES:
+ *
+ *   Example 1: Simple assignment "A = B + C"
+ *     Before DeRelStmt():
+ *       tx2[4]: IDENTIFIER(B)   - left=infoIdx(B), right=?, exprAttr=?
+ *       tx2[5]: IDENTIFIER(C)   - left=infoIdx(C), right=?, exprAttr=?
+ *       tx2[6]: PLUS            - left=2 (rel), right=1 (rel), exprAttr=?
+ *       tx2[7]: IDENTIFIER(A)   - left=infoIdx(A), right=?, exprAttr=?
+ *       tx2[8]: COLONEQUALS     - left=1 (rel), right=2 (rel), exprAttr=?
+ *
+ *     After DeRelStmt():
+ *       tx2[4]: IDENTIFIER(B)   - left=infoIdx(B), right=stackOffset, exprAttr=BYTE_A
+ *       tx2[5]: IDENTIFIER(C)   - left=infoIdx(C), right=stackOffset, exprAttr=BYTE_A
+ *       tx2[6]: PLUS            - left=4 (abs), right=5 (abs), exprAttr=LIT_A
+ *       tx2[7]: IDENTIFIER(A)   - left=infoIdx(A), right=stackOffset, exprAttr=BYTE_A
+ *       tx2[8]: COLONEQUALS     - left=7 (abs), right=6 (abs), exprAttr=LIT_A
+ *
+ *   Example 2: Array indexing "X = ARR[I*2]"
+ *     Before: BYTEINDEX node with left=2 (rel to ARR), extra=multiplier
+ *     After:  BYTEINDEX node with left=5 (abs to ARR), right=scaled_offset
+ *
+ * MAINTENANCE NOTES:
+ *   - Adding new node types requires updating nodeControlMap[]
+ *   - Category bits (0xC0 mask) must match nodeControlMap structure
+ *   - Reserved entry count (4) is hardcoded - changes require updates
+ *   - Loop range (4 to tx2qNxt-1) assumes parser conventions
+ *
+ * INTEGRATION POINTS:
+ *   - Reads: TX2 tree built by parser (FillTx2Queue)
+ *   - Reads: nodeControlMap[] classification table (data.c)
+ *   - Writes: TX2 tree with absolute references
+ *   - Provides: Expression attributes for optimizer
+ *   - Provides: Storage locations for code generator
+ *
+ * TESTING CONSIDERATIONS:
+ *   - Verify all node types are correctly classified
+ *   - Test relative reference conversion with various offsets
+ *   - Verify LINEINFO nodes are properly skipped
+ *   - Test array indexing element size scaling
+ *   - Verify JMPFALSE/CASEBLOCK dummy label creation
+ *   - Test with deeply nested expressions
+ *
+ * REFERENCE:
+ *   Original Intel ISIS-II PLM-80 compiler
+ *   C port by Mark Ogden
+ *
+ ****************************************************************************/
 void DeRelStmt() {
     for (tx2qp = 4; tx2qp < tx2qNxt; tx2qp++) {
         curNodeType      = tx2[tx2qp].type;

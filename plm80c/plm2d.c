@@ -564,6 +564,35 @@ static bool ApplyStepOptimisation(uint8_t stepIdx, uint8_t left, uint8_t right) 
  * - May set global flags (invertComparison, optResult)
  * - May convert relational operations to conditional jumps
  */
+/*
+* OptimiseExpression() is a dispatcher for expression optimization on the current TX2 node (tx2[tx2qp]).
+What it does
+1.	If current node is relational (curNodeType <= T2_GT, line 568):
+    •	It looks for a very specific pattern:
+        •	current relational node
+        •	immediately followed by T2_JMPFALSE
+        •	relational result used only once (cnt == 1) (line 570)
+    •	If found, it fuses them into a direct conditional jump:
+        •	changes next node to T2_JNZ (line 572)
+        •	points jump operand to current common expression root (tx2[1].right) (line 573)
+        •	sets comparison code:
+            •	inverted via bC209[curNodeType] if invertComparison is set (lines 576–578)
+            •	otherwise original curNodeType (line 580)
+            •	marks the old relational node dead (cnt = 0, line 583)
+2.	Otherwise for relational nodes (line 584):
+    •	Converts the relational op into a value-producing boolean form by adding T2_LT_VAL (line 586).
+    •	This means “produce true/false value” instead of “control-flow jump”.
+3.	If not relational (line 588):
+    •	Runs general peephole optimization using table-driven rules:
+        •	first attempt: optimisationStep1Map with operand order (right, left) (line 591)
+        •	fallback: optimisationStep2Map with (left, right) (line 593)
+Why this is useful
+    •	Eliminates temporary boolean nodes when a branch can be emitted directly.
+    •	Uses fast table-driven rewrite rules for non-relational expressions.
+    •	Keeps codegen efficient while preserving semantics.
+Key gotcha
+•	curNodeType += T2_LT_VAL (line 586) mutates global state as part of the assignment. That is intentional but easy to miss during maintenance.
+*/
 void OptimiseExpression() {
     if (curNodeType <= T2_GT) { // Relational operation
         // Check for relational + JMPFALSE pattern that can be optimized

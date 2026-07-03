@@ -62,12 +62,12 @@ static void Sub_4162() {
         return;
     for (uint8_t helperMod = 0; helperMod < 46; helperMod++) {
         helperId    = modHelperId[helperMod];          // helper module first helper id
-        uint8_t endHelperId = helperId + modHelperIdCnt[helperMod]; // helper module last helpers id (+1)
+        uint8_t endHelperId = modHelperId[helperMod + 1]; // helper module last helpers id (+1)
         while (helperId < endHelperId) {
             if (helperAddr[helperId]) {
                 baseAddr = helperAddr[helperId];
-                b969C    = b4304[helperMod];
-                b969D    = noteTypeToHelperGroup[b969C];
+                conditionSelector    = b4304[helperMod];
+                helperGroupIndex    = nodeTypeToHelperGroup[conditionSelector];
                 EmitCodeSeq(helperStart[helperId], helperLen[helperId]);
                 break;
             }
@@ -103,13 +103,13 @@ uint16_t Start4() {
     recCodeFixup[REC_DATA] = 2; // data seg
     recDataFixup[REC_DATA] = 3; // stack seg
 
- //   dump(&utf1, "utf1_main4"); // diagnostic dump
+    dump(&utf1, "utf1_main4"); // diagnostic dump
     vfRewind(&utf1);
     if (setjmp(exception) == 0) {
         Sub_408B();
 
         while (morePass4)
-            Sub_54BA();
+            ProcessPass4Record();
         Sub_4162();
         FlushRecs();
         EmitLinePrefix();

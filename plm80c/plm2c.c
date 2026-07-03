@@ -364,7 +364,7 @@ static void ProcessOperatorNode() {
         if (curNodeType == T2_JMPFALSE && tx2[tx2qp - 1].type == T2_NOT) {
             invertComparison           = true;
             tx2[tx2qp].right = tx2[tx2qp - 1].left;
-            MoveTx2(tx2qp, tx2qp - 1);
+            tx2[tx2qp - 1]             = tx2[tx2qp]; // copy node down
             tx2[tx2qp].type = T2_SEMICOLON;
         }
     }

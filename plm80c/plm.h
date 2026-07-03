@@ -29,6 +29,8 @@ typedef uint16_t index_t;
 #define High(n)     ((n) >> 8)
 #define Low(n)      ((n) & 0xff)
 
+#define DIM(a)      (sizeof(a) / sizeof((a)[0]))
+
 #define QUOTE       '\''
 #define ISISEOF     0x81
 
@@ -394,7 +396,7 @@ extern uint16_t curStmtNum;
 extern uint16_t markedStSP;
 extern bool regetTx1Item;
 extern uint16_t stmtT2Cnt;
-extern uint8_t tx1ICode;
+extern uint8_t tx1XCode;
 extern uint8_t tx1Attr;
 extern tx1item_t tx1Item;
 
@@ -481,13 +483,12 @@ extern uint16_t currentFragmentCode;
 extern uint16_t iCodeArgs[5];
 
 /* plm2a.plm */
-extern uint8_t helperModBase[];
 extern uint8_t fragControlBits[];
 extern uint8_t helperIndexMap[];
 extern uint8_t fragmentHelperIndex[];
 extern uint8_t helperMap[][11];
-extern uint8_t helperGroup[];
-extern uint8_t noteTypeToHelperGroup[];
+extern uint8_t helperGroup[4][22];
+extern uint8_t nodeTypeToHelperGroup[];
 extern uint8_t fragmentArgTypes[];
 extern uint8_t fragmentCodeLength[];
 extern uint8_t fragmentOpcodeTable[];
@@ -511,13 +512,11 @@ extern uint8_t step2ActionTable[];
 extern uint8_t lookupResultAttr[];
 extern uint8_t lookupResultLoc[];
 extern uint8_t attrLocLookupTable[][11];
-extern uint8_t unused[];
 extern uint16_t operatorPrecedence[];
 extern uint16_t operatorTypeRules[];
 extern uint16_t commonConstants[];
 
 /* plm3a.plm */
-extern uint8_t modHelperIdCnt[];
 extern uint8_t modHelperId[];
 extern uint8_t helperCodeLen[];
 extern uint8_t printOrObj;
@@ -543,9 +542,9 @@ extern uint8_t recEnd[];
 //
 
 /* pdata4.plm */
-extern uint8_t b9692;
-extern uint8_t b969C;
-extern uint8_t b969D;
+extern uint8_t helperVariantIndex;
+extern uint8_t conditionSelector;
+extern uint8_t helperGroupIndex;
 extern char valPStr[];
 // extern uint8_t b96B1[];
 extern uint8_t fixupType;
@@ -586,15 +585,14 @@ extern bool listing;
 extern bool listOff;
 
 /* plm4a.plm */
-extern uint8_t modHelperIdCnt[];
 extern uint8_t modHelperId[];
 extern uint8_t fragControlBits[];
 extern uint8_t helperIndexMap[];
 extern uint8_t fragmentHelperIndex[];
-extern uint8_t helperGroup[];
-extern uint8_t noteTypeToHelperGroup[];
-extern uint8_t b4602[];
-extern uint8_t b473D[];
+extern uint8_t helperGroup[4][22];
+extern uint8_t nodeTypeToHelperGroup[];
+extern uint8_t cfCodeAliasMap[];
+extern uint8_t helperOpcodeBaseByteMap[];
 extern uint8_t b475E[];
 extern uint8_t b4774[];
 extern uint8_t b478A[];
@@ -606,7 +604,7 @@ extern uint8_t regNo[];
 extern uint8_t stackOrigin[];
 extern char const *regPairStr[];
 extern uint8_t regPairNo[];
-extern uint16_t instuctionSeq[];
+extern uint16_t instructionSeq[];
 extern uint16_t helperStart[];
 extern uint16_t codeSeq[];
 
@@ -754,7 +752,7 @@ void lstStr(char const *str);
 void lstStrCh(char const *str, int endch);
 void lprintf(char const *fmt, ...);
 void lstPstr(pstr_t *ps);
-char const *hexfmt(uint8_t digits, uint16_t val);
+char const *hexfmt(bool zeroPad, uint16_t val);
 
 /* main.c */
 void Start(void);
@@ -920,7 +918,6 @@ void EncodeFragData(uint8_t arg1b);
 void EmitTopItem(void);
 void Tx2SyntaxError(uint8_t arg1b);
 uint8_t GetFragmentOperandType(uint8_t arg1b);
-void MoveTx2(uint8_t src, uint8_t dst);
 uint8_t IndirectAddr(uint8_t arg1b);
 void AdjustStackOnReturn(uint16_t arg1w);
 bool EnterBlk(void);
@@ -934,7 +931,7 @@ void SaveOrRedirectRegister(uint8_t arg1b);
 void InvalidateRegistersByMask(uint8_t arg1b);
 void GenerateReturnSequence(void);
 void CreateConstantOrIdNode(uint16_t val, info_t *pInfo, uint8_t exprAttr, uint8_t exprLoc);
-void GetOperandValue(uint8_t arg1b, wpointer arg2wP, wpointer arg3wP);
+void GetOperandValue(uint8_t slot, wpointer pAcc, wpointer pAccFlag);
 void DecrementExprRefs(void);
 void UpdateExpressionLookup(uint8_t side);
 void EncodeOperandInfo(uint8_t arg1b);
@@ -1000,7 +997,7 @@ void ExtendChk(pointer arg1wP, uint16_t arg2w, uint8_t arg3b);
 uint16_t CalcMaxStack(void);
 
 void p3Error(uint16_t errNum, info_t *tokInfo, uint16_t stmt);
-void Sub_49F9(void);
+void ProcessInitRecords(void);
 
 /* plm3b.c */
 void WriteRec(pointer rec, uint8_t fixed);
@@ -1008,7 +1005,7 @@ void RecAddByte(pointer rec, uint8_t offset, uint8_t val);
 void RecAddWord(pointer rec, uint8_t offset, uint16_t val);
 
 /* plm4a.c */
-void Sub_54BA(void);
+void ProcessPass4Record(void);
 
 /* plm4b.c */
 void FlushRecs(void);
@@ -1028,7 +1025,7 @@ pstr_t *pcstrcpy(pstr_t *dst, char const *src);
 pstr_t *pstrcat(pstr_t *dst, pstr_t const *src);
 pstr_t *pcstrcat(pstr_t *dst, char const *src);
 void EmitCodeSeq(uint16_t codeIdx, uint8_t len);
-void Sub_668B(void);
+void EmitCurrentFragment(void);
 
 /* plm6a.c */
 void MiscControl(vfile_t *txFile);

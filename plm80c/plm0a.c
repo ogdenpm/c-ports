@@ -8,6 +8,11 @@
  ****************************************************************************/
 #include "plm.h"
 
+/*
+•	Character classification table: cClass[]
+    Maps raw input bytes to character classes (CC_DIGIT, CC_ALPHA, CC_WSPACE, etc.) for lexical
+    scanning.
+*/
 uint8_t cClass[] = {
     CC_NONPRINT, CC_NONPRINT, CC_NONPRINT, CC_NONPRINT,  CC_NONPRINT, CC_NONPRINT, CC_NONPRINT,
     CC_NONPRINT, CC_NONPRINT, CC_WSPACE,   CC_NEWLINE,   CC_NONPRINT, CC_NONPRINT, CC_WSPACE,
@@ -30,6 +35,11 @@ uint8_t cClass[] = {
     CC_INVALID,  CC_NONPRINT
 };
 
+/*
+•	Token remap table: tToLMap[]
+    Converts internal lexer token kinds (L_* reserved words) to pass-1 output token codes (T1_*).
+    Invalid expression tokens map to T1_INVALID.
+*/
 uint8_t tToLMap[] = { T1_IDENTIFIER, T1_NUMBER, T1_STRING, T1_PLUSSIGN, T1_MINUSSIGN, T1_STAR, T1_SLASH,
                    T1_MOD, T1_PLUS, T1_MINUS, T1_AND, T1_OR, T1_XOR, T1_NOT, 0, T1_LT, T1_LE, T1_EQ, T1_NE, // T1_14
                    T1_GE, T1_GT, T1_COLONEQUALS, T1_INVALID, T1_INVALID,           // COLON, SEMICOLON

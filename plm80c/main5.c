@@ -80,7 +80,7 @@ static void DescribeName() {
 
 static void DescribeAddressAndSize(uint16_t addr, uint16_t size) {
     TabLst(-addrCol);
-    lstStr(hexfmt(4, addr));
+    lstStr(hexfmt(true, addr));
     if (size != 0) {
         TabLst(-sizeCol);
         lprintf("%5d", size);
@@ -158,7 +158,7 @@ static void DescribeProc() {
     if ((info->flag & F_INTERRUPT))
         lprintf(" INTERRUPT(%d)", info->intno);
     if (!(info->flag & F_EXTERNAL))
-        lprintf(" STACK=%s", hexfmt(4, info->stackUsage));
+        lprintf(" STACK=%s", hexfmt(true, info->stackUsage));
 
     PrintXrefs();
 }

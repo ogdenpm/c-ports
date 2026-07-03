@@ -50,7 +50,7 @@
  *    - fragmentHelperIndex[] - Fragment-to-helper index
  *    - helperMap[][] - Helper function ID mapping
  *    - helperGroup[] - Helper group classification
- *    - noteTypeToHelperGroup[] - Node type to helper group
+ *    - nodeTypeToHelperGroup[] - Node type to helper group
  *
  *  OPERAND AND REGISTER ENCODING:
  *    - opcodeEncodingMap[] - Opcode to encoding mapping
@@ -198,7 +198,7 @@
  *  Pattern 3: Helper Function Linkage
  *    fragmentHelperIndex[cfrag] → helperIndexMap index
  *    helperIndexMap[index] → helper index
- *    noteTypeToHelperGroup[curNodeType] → group
+ *    nodeTypeToHelperGroup[curNodeType] → group
  *    helperGroup[group] → primary group index
  *    helperMap[group][index] → helper ID
  *    → Mark helper as used via helperAddr[ID] = 1
@@ -238,7 +238,7 @@
  *  5. Link helpers if needed:
  *     if cfrag1 > CF_171:
  *       i = helperIndexMap[fragmentHelperIndex[cfrag1-CF_174]]
- *       grp = helperGroup[noteTypeToHelperGroup[T2_PLUS]]
+ *       grp = helperGroup[nodeTypeToHelperGroup[T2_PLUS]]
  *       helperID = helperMap[grp][i]
  *       helperAddr[helperID] = 1
  *
@@ -424,11 +424,14 @@ uint8_t helperMap[][11] = {
  *
  * Used by GenerateFragmentCode() to find appropriate helper group
  */
-uint8_t helperGroup[]           = { 8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF,  0x10, 0xD,
-                                    9, 2,    3,   4, 5,   6,    7, 0,   0x1E, 0x12, 0xE };
-
+uint8_t helperGroup[4][22] = {
+    { 8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF, 0x10, 0xD, 9, 2, 3, 4, 5, 6, 7, 0, 0x1E, 0x12, 0xE },
+    { 9, 0x1D, 0xC, 1, 0, 0, 1, 0, 0, 0, 0xD, 9, 2, 3, 4, 5, 0x20, 0, 1, 0x1F, 0, 0xE },
+    { 0x17, 0, 0x19, 0x13, 0, 0, 0x16, 0, 0, 0, 0x1A, 0x18, 3, 2, 5, 4, 0, 0, 0x15, 0, 0, 0x1B },
+    { 8, 0, 0xC, 0x14, 0, 0, 1, 0, 0, 0, 0xD, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xE }
+};
 /**
- * noteTypeToHelperGroup - Maps TX2 node types to helper groups
+ * nodeTypeToHelperGroup - Maps TX2 node types to helper groups
  *
  * Direct mapping from node type to helper group index
  * Indexed by: curNodeType (T2_* node types)
@@ -436,17 +439,22 @@ uint8_t helperGroup[]           = { 8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF,  0x
  * Used by GenerateFragmentCode() to determine which helper group to use
  * for a particular operation type
  */
-uint8_t noteTypeToHelperGroup[] = {
-    3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0, // was also b457C in
-                                                         // plm4a.c
-    0, 0, 0, 0, 0, 0, 0, 0x12, 7, 4, 4, 2, 0xA, 0x15, 0, 0, 0, 0, 8, 9, 0, 0, 0, 0xB, 6, 0x12, 0x12,
-    0x12, 0x12, 0x12, 0x12, 5, 1, 1, 1, 0x13, 0x13, 0x13, 1, 1, 1, 0x13, 0x13, 0x13, 0x14, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xC, 0xD,
-    0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0xD, 0, 0xE, 0xE, 0xE, 0xE, 0xF, 0xF, 0xF, 0xF, 0, 0xF, 0xF, 0xF,
-    0xF, 0xE, 0xE, 0xE, 0xE, 0, 0x10, 0x10, 0x10, 0x10, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-    0, 0, 0, 0
+uint8_t nodeTypeToHelperGroup[] = { // was b457C in plm4a.c
+/*   0 */    3,    3,    3,    3,    3,    3,   12,   13,   14,   15,
+/*  10 */   16,   17,    0,    0,    0,    0,    0,    0,    0,    0,
+/*  20 */   18,    7,    4,    4,    2,   10,   21,    0,    0,    0,
+/*  30 */    0,    8,    9,    0,    0,    0,   11,    6,   18,   18,
+/*  40 */   18,   18,   18,   18,    5,    1,    1,    1,   19,   19,
+/*  50 */   19,    1,    1,    1,   19,   19,   19,   20,    0,    0,
+/*  60 */    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+/*  70 */    0,    0,    0,    0,    0,    1,    1,   12,   12,   12,
+/*  80 */   12,   12,   12,   12,   12,   13,   13,   13,   13,   13,
+/*  90 */   13,   13,   13,    0,   14,   14,   14,   14,   15,   15,
+/* 100 */   15,   15,    0,   15,   15,   15,   15,   14,   14,   14,
+/* 110 */   14,    0,   16,   16,   16,   16,   16,    0,    0,    0,
+/* 120 */    0,    0,    0,    0,    0,    0,    0,    0,    1,    1,
+/* 130 */    0,    0,    0,    0,
 };
-
 // ===== OPERAND AND REGISTER ENCODING =====
 
 /**
@@ -1028,9 +1036,9 @@ uint8_t lookupResultLoc[] = {
 /**
  * attrLocLookupTable - Attribute-location to lookup code mapping
  *
- * 2D table: attrLocLookupTable[attr][loc]
+ * 2D table: attrLocLookupTable[attr][locIdx]
  *   attr: Expression attribute (0-11)
- *   loc:  Expression location (0-10)
+ *   locIdx:  Expression location (0-10)
  *   value: Lookup code for use with lookupResultAttr/Loc
  *
  * Reverse mapping for expression tracking
@@ -1184,7 +1192,6 @@ static uint8_t EncodeFragmentArgument(uint8_t iArg, uint8_t start) {
     return iArg; // Return updated index
 }
 
-
 /**
  * EncodeFragArgs - Encode all arguments for a code fragment
  *
@@ -1294,9 +1301,8 @@ void EmitTopItem() {
     fragLen = 0;
 
     // Skip line info and include nodes unless printing
-    if (!PRINT)
-        if (tx2[tx2qp].type == T2_LINEINFO || tx2[tx2qp].type == T2_INCLUDE)
-            return;
+    if (!PRINT && (tx2[tx2qp].type == T2_LINEINFO || tx2[tx2qp].type == T2_INCLUDE))
+        return;
 
     PutTx1Byte(tx2[tx2qp].type);
 
@@ -1335,7 +1341,7 @@ void EmitTopItem() {
  * Converts the current TX2 node into a syntax error node, storing the
  * error code for later reporting.
  *
- * @param arg1b - Error code (e.g., ERR200, ERR203, etc.)
+ * @param err - Error code (e.g., ERR200, ERR203, etc.)
  *
  * Side effects:
  *   - Modifies tx2[tx2qp].type to T2_SYNTAXERROR
@@ -1343,9 +1349,9 @@ void EmitTopItem() {
  *
  * Called from: Error handling in code generation
  */
-void Tx2SyntaxError(uint8_t arg1b) {
+void Tx2SyntaxError(uint8_t err) {
     tx2[tx2qp].type = T2_SYNTAXERROR;
-    tx2[tx2qp].left = arg1b;
+    tx2[tx2qp].left = err;
 }
 
 /**
@@ -1368,24 +1374,6 @@ void Tx2SyntaxError(uint8_t arg1b) {
 uint8_t GetFragmentOperandType(uint8_t lrIdx) {
     return lrIdx == Left ? fragmentOpcodeTable[currentFragmentCode] >> 4
                          : fragmentOpcodeTable[currentFragmentCode] & 0xf;
-}
-
-/**
- * MoveTx2 - Copy TX2 node from one location to another
- *
- * Simple node copying operation. Used during expression optimization
- * and tree manipulation.
- *
- * @param src - Source node index
- * @param dst - Destination node index
- *
- * Side effects:
- *   - Overwrites tx2[dst] with complete copy of tx2[src]
- *
- * Called from: TryInlineExpression(), tree optimization
- */
-void MoveTx2(uint8_t src, uint8_t dst) {
-    tx2[dst] = tx2[src];
 }
 
 /**
@@ -1633,11 +1621,11 @@ void HandleFatalError(uint16_t err) {
  *   - registerWasSaved[i] = false (assume hasn't been saved to stack)
  *
  * Step 2: Get register contents
- *   - k = registerState[i].contents (TX2 node index stored in this register)
- *   - n = nodeControlMap[tx2[k].type] & 0xc0 (node type category)
+ *   - reg = registerState[i].contents (TX2 node index stored in this register)
+ *   - n = nodeControlMap[tx2[reg].type] & 0xc0 (node type category)
  *
  * Step 3: Analyze register value
- *   IF register contains a valid TX2 node (k != 0):
+ *   IF register contains a valid TX2 node (reg != 0):
  *   {
  *     registerHasValue[i] = true (register has content)
  *
@@ -1649,22 +1637,22 @@ void HandleFatalError(uint16_t err) {
  *     Step 3b: Determine if value needs preservation
  *     - IF (n == 0 OR n == 0x80): // Binary/unary or statement-level operator
  *       • Values that are operators or statements might need preservation
- *       • IF tx2[k].extra == 0: // Not on stack already
+ *       • IF tx2[reg].extra == 0: // Not on stack already
  *         » Check attribute match:
- *           IF (tx2[k].exprAttr == registerState[i].dataType) OR
- *              (tx2[k].exprAttr == BYTE_A AND registerState[i].dataType == 6):
+ *           IF (tx2[reg].exprAttr == registerState[i].dataType) OR
+ *              (tx2[reg].exprAttr == BYTE_A AND registerState[i].dataType == 6):
  *           {
  *             • Attribute types match, value is valid
  *             • Check reference count and usage:
- *               IF (tx2[k].cnt > 1): // Referenced multiple times
+ *               IF (tx2[reg].cnt > 1): // Referenced multiple times
  *                 » registerNeedsSave[i] = true (need to preserve for other uses)
  *               ELSE IF (registerInExpression[i]): // In active expression
  *                 » registerNeedsSave[i] = true (need to preserve before overwrite)
- *               ELSE IF (curExprLoc[Left] != k AND k != curExprLoc[Right]):
+ *               ELSE IF (curExprLoc[Left] != reg AND reg != curExprLoc[Right]):
  *                 » registerNeedsSave[i] = true (need to preserve, not current operand)
  *           }
  *   }
- *   ELSE (k == 0): // Register empty
+ *   ELSE (reg == 0): // Register empty
  *   {
  *     registerHasValue[i] = registerState[i].isDirect
  *       • Register is considered as having value only if isDirect flag set
@@ -1691,20 +1679,20 @@ void HandleFatalError(uint16_t err) {
  *   m = registerInExpression[i] (remember if this register is in expression)
  *
  *   Step 1: Search for duplicate registers with same value
- *   - Loop j from IR_H (3) down to i+1
- *     FOR each register j > i:
+ *   - Loop locIdx from IR_H (3) down to i+1
+ *     FOR each register locIdx > i:
  *     {
- *       IF registerNeedsSave[j]:
+ *       IF registerNeedsSave[locIdx]:
  *       {
- *         IF registerState[j].contents == registerState[i].contents:
+ *         IF registerState[locIdx].contents == registerState[i].contents:
  *         {
  *           // Found duplicate! Both registers hold same TX2 node
- *           registerNeedsSave[j] = false // Don't need to save duplicate
+ *           registerNeedsSave[locIdx] = false // Don't need to save duplicate
  *
  *           IF i != 0: // Not PSW register
  *           {
  *             registerNeedsSave[i] = false // Keep one copy by not saving either?
- *             m |= registerInExpression[j] // Remember if either is in expression
+ *             m |= registerInExpression[locIdx] // Remember if either is in expression
  *           }
  *           // This optimization: if one is in expression, keep it
  *           // Don't save the duplicate if the original isn't in expression
@@ -1809,8 +1797,8 @@ void HandleFatalError(uint16_t err) {
  *
  * Duplicate Detection Algorithm:
  * 1. For each register i marked for saving:
- *    2. Search registers j where j > i for same contents
- *    3. If found: mark j's save flag false (keep i's)
+ *    2. Search registers locIdx where locIdx > i for same contents
+ *    3. If found: mark locIdx's save flag false (keep i's)
  *    4. If neither is in expression: increment saved count
  *
  * Example Scenario:
@@ -1836,8 +1824,8 @@ void HandleFatalError(uint16_t err) {
  *
  * The condition checks:
  * ```
- * (tx2[k].exprAttr == registerState[i].dataType) OR
- * (tx2[k].exprAttr == BYTE_A AND registerState[i].dataType == 6)
+ * (tx2[reg].exprAttr == registerState[i].dataType) OR
+ * (tx2[reg].exprAttr == BYTE_A AND registerState[i].dataType == 6)
  * ```
  *
  * Why this check?
@@ -1857,7 +1845,7 @@ void HandleFatalError(uint16_t err) {
  * REFERENCE COUNT LOGIC (Pass 1, Step 3b):
  * =========================================
  *
- * tx2[k].cnt: Reference count for the TX2 node
+ * tx2[reg].cnt: Reference count for the TX2 node
  *   - How many times this value is used in the current expression/statement
  *   - 1 = used once (safe to lose after use)
  *   - 2+ = used multiple times (must preserve for other uses)
@@ -1906,7 +1894,7 @@ void HandleFatalError(uint16_t err) {
  * - Overall: Called frequently but very fast (constant time)
  *
  * Space complexity: O(1)
- * - Local variables: i, j, k, n, m (5 bytes)
+ * - Local variables: i, locIdx, reg, n, m (5 bytes)
  * - No dynamic allocation
  *
  *
@@ -1918,13 +1906,13 @@ void HandleFatalError(uint16_t err) {
  *    - NOT counted in savedRegisterCount even if saved
  *    - Reason: PSW is status register, different handling rules
  *
- * 2. Empty Registers (k == 0):
+ * 2. Empty Registers (reg == 0):
  *    - No TX2 node content
  *    - Use isDirect flag to determine if still valid
  *    - Don't mark for saving (nothing to save)
  *
- * 3. Node on Stack (tx2[k].extra != 0):
- *    - Value already saved to stack at level tx2[k].extra
+ * 3. Node on Stack (tx2[reg].extra != 0):
+ *    - Value already saved to stack at level tx2[reg].extra
  *    - Don't mark for saving again (already preserved)
  *    - Skip preservation analysis
  *
@@ -2047,7 +2035,7 @@ void AnalyzeRegisterUsage() {
             j = IR_H; // Start from highest register (HL)
             while (j > i) {
                 if (registerNeedsSave[j]) {
-                    // Check if register j contains the same TX2 node
+                    // Check if register locIdx contains the same TX2 node
                     if (registerState[j].contents == registerState[i].contents) {
                         // Found duplicate! Don't save the duplicate
                         registerNeedsSave[j] = false;
@@ -2055,7 +2043,7 @@ void AnalyzeRegisterUsage() {
                         // Special handling: if not PSW, adjust flags
                         if (i != 0) {
                             registerNeedsSave[i] = false; // Already have a copy
-                            m |= registerInExpression[j]; // OR in j's in-expression flag
+                            m |= registerInExpression[j]; // OR in locIdx's in-expression flag
                         }
                     }
                 }
@@ -2071,17 +2059,62 @@ void AnalyzeRegisterUsage() {
     }
 }
 
+/*
+Purpose
+    This function saves register state metadata to stack tracking arrays before a register's value will
+    be pushed to the stack. It's the counterpart to RestoreRegisterFromStack() and is called by
+    PushRegisterToStack() to record register information before the actual PUSH instruction is emitted.
+
+* @Param irReg - Register index to save (0=B/BC, 2=D/DE, 3=H/HL)
+* 
+* Data Flow Context
+    This function is part of the register spilling mechanism:
+        SaveOrRedirectRegister() or InvalidateRegistersByMask()
+               ↓
+        PushRegisterToStack()
+               ↓
+        SaveRegisterToStack()  ← metadata recording
+               ↓
+        EncodeFragData(CF_PUSH) ← generates actual PUSH instruction
+* Key Insight
+    Metadata vs. Machine Code:
+    •	SaveRegisterToStack() = data structure bookkeeping (records what was saved)
+    •	EncodeFragData(CF_PUSH) = code emission (generates the actual 8080 PUSH instruction)
+
+    This separation allows the register allocator to track where values are throughout code generation,
+    enabling sophisticated optimizations like duplicate detection and stack-based operand management.
+*/
 void SaveRegisterToStack(uint8_t irReg) {
     uint8_t i;
+    /* Update register state analysis to determine which registers need preservation and which are in use.
+       This ensures accurate context before saving.*/
     AnalyzeRegisterUsage();
+    /* 
+    * Record which TX2 node is in the register:
+        •	Gets the node index from registerState[irReg].contents
+        •	Stores it in stackNodeContents[currentStackDepth] to map stack level → TX2 node
+        •	Saves to local variable i for next step
+    */
     i = stackNodeContents[currentStackDepth] = registerState[irReg].contents;
+    /*
+     * Mark the TX2 node as being saved:
+        •	If this register's value will be needed later (registerNeedsSave[irReg])
+        •	Records the stack level where it was saved in tx2[i].extra
+        •	This allows code generation to find the value later when restoring
+    */
     if (registerNeedsSave[irReg])
         tx2[i].extra = currentStackDepth;
 
     if (irReg != 0)
+        /* 
+        * For non-PSW registers (BC, DE, HL), saves packed metadata:
+            •	Upper 4 bits (dataType << 4): Data type/addressing mode attribute
+            •	Lower 4 bits (offset & 0xf): Register offset adjustment (sign-extended to byte)
+            •	Example: 0x6E = attribute 6, offset -2 (0xE = 14 → 0xFE when sign-extended)
+        */
         stackRegisterAttrs[currentStackDepth] =
             (registerState[irReg].dataType << 4) | (registerState[irReg].offset & 0xf);
-    else
+    else /* For PSW register: Uses special value 0xB0 to mark as PSW-saved (attribute 0xB, offset 0) */
         stackRegisterAttrs[currentStackDepth] = 0xB0;
 }
 
@@ -2209,7 +2242,46 @@ void RestoreRegisterFromStack(uint8_t irReg) {
             registerState[irReg].offset | 0xf0; // OR with 0xF0 to sign-extend
 }
 
+/*
+    PushRegisterToStack() is the low-level helper that performs a register spill.
+    What it does
+    1.	Advance stack depth and update max stack usage
+        •	currentStackDepth is incremented first.
+        •	The depth is multiplied by 2, so stack usage is tracked in bytes.
+        •	stackUsage keeps the maximum stack space used so far.
+    2.	Record metadata about the spilled register (SaveRegisterToStack)
+        This does the bookkeeping:
+        •	which TX2 node was in the register,
+        •	what attribute/type it had,
+        •	what stack slot now owns it.
+        This is separate from actual code emission.
+    3.	Prepare fragment arguments for a push
+        These arguments tell EncodeFragData():
+        •	which register is being pushed,
+        •	that the destination is stack storage,
+        •	which logical stack slot is being used.
+    4.	Emit the actual push fragment (EncodeFragData(CF_PUSH))
+        This generates the compiler’s intermediate/output fragment for a Push.
+    5.	Account for generated code size
+        The emitted push contributes to the procedure’s generated code size.
+    Why it exists
+        This function combines two responsibilities needed for spilling:
+        •	state tracking via SaveRegisterToStack()
+        •	code generation via EncodeFragData(CF_PUSH)
+        That makes it the main helper used when a live register value must be preserved before the register
+        is reused.
+    In plain terms It means:
+        “Allocate a new stack slot, remember what value is being saved there, emit a push for that register,
+        and update stack/code accounting.”
+    Relationship to the inverse
+        The matching restore path is PopRegisterFromStack(), which:
+        •	emits CF_POP,
+        •	restores metadata with RestoreRegisterFromStack(),
+        •	decrements currentStackDepth. If useful, the next step can be a walk-through of PushRegisterToStack()
+            together with SaveRegisterToStack() and PopRegisterFromStack() as one spill/restore cycle.
+    */
 void PushRegisterToStack(uint8_t irReg) {
+
     if (stackUsage < ++currentStackDepth * 2)
         stackUsage = currentStackDepth * 2;
     SaveRegisterToStack(irReg);
@@ -2728,6 +2800,71 @@ void InvalidateRegistersByMask(uint8_t regMask) {
     curExprLoc[Right] = locRight;
 }
 
+/*
+GenerateReturnSequence() is the epilogue helper for procedure returns.
+What it does
+    1.	Calls AdjustStackOnReturn(localVariableSize)
+        •	Reclaims local stack space and normalizes SP for return.
+    2.	Gets current block metadata:
+        •	info = blk[blkId].info;
+    3.	If the procedure is marked interrupt (info->flag & F_INTERRUPT):
+        •	Pops saved registers in order PSW, B, D, H via CF_POP.
+        •	Emits CF_EI to re-enable interrupts.
+        •	Adds 5 to codeSize (4 pops + 1 EI).
+Why this matters
+    For normal procedures, only stack-frame unwind is needed.
+    For interrupt procedures, it also restores machine state and reenables interrupts before final
+    return handling.
+Important detail
+    This function does not emit the final return instruction itself;
+    it prepares the state so later code can complete the return correctly.
+*/
+/**
+ * GenerateReturnSequence - Generate procedure epilogue code
+ *
+ * Emits the epilogue code sequence for a procedure return. Handles both
+ * normal and interrupt service routine (ISR) procedures differently.
+ *
+ * NORMAL PROCEDURE:
+ *   1. Deallocate local variable stack space via AdjustStackOnReturn()
+ *
+ * INTERRUPT PROCEDURE (F_INTERRUPT flag set):
+ *   1. Deallocate local variable stack space via AdjustStackOnReturn()
+ *   2. Restore all saved registers in order: PSW, BC, DE, HL (4 x CF_POP)
+ *   3. Re-enable interrupts via CF_EI (8080 EI instruction)
+ *
+ * WHY REGISTERS ARE RESTORED FOR INTERRUPTS:
+ *   Interrupt handlers must preserve the full CPU state because they
+ *   can preempt any executing code. At procedure entry, the compiler
+ *   pushes PSW, BC, DE, HL to protect them. On exit, they must be
+ *   restored in reverse push order (HL, DE, BC, PSW) before returning.
+ *   The loop iterates IR_PSW (0) → IR_H (3) issuing CF_POP which the
+ *   back end interprets as POP PSW, POP B, POP D, POP H respectively.
+ *
+ * NOTE:
+ *   This function does NOT emit the final return instruction (RET/RETI).
+ *   The caller is responsible for that after GenerateReturnSequence() returns.
+ *
+ * CODE SIZE ACCOUNTING:
+ *   For interrupt procedures: codeSize += 5
+ *     - 4 bytes for POP PSW, POP B, POP D, POP H (1 byte each)
+ *     - 1 byte for EI
+ *   Stack unwind code size is tracked inside AdjustStackOnReturn().
+ *
+ * @global localVariableSize - Size in bytes of local variable storage to reclaim
+ * @global blkId             - Current block identifier (indexes blk[])
+ * @global info              - Updated to point to current procedure's info record
+ * @global codeSize          - Accumulated code size counter (incremented by 5 for ISRs)
+ *
+ * Side effects:
+ *   - Calls AdjustStackOnReturn() → may emit CF_SPHL, CF_POP, CF_XCHG, CF_INXSP
+ *   - For interrupt procedures: emits 4 x CF_POP and CF_EI fragments
+ *   - Updates info global to blk[blkId].info
+ *   - Increments codeSize by 5 for interrupt procedures
+ *
+ * Called from:
+ *   - Statement code generation for T2_RETURN, T2_RETURNBYTE, T2_RETURNWORD nodes
+ */
 void GenerateReturnSequence() {
     AdjustStackOnReturn(localVariableSize);
     info = blk[blkId].info;
@@ -2742,6 +2879,27 @@ void GenerateReturnSequence() {
     }
 }
 
+/*
+CreateConstantOrIdNode() initializes the current TX2 node (tx2[tx2qp]) as a leaf operand node.
+What it sets
+    •	right = val
+        Stores the literal value / numeric payload.
+    •	left = ToIdx(pInfo)
+        Stores a symbol-table reference as an index (or zero/null index if pInfo is null).
+    •	exprAttr = exprAttr
+        Records the expression attribute/type classification (used later by codegen/optimization).
+    •	exprLoc = exprLoc
+        Records where the value is considered to live (register, memory, etc.).
+    •	type = (exprLoc == LOC_REG ? T2_NUMBER : T2_IDENTIFIER)
+        Chooses node kind based on location:
+        •	register-located values become T2_NUMBER
+        •	non-register values become T2_IDENTIFIER
+Practical role
+    This is a small constructor/helper for TX2 leaf nodes, used to quickly normalize operand creation so
+    later phases (GetOperandValue, encoding, optimization) can rely on consistent fields.
+
+*/
+
 void CreateConstantOrIdNode(uint16_t val, info_t *pInfo, uint8_t exprAttr, uint8_t exprLoc) {
     tx2[tx2qp].right    = val;
     tx2[tx2qp].left     = ToIdx(pInfo);
@@ -2752,43 +2910,43 @@ void CreateConstantOrIdNode(uint16_t val, info_t *pInfo, uint8_t exprAttr, uint8
 
 /*
 Purpose
-Retrieves the value and associated metadata from a TX2 node, determining both the numeric value and
-information about how it's stored/accessed. Used during constant folding optimization to extract
-operand values.
+    Retrieves the value and associated metadata from a TX2 node, determining both the numeric value and
+    information about how it's stored/accessed. Used during constant folding optimization to extract
+    operand values.
 Parameters
-*	Slot - Index of the TX2 node to examine
-*	pAcc - Pointer to store the extracted value
-*	pAccFlag - Pointer to store flags indicating the value's storage class and attributes
+    *	Slot - Index of the TX2 node to examine
+    *	pAcc - Pointer to store the extracted value
+    *	pAccFlag - Pointer to store flags indicating the value's storage class and attributes
 Functionality
-The function examines the TX2 node type and extracts different information
-based on whether it's an identifier or a number:
-For T2_IDENTIFIER or T2_NUMBER nodes:
-1.	Extracts the value:
-    *pAcc = tx2[slot].right - The value is stored in the right field
-2.	Determines the info pointer:
-    info = FromIdx(tx2[slot].left) - Retrieves associated symbol information
-3.	Sets the flag based on symbol attributes:
-Condition	                                Flag Value	            Meaning
-No info OR F_MEMBER | F_BASED | F_ABSOLUTE	0	                    Absolute value / simple
-constant F_AUTOMATIC	                    0x100	                Automatic (stack) variable
-F_EXTERNAL	                                0x400 | info->extId	    External symbol with ID
-F_MEMORY	                                0x800	                MEMORY variable
-type == PROC_T	                            0x1000 | info->procId	Procedure with ID
-F_DATA	                                    0x200	                Initialized data
-Otherwise	                                0x2000	                Uninitialized data
-For other node types:
-*	*pAcc = 0
-*	*pAccFlag = slot ? 0x4000 : 0 - Uses slot value to distinguish between left/right operands
+    The function examines the TX2 node type and extracts different information
+    based on whether it's an identifier or a number:
+    For T2_IDENTIFIER or T2_NUMBER nodes:
+        1.	Extracts the value:
+            *pAcc = tx2[slot].right - The value is stored in the right field
+        2.	Determines the info pointer:
+            info = FromIdx(tx2[slot].left) - Retrieves associated symbol information
+        3.	Sets the flag based on symbol attributes:
+            Condition	                                Flag Value	            Meaning
+            No info OR F_MEMBER | F_BASED | F_ABSOLUTE	0	                    Absolute value / simple
+            constant F_AUTOMATIC	                    0x100	                Automatic (stack) variable
+            F_EXTERNAL	                                0x400 | info->extId	    External symbol with ID
+            F_MEMORY	                                0x800	                MEMORY variable
+            type == PROC_T	                            0x1000 | info->procId	Procedure with ID
+            F_DATA	                                    0x200	                Initialized data
+            Otherwise	                                0x2000	                Uninitialized data
+    For other node types:
+    *	*pAcc = 0
+    *	*pAccFlag = slot ? 0x4000 : 0 - Uses slot value to distinguish between left/right operands
 
 Usage Context
-Called from:
-*	FoldConstantExpr() - During constant folding optimization to get operand values
-*	Other optimization passes that need to determine if an expression can be evaluated at compile
-    time The flag values encode both the storage class and additional metadata (like external ID or
-    procedure ID) in a single uint16_t, allowing the constant folding logic to determine:
-*	Whether the value can be folded (flag == 0 for simple constants)
-*	How to generate code if folding isn't possible
-*	What fixup information is needed for external/procedure references
+    Called from:
+        *	FoldConstantExpr() - During constant folding optimization to get operand values
+        *	Other optimization passes that need to determine if an expression can be evaluated at compile
+            time The flag values encode both the storage class and additional metadata (like external ID or
+            procedure ID) in a single uint16_t, allowing the constant folding logic to determine:
+        *	Whether the value can be folded (flag == 0 for simple constants)
+        *	How to generate code if folding isn't possible
+        *	What fixup information is needed for external/procedure references
 */
 void GetOperandValue(uint8_t slot, wpointer pAcc, wpointer pAccFlag) {
     if (tx2[slot].type == T2_IDENTIFIER || tx2[slot].type == T2_NUMBER) {
@@ -2814,19 +2972,43 @@ void GetOperandValue(uint8_t slot, wpointer pAcc, wpointer pAccFlag) {
     }
 }
 
+/*
+    DecrementExprRefs() in plm2a.c is reference-count cleanup for the current expression operands (left and right).
+    What it does
+        1.	Iterates over both operand sides (left to right).
+        2.	Gets the TX2 node index: locIdx = curExprLoc[side].
+        3.	If locIdx is valid and decrementing tx2[locIdx].cnt makes it zero, the node is no longer live.
+        4.	For that dead node:
+            •	Scans registers IR_PSW..IR_H and clears any registerState[reg].contents == loc.
+            •	Clears the stack tracking entry: stackNodeContents[tx2[locIdx].extra] = 0.
+    Why it matters It prevents stale references to dead TX2 nodes in both:
+        •	register tracking (registerState[])
+        •	stack spill tracking (stackNodeContents[])
+    So this is a small but critical lifetime-management step after expression use.
+*/
 void DecrementExprRefs() {
     for (uint8_t side = Left; side <= Right; side++) {
-        uint8_t j = curExprLoc[side];
-        if (j && --tx2[j].cnt == 0) {
-            for (uint8_t k = IR_PSW; k <= IR_H; k++) {
-                if (registerState[k].contents == j)
-                    registerState[k].contents = 0;
+        uint8_t locIdx = curExprLoc[side];
+        if (locIdx && --tx2[locIdx].cnt == 0) {
+            for (uint8_t reg = IR_PSW; reg <= IR_H; reg++) {
+                if (registerState[reg].contents == locIdx)
+                    registerState[reg].contents = 0;
             }
-            stackNodeContents[tx2[j].extra] = 0;
+            stackNodeContents[tx2[locIdx].extra] = 0;
         }
     }
 }
-
+/*
+    UpdateExpressionLookup() is a small lookup helper:
+        •	It takes side (left or right operand).
+        •	It reads the current operand classification:
+        •	exprAttr[side] = attribute/type class
+        •	exprLoc[side] = where the value currently lives (register, memory, stack, etc.)
+        •	It uses those two values as a 2D index into attrLocLookupTable.
+        •	It stores the resulting encoded lookup ID into iCodeArgsIndex[side].
+    In short, it converts (attribute, location) → compact code for later code-generation logic.
+    This keeps later routines fast and table-driven instead of repeatedly branching on many cases.
+*/
 void UpdateExpressionLookup(uint8_t side) {
     iCodeArgsIndex[side] = attrLocLookupTable[exprAttr[side]][exprLoc[side]];
 }
@@ -2877,7 +3059,7 @@ void EncodeOperandInfo(uint8_t idx) {
     }
 }
 
-void EncodeExpressionOperand(uint8_t side) {
+void EncodeExpressionOperand(uint8_t side) {    // Sub_636A
     if (exprLoc[side] <= IR_H)
         iCodeArgs[iCodeArgsIdx++] = exprLoc[side];
     else
@@ -2911,9 +3093,7 @@ void PopRegisterFromStack(uint8_t irReg) {
     currentStackDepth--;
 }
 
-
 // ===== TX2 QUEUE MANAGEMENT =====
-
 
 /**
  * GetTx2Item - Read single TX2 node from input stream
@@ -2958,7 +3138,6 @@ void GetTx2Item() {
     }
 }
 
-
 /**
  * MergeRedundantNodes - Remove redundant TX2 node markers
  *
@@ -2990,8 +3169,6 @@ void MergeRedundantNodes() {
             tx2qp--;                                // Skip this one
         }
 }
-
-
 
 /**
  * FillTx2Queue - Read and buffer TX2 nodes from input stream
@@ -3061,7 +3238,6 @@ void FillTx2Queue() {
 
     tx2qEnd = tx2qp; // Mark end of buffer
 }
-
 
 /**
  * SkipStmt - Skip to next or previous statement boundary

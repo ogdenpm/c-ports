@@ -233,19 +233,19 @@ void PushComplexOperand(uint8_t icode, uint8_t childCnt) {
 
 void ApplyOperator() {
     uint8_t op = (uint8_t)operatorStack[operatorSP];
-    PushComplexOperand(op, op == I_NOT || op == I_UNARYMINUS ? 1 : 2);
+    PushComplexOperand(op, op == X_NOT || op == X_UNARYMINUS ? 1 : 2);
     PopOperator();
 }
 
 static void PushIdentifier() {
 
-    if ((info->flag & F_MEMBER)) {                            // if member create I_MEMBER node
-        PushSimpleOperand(I_IDENTIFIER, ToIdx(info->parent)); // struct info
-        PushSimpleOperand(I_IDENTIFIER, ToIdx(info));         // member info
-        PushComplexOperand(I_MEMBER, 2);                      // new node
+    if ((info->flag & F_MEMBER)) {                            // if member create X_MEMBER node
+        PushSimpleOperand(X_IDENTIFIER, ToIdx(info->parent)); // struct info
+        PushSimpleOperand(X_IDENTIFIER, ToIdx(info));         // member info
+        PushComplexOperand(X_MEMBER, 2);                      // new node
         info = info->parent;                                  // now point to struct
     } else
-        PushSimpleOperand(I_IDENTIFIER, ToIdx(info)); // simple identifier node
+        PushSimpleOperand(X_IDENTIFIER, ToIdx(info)); // simple identifier node
 }
 
 void FixupBased(info_t *varInfo) {
@@ -255,7 +255,7 @@ void FixupBased(info_t *varInfo) {
         PushIdentifier();         // save it
         info = varInfo;
         SwapOperands();                 // swap var and base on stack
-        PushComplexOperand(I_BASED, 2); // create a based node
+        PushComplexOperand(X_BASED, 2); // create a based node
     }
 }
 
@@ -285,7 +285,7 @@ uint8_t GetCallArgCnt() {
         } else {
             Wr2TokError(ERR154); /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW */
             while (nArgExpected != nArgActual++)
-                PushSimpleOperand(I_NUMBER, 0);
+                PushSimpleOperand(X_NUMBER, 0);
         }
     }
     return (uint8_t)nArgExpected;
@@ -294,22 +294,22 @@ uint8_t GetCallArgCnt() {
 void ParseSizing(uint8_t iCode) {
     if (NotMatchTx1Item(T1_LPAREN)) {
         Wr2TokError(ERR124); /* MISSING ARGUMENTS FOR BUILT-IN PROCEDURE */
-        PushSimpleOperand(I_NUMBER, 0);
+        PushSimpleOperand(X_NUMBER, 0);
     } else {
         if (NotMatchTx1Item(T1_IDENTIFIER)) {
             Wr2Error(ERR125); /* ILLEGAL ARGUMENT FOR BUILT-IN PROCEDURE */
-            PushSimpleOperand(I_NUMBER, 0);
+            PushSimpleOperand(X_NUMBER, 0);
         } else {
             ChkIdentifier();
             if (MatchTx1Item(T1_LPAREN)) {
                 if ((info->flag & F_ARRAY)) {
                     ResyncRParen();                                 // skip subscript
                     if (MatchTx1Item(T1_RPAREN)) {                  // end of builtin ?
-                        if (iCode == I_LENGTH || iCode == I_LAST) { // subscript only for SIZE
+                        if (iCode == X_LENGTH || iCode == X_LAST) { // subscript only for SIZE
                             Wr2TokError(ERR125); /*  ILLEGAL ARGUMENT FOR BUILT-IN PROCEDURE */
-                            PushSimpleOperand(I_NUMBER, 0);
+                            PushSimpleOperand(X_NUMBER, 0);
                         } else
-                            PushSimpleOperand(iCode, ToIdx(info)); // I_SIZE info - one item
+                            PushSimpleOperand(iCode, ToIdx(info)); // X_SIZE info - one item
                         return;
                     }
                 } else
@@ -326,27 +326,27 @@ void ParseSizing(uint8_t iCode) {
             if (MatchTx1Item(T1_LPAREN)) {
                 if ((info->flag & F_ARRAY)) {
                     ResyncRParen(); // skip subscript
-                    if (iCode == I_LENGTH || iCode == I_LAST) {
+                    if (iCode == X_LENGTH || iCode == X_LAST) {
                         Wr2TokError(125); /* ILLEGAL ARGUMENT FOR BUILT-IN procedure */
-                        PushSimpleOperand(I_NUMBER, 0);
+                        PushSimpleOperand(X_NUMBER, 0);
                     } else
                         PushSimpleOperand(iCode, ToIdx(info));
                 } else {
                     Wr2TokError(127); /* INVALID SUBSCRIPT ON NON-ARRAY */
-                    PushSimpleOperand(I_NUMBER, 0);
+                    PushSimpleOperand(X_NUMBER, 0);
                 }
-            } else if (iCode == I_LENGTH || iCode == I_LAST) {
+            } else if (iCode == X_LENGTH || iCode == X_LAST) {
                 if ((info->flag & F_ARRAY))
                     PushSimpleOperand(iCode, ToIdx(info));
                 else {
                     Wr2TokError(157);
                     /* INVALID ARGUMENT, ARRAY REQUIRED FOR LENGTH() or LAST() */
-                    PushSimpleOperand(I_NUMBER, 0);
+                    PushSimpleOperand(X_NUMBER, 0);
                 }
             } else {
-                PushSimpleOperand(iCode, ToIdx(info));    // I_SIZE info - one item
-                PushSimpleOperand(I_LENGTH, ToIdx(info)); // number of items
-                PushComplexOperand(I_STAR, 2);            // size is size one item * number of items
+                PushSimpleOperand(iCode, ToIdx(info));    // X_SIZE info - one item
+                PushSimpleOperand(X_LENGTH, ToIdx(info)); // number of items
+                PushComplexOperand(X_MUL, 2);            // size is size one item * number of items
             }
         }
         ExpectRParen(126); /* MISSING ') ' AFTER BUILT-IN PROCEDURE ARGUMENT LIST */
@@ -359,23 +359,23 @@ void ParseSizing(uint8_t iCode) {
 */
 void MkIndexNode() {
     info = FromIdx(operandStack[operandSP - 1].infoIdx); /* get var */
-    if (operandStack[operandSP].icode == I_PLUSSIGN) {   /* see if (index is of form expr + ?? */
+    if (operandStack[operandSP].icode == X_PLUSSIGN) {   /* see if (index is of form expr + ?? */
         uint16_t p = operandStack[operandSP].nodeIdx + 1;
-        if (tree[p].icode == I_NUMBER) { /* expr + number */
+        if (tree[p].icode == X_NUMBER) { /* expr + number */
             operandStack[operandSP] = tree[p - 1];
-            PushSimpleOperand(I_NUMBER, tree[p].val); /* and get the number as an offset */
+            PushSimpleOperand(X_NUMBER, tree[p].val); /* and get the number as an offset */
         } else
-            PushSimpleOperand(I_NUMBER, 0); /* no simple 0 offset */
+            PushSimpleOperand(X_NUMBER, 0); /* no simple 0 offset */
     } else
-        PushSimpleOperand(I_NUMBER, 0); /* 0 offset */
+        PushSimpleOperand(X_NUMBER, 0); /* 0 offset */
 
-    uint8_t icode = info->type == ADDRESS_T ? I_WORDINDEX : I_BYTEINDEX;
+    uint8_t icode = info->type == ADDRESS_T ? X_WORDINDEX : X_BYTEINDEX;
 
     if (info->type == STRUCT_T) {      /* scale structure index */
         uint16_t r = operandSP - 1;        /* the index expr (ex offset) */
         PushOperand(&operandStack[r]); /* calc dimension */
-        PushSimpleOperand(I_SIZE, ToIdx(info));
-        PushComplexOperand(I_STAR, 2);
+        PushSimpleOperand(X_SIZE, ToIdx(info));
+        PushComplexOperand(X_MUL, 2);
         operandStack[r] = operandStack[operandSP]; /* replace index expr */
         PopOperand();                              /* waste intermediate */
     }
@@ -413,14 +413,14 @@ uint8_t IsLValue(uint16_t sp) {
     uint8_t c = operandStack[sp].icode;
     index_t infoIdx;
 
-    if (c == I_OUTPUT || c == I_STACKPTR || c == I_BASED)
+    if (c == X_OUTPUT || c == X_STACKPTR || c == X_BASED)
         return true;
-    if (c == I_IDENTIFIER)
+    if (c == X_IDENTIFIER)
         infoIdx = operandStack[sp].infoIdx;
-    else if (c == I_BYTEINDEX || c == I_WORDINDEX)
+    else if (c == X_BYTEINDEX || c == X_WORDINDEX)
         infoIdx = tree[operandStack[sp].nodeIdx].infoIdx;
-    else if (c == I_MEMBER) {
-        if (tree[operandStack[sp].nodeIdx].icode == I_IDENTIFIER)
+    else if (c == X_MEMBER) {
+        if (tree[operandStack[sp].nodeIdx].icode == X_IDENTIFIER)
             infoIdx = tree[operandStack[sp].nodeIdx].infoIdx;
         else
             infoIdx = tree[tree[operandStack[sp].nodeIdx].nodeIdx].infoIdx;
@@ -436,7 +436,7 @@ uint8_t IsLValue(uint16_t sp) {
 void ConstantList() {
     CreateInfo(0x100, BYTE_T, 0);                 // create an info block to hold the list
     info->flag |= F_DATA;                         // mark as data
-    PushSimpleOperand(I_IDENTIFIER, ToIdx(info)); // push the identifier
+    PushSimpleOperand(X_IDENTIFIER, ToIdx(info)); // push the identifier
     info->flag |= F_ARRAY | F_STARDIM;            // set as a uint8_t array with * dim
     info->dim = InitialValueList(ToIdx(info));    // get the list and record number of bytes
 }

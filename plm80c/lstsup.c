@@ -75,10 +75,8 @@ void lstPstr(pstr_t *ps) {
     lprintf("%.*s", ps->len, ps->str);
 }
 
-char const *hexfmt(uint8_t digits, uint16_t val) {
-    static char str[7] = "0";
-    if (digits > 4)
-        digits = 4;
-    sprintf(str + 1, "%0*XH", digits, val);
+char const *hexfmt(bool zeroPad, uint16_t val) {
+    static char str[7];
+    sprintf(str, "0%0*XH", zeroPad ? 4 : 0, val);
     return str[1] <= '9' ? str + 1 : str;
 }

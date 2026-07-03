@@ -10,7 +10,32 @@
 #include "plm.h"
 #include <stdlib.h>
 
-/* plm4a.plm */
+/**
+ * @file plm4b.c
+ * @brief Pass-4 listing, diagnostics, record flushing, and source-line support.
+ *
+ * Responsibilities:
+ * - Owns compiler error-code -> message text mapping (`errStrings`).
+ * - Emits listing prefixes, statement markers, labels, and instruction lines.
+ * - Formats and emits diagnostics (`EmitError`, fatal path).
+ * - Flushes object/fixup/listing-related records when address context changes.
+ * - Reads source text lines (with include-file stack handling) for listings.
+ *
+ * Notes:
+ * - This module is primarily output-facing (listing/object/error presentation),
+ *   while fragment decode/dispatch is handled in `plm4a.c`/`plm4c.c`.
+ */
+
+/* ------------------------------------------------------------------------- */
+/* Error text table                                                          */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Sorted error message table keyed by numeric compiler error code.
+ *
+ * `FindErrStr()` performs a bounded linear scan assuming ascending `errCode`.
+ * Messages include merged text used across pass-4/pass-6 compatibility paths.
+ */
 static struct {
     uint16_t errCode;
     char const *errStr;
@@ -228,6 +253,16 @@ static struct {
     { 0xDB, "LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255" }
 };
 
+/* ------------------------------------------------------------------------- */
+/* Record/output lifecycle                                                   */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Flush all pending output records and reset `recExec` content origin to current
+ * `baseAddr`.
+ *
+ * Called when relocation/address context changes (e.g., new segment base).
+ */
 void FlushRecs() {
     WriteRec(recLineNum, 1);
     WriteRec(recExec, 3);
@@ -239,6 +274,14 @@ void FlushRecs() {
     putWord(&recExec[CONTENT_OFF], baseAddr);
 }
 
+/**
+ * Append signed hexadecimal displacement text to a p-string.
+ *
+ * Examples:
+ * - disp == 0       -> no text appended
+ * - disp == 0x0005  -> "+5"
+ * - disp == 0xFFFC  -> "-4" (two's complement interpreted)
+ */
 void AddWrdDisp(pstr_t *pstr, uint16_t disp) {
     if (disp != 0) {
         if (disp > 0x8000) {
@@ -247,10 +290,27 @@ void AddWrdDisp(pstr_t *pstr, uint16_t disp) {
         } else
             pstr->str[pstr->len] = '+';
         pstr->len++;
-        pcstrcat(pstr, hexfmt(0, disp));
+        pcstrcat(pstr, hexfmt(false, disp));
     }
 }
 
+/* ------------------------------------------------------------------------- */
+/* Listing emission                                                          */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Emit left-side listing prefix once per line when listing is enabled.
+ *
+ * Prefix may include:
+ * - statement count (`stmtCnt`)
+ * - block count (`blkCnt`)
+ * - include file marker (`=n`)
+ * - cached source text (`lstLine`)
+ *
+ * Updates:
+ * - `linePrefixEmitted`, `linePrefixChecked`
+ * - effective `listing` state from `PRINT` and `listOff`
+ */
 void EmitLinePrefix() {
     if (!linePrefixChecked && listing) {
         SetStartAndTabW(15, 4);
@@ -277,12 +337,18 @@ void EmitLinePrefix() {
     listing           = !listOff && PRINT;
 }
 
+/**
+ * Emit a statement marker line: "; STATEMENT # <stmtNo>".
+ */
 void EmitStatementNo() {
     EmitLinePrefix();
     TabLst(-50);
     lprintf("; STATEMENT # %d\n", stmtNo);
 }
 
+/**
+ * Emit a label definition line in listing when code output is active.
+ */
 void EmitLabel(char const *label) {
     if (codeOn) {
         EmitLinePrefix();
@@ -291,6 +357,10 @@ void EmitLabel(char const *label) {
     }
 }
 
+/**
+ * Resolve current `errData.num` to human-readable text.
+ * Returns "UNKNOWN ERROR" if not found.
+ */
 char const *FindErrStr() {
     for (uint32_t i = 0;
          i < sizeof(errStrings) / sizeof(errStrings[0]) && errStrings[i].errCode <= errData.num;
@@ -300,6 +370,17 @@ char const *FindErrStr() {
     return "UNKNOWN ERROR";
 }
 
+/**
+ * Emit one formatted diagnostic line to listing/error output.
+ *
+ * Includes:
+ * - error number
+ * - optional statement number
+ * - optional near-symbol context (`errData.info`)
+ * - resolved error string text
+ *
+ * Side effect: increments `programErrCnt`.
+ */
 void EmitError() {
     programErrCnt++;
     if (PRINT) {
@@ -323,6 +404,12 @@ void EmitError() {
     }
 }
 
+/**
+ * Fatal pass-4 error helper:
+ * - stores fatal code and current statement context
+ * - emits error
+ * - aborts to outer recovery via `longjmp(exception, -1)`
+ */
 void fatal_ov46(uint8_t arg1b) {
     errData.num = fatalCode = arg1b;
     errData.info                 = 0;
@@ -331,6 +418,12 @@ void fatal_ov46(uint8_t arg1b) {
     longjmp(exception, -1);
 }
 
+/**
+ * Emit current instruction listing line:
+ * - address (`baseAddr`)
+ * - emitted object bytes (`opBytes[0..opByteCnt)`)
+ * - decoded assembly text (`line`)
+ */
 void ListInstruction(void) {
     if (codeOn) {
         if (opByteCnt > 0) {
@@ -347,6 +440,19 @@ void ListInstruction(void) {
     }
 }
 
+/* ------------------------------------------------------------------------- */
+/* Source text retrieval for listing                                         */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Read next source character from current source file context.
+ *
+ * Behavior:
+ * - strips CR (`'\r'`)
+ * - returns 7-bit character (`c & 0x7f`)
+ * - on EOF: pops include stack (`srcFileTable`) until a character is found
+ * - if top-level EOF reached unexpectedly, raises fatal compiler error
+ */
 static uint8_t GetSourceCh() {
     int c;
     for (;;) {
@@ -363,6 +469,12 @@ static uint8_t GetSourceCh() {
     }
 }
 
+/**
+ * Load next full source line into `lstLine` and set `lstLineLen`.
+ *
+ * Guarantees NUL-terminated C string once newline is encountered.
+ * Resets line-prefix state so next listing emission recomputes prefix.
+ */
 void GetSourceLine() {
     lstLineLen = 0;
     while (1) {

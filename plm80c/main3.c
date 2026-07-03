@@ -20,7 +20,13 @@ uint16_t getWord(pointer buf) {
     return buf[0] + buf[1] * 256;
 }
 
-static void Sub_3F3C() {
+/*
+    Sets up the environment for the phase-3 code-generation pass: sets printOrObj from the active
+    controls, resets/rewinds the intermediate files (utf2, atf), seeks to the end of the object file,
+    and initialises curOffset to csegSize (so code addresses follow the data segment). It is the phase-3
+    counterpart of InitAllocation() in plm1f.c.
+*/
+static void InitPhase3() { // Sub_3F3C
     printOrObj = PRINT | OBJECT;
 
     vfReset(&utf2);
@@ -69,7 +75,7 @@ static void AppendHelpers() {
     Wr1Word(curOffset - procInfo[1]->addr);
     for (uint8_t i = 0; i <= 45; i++) {        // emit any needed helper modules
         uint8_t helperId = modHelperId[i];
-        uint8_t endHelperId = helperId + modHelperIdCnt[i];
+        uint8_t endHelperId = modHelperId[i + 1];
         bool required = false;
         while (helperId < endHelperId) {
             if (helperAddr[helperId])   // check if used i.e. needed
@@ -106,7 +112,16 @@ static void emitModHdr() {
     WriteRec(recModHdr, 0);
 }
 
-static void Sub_436C() {
+/*
+    Walks every info entry and emits the three categories of OMF symbol records to the object file:
+    •	Externals – F_EXTERNAL labels/procedures that are not AT-located → recExternals; helper library
+        entry points are appended at the end when not standAlone.
+    •	Publics – F_PUBLIC variables/labels/procedures partitioned by segment (ABS / CODE / DATA / MEMORY) →
+        recPublicAbs/Code/Data/Memory.
+    •	Locals – non-external, non-parameter symbols when debug is active → recLocals.
+        Finally flushes all four public records and the externals record.
+*/
+static void EmitSymbolRecords() { // Sub_436C
     pointer rec;
     uint16_t curRecLen, s;
     uint8_t seg;
@@ -193,7 +208,12 @@ static void Sub_436C() {
     WriteRec(recLocals, 1);
 }
 
-static void Sub_46B7() {
+/*
+    If intVecNum is non-zero, iterates over all procedures and for each F_INTERRUPT procedure emits a
+    JMP instruction (0xC3 + 16-bit address) at the interrupt vector table location (intVecLoc +
+    intVecNum * pInfo->intno) together with the corresponding code-fixup record (recCodeFixup).
+*/
+static void EmitInterruptVectors() { // Sub_46B7
     if (intVecNum == 0)
         return;
     for (int i = 1; i <= procCnt; i++) {
@@ -209,7 +229,12 @@ static void Sub_46B7() {
     }
 }
 
-static void Sub_4746() {
+/*
+    Closes the phase-3 use of the intermediate file: if listing output or cross-reference output is
+    required (printOrObj || IXREF), writes a T2_EOF sentinel and rewinds utf1 so that the next overlay
+    (listing phase 4 or IXREF phase 5) can read from the beginning.
+*/
+static void FinaliseIntermediateFile() { // Sub_4746
     if (printOrObj || IXREF) {
         Wr1Byte(T2_EOF);
         vfRewind(&utf1);
@@ -217,10 +242,10 @@ static void Sub_4746() {
 }
 
 uint16_t Start3() {
- //   dump(&atf, "atf_main3"); // diagnostic dump
+    dump(&atf, "atf_main3"); // diagnostic dump
     vfRewind(&atf);
 
-    Sub_3F3C();
+    InitPhase3();
     if (printOrObj || IXREF)
         AllocateCodeAddr();
     AdjustLabels();
@@ -231,11 +256,11 @@ uint16_t Start3() {
     }
     if (OBJECT) {
         emitModHdr();
-        Sub_436C();
-        Sub_46B7();
+        EmitSymbolRecords();
+        EmitInterruptVectors();
     }
-    Sub_49F9();
-    Sub_4746();
+    ProcessInitRecords();
+    FinaliseIntermediateFile();
     if (printOrObj)
         return 4; // Chain(overlay[4]);
     else {
