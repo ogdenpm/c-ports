@@ -31,7 +31,7 @@ void ForceSOL(void) {
 void PrintColumn(uint8_t ctype, ...) {
     static uint8_t curType = 99;
     static uint8_t toPad;
-    static char *fmt[] = { "VALUE TYPE SYMBOL", "%04X PUB  %.*s", "%04XH SYM  %.*s",
+    static char *fmt[] = { "VALUE TYPE SYMBOL", "%04XH PUB  %.*s", "%04XH SYM  %.*s",
                            "%04XH LIN  %5d", "      MOD  %.*s" };
 
     if (curType != ctype || curcol == columns) {
