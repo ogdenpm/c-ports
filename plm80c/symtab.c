@@ -9,8 +9,6 @@
 #include "os.h"
 #include "plm.h"
 
-
-
 sym_t symtab[MAXSYM];
 sym_t *topSym = &symtab[1]; // 0 is reserved
 
@@ -27,67 +25,71 @@ bool pstrequ(pstr_t const *ps, pstr_t const *pt) {
 
 sym_t *newSymbol(pstr_t const *ps) {
     if (topSym >= &symtab[MAXSYM])
-            fatal("Out of symbol space");
-    topSym->link           = 0;
-    topSym->infoChain        = NULL;
-    topSym->name           = pstrdup(ps);
+        fatal("Out of symbol space");
+    topSym->link      = 0;
+    topSym->infoChain = NULL;
+    topSym->name      = pstrdup(ps);
 
     return topSym++;
 }
 
 info_t infotab[MAXINFO];
-info_t *topInfo = &infotab[1];  // 0 reserved
+info_t *topInfo = &infotab[1]; // 0 reserved
 
 void newInfo(uint8_t type) {
     if (topInfo >= &infotab[MAXINFO])
-            fatal("Out of info space");
+        fatal("Out of info space");
     topInfo->type = type;
-    info = topInfo++;
+    info          = topInfo++;
 }
-
 
 info_t *dicttab[MAXSYM];
 info_t **topDict = dicttab;
 
 void newDict(info_t *info) {
     if (topDict >= dicttab + MAXSYM)
-            fatal("Out of dictionary space");
+        fatal("Out of dictionary space");
 
     *topDict++ = info;
 }
-
 
 index_t casetab[MAXCASE];
 index_t topCase = 0;
 
 index_t newCase(index_t val) {
     if (topCase >= MAXCASE)
-            fatal("Too many case statements");
+        fatal("Too many case statements");
     casetab[topCase] = val;
     return topCase++;
 }
-
-
 
 xref_t xreftab[MAXXREF];
 xref_t *topXref = xreftab;
 
 xref_t *newXref(xref_t *xrefNext, uint16_t line) {
     if (topXref >= xreftab + MAXXREF)
-            fatal("Out of cross reference space");
-    topXref->next = xrefNext;
+        fatal("Out of cross reference space");
     topXref->line = line;
-
-    return topXref++;
+    topXref->next = xrefNext;
+    // find insert point
+    xref_t *p;
+    for (p = topXref; p->next && (((int16_t)line) > ((int16_t)p->next->line)); p = p->next)
+        ;
+    if (p->next && line == p->next->line) // already exists
+        return xrefNext;
+    if (p == topXref)
+        return topXref++;
+    topXref->next = p->next;
+    p->next       = topXref++;
+    return xrefNext;
 }
 
 char const *includes[MAXINCLUDES];
 uint16_t includeCnt;
 
-
 int newInclude(char const *fname) {
     for (int i = 0; i < includeCnt; i++)
-        if (strcmp(includes[i], fname) == 0)    // already known
+        if (strcmp(includes[i], fname) == 0) // already known
             return i;
     if (includeCnt == MAXINCLUDES)
         fatal("Too many include files");

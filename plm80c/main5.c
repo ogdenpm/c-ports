@@ -31,9 +31,12 @@ void LoadDictionary() {
 }
 
 int CmpSym(void const *a, void const *b) {
-    int cmp = strcmp((*(info_t **)a)->sym->name->str, (*(info_t **)b)->sym->name->str);
-    return cmp ? cmp : (int)((uint8_t *)a - (uint8_t *)b);
+    info_t *pa = (*(info_t **)a);
+    info_t *pb = (*(info_t **)b);
+    int cmp = strcmp(pa->sym->name->str, pb->sym->name->str);
+    return cmp ? cmp : (int)(pa - pb);  // sort by name then by which is defined earliest
 }
+
 
 void SortDictionary() {
     qsort(dicttab, topDict - dicttab, sizeof(info_t *), CmpSym);
@@ -44,19 +47,16 @@ static uint8_t defnCol, addrCol, sizeCol, nameCol, attribCol, refContCol;
 
 static void PrintXrefs() {
 
-    if (!XREF) {
+    if (!XREF || !info->xref) {
         NewLineLst();
         return;
     }
 
-    if (!info->xref) {
-        NewLineLst();
-        return;
-    }
-    lstStr(": ");
     uint16_t line = 0;
     for (xref_t *xref = info->xref; xref; xref = xref->next) {
         if (line != xref->line && !(xref->line & 0x8000)) { // ignore def & duplicates
+            if (line == 0)
+                lstStr(": ");
             if (PWIDTH < col + 5) {
                 NewLineLst();
                 TabLst(-refContCol);

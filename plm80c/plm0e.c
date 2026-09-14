@@ -249,7 +249,7 @@ static void ParseString() {
  * - Skips whitespace
  * - Recognizes operators and punctuation
  * - Parses identifiers, numbers, and strings
- * - Handles comments (/* ... *\/)
+ * - Handles comments (/ * ... * /)
  * - Expands LITERALLY definitions (macros)
  * - Detects multi-character operators (:=, <>, <=, >=)
  * 
