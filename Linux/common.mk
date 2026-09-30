@@ -59,7 +59,7 @@ TARGET := $(INSTALLDIR)/$(TARGET)
 export CC ?= cc
 
 CFLAGS ?= -O3 -Wall -Wextra
-USRCFLAGS = $(CFLAGS)
+USRCFLAGS := $(CFLAGS)
 
 override CFLAGS += -I$(SRCDIR) -I$(ROOT)/utility -I$(ROOT)/shared $(addprefix -I,$(subst ^,$(ROOT),$(INCLUDES)))
 CXXFLAGS = $(CFLAGS)
@@ -77,7 +77,7 @@ mkversion: $(GETVERSION)
 	$(GETVERSION) -f $(SRCDIR) 
 
 $(GETVERSION): $(SRCGETVERSION) $(HDRGETVERSION) | $(INSTALLDIR)
-	$(CC) -o $@ $(SRCGETVERSION)
+	$(CC) $(USRCFLAGS) -o $@ $(SRCGETVERSION)
 
 $(SRCDIR)/_version.h: | $(GETVERSION)
 	$(GETVERSION) -f $(SRCDIR)

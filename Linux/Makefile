@@ -15,5 +15,6 @@ distclean:
 	rm -fr Install
 
 rebuild: 
+	rm -fr Install/getVersion
 	@for f in $(DIRS); do $(MAKE) -C $$f rebuild || exit 1; done;
 

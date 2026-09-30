@@ -62,7 +62,7 @@ string_t statusBuf;
 
 bool includeUntracked;
 
-int vCol = 14;
+unsigned vCol = 14;
 char const *appName;
 char version[_MAX_PATH];
 int versionLoc = 0;
@@ -214,7 +214,7 @@ static char *ctimeVersion(char *timeStr) {
 
 
 static bool isProjectFile(char const *ext) {
-    for (int i = 0; i < sizeof(projectExtensions) / sizeof(projectExtensions[0]); i++) {
+    for (unsigned i = 0; i < sizeof(projectExtensions) / sizeof(projectExtensions[0]); i++) {
         if (stricmp(ext, projectExtensions[i]) == 0) {
             return true;
         }
@@ -312,8 +312,9 @@ static void getOneVersion(char *name) {
     } else
         generateVersion(false);
 
-    if (chdir(currentWorkingDir))
+    if (chdir(currentWorkingDir)) {
         ;
+    }
 
     if (isdigit(*version) || (type == DIRECTORY && writeFile) || includeUntracked)
         printf("%-*s %c %s\n", vCol, appName, type == DIRECTORY ? '-' : '+',
