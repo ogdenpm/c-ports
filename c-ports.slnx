@@ -1,0 +1,27 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="asm80/asm80.vcxproj" Id="fb7865fa-bab6-45fc-8b79-a81b414c123a" />
+  <Project Path="binobj/binobj.vcxproj" Id="fac6ab79-51b5-4934-98d3-6edfd29520e2" />
+  <Project Path="hexobj/hexobj.vcxproj" Id="75044c4c-1997-4fbd-a9de-57d32066e03e" />
+  <Project Path="ixref/ixref.vcxproj" Id="d370a442-0a4b-4226-9a88-e7f00f5cc058" />
+  <Project Path="l81/l81.vcxproj" Id="04c93c95-f060-4725-98d9-c7c839bb3217" />
+  <Project Path="l82/l82.vcxproj" Id="48a5d2c6-e53f-4e7a-a393-e549dd61893f" />
+  <Project Path="l83/l83.vcxproj" Id="e635b9b4-59aa-4eba-841d-896a8131d3dd" />
+  <Project Path="lib/lib.vcxproj" Id="7fac39d9-f286-4de6-95bb-79ff4039dea4" />
+  <Project Path="link/link.vcxproj" Id="f57cb46a-1e54-4943-8092-46386628806c" />
+  <Project Path="locate/locate.vcxproj" Id="9629449f-abaf-4192-866e-5a2bbb4921b2" />
+  <Project Path="mac/mac.vcxproj" Id="f06ab4d3-8b0b-4160-a8b7-fbc92327e51e" />
+  <Project Path="ml80/ml80.vcxproj" Id="3d33d82e-bb56-402e-a300-fad5d031e692" />
+  <Project Path="objhex/objhex.vcxproj" Id="57f02ac2-9fb1-4b50-b19f-b2868090bce7" />
+  <Project Path="plm80c/plm80c.vcxproj" Id="a4d6da5f-876c-46b4-bfd2-08d7cfd21481" />
+  <Project Path="plm81/plm81.vcxproj" Id="ac582cdf-d68e-44d4-8cd1-aef072e355d9">
+    <BuildDependency Project="utility/utility.vcxproj" />
+  </Project>
+  <Project Path="plm82/plm82.vcxproj" Id="c17dfc41-f250-4905-85f4-72a2c3f34938" />
+  <Project Path="shared/shared.vcxitems" Id="695d41a5-347e-4670-9dfc-51d63c3d02c2" />
+  <Project Path="tex/tex.vcxproj" Id="3a6ac46c-5bf9-4683-a89b-e0758205f661" />
+  <Project Path="utility/utility.vcxproj" Id="db408318-797a-4739-95c3-bf1e63420ec2" />
+</Solution>
