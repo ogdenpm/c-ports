@@ -52,7 +52,6 @@ GETVERSION = $(INSTALLDIR)/getVersion
 SRCGETVERSION = $(wildcard $(ROOT)/Linux/bootGetVersion/*.c)
 HDRGETVERSION = $(wildcard $(ROOT)/Linux/bootGetVersion/*.h)
 UTILITYLIB = $(INSTALLDIR)/utility.a
-SRCUTILITY = $(wildcard $(ROOT)/Linux/utility/*.[ch])
 
 # map so built directly in $(INSTALLDIR)
 TARGET := $(INSTALLDIR)/$(TARGET)
@@ -80,17 +79,17 @@ mkversion: $(GETVERSION)
 $(GETVERSION): $(SRCGETVERSION) $(HDRGETVERSION) | $(INSTALLDIR)
 	$(CC) -o $@ $(SRCGETVERSION)
 
-
-
 $(SRCDIR)/_version.h: | $(GETVERSION)
 	$(GETVERSION) -f $(SRCDIR)
 
-ifeq ($(UTILITYLIB),$(TARGET))
+ifdef ISLIB
 $(TARGET): $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 else
-$(UTILITYLIB): $(SRCUTILITY)
+ifdef UTILITYLIB
+$(UTILITYLIB): $(wildcard $(ROOT)/utility/*.[ch]) verInfo.h
 	$(MAKE) -C $(ROOT)/Linux/utility CFLAGS="$(USRCFLAGS)"
+endif
 
 $(TARGET): $(OBJS) _appinfo.o $(UTILITYLIB)
 	$(CC) $(LDFLAGS) -o $@ $^
