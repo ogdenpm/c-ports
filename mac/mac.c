@@ -1502,7 +1502,7 @@ void PutWord(uint16_t val) {
 /**
  * Hex formatting helper
  */
-char hexDigits[16] = { "0123456789ABCDEF" };
+char hexDigits[17] = { "0123456789ABCDEF" };
 
 /**
  * StByte() - Store byte as hex in output line
