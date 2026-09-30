@@ -5,9 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#ifdef linux
 #include <limits.h>
-#endif
 /*
  * modified version of the public domain AT&T getopt
  * in addition to : being used to indicate a required argument to the option
@@ -63,7 +61,7 @@ void chkStdOptions(int argc, char * const *argv) {
 /// </returns>
 int getopt(int argc, char * const *argv, char const *opts) {
     static char *place = ""; // force new arg
-    char *cp                 = NULL;
+    char const *cp                 = NULL;
 
     if (!*place) {
         if (optind == 1)

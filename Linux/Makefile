@@ -12,8 +12,8 @@ clean:
 
 distclean: 
 	@for f in $(LIBS) $(DIRS); do $(MAKE) -C $$f distclean || exit 1; done;
-	rm -fr Install/*
-	rm -f bootGetVersion/getVersion
+	rm -fr Install
+
 rebuild: 
 	@for f in $(DIRS); do $(MAKE) -C $$f rebuild || exit 1; done;
 

@@ -48,17 +48,26 @@ endef
 SRCDIR=$(subst /Linux,,$(realpath .))
 ROOT:=$(realpath ../..)
 INSTALLDIR = $(ROOT)/Linux/Install
-LIBS = $(INSTALLDIR)/utility.a
+GETVERSION = $(INSTALLDIR)/getVersion
+SRCGETVERSION = $(wildcard $(ROOT)/Linux/bootGetVersion/*.c)
+HDRGETVERSION = $(wildcard $(ROOT)/Linux/bootGetVersion/*.h)
+UTILITYLIB = $(INSTALLDIR)/utility.a
+SRCUTILITY = $(wildcard $(ROOT)/Linux/utility/*.[ch])
 
-CC = gcc
-CFLAGS = -O3 -Wall -Wextra -I$(SRCDIR) -I$(ROOT)/utility -I$(ROOT)/shared $(addprefix -I,$(subst ^,$(ROOT),$(INCLUDES)))
+# map so built directly in $(INSTALLDIR)
+TARGET := $(INSTALLDIR)/$(TARGET)
+
+export CC ?= cc
+
+CFLAGS ?= -O3 -Wall -Wextra
+USRCFLAGS = $(CFLAGS)
+
+override CFLAGS += -I$(SRCDIR) -I$(ROOT)/utility -I$(ROOT)/shared $(addprefix -I,$(subst ^,$(ROOT),$(INCLUDES)))
 CXXFLAGS = $(CFLAGS)
+
 VPATH = $(SRCDIR):$(ROOT)/shared:$(ROOT)/utility
 
-LINKER ?= gcc
-
-all: $(TARGET) | $(INSTALLDIR)
-	install -D -p -t $(INSTALLDIR) $(TARGET)
+all: $(GETVERSION) $(UTILITYLIB) $(TARGET) | $(INSTALLDIR)
 
 publish: distclean mkversion
 	$(MAKE)
@@ -68,26 +77,30 @@ publish: distclean mkversion
 mkversion: $(INSTALLDIR)/getVersion
 	$(INSTALLDIR)/getVersion -f $(SRCDIR) 
 
-$(INSTALLDIR)/getVersion:
-	(cd $(ROOT)/Linux/bootGetVersion; sh mkGetVersion)
-
-$(INSTALLDIR)/utility.a:
-	$(MAKE) -C $(ROOT)/Linux/utility utility.a
+$(GETVERSION): $(SRCGETVERSION) $(HDRGETVERSION) | $(INSTALLDIR)
+	$(CC) -o $@ $(SRCGETVERSION)
 
 
-$(SRCDIR)/_version.h: $(INSTALLDIR)/getVersion
+
+$(SRCDIR)/_version.h: | $(GETVERSION)
 	$(INSTALLDIR)/getVersion -f $(SRCDIR)
 
-ifndef OWNTARGET
-$(TARGET): $(OBJS) _appinfo.o $(LIBS)
-	$(LINKER) -o $@ $^
+ifeq ($(UTILITYLIB),$(TARGET))
+$(TARGET): $(OBJS)
+	$(AR) $(ARFLAGS) $@ $^
+else
+$(UTILITYLIB): $(SRCUTILITY)
+	$(MAKE) -C $(ROOT)/Linux/utility CFLAGS="$(USRCFLAGS)"
+
+$(TARGET): $(OBJS) _appinfo.o $(UTILITYLIB)
+	$(CC) $(LDFLAGS) -o $@ $^
 endif
 
 clean:
 	rm -f *.o
 
 distclean: clean
-	rm -f $(TARGET) _version.h
+	rm -f $(TARGET)
 
 rebuild: distclean
 	$(MAKE)

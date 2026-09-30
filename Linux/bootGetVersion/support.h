@@ -1,7 +1,10 @@
 #pragma once
 #include <stdbool.h>
 #include <stdio.h>
-#ifndef _MSC_VER
+#if defined(__unix__) || defined(__HAIKU__) || (defined(__APPLE__) && defined(__MACH__))
+#include <unistd.h>
+#endif
+#ifdef _POSIX_VERSION
 #define stricmp strcasecmp
 #endif
 
