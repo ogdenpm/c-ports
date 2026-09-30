@@ -101,7 +101,7 @@ int getOpt(int argc, char **argv, char const *opts) {
     optOpt   = *place++;
     optArg   = NULL;
 
-    char *cp = isSpecial(optOpt) ? NULL : strchr(opts, optOpt);
+    char const *cp = isSpecial(optOpt) ? NULL : strchr(opts, optOpt);
     if (cp == NULL)
         usage("Invalid option -%c", optOpt);
     else if (isSpecial(*++cp)) {

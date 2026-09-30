@@ -1,1 +1,1 @@
-char const utilityLib[] ="Utility library version: 2025.11.15.10";
+char const utilityLib[] ="Utility library version: 2026.9.30.11";
