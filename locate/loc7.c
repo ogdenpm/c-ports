@@ -53,7 +53,7 @@ void ProcArgsInit(void) {
     else {
         cmdP    = mark; // back up
         char const *s = basename(omfInName);
-        char *t = strrchr(s, '.');
+        char const *t = strrchr(s, '.');
         if (!t || t == s)
             FatalCmdLineErr("TO expected");
         omfOutName             = safeStrdup(inName);
