@@ -74,8 +74,8 @@ publish: distclean mkversion
 
 # check version and force timestamp change so build
 # information is updated
-mkversion: $(INSTALLDIR)/getVersion
-	$(INSTALLDIR)/getVersion -f $(SRCDIR) 
+mkversion: $(GETVERSION)
+	$(GETVERSION) -f $(SRCDIR) 
 
 $(GETVERSION): $(SRCGETVERSION) $(HDRGETVERSION) | $(INSTALLDIR)
 	$(CC) -o $@ $(SRCGETVERSION)
@@ -83,7 +83,7 @@ $(GETVERSION): $(SRCGETVERSION) $(HDRGETVERSION) | $(INSTALLDIR)
 
 
 $(SRCDIR)/_version.h: | $(GETVERSION)
-	$(INSTALLDIR)/getVersion -f $(SRCDIR)
+	$(GETVERSION) -f $(SRCDIR)
 
 ifeq ($(UTILITYLIB),$(TARGET))
 $(TARGET): $(OBJS)
