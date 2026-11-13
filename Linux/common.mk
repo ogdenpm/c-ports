@@ -58,7 +58,7 @@ VPATH = $(SRCDIR):$(ROOT)/shared:$(ROOT)/utility
 LINKER ?= gcc
 
 all: $(TARGET) | $(INSTALLDIR)
-	install -D -p -t $(INSTALLDIR) $(TARGET)
+	mkdir -p $(INSTALLDIR) && cp -p $(TARGET) $(INSTALLDIR)/
 
 publish: distclean mkversion
 	$(MAKE)

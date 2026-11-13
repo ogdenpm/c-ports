@@ -5,9 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#ifdef linux
 #include <limits.h>
-#endif
 /*
  * modified version of the public domain AT&T getopt
  * in addition to : being used to indicate a required argument to the option

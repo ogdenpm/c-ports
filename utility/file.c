@@ -35,7 +35,13 @@ char *basename(char *path) {
 /// ext</param> <returns>created file</returns>
 
 char *makeFilename(char const *path, char const *ext, bool force) {
-    char *s = strrchr(basename((char *)path), '.');
+    // find the extension in the file name part of path itself: POSIX basename() may return
+    // a pointer to its own storage (it does on macOS), which made prefixLen meaningless
+    char const *name = path;
+    for (char const *p = path; *p; p++)
+        if (*p == '/' || *p == '\\' || *p == ':')
+            name = p + 1;
+    char *s = strrchr(name, '.');
     if (s && !force) // keep existing ext
         ext = s;
     int prefixLen = (s ? (int)(s - path) : (int)strlen(path));

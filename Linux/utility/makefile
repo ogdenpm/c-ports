@@ -5,7 +5,7 @@ include ../common.mk
 
 $(TARGET): $(OBJS)
 	ar rv $@ $(OBJS)
-	install -D -p -t ../Install $(TARGET)
+	mkdir -p ../Install && cp -p $(TARGET) ../Install/
 
 $(OBJS): utility.h
 option.o: verInfo.h

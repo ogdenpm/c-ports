@@ -3,6 +3,12 @@
 #define MAXMACDEF 2048 /* max number of macro definitions */
 #define MAXMACUSE 32   /* max nested macro depth */
 
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h> // unlink
+#endif
+
 #ifdef __GNUC__
 #include <limits.h>
 #define _MAX_PATH PATH_MAX

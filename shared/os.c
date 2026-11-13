@@ -26,7 +26,14 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#ifdef __GLIBC__
 extern int fcloseall(void);
+#else
+// fcloseall is a glibc extension; elsewhere flush the streams, exit() closes them
+static int fcloseall(void) {
+    return fflush(NULL);
+}
+#endif
 #endif
 
 #define CLCHUNK 256 // size increase as command line grows
