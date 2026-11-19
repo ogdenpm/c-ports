@@ -4,9 +4,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef linux
+#ifdef _MSC_VER
+#include <io.h>
+#elif defined(__unix__) || defined(__HAIKU__) || (defined(__APPLE__) && defined(__MACH__))
+#include <limits.h> // for PATH_MAX
 #include <unistd.h>
+#else
+#error "Unsupported platform"
 #endif
+
+#ifdef _POSIX_VERSION
+#define stricmp  strcasecmp
+#define strnicmp strncasecmp
+#endif
+
 #include "utility.h"
 
 #define C_ANALYZE     contrl['A' - 'A'] // action/reduction trace

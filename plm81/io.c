@@ -3,8 +3,7 @@
 #define MAXMACDEF 2048 /* max number of macro definitions */
 #define MAXMACUSE 32   /* max nested macro depth */
 
-#ifdef __GNUC__
-#include <limits.h>
+#ifndef _MAX_PATH
 #define _MAX_PATH PATH_MAX
 #endif
 
