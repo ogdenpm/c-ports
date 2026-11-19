@@ -161,5 +161,5 @@ void LocateFile(void) {
     ProcModend();     /* Read the modend and generate the rest of the located file */
     ForceSOL();       /* make sure at start of line if (symbols listed */
     PrintMemoryMap(); /* print the final memory map + any overlay Errors() */
-    fclose(omfInFp);
+    Fclose(omfInFp);
 }

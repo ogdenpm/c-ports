@@ -52,7 +52,7 @@ void ProcArgsInit(void) {
         omfOutName = GetToken();
     else {
         cmdP    = mark; // back up
-        char const *s = basename(omfInName);
+        char const *s = fileNamePart(omfInName);
         char const *t = strrchr(s, '.');
         if (!t || t == s)
             FatalCmdLineErr("TO expected");
