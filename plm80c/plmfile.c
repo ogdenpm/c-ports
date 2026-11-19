@@ -12,7 +12,7 @@
 
 void CloseF(file_t *fileP) {
     if (fileP->fp) {
-        if (fclose(fileP->fp))
+        if (Fclose(fileP->fp))
             IoError(fileP->fNam, "Close error");
         fileP->fp = NULL;
     }

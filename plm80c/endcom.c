@@ -9,6 +9,7 @@
 #include "plm.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "os.h"
 #if __has_include(<unistd.h>)
 #include <unistd.h>
 #endif
@@ -17,7 +18,7 @@ void EndCompile() {
     printf("PL/M-80 COMPILATION COMPLETE.  %-5d PROGRAM ERROR%s\n\n", programErrCnt,
            programErrCnt == 1 ? "" : "S");
     if (programErrCnt && objFile.fp) {
-        fclose(objFile.fp);
+        Fclose(objFile.fp);
         unlink(objFile.fNam);
     }
 }
@@ -45,6 +46,6 @@ void LstModuleInfo() {
     lprintf("     %d PROGRAM ERROR%s\n", programErrCnt, programErrCnt != 1 ? "S" : "");
     SetSkipLst(1);
     lprintf("END OF PL/M-80 COMPILATION\n");
-    fclose(lstFile.fp);
+    Fclose(lstFile.fp);
     lstFile.fp = NULL;
 }

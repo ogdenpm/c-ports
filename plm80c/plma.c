@@ -98,7 +98,7 @@ static struct {
 static void InitFilesAndDefaults() {
     LEFTMARGIN      = 1;
     char *src = (char *)srcFileTable[0].fNam;
-    char *s         = basename(src);
+    char *s         = fileNamePart(src);
     char *t         = strrchr(s, '.');
     if (!t || t == s)
         t = strchr(s, '\0');
