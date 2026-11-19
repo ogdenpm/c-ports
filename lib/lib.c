@@ -272,7 +272,7 @@ static void ListCmd() {
     closeOMFIn();
 
     if (lstFp != stdout)
-        fclose(lstFp);
+        Fclose(lstFp);
     SetITrap(0);
 }
 
