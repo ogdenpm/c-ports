@@ -387,7 +387,7 @@ int main(int argc, char **argv) {
     mName[0] = argv[optInd];
 
     la       = loadAdr;
-    mHash[0] = HashF(basename(mName[0]));
+    mHash[0] = HashF(fileNamePart(mName[0]));
     for (m = 0; m <= mTop; m++) {
         mSymb[m] = ReadF(makeFilename(mName[m], ".80s", true)); // load symbol list into memory
         OpenRT();                                               // open rt file of module m
