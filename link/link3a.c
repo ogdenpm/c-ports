@@ -147,7 +147,7 @@ void ParseCmdLine() {
     }
     // if no name, generate one from the output file
     if (!moduleName || moduleName->len == 0) {
-        char const *fname = basename(omfOutName);
+        char const *fname = fileNamePart(omfOutName);
         // use local non const var to setup the name
         pstr_t *mname = (pstr_t *)c2pstrdup(*fname ? fname : "NONAME");
         if (mname->len > 31)

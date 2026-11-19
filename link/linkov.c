@@ -487,6 +487,6 @@ void Phase2() {
         } /* of else */
     } /* of do while */
     EmitEnding(); /* write final modend and eof record */
-    if (fclose(omfOutFp))
+    if (Fclose(omfOutFp))
         IoError(omfOutName, "Close error");
 } /* Phase2() */
