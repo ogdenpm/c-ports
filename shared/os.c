@@ -18,7 +18,7 @@
 #include <string.h>
 
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include <io.h>
 #include <direct.h>
 #define mkdir(dir, access) _mkdir(dir)
@@ -26,13 +26,13 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
-extern int fcloseall(void);
 #endif
 
 #define CLCHUNK 256 // size increase as command line grows
 
 #define STDIN   0
 #define STDOUT  1
+#define MAXOPEN 20
 
 
 char const *invokeName; // sanitised invoking command
@@ -40,6 +40,12 @@ bool ttyin;
 bool ttyout;
 
 char const *deviceMap[10]; // mappings of :Fx: to directories
+
+static FILE *openFiles[MAXOPEN]; // track open files for closeall
+static FILE *addOpen(FILE *fp);
+static void delOpen(FILE *fp);
+static int closeall(void);
+
 
 // interactive trap handler
 static void (*iTrap)(int retCode);
@@ -62,8 +68,10 @@ int main(int argc, char **argv) {
 }
 
 _Noreturn void Exit(int retCode) {
-    if (fcloseall() < 0)
-        fprintf(stderr, "Warning: Problem closing open files\n");
+    if (closeall() < 0) {
+        fprintf(stderr, "Fatal Error: Problem closing open files\n");
+        exit(1);
+    }
     // delete any flagged file on error
     if (retCode && rmOnError)
         unlink(rmOnError);
@@ -118,8 +126,13 @@ FILE *Fopen(char const *pathP, char *access) {
     */
     if (*access == 'w' && unlink(name))
         errno = 0;
-#endif
-    return fopen(name, access);
+#endif  
+    return addOpen(fopen(name, access));
+}
+
+int Fclose(FILE *fp) {
+    delOpen(fp);
+    return fclose(fp);
 }
 
 int Delete(char const *ipath) {
@@ -195,3 +208,41 @@ _Noreturn void IoError(char const *path, char const *fmt, ...) {
     Exit(1);
 }
 
+static FILE *addOpen(FILE *fp) {
+    if (fp) {
+        for (int i = 0; i < MAXOPEN; i++) {
+            if (!openFiles[i]) {
+                return openFiles[i] = fp;
+            }
+        }
+        fatal("Too many open files");
+    }
+    return fp;
+}
+
+static void delOpen(FILE *fp) {
+    if (fp) {
+        for (int i = 0; i < MAXOPEN; i++) {
+            if (openFiles[i] == fp) {
+                openFiles[i] = NULL;
+                return;
+            }
+        }
+        fatal("File not found in open list");
+    }
+}
+
+static int closeall(void) {
+    int cnt = 0;
+    for (int i = 0; i < MAXOPEN; i++) {
+        if (openFiles[i]) {
+            int result = fclose(openFiles[i]);
+            openFiles[i] = NULL;
+            if (result != 0) {
+                return EOF;
+            }
+            cnt++;
+        }
+    }
+    return cnt;
+}

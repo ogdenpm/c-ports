@@ -38,7 +38,7 @@ void openLst(char const *signon) {
 }
 
 void closeLst(void) {
-    if (lstFp && lstFp != stdout && fclose(lstFp))
+    if (lstFp && lstFp != stdout && Fclose(lstFp))
         IoError(lstName, "Close error");
 }
 

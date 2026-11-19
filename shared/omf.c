@@ -38,7 +38,7 @@ void openOMFOut() {
 }
 
 void closeOMFOut() {
-    if (omfOutFp && fclose(omfOutFp))
+    if (omfOutFp && Fclose(omfOutFp))
         IoError(omfInName, "Close error");
     RmOnError(NULL);
     omfOutFp   = NULL;
@@ -140,7 +140,7 @@ _Noreturn void BadRecordSeq(void) {
 }
 
 void openOMFIn(char const *name) {
-    if (omfInFp && fclose(omfInFp))
+    if (omfInFp && Fclose(omfInFp))
         IoError(omfInName, "Close error");
     if (!(omfInFp = Fopen(name, "rb")))
         IoError(name, "Open error");
@@ -150,7 +150,7 @@ void openOMFIn(char const *name) {
 }
 
 void closeOMFIn() {
-    if (omfInFp && fclose(omfInFp))
+    if (omfInFp && Fclose(omfInFp))
         IoError(omfInName, "Close error");
     omfInFp = NULL;
 }

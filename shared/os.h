@@ -35,6 +35,7 @@ void RmOnError(char const *fname);
 bool hasIsisDrive(char const *path);
 char *MapFile(char *osName, const char *isisPath);
 FILE *Fopen(char const *pathP, char *access);
+int Fclose(FILE *fp);
 int Delete(char const *ipath);
 int Rename(char const *iold, char const *inew);
 int Access(char const *ipath, int mode);
