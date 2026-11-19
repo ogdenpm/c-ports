@@ -146,7 +146,7 @@ _Noreturn void usage(char *fmt, ...) {
     for (char const *s = help; *s; s++)
         if (*s == '%') {
             if (s[1] == 's') {
-                fputs(basename(programName), fp); // %s replaced by program name
+                fputs(fileNamePart(programName), fp); // %s replaced by program name
                 s++;
             } else {
                 putc('%', fp); // %% treated as %

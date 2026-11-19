@@ -2,27 +2,29 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#ifdef _MSC_VER
+
 /// <summary>
-/// Simple implementation of basename for Windows
+/// Simple implementation similar to basename but which does not modify the path and does not allocate memory.
+/// It returns a pointer to the last name part of the path, or the original path if no separator is found.
 /// although UNC paths are allowed, paths with a volume only may not return sensible values
 /// </summary>
 /// <param name="path">full path to file</param>
 /// <returns>pointer filename only, in the path</returns>
 
-char *basename(char *path) {
+char *fileNamePart(char *path) {
     char *s;
 
     if ((s = strrchr(path, '/')))
         path = s + 1;
+#ifdef _WIN32
     if ((s = strrchr(path, '\\')))
         path = s + 1;
     if ((s = strrchr(path, ':')))
         path = s + 1;
+#endif
     return path;
 }
 
-#endif
 
 /// <summary>
 /// generated a new file name by replacing/adding the ext
@@ -35,7 +37,7 @@ char *basename(char *path) {
 /// ext</param> <returns>created file</returns>
 
 char *makeFilename(char const *path, char const *ext, bool force) {
-    char *s = strrchr(basename((char *)path), '.');
+    char *s = strrchr(fileNamePart((char *)path), '.');
     if (s && !force) // keep existing ext
         ext = s;
     int prefixLen = (s ? (int)(s - path) : (int)strlen(path));
