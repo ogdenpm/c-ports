@@ -51,7 +51,11 @@ INSTALLDIR = $(ROOT)/Linux/Install
 GETVERSION = $(INSTALLDIR)/getVersion
 SRCGETVERSION = $(wildcard $(ROOT)/Linux/bootGetVersion/*.c)
 HDRGETVERSION = $(wildcard $(ROOT)/Linux/bootGetVersion/*.h)
+
+# determine if using utility library with new versioning code
+ifeq ($(wildcard $(ROOT)/utility),$(ROOT)/utility)
 UTILITYLIB = $(INSTALLDIR)/utility.a
+endif
 
 # map so built directly in $(INSTALLDIR)
 TARGET := $(INSTALLDIR)/$(TARGET)
@@ -86,12 +90,16 @@ ifdef ISLIB
 $(TARGET): $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 else
-ifdef UTILITYLIB
-$(UTILITYLIB): $(wildcard $(ROOT)/utility/*.[ch]) verInfo.h
-	$(MAKE) -C $(ROOT)/Linux/utility CFLAGS="$(USRCFLAGS)"
-endif
 
-$(TARGET): $(OBJS) _appinfo.o $(UTILITYLIB)
+  ifdef UTILITYLIB
+    $(UTILITYLIB): $(wildcard $(ROOT)/Linux/utility/*.[ch]) verInfo.h
+		$(MAKE) -C $(ROOT)/Linux/utility CFLAGS="$(USRCFLAGS)"
+    VERFILE = _appinfo.o
+  else
+    VERFILE = _version.o
+  endif
+
+$(TARGET): $(OBJS) $(VERFILE) $(UTILITYLIB)
 	$(CC) $(LDFLAGS) -o $@ $^
 endif
 
@@ -107,4 +115,6 @@ rebuild: distclean
 $(INSTALLDIR):
 	mkdir $@
 
+# new and old version file options
 _appinfo.o: _appinfo.h _version.h verInfo.h
+_version.o: _version.c appinfo.h _version.h
