@@ -217,7 +217,7 @@ void writeModHdr(FILE *fp, char *path) {
     } modhdr = { MODHDR, { 0 }, 0, { 0 } };
 
     int i    = 0;
-    for (const char *name = basename(path); *name && *name != '.'; name++)
+    for (const char *name = fileNamePart(path); *name && *name != '.'; name++)
         if (isalnum(*name) && i < MAXNAME)
             modhdr.name[i++] = toupper(*name);
     modhdr.nameLen = i;
