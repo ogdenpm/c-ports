@@ -50,7 +50,7 @@ void PrepSrcFile(char *srcName) {
     // the src path is copied except any extent
     // if the filename part of src was all upper case then
     // .LST or .OBJ are used else .lst or .obj
-    s           = strrchr(basename(srcName), '.');
+    s           = strrchr(fileNamePart(srcName), '.');
     size_t flen = s ? (size_t)(s - srcName) : strlen(srcName);
     lstFile     = safeMalloc(flen + 5);
     objFile     = safeMalloc(flen + 5);
@@ -69,7 +69,7 @@ void ResetData(void) { /* extended initialisation */
     expandingMacro = mSpoolMode = 0;
     b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] = expandingMacroParameter = finished =
         segDeclared[0] = segDeclared[1] = inComment = hasVarRef = pendingInclude = false;
-    noOpsYet = primaryValid = controls.list = ctlListChanged = true;
+    controls.list = noOpsYet = primaryValid = ctlListChanged = true;
     controls.gen                                             = true;
     controls.cond                                            = true;
     macroDepth = macroSpoolNestDepth = macroCondStk[0] = macroCondSP = 0;
@@ -92,7 +92,7 @@ void ResetData(void) { /* extended initialisation */
     curMacroBlk = 0xFFFF;
     if (!IsPhase1()) { /* close any Open() include file */
         while (fileIdx != 0) {
-            if (fclose(files[fileIdx].fp))
+            if (Fclose(files[fileIdx].fp))
                 IoError(files[fileIdx].name, "Close error");
             fileIdx--;
         }
