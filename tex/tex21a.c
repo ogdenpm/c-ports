@@ -1973,11 +1973,11 @@ void mkName(FCB *fcb, char *ext) {
     char *s;
     if (fcb->path) {
         strcpy(fcb->name, fcb->path); // copy dir / fullpath
-        s = (char *)basename(fcb->name);
+        s = (char *)fileNamePart(fcb->name);
         if (strcmp(s, ".") == 0 || strcmp(s, "..") == 0)
-            strcat(strcat(s, "/"), basename(texFCB.name));
+            strcat(strcat(s, "/"), fileNamePart(texFCB.name));
         else if (*s == 0) // was dir so add input file name
-            strcat(fcb->name, basename(texFCB.name));
+            strcat(fcb->name, fileNamePart(texFCB.name));
         else if (strchr(s, '.')) // has user specified ext
             return;
 #ifdef _WIN32
@@ -1986,7 +1986,7 @@ void mkName(FCB *fcb, char *ext) {
 #endif
     } else
         strcpy(fcb->name, texFCB.name);          // use input file name as basis
-    if ((s = strrchr(basename(fcb->name), '.'))) // remove input ext
+    if ((s = strrchr(fileNamePart(fcb->name), '.'))) // remove input ext
         *s = 0;
     strcat(fcb->name, ext); // append mkName specified ext
 }
