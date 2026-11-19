@@ -131,5 +131,5 @@ void sub5317() {
         qsort(modtab, modCnt, sizeof(mod_t), cmpMod);
         ListModules();
     }
-    fclose(outFp);
+    Fclose(outFp);
 }

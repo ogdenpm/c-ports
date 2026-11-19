@@ -126,7 +126,7 @@ void collectRecords() {
             foundFile = true;
             /* if no explicit print file use the first file replacing ext by 'ixo' */
             if (!havePrint) {
-                char const *fname = basename(path);
+                char const *fname = fileNamePart(path);
                 char const *s     = strrchr(fname, '.');
                 if (!s || s == fname)
                     s = strchr(fname, '\0');
@@ -140,7 +140,7 @@ void collectRecords() {
             if (!(inFp = Fopen(path, "rb")))
                 IoError(path, "cannot open");
             AddIxi();
-            fclose(inFp);
+            Fclose(inFp);
             free(path);
         }
 

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include "utility.h"
 #ifdef _MSC_VER
 #include <io.h>
 #else
@@ -62,7 +63,7 @@ char *expandPath(char const *token) {
         }
         lastToken = token;
         path      = safeStrdup(token);
-        char *s   = (char *)basename(path);
+        char *s   = (char *)fileNamePart(path);
         if (!strpbrk(s, "?*")) {
             pattern = NULL;
             return path;
