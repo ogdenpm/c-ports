@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
      */
 
     int i = 0;
-    for (const char *name = basename(argv[1]); *name && *name != '.'; name++)
+    for (const char *name = fileNamePart(argv[1]); *name && *name != '.'; name++)
         if (isalnum(*name) && i < MAXNAME)
             modhdr.name[i++] = toupper(*name);
     modhdr.nameLen = i;
