@@ -14,18 +14,17 @@ typedef byte *pointer;
 typedef word *wpointer;
 typedef byte leword[2]; // used to force word matches OMF definition
 
-#pragma pack(push, 1)
 
-typedef union {
-    word w;
-    struct {
-        byte lb, hb;
-    };
-    byte b[2];
-    byte *bp;
-    char *cp;
-    word *ap;
-} address;
+//typedef union {
+//    word w;
+//    struct {
+//        byte lb, hb;
+//    };
+//    byte b[2];
+//    byte *bp;
+//    char *cp;
+//    word *ap;
+//} address;
 
 // the record formats
 // to remove need for pack, the notional
@@ -145,7 +144,6 @@ typedef struct {
 typedef struct {
     char const *name;
     word blk, byt;
-    byte b19;
     FILE *fp;
 } file_t;
 
@@ -179,37 +177,38 @@ typedef struct {
     };
 } tokensym_t;
 
-#define NCONTROL    22  // update if new controls added
+
+#define NCONTROL 22
 typedef union {
-    byte all[NCONTROL];
+    byte all[NCONTROL]; // the controls as a byte array
     struct {
-        bool debug;
-        bool macroDebug;
-        bool xref;
-        bool symbols;
-        bool paging;
-        bool tty;
-        bool mod85;
-        bool print;
-        bool object;
-        bool macroFile;
+        byte debug;
+        byte macroDebug;
+        byte xref;
+        byte symbols;
+        byte paging;
+        byte tty;
+        byte mod85;
+        byte print;
+        byte object;
+        byte macroFile;
         byte pageWidth;
         byte pageLength;
         byte inlcude;
-        bool title;
+        byte title;
         byte save;
         byte restore;
         byte eject;
         /* SAVE/RESTORE act on next 3 opts */
-        bool list;
-        bool gen;
-        bool cond;
-        bool makedepend;
-        bool isisName;
+        byte list;
+        byte gen;
+        byte cond;
+        byte makedepend;
+        byte isisName;
     };
+
 } controls_t;
 
-#pragma pack(pop)
 typedef struct {
     int start;
     tokensym_t *symbol;

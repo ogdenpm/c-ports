@@ -21,7 +21,7 @@ void CloseSrc(void) /* close current source file. Revert to any parent file */
         fprintf(stderr, "%s: EOF - missing 'end'\n", files[0].name);
         exit(1);
     }
-    if (fclose(srcfp) == EOF)
+    if (Fclose(srcfp) == EOF)
         IoError(files[fileIdx].name, "Close Error");
     srcfp = files[--fileIdx].fp;
 }

@@ -323,7 +323,7 @@ void FinishPrint(void) {
 }
 
 void FinishAssembly(void) {
-    fclose(files[0].fp);
+    Fclose(files[0].fp);
 
     if (controls.xref) /* invoke asxref ?? */
         GenAsxref();
