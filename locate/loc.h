@@ -136,7 +136,7 @@ void LoadModdat(uint8_t segId);
 /* loc2b.c */
 void EmitModDat(dataFrag_t *block);
 void ForceSOL(void);
-void PrintColumn(uint8_t ctype, ...);
+void PrintColumn(int ctype, ...);
 uint8_t SetTargetSeg(uint8_t seg);
 void ProcModend(void);
 void ProcModdat(void);

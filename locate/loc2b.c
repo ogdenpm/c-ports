@@ -28,7 +28,7 @@ void ForceSOL(void) {
 }
 
 #define CWIDTH (6 + 5 + 32) // value, type, symbol
-void PrintColumn(uint8_t ctype, ...) {
+void PrintColumn(int ctype, ...) {
     static uint8_t curType = 99;
     static uint8_t toPad;
     static char *fmt[] = { "VALUE TYPE SYMBOL", "%04XH PUB  %.*s", "%04XH SYM  %.*s",
