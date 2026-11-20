@@ -267,12 +267,15 @@ static void generateVersion(bool isApp) {
         if (isApp) { // for app check ignore changes to the version file
             if (execute(diffIndexNameCmd, &exeBuf, false) == 0) {
                 for (char *filePtr = exeBuf.str; filePtr < exeBuf.str + exeBuf.pos && *filePtr; filePtr += strlen(filePtr) + 1) {
-                    char const *file = basename(filePtr);
-                    if (stricmp(file, versionFile) != 0) {   // generated version files are ignored
-                        if (!ignoreProjectFiles || !isPrefix(file, appName) || !isProjectFile(file + strlen(appName))) { 
-                            // not project file or ignored
-                            strcat(version, "+");
-                            break;
+                    if (strncmp(filePtr, "warning: in the working copy", 28) != 0) {
+                        char const *file = basename(filePtr);
+                        if (stricmp(file, versionFile) != 0) { // generated version files are ignored
+                            if (!ignoreProjectFiles || !isPrefix(file, appName) ||
+                                !isProjectFile(file + strlen(appName))) {
+                                // not project file or ignored
+                                strcat(version, "+");
+                                break;
+                            }
                         }
                     }
                 }
