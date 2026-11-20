@@ -62,7 +62,7 @@ TARGET := $(INSTALLDIR)/$(TARGET)
 
 export CC ?= cc
 
-CFLAGS ?= -O3 -Wall -Wextra
+CFLAGS ?= -O3 -Wall -Wextra -fno-common
 USRCFLAGS := $(CFLAGS)
 
 override CFLAGS += -I$(SRCDIR) -I$(ROOT)/utility -I$(ROOT)/shared $(addprefix -I,$(subst ^,$(ROOT),$(INCLUDES)))
