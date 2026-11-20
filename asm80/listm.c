@@ -213,7 +213,7 @@ static bool MoreBytes(void) {
 static void PrintCodeBytes(void) {
     byte i;
 
-    if (showAddr |= MoreBytes()) { /* print the word */
+    if ((showAddr |= MoreBytes())) { /* print the word */
         Printf("%04X", effectiveAddr);
     } else
         OutSpc(4);
