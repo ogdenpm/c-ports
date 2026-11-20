@@ -47,6 +47,7 @@ void IniMAC(int argc, char **argv) {
     SymBot = SymTop = BOTHEAP; // allow large symbol space
 
     uint8_t cval;
+    char const *s;
     while (getOpt(argc, argv, "p:s:h:c:t=") != EOF) {
         switch (optOpt) {
         case 'p':
@@ -59,7 +60,7 @@ void IniMAC(int argc, char **argv) {
             hexFile = optArg;
             break;
         case 'c':
-            char const *s = optArg;
+            s = optArg;
             while (*s) {
                 cval = *s == '-'                  ? _DISA
                        : *s == '+'                ? _ENA

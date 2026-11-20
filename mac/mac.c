@@ -907,6 +907,7 @@ uint8_t __FALSE(uint8_t l11ca) {
  * Returns: LINELOOP, STMTLOOP, or FINISH status
  ****************************************************************************/
 uint8_t MAC_Mnemo() {
+    uint16_t val; // Temporary value for expressions
     if (pMnem->type == _pseudo) {
         switch (pMnem->code) {
         case _db: // Define Byte
@@ -948,9 +949,9 @@ uint8_t MAC_Mnemo() {
             StWord(LocCtr);
             if (OutLine[0] != ' ')
                 EndLine(0);
-            uint16_t hl = getWordValue();
+            val = getWordValue();
             if (OutLine[0] == ' ')
-                XFerAdr = hl; // Set transfer address
+                XFerAdr = val; // Set transfer address
             OutLine[0] = ' '; // Clear error
             if (ifLevel)
                 SetErr('B'); // Unclosed IF
@@ -990,7 +991,7 @@ uint8_t MAC_Mnemo() {
             return macro();
 
         case _org: // Set Origin
-            uint16_t val = getWordValue();
+            val = getWordValue();
             if (OutLine[0] == ' ') {
                 if (R_opt)
                     val += 0x100;
@@ -1003,8 +1004,8 @@ uint8_t MAC_Mnemo() {
         case _set: // Set Symbol Value
             if (!hasLabel())
                 return EndLine('S');
-            uint8_t type;
-            if ((type = GetSymType()) && type != T_SET)
+
+            if ((val = GetSymType()) && val != T_SET)
                 SetErr('L');
             SetSymType(T_SET);
             SET_EQU('#');
@@ -1184,10 +1185,10 @@ uint8_t MAC_Mnemo() {
             break;
 
         case _pshp: // PUSH/POP register pair
-            uint8_t dst = GetDstReg();
-            if (dst != (_A << 3) && (dst & (1 << 3)))
+            val = GetDstReg();
+            if (val != (_A << 3) && (val & (1 << 3)))
                 SetErr('R'); // C, E or L not valid
-            PutCode(code | (dst & DSTxmsk));
+            PutCode(code | (val & DSTxmsk));
             break;
 
         case _jpcl: // Jump/Call with address
@@ -1214,10 +1215,10 @@ uint8_t MAC_Mnemo() {
             break;
 
         case _lsax: // LDAX/STAX
-            dst = GetDstReg();
-            if (dst & ((_H + 1) << 3)) // Allow B and D only
+            val = GetDstReg();
+            if (val & ((_H + 1) << 3)) // Allow B and D only
                 SetErr('R');
-            PutCode(code | (dst & (2 << 3)));
+            PutCode(code | (val & (2 << 3)));
             break;
 
         case _lsd: // Load/Store direct
@@ -1234,10 +1235,10 @@ uint8_t MAC_Mnemo() {
             break;
 
         case _rpop: // Register pair operation
-            dst = GetDstReg();
-            if (dst & (1 << 3)) // no A, C, E, L
+            val = GetDstReg();
+            if (val & (1 << 3)) // no A, C, E, L
                 SetErr('R');
-            PutCode(code | (dst & DSTxmsk));
+            PutCode(code | (val & DSTxmsk));
             break;
 
         case _rst: // RST instruction
