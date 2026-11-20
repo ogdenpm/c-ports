@@ -46,11 +46,11 @@ int execute(char const *const *cmd, string_t *str, bool isInteractive) {
 
 
 #ifdef _MSC_VER
-    intptr_t pid = spawnvp(_P_NOWAIT, "git.exe", cmd);
+    intptr_t pid = spawnvp(_P_NOWAIT, cmd[0], cmd);
 #else
     pid_t pid;
     if ((pid = fork()) == 0) {
-        execvp("git", (char * const *)cmd);
+        execvp(cmd[0], (char * const *)cmd);
         fatal("exec failed");
     }
 #endif
